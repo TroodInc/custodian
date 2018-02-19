@@ -3,9 +3,10 @@ package data
 import (
 	"encoding/json"
 	"fmt"
-	"logger"
-	"server/meta"
-	rqlParser "github.com/reaxoft/go-rql-parser"
+
+	"github.com/Q-CIS-DEV/custodian/logger"
+	"github.com/Q-CIS-DEV/custodian/server/meta"
+	"github.com/reaxoft/go-rql-parser"
 	"strings"
 )
 
@@ -546,12 +547,12 @@ func (n *Node) fillBranches(ctx SearchContext) {
 			keyFiled = f.LinkMeta.Key
 			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
 				KeyFiled: keyFiled,
-				Meta:     f.LinkMeta,
+				Meta: f.LinkMeta,
 				Branches: branches,
-				Depth:    n.Depth + 1,
+				Depth: n.Depth + 1,
 				OnlyLink: onlyLink,
-				plural:   plural,
-				Parent:   n}
+				plural: plural,
+				Parent: n}
 		} else if f.LinkType == meta.LinkTypeOuter {
 			keyFiled = f.OuterLinkField
 			if f.Type == meta.FieldTypeArray {
@@ -559,12 +560,12 @@ func (n *Node) fillBranches(ctx SearchContext) {
 			}
 			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
 				KeyFiled: keyFiled,
-				Meta:     f.LinkMeta,
+				Meta: f.LinkMeta,
 				Branches: branches,
-				Depth:    n.Depth + 1,
+				Depth: n.Depth + 1,
 				OnlyLink: onlyLink,
-				plural:   plural,
-				Parent:   n}
+				plural: plural,
+				Parent: n}
 		}
 	}
 }
@@ -812,9 +813,9 @@ func (dn *DNode) fillOuterBranches() {
 				plural = true
 			}
 			dn.Branches[f.Name] = &DNode{KeyFiled: f.OuterLinkField,
-				Meta:     f.LinkMeta,
+				Meta: f.LinkMeta,
 				Branches: make(map[string]*DNode),
-				Plural:   plural}
+				Plural: plural}
 		}
 	}
 }
