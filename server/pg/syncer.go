@@ -3,8 +3,8 @@ package pg
 import (
 	"database/sql"
 	"fmt"
-	"logger"
-	"server/meta"
+	"github.com/Q-CIS-DEV/custodian/logger"
+	"github.com/Q-CIS-DEV/custodian/server/meta"
 )
 
 type Syncer struct {
