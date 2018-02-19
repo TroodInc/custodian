@@ -7,7 +7,7 @@ import (
 	"errors"
 	"fmt"
 	//	"git.reaxoft.loc/infomir/custodian/logger"
-	"server/meta"
+	"github.com/Q-CIS-DEV/custodian/server/meta"
 	"regexp"
 	"strconv"
 	"strings"
