@@ -1,0 +1,674 @@
+package pg
+
+import (
+	"bytes"
+	"database/sql"
+	"encoding/json"
+	"fmt"
+	"logger"
+	"server/data"
+	"server/meta"
+	_ "github.com/lib/pq"
+	rqlParser "github.com/reaxoft/go-rql-parser"
+	"reflect"
+	"strconv"
+	"strings"
+	"text/template"
+)
+
+type DataManager struct {
+	db *sql.DB
+}
+
+func NewDataManager(db *sql.DB) (*DataManager, error) {
+	return &DataManager{db: db}, nil
+}
+
+type DMLError struct {
+	code string
+	msg  string
+}
+
+func (e *DMLError) Error() string {
+	return fmt.Sprintf("DML error:  code='%s'  msg = '%s'", e.code, e.msg)
+}
+
+func (e *DMLError) Json() []byte {
+	j, _ := json.Marshal(map[string]string{
+		"code": "dml:" + e.code,
+		"msg":  e.msg,
+	})
+	return j
+}
+
+func NewDMLError(code string, msg string, a ...interface{}) *DMLError {
+	return &DMLError{code: code, msg: fmt.Sprintf(msg, a...)}
+}
+
+const (
+	ErrTrxFailed          = "transaction_failed"
+	ErrTemplateFailed     = "template_failed"
+	ErrInvalidArgument    = "invalid_argument"
+	ErrDMLFailed          = "dml_failed"
+	ErrConvertationFailed = "convertation_failed"
+	ErrCommitFailed       = "commit_failed"
+	ErrPreconditionFailed = "precondition_failed"
+)
+
+const (
+	templInsert = `INSERT INTO {{.Table}} ({{join .Cols ", "}}) VALUES {{.Vals}}{{if .RCols}} RETURNING {{join .RCols ", "}}{{end}}`
+	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
+	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
+	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
+)
+
+var funcs = template.FuncMap{"join": strings.Join}
+var parsedTemplInsert = template.Must(template.New("dml_insert").Funcs(funcs).Parse(templInsert))
+var parsedTemplSelect = template.Must(template.New("dml_select").Funcs(funcs).Parse(templSelect))
+var parsedTemplDelete = template.Must(template.New("dml_delete").Funcs(funcs).Parse(templDelete))
+var parsedTemplUpdate = template.Must(template.New("dml_update").Funcs(funcs).Parse(templUpdate))
+
+type insertInfo struct {
+	Table      string
+	Cols       []string
+	RCols      []string
+	ObjectsLen int
+}
+
+func nBindVals(from int, n int) string {
+	var vals bytes.Buffer
+	for i := from; i < from+n; i++ {
+		vals.WriteString("$")
+		vals.WriteString(strconv.Itoa(i))
+		vals.WriteString(",")
+	}
+	if vals.Len() > 0 {
+		vals.Truncate(vals.Len() - 1)
+	}
+	return vals.String()
+}
+
+func (ii *insertInfo) Vals() string {
+	var b bytes.Buffer
+	for i := 0; i < ii.ObjectsLen; i++ {
+		b.WriteRune('(')
+		b.WriteString(nBindVals(i*len(ii.Cols)+1, len(ii.Cols)))
+		b.WriteString("),")
+	}
+	b.Truncate(b.Len() - 1)
+	return b.String()
+}
+
+type selectInfo struct {
+	Cols   []string
+	From   string
+	Where  string
+	Order  string
+	Limit  string
+	Offset string
+}
+
+func (si *selectInfo) sql(sql *bytes.Buffer) error {
+	return parsedTemplSelect.Execute(sql, si)
+}
+
+type deleteInfo struct {
+	Table   string
+	Filters []string
+}
+
+type updateInfo struct {
+	Table   string
+	Cols    []string
+	Values  []string
+	Filters []string
+}
+
+func tableFields(m *meta.Meta) []*meta.Field {
+	fields := make([]*meta.Field, 0)
+	l := len(m.Fields)
+	for i := 0; i < l; i++ {
+		if m.Fields[i].LinkType != meta.LinkTypeOuter {
+			fields = append(fields, &m.Fields[i])
+		}
+	}
+	return fields
+}
+
+func fieldsNames(fields []*meta.Field) []string {
+	fLen := len(fields)
+	names := make([]string, fLen, fLen)
+	for i := 0; i < fLen; i++ {
+		names[i] = fields[i].Name
+	}
+	return names
+}
+
+func newFieldValue(f *meta.Field) (interface{}, error) {
+	switch f.Type {
+	case meta.FieldTypeString:
+		if f.Optional {
+			return new(sql.NullString), nil
+		} else {
+			return new(string), nil
+		}
+	case meta.FieldTypeNumber:
+		if f.Optional {
+			return new(sql.NullFloat64), nil
+		} else {
+			return new(float64), nil
+		}
+	case meta.FieldTypeBool:
+		if f.Optional {
+			return new(sql.NullBool), nil
+		} else {
+			return new(bool), nil
+		}
+	case meta.FieldTypeObject, meta.FieldTypeArray:
+		if f.LinkType == meta.LinkTypeInner {
+			return newFieldValue(f.LinkMeta.Key)
+		} else {
+			return newFieldValue(f.OuterLinkField)
+		}
+	default:
+		return nil, NewDMLError(ErrConvertationFailed, "Unknown field type '%s'", f.Type)
+	}
+}
+
+type pgOpCtx struct {
+	tx *Tx
+}
+
+type Stmt struct {
+	*sql.Stmt
+}
+
+type StmtPreparer interface {
+	Prepare(string) (*sql.Stmt, error)
+}
+
+func NewStmt(sp StmtPreparer, q string) (*Stmt, error) {
+	stmt, err := sp.Prepare(q)
+	if err != nil {
+		logger.Error("Prepare statement error: %s %s", q, err.Error())
+		return nil, NewDMLError(ErrDMLFailed, err.Error())
+	}
+	logger.Debug("Prepared sql: %s", q)
+	return &Stmt{stmt}, nil
+}
+
+func (dm *DataManager) Prepare(q string) (*Stmt, error) {
+	return NewStmt(dm.db, q)
+}
+
+type Tx struct {
+	*sql.Tx
+}
+
+func (tx *Tx) Prepare(q string) (*Stmt, error) {
+	return NewStmt(tx.Tx, q)
+}
+
+func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.Field) ([]map[string]interface{}, error) {
+	rows, err := s.Query(binds)
+	if err != nil {
+		logger.Error("Query statement error: %s", err.Error())
+		return nil, NewDMLError(ErrDMLFailed, err.Error())
+	}
+	defer rows.Close()
+	return rows.Parse(fields)
+}
+
+func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*meta.Field) (map[string]interface{}, error) {
+	objs, err := s.ParsedQuery(binds, fields)
+	if err != nil {
+		return nil, err
+	}
+
+	count := len(objs)
+	if count == 0 {
+		return nil, NewDMLError(ErrNotFound, "No rows returned. Check the object's references, identificator and cas value.")
+	} else if count > 1 {
+		return nil, NewDMLError(ErrTooManyFound, "Mone then one rows returned")
+	}
+
+	return objs[0], nil
+
+}
+
+func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
+	rows, err := s.Stmt.Query(binds...)
+	if err != nil {
+		logger.Error("Execution statement error: %s\nBinds: %s", err.Error(), binds)
+		return nil, NewDMLError(ErrDMLFailed, err.Error())
+	}
+
+	return &Rows{rows}, nil
+}
+
+type Rows struct {
+	*sql.Rows
+}
+
+func (rows *Rows) Parse(fields []*meta.Field) ([]map[string]interface{}, error) {
+	cols, err := rows.Columns()
+	if err != nil {
+		return nil, NewDMLError(ErrDMLFailed, err.Error())
+	}
+
+	result := make([]map[string]interface{}, 0)
+	i := 0
+	for rows.Next() {
+		values := make([]interface{}, len(cols))
+		for i := 0; i < len(cols); i++ {
+			values[i], err = newFieldValue(fields[i])
+			if err != nil {
+				return nil, err
+			}
+		}
+
+		if err = rows.Scan(values...); err != nil {
+			return nil, NewDMLError(ErrDMLFailed, err.Error())
+		}
+		result = append(result, make(map[string]interface{}))
+		for j, n := range cols {
+			switch t := values[j].(type) {
+			case *string:
+				result[i][n] = *t
+			case *sql.NullString:
+				if t.Valid {
+					result[i][n] = t.String
+				}
+			case *float64:
+				result[i][n] = *t
+			case *sql.NullFloat64:
+				if t.Valid {
+					result[i][n] = t.Float64
+				}
+			case *bool:
+				result[i][n] = *t
+			case *sql.NullBool:
+				if t.Valid {
+					result[i][n] = t.Bool
+				}
+			default:
+				return nil, NewDMLError(ErrDMLFailed, "uknown reference type '%s'", reflect.TypeOf(values[j]).String())
+
+			}
+		}
+		i++
+	}
+	return result, nil
+}
+
+func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
+	for col, rv := range dbObj {
+		if val, ok := nodes[col]; ok {
+			switch val := val.(type) {
+			case data.ALink:
+				continue
+			case data.DLink:
+				val.Id = rv
+			default:
+				nodes[col] = rv
+			}
+		} else {
+			nodes[col] = rv
+		}
+	}
+}
+
+func keys(m map[string]interface{}) []string {
+	ks := make([]string, 0, len(m))
+	for k := range m {
+		ks = append(ks, k)
+	}
+	return ks
+}
+
+func emptyOperation(ctx data.OperationContext) error {
+	return nil
+}
+
+func alinkVal(v interface{}) interface{} {
+	al := v.(data.ALink)
+	return al.Obj[al.Field.Meta.Key.Name]
+}
+
+func dlinkVal(v interface{}) interface{} {
+	return v.(data.DLink).Id
+}
+
+func identityVal(v interface{}) interface{} {
+	return v
+}
+
+func increaseCasVal(v interface{}) interface{} {
+	cas := v.(float64)
+	return cas + 1
+}
+
+func (ds *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (data.Operation, error) {
+	if len(objs) == 0 {
+		return emptyOperation, nil
+	}
+
+	rFields := tableFields(m)
+	ui := &updateInfo{Table: tblName(m), Values: make([]string, 0), Filters: make([]string, 0), Cols: fieldsNames(rFields)}
+	cols := make([]string, 0, len(objs[0]))
+	vals := make([]func(interface{}) interface{}, 0, len(objs[0]))
+	var b bytes.Buffer
+	newBind := func(col string) string {
+		defer b.Reset()
+		b.WriteString(col)
+		b.WriteString("=$")
+		b.WriteString(strconv.Itoa(len(cols)))
+		return b.String()
+	}
+	for col, val := range objs[0] {
+		cols = append(cols, col)
+		if m.Key.Name == col {
+			ui.Filters = append(ui.Filters, newBind(col))
+			vals = append(vals, identityVal)
+		} else if col == "cas" {
+			ui.Filters = append(ui.Filters, newBind(col))
+			vals = append(vals, identityVal)
+
+			cols = append(cols, col)
+			ui.Values = append(ui.Values, newBind(col))
+			vals = append(vals, increaseCasVal)
+		} else {
+			switch val.(type) {
+			case data.ALink:
+				ui.Filters = append(ui.Filters, newBind(col))
+				vals = append(vals, alinkVal)
+			case data.DLink:
+				ui.Values = append(ui.Values, newBind(col))
+				vals = append(vals, dlinkVal)
+			default:
+				ui.Values = append(ui.Values, newBind(col))
+				vals = append(vals, identityVal)
+			}
+		}
+	}
+
+	if err := parsedTemplUpdate.Execute(&b, ui); err != nil {
+		logger.Error("Prepare update SQL by template error: %s", err.Error())
+		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+
+	return func(ctx data.OperationContext) error {
+		stmt, err := ctx.(*pgOpCtx).tx.Prepare(b.String())
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+
+		binds := make([]interface{}, len(cols))
+		for i := range objs {
+			for j := range cols {
+				if v, ok := objs[i][cols[j]]; !ok {
+					return NewDMLError(ErrInvalidArgument, "Different set of fields. Object #%d. All objects must have the same set of fields.", i)
+				} else {
+					binds[j] = vals[j](v)
+				}
+			}
+			if uo, err := stmt.ParsedSingleQuery(binds, rFields); err == nil {
+				updateNodes(objs[i], uo)
+			} else {
+				if dml, ok := err.(*DMLError); ok && dml.code == ErrNotFound {
+					return data.NewDataError("", data.ErrCasFailed, "Precondition failed on object #%d.", i)
+				} else {
+					return err
+				}
+			}
+		}
+
+		return nil
+	}, nil
+}
+
+func (ds *DataManager) PreparePuts(m *meta.Meta, objs []map[string]interface{}) (data.Operation, error) {
+	if len(objs) == 0 {
+		return emptyOperation, nil
+	}
+
+	//fix the columns by the first object
+	fields := tableFields(m)
+	cols := keys(objs[0])
+	ii := &insertInfo{Table: tblName(m), Cols: cols, RCols: fieldsNames(fields), ObjectsLen: len(objs)}
+	var insertDML bytes.Buffer
+	if err := parsedTemplInsert.Execute(&insertDML, ii); err != nil {
+		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+
+	return func(ctx data.OperationContext) error {
+		//prepare binds only on executing step otherwise the foregin key may be absent (db sequence)
+		binds := make([]interface{}, 0, len(cols)*len(objs))
+		for i, obj := range objs {
+			if len(cols) != len(obj) {
+				return NewDMLError(ErrInvalidArgument, "Different set of filds. Object #%d. All objects must have the same set of fileds.", i)
+			}
+			for _, col := range cols {
+				if val, ok := obj[col]; ok {
+					switch val := val.(type) {
+					case data.ALink:
+						binds = append(binds, val.Obj[val.Field.Meta.Key.Name])
+					case data.DLink:
+						binds = append(binds, val.Id)
+					default:
+						binds = append(binds, val)
+					}
+				} else {
+					return NewDMLError(ErrInvalidArgument, "Field '%s' not found. Object #%d. All objects must have the same set of fileds.", col, i)
+				}
+			}
+		}
+
+		stmt, err := ctx.(*pgOpCtx).tx.Prepare(insertDML.String())
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+		dbObjs, err := stmt.ParsedQuery(binds, fields)
+		if err != nil {
+			return err
+		}
+
+		for i := 0; i < len(objs); i++ {
+			updateNodes(objs[i], dbObjs[i])
+		}
+		return nil
+	}, nil
+}
+
+func fieldsToCols(fields []*meta.Field, alias string) []string {
+	var cols = make([]string, len(fields), len(fields))
+	if alias != "" {
+		alias = alias + "."
+	}
+	for i, f := range fields {
+		cols[i] = alias + f.Name
+	}
+	return cols
+}
+
+func (ds *DataManager) Get(m *meta.Meta, fields []*meta.Field, key string, val interface{}) (map[string]interface{}, error) {
+	objs, err := ds.GetAll(m, fields, key, val)
+	if err != nil {
+		return nil, err
+	}
+
+	l := len(objs)
+	if l > 1 {
+		return nil, NewDMLError(ErrTooManyFound, "too many rows found")
+	}
+
+	if l == 0 {
+		return nil, nil
+	}
+
+	return objs[0], nil
+}
+
+func (ds *DataManager) GetAll(m *meta.Meta, fields []*meta.Field, key string, val interface{}) ([]map[string]interface{}, error) {
+	if fields == nil {
+		fields = tableFields(m)
+	}
+
+	si := &selectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: key + "=$1"}
+	var q bytes.Buffer
+	if err := si.sql(&q); err != nil {
+		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+
+	stmt, err := ds.Prepare(q.String())
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+	return stmt.ParsedQuery([]interface{}{val}, fields)
+}
+
+func (ds *DataManager) PrepareDelete(n *data.DNode, key interface{}) (data.Operation, []interface{}, error) {
+	return ds.PrepareDeletes(n, []interface{}{key})
+}
+
+func (ds *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}) (data.Operation, []interface{}, error) {
+	var pks []interface{}
+	if n.KeyFiled.Name != n.Meta.Key.Name {
+		objs, err := ds.GetIn(n.Meta, []*meta.Field{n.Meta.Key}, n.KeyFiled.Name, keys)
+		if err != nil {
+			return nil, nil, err
+		}
+		pks := make([]interface{}, len(objs), len(objs))
+		for i := range objs {
+			pks[i] = objs[i][n.Meta.Key.Name]
+		}
+	} else {
+		pks = keys
+	}
+
+	di := &deleteInfo{Table: tblName(n.Meta), Filters: []string{n.KeyFiled.Name + " IN (" + nBindVals(1, len(keys)) + ")"}}
+	var q bytes.Buffer
+	if err := parsedTemplDelete.Execute(&q, di); err != nil {
+		return nil, nil, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+
+	return func(ctx data.OperationContext) error {
+		stmt, err := ctx.(*pgOpCtx).tx.Prepare(q.String())
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+		if _, err = stmt.Exec(keys...); err != nil {
+			return NewDMLError(ErrDMLFailed, err.Error())
+		}
+		return nil
+	}, pks, nil
+}
+
+type ExecuteContext struct {
+	tx *Tx
+}
+
+func (ex *ExecuteContext) Execute(ops []data.Operation) error {
+	ctx := &pgOpCtx{tx: ex.tx}
+	for _, op := range ops {
+		if err := op(ctx); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (ex *ExecuteContext) Complete() error {
+	if err := ex.tx.Commit(); err != nil {
+		return NewDMLError(ErrCommitFailed, err.Error())
+	}
+	return nil
+}
+
+func (ex *ExecuteContext) Close() error {
+	return ex.tx.Rollback()
+}
+
+func (ds *DataManager) ExecuteContext() (data.ExecuteContext, error) {
+	tx, err := ds.db.Begin()
+	if err != nil {
+		return nil, NewDMLError(ErrTrxFailed, err.Error())
+	}
+
+	return &ExecuteContext{tx: &Tx{tx}}, nil
+}
+
+func (ds *DataManager) Execute(ops []data.Operation) error {
+	ex, err := ds.ExecuteContext()
+	if err != nil {
+		return err
+	}
+	defer ex.Close()
+
+	if err := ex.Execute(ops); err != nil {
+		return err
+	}
+
+	return ex.Complete()
+}
+
+func (ds *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.Field) ([]map[string]interface{}, error) {
+	tableAlias := string(dataNode.Meta.Name[0])
+	translator := NewSqlTranslator(rqlRoot)
+	sq, err := translator.query(tableAlias, dataNode)
+	if err != nil {
+		return nil, err
+	}
+
+	if fields == nil {
+		fields = tableFields(dataNode.Meta)
+	}
+	si := &selectInfo{From: tblName(dataNode.Meta) + " " + tableAlias,
+		Cols: fieldsToCols(fields, tableAlias),
+		Where: sq.Where,
+		Order: sq.Sort,
+		Limit: sq.Limit,
+		Offset: sq.Offset}
+
+	var q bytes.Buffer
+	if err := si.sql(&q); err != nil {
+		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+
+	stmt, err := ds.Prepare(q.String())
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	return stmt.ParsedQuery(sq.Binds, fields)
+}
+
+func (ds *DataManager) GetIn(m *meta.Meta, fields []*meta.Field, key string, in []interface{}) ([]map[string]interface{}, error) {
+	if fields == nil {
+		fields = tableFields(m)
+	}
+
+	where := bytes.NewBufferString(key)
+	where.WriteString(" IN (")
+	where.WriteString(nBindVals(1, len(in)))
+	where.WriteString(")")
+	si := &selectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: where.String()}
+	var q bytes.Buffer
+	if err := si.sql(&q); err != nil {
+		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+
+	stmt, err := ds.Prepare(q.String())
+	if err != nil {
+		return nil, err
+	}
+	defer stmt.Close()
+
+	return stmt.ParsedQuery(in, fields)
+}
