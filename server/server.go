@@ -125,15 +125,15 @@ func (cs *CustodianServer) Run() {
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	router.GET(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
-		if metaList, _, error := metaStore.List(); error == nil {
+		if metaList, _, err := metaStore.List(); err == nil {
 			js.push(map[string]interface{}{"status": "OK", "data": metaList})
 		} else {
-			js.pushError(error)
+			js.pushError(err)
 		}
 	}))
 	router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if meta, ok, e := metaStore.Get(p.ByName("name")); e == nil {
-			js.push(map[string]interface{}{"status": "OK", "data": meta})
+		if metaObj, ok, e := metaStore.Get(p.ByName("name")); e == nil {
+			js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 		} else {
 			if ok {
 				js.pushError(e)
@@ -143,12 +143,12 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 	router.PUT(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
-		m, e := metaStore.UnmarshalJSON(r)
-		if e != nil {
-			js.pushError(e)
+		metaObj, err := metaStore.UnmarshalJSON(r)
+		if err != nil {
+			js.pushError(err)
 			return
 		}
-		if e := metaStore.Create(m); e == nil {
+		if e := metaStore.Create(metaObj); e == nil {
 			js.push(map[string]string{"status": "OK"})
 		} else {
 			js.pushError(e)
@@ -166,17 +166,17 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 	router.POST(cs.root+"/meta/:name", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		old, _, _ := metaStore.Get("person")
-		fmt.Print(old)
-		meta, error := metaStore.UnmarshalJSON(r)
-		if error != nil {
-			js.pushError(error)
+		//TODO: meta object gets stored in MetaStore cache while unmarshalling, so it would be available even if it was not
+		// actually stored in the Custodian
+		metaObj, err := metaStore.UnmarshalJSON(r)
+		if err != nil {
+			js.pushError(err)
 			return
 		}
-		if _, error := metaStore.Update(p.ByName("name"), meta); error == nil {
+		if _, err := metaStore.Update(p.ByName("name"), metaObj); err == nil {
 			js.pushEmpty()
 		} else {
-			js.pushError(error)
+			js.pushError(err)
 		}
 	}))
 

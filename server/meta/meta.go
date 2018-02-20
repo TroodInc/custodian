@@ -21,8 +21,8 @@ const (
 	FieldTypeObject
 )
 
-func (jt FieldType) String() (string, bool) {
-	switch jt {
+func (fieldType FieldType) String() (string, bool) {
+	switch fieldType {
 	case FieldTypeString:
 		return "string", true
 	case FieldTypeNumber:
@@ -38,8 +38,8 @@ func (jt FieldType) String() (string, bool) {
 	}
 }
 
-func (jt FieldType) AssertType(i interface{}) bool {
-	switch jt {
+func (fieldType FieldType) AssertType(i interface{}) bool {
+	switch fieldType {
 	case FieldTypeString:
 		_, ok := i.(string)
 		return ok
@@ -60,8 +60,8 @@ func (jt FieldType) AssertType(i interface{}) bool {
 	}
 }
 
-func (jt FieldType) TypeAsserter() func(interface{}) bool {
-	switch jt {
+func (fieldType FieldType) TypeAsserter() func(interface{}) bool {
+	switch fieldType {
 	case FieldTypeString:
 		return func(i interface{}) bool {
 			_, ok := i.(string)
@@ -109,24 +109,24 @@ func AsFieldType(s string) (FieldType, bool) {
 	}
 }
 
-func (ft *FieldType) UnmarshalJSON(b []byte) error {
-	var s string
-	if e := json.Unmarshal(b, &s); e != nil {
+func (fieldType *FieldType) UnmarshalJSON(b []byte) error {
+	var str string
+	if e := json.Unmarshal(b, &str); e != nil {
 		return e
 	}
-	if f, ok := AsFieldType(s); ok {
-		*ft = f
+	if assumedFieldType, ok := AsFieldType(str); ok {
+		*fieldType = assumedFieldType
 		return nil
 	} else {
-		return NewMetaError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect field type: %s", s)
+		return NewMetaError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect field type: %str", str)
 	}
 }
 
-func (ft FieldType) MarshalJSON() ([]byte, error) {
-	if s, ok := ft.String(); ok {
+func (fieldType FieldType) MarshalJSON() ([]byte, error) {
+	if s, ok := fieldType.String(); ok {
 		return json.Marshal(s)
 	} else {
-		return nil, NewMetaError("", "json_marshal", ErrJsonMarshal, "Incorrect filed type: %v", ft)
+		return nil, NewMetaError("", "json_marshal", ErrJsonMarshal, "Incorrect filed type: %v", fieldType)
 	}
 }
 
@@ -441,11 +441,11 @@ type MetaStore struct {
 }
 
 func (metaStore *MetaStore) UnmarshalJSON(r io.ReadCloser) (*Meta, error) {
-	var m meta
-	if e := json.NewDecoder(r).Decode(&m); e != nil {
+	var metaObj meta
+	if e := json.NewDecoder(r).Decode(&metaObj); e != nil {
 		return nil, NewMetaError("", "unmarshal", ErrNotValid, e.Error())
 	}
-	return metaStore.newMeta(&m)
+	return metaStore.newMeta(&metaObj)
 }
 
 func (metaStore *MetaStore) unmarshalMeta(b []byte) (*Meta, error) {
@@ -460,10 +460,10 @@ func (f *Field) canBeLinkTo(m *Meta) bool {
 	return (f.IsSimple() && f.Type == m.Key.Type) || (f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner)
 }
 
-func (metaStore *MetaStore) newMeta(_m *meta) (*Meta, error) {
-	createdMeta := &Meta{meta: _m}
+func (metaStore *MetaStore) newMeta(metaObj *meta) (*Meta, error) {
+	createdMeta := &Meta{meta: metaObj}
 	notResolved := []*Meta{createdMeta}
-	shadowCache := map[string]*Meta{_m.Name: createdMeta}
+	shadowCache := map[string]*Meta{metaObj.Name: createdMeta}
 	for ; len(notResolved) > 0; notResolved = notResolved[1:] {
 		bm := notResolved[0]
 		fieldsLen := len(bm.meta.Fields)
@@ -483,7 +483,7 @@ func (metaStore *MetaStore) newMeta(_m *meta) (*Meta, error) {
 
 				lm, _, err := metaStore.drv.Get(f.LinkMeta)
 				if err != nil {
-					return nil, NewMetaError(_m.Name, "new_meta", ErrNotValid, "Field '%s' has iccorect link meta: %s", f.Name, err.Error())
+					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Field '%s' has iccorect link meta: %s", f.Name, err.Error())
 				}
 				bm.Fields[i].LinkMeta = &Meta{meta: lm}
 				shadowCache[f.LinkMeta] = bm.Fields[i].LinkMeta
@@ -498,18 +498,18 @@ func (metaStore *MetaStore) newMeta(_m *meta) (*Meta, error) {
 		}
 
 		if bm.Key = bm.FindField(bm.meta.Key); bm.Key == nil {
-			return nil, NewMetaError(_m.Name, "new_meta", ErrNotValid, "Meta '%s' is inccorrect. The specified key '%s' field not found", bm.meta.Name, bm.meta.Key)
+			return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Meta '%s' is inccorrect. The specified key '%s' field not found", bm.meta.Name, bm.meta.Key)
 		} else if !bm.Key.IsSimple() {
-			return nil, NewMetaError(_m.Name, "new_meta", ErrNotValid, "Meta '%s' is inccorrect. The key field '%s' is not simple", bm.meta.Name, bm.meta.Key)
+			return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Meta '%s' is inccorrect. The key field '%s' is not simple", bm.meta.Name, bm.meta.Key)
 		}
 
 		if bm.Cas {
 			if cas := bm.FindField("cas"); cas != nil {
 				if cas.Type != FieldTypeNumber {
-					return nil, NewMetaError(_m.Name, "new_meta", ErrNotValid, "The filed 'cas' specified in the meta '%s' as CAS must be type of 'number'", bm.meta.Cas, bm.meta.Name)
+					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "The filed 'cas' specified in the meta '%s' as CAS must be type of 'number'", bm.meta.Cas, bm.meta.Name)
 				}
 			} else {
-				return nil, NewMetaError(_m.Name, "new_meta", ErrNotValid, "Meta '%s' has CAS defined but the filed 'cas' it refers to is absent", bm.meta.Name, bm.meta.Cas)
+				return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Meta '%s' has CAS defined but the filed 'cas' it refers to is absent", bm.meta.Name, bm.meta.Cas)
 			}
 		}
 	}
@@ -523,9 +523,9 @@ func (metaStore *MetaStore) newMeta(_m *meta) (*Meta, error) {
 				continue
 			}
 			if f.OuterLinkField = f.LinkMeta.FindField(f.field.OuterLinkField); f.OuterLinkField == nil {
-				return nil, NewMetaError(_m.Name, "new_meta", ErrNotValid, "Filed '%s' has incorrect outer link. Meta '%s' doesn't have a field '%s'", f.Name, f.LinkMeta.Name, f.field.OuterLinkField)
+				return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Filed '%s' has incorrect outer link. Meta '%s' doesn't have a field '%s'", f.Name, f.LinkMeta.Name, f.field.OuterLinkField)
 			} else if !f.OuterLinkField.canBeLinkTo(f.Meta) {
-				return nil, NewMetaError(_m.Name, "new_meta", ErrNotValid, "Filed '%s' has incorrect outer link. Field '%s' of meta '%s' can't refer to meta '%s'", f.Name, f.OuterLinkField.Name, f.OuterLinkField.Meta.Name, f.Meta.Name)
+				return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Filed '%s' has incorrect outer link. Field '%s' of meta '%s' can't refer to meta '%s'", f.Name, f.OuterLinkField.Name, f.OuterLinkField.Meta.Name, f.Meta.Name)
 			}
 		}
 	}
@@ -560,32 +560,35 @@ func (metaStore *MetaStore) List() (*[]*meta, bool, error) {
    Retrives object metadata from the underlying store.
 */
 func (metaStore *MetaStore) Get(name string) (*Meta, bool, error) {
-	metaStore.cacheMutex.RLock()
-	if bm, ok := metaStore.cache[name]; ok {
-		metaStore.cacheMutex.RUnlock()
-		return bm, true, nil
-	}
-	metaStore.cacheMutex.RUnlock()
-
+	//try to get business object from cache
+	//metaStore.cacheMutex.RLock()
+	//if businessObject, ok := metaStore.cache[name]; ok {
+	//	metaStore.cacheMutex.RUnlock()
+	//	return businessObject, true, nil
+	//}
+	//metaStore.cacheMutex.RUnlock()
 	metaStore.syncerMutex.RLock()
 	defer metaStore.syncerMutex.RUnlock()
-	m, isFound, err := metaStore.drv.Get(name)
+
+	//otherwise
+	//retrieve business object metadata from the storage
+	metaData, isFound, err := metaStore.drv.Get(name)
 
 	if err != nil {
 		return nil, isFound, err
 	}
-
-	bm, err := metaStore.newMeta(m)
+	//assemble the new business object with the given metadata
+	businessObject, err := metaStore.newMeta(metaData)
 	if err != nil {
 		return nil, isFound, err
 	}
-
-	ok, err := metaStore.syncer.ValidateObj(bm)
+	//validate the newly created business object against existing one in the database
+	ok, err := metaStore.syncer.ValidateObj(businessObject)
 	if ok {
 		metaStore.cacheMutex.Lock()
-		metaStore.cache[name] = bm
+		metaStore.cache[name] = businessObject
 		metaStore.cacheMutex.Unlock()
-		return bm, isFound, nil
+		return businessObject, isFound, nil
 	}
 
 	logger.Error("Error while validating a meta from store against the object in DB: %v", err)
@@ -632,11 +635,11 @@ func (metaStore *MetaStore) Remove(name string) (bool, error) {
 }
 
 // Updates an existing object metadata.
-func (metaStore *MetaStore) Update(name string, m *Meta) (bool, error) {
-	if old, ok, e := metaStore.Get(name); e == nil {
+func (metaStore *MetaStore) Update(name string, businessObj *Meta) (bool, error) {
+	if currentBusinessObj, ok, err := metaStore.Get(name); err == nil {
 		metaStore.syncerMutex.Lock()
 		defer metaStore.syncerMutex.Unlock()
-		ok, e := metaStore.drv.Update(name, *m.meta)
+		ok, e := metaStore.drv.Update(name, *businessObj.meta)
 		metaStore.cacheMutex.Lock()
 		delete(metaStore.cache, name)
 		metaStore.cacheMutex.Unlock()
@@ -649,16 +652,16 @@ func (metaStore *MetaStore) Update(name string, m *Meta) (bool, error) {
 			return ok, e
 		}
 
-		if e := metaStore.syncer.UpdateObj(old, m); e == nil {
+		if e := metaStore.syncer.UpdateObj(currentBusinessObj, businessObj); e == nil {
 			return true, nil
 		} else {
-			e2 := metaStore.syncer.UpdateObjTo(old)
+			e2 := metaStore.syncer.UpdateObjTo(currentBusinessObj)
 			if e2 != nil {
 				logger.Error("Error while rolling back an update of meta '%s': %v", name, e2)
 				return false, e
 
 			}
-			_, e2 = metaStore.drv.Update(name, *old.meta)
+			_, e2 = metaStore.drv.Update(name, *currentBusinessObj.meta)
 			if e2 != nil {
 				logger.Error("Error while rolling back an update of meta '%s': %v", name, e2)
 				return false, e
@@ -666,7 +669,7 @@ func (metaStore *MetaStore) Update(name string, m *Meta) (bool, error) {
 			return false, nil
 		}
 	} else {
-		return ok, e
+		return ok, err
 	}
 }
 

@@ -27,15 +27,15 @@ func NewSyncer(dbInfo string) (*Syncer, error) {
 	return &Syncer{db: db}, nil
 }
 
-func (s *Syncer) Close() error {
-	return s.db.Close()
+func (syncer *Syncer) Close() error {
+	return syncer.db.Close()
 }
 
-func (s *Syncer) NewDataManager() (*DataManager, error) {
-	return NewDataManager(s.db)
+func (syncer *Syncer) NewDataManager() (*DataManager, error) {
+	return NewDataManager(syncer.db)
 }
 
-func (s *Syncer) CreateObj(m *meta.Meta) error {
+func (syncer *Syncer) CreateObj(m *meta.Meta) error {
 	var md *MetaDDL
 	var e error
 	if md, e = MetaDDLFromMeta(m); e != nil {
@@ -46,18 +46,18 @@ func (s *Syncer) CreateObj(m *meta.Meta) error {
 		return e
 	}
 	for _, st := range ds {
-		logger.Debug("Creating object in DB: %s\n", st.Code)
-		if _, e := s.db.Exec(st.Code); e != nil {
-			return &DDLError{table: m.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
+		logger.Debug("Creating object in DB: %syncer\n", st.Code)
+		if _, e := syncer.db.Exec(st.Code); e != nil {
+			return &DDLError{table: m.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
 		}
 	}
 	return nil
 }
 
-func (s *Syncer) RemoveObj(name string) error {
+func (syncer *Syncer) RemoveObj(name string) error {
 	var md *MetaDDL
 	var e error
-	if md, e = MetaDDLFromDB(s.db, name); e != nil {
+	if md, e = MetaDDLFromDB(syncer.db, name); e != nil {
 		return e
 	}
 	var ds DDLStmts
@@ -65,78 +65,82 @@ func (s *Syncer) RemoveObj(name string) error {
 		return e
 	}
 	for _, st := range ds {
-		logger.Debug("Removing object from DB: %s\n", st.Code)
-		if _, e := s.db.Exec(st.Code); e != nil {
-			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
+		logger.Debug("Removing object from DB: %syncer\n", st.Code)
+		if _, e := syncer.db.Exec(st.Code); e != nil {
+			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
 		}
 	}
 	return nil
 }
 
-func (s *Syncer) UpdateObj(old, new *meta.Meta) error {
-	var oMeta, nMeta *MetaDDL
-	var e error
-	if oMeta, e = MetaDDLFromMeta(old); e != nil {
-		return e
+//Update an existing business object
+func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta) error {
+	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
+	var err error
+	if currentBusinessObjMeta, err = MetaDDLFromMeta(currentBusinessObj); err != nil {
+		return err
 	}
-	if nMeta, e = MetaDDLFromMeta(new); e != nil {
-		return e
+	if newBusinessObjMeta, err = MetaDDLFromMeta(newBusinessObject); err != nil {
+		return err
 	}
-	var md *MetaDDLDiff
-	if md, e = oMeta.Diff(nMeta); e != nil {
-		return e
+	var metaDdlDiff *MetaDDLDiff
+	if metaDdlDiff, err = currentBusinessObjMeta.Diff(newBusinessObjMeta); err != nil {
+		return err
 	}
-	var ds DDLStmts
-	if ds, e = md.Script(); e != nil {
-		return e
+	var ddlStatements DDLStmts
+	if ddlStatements, err = metaDdlDiff.Script(); err != nil {
+		return err
 	}
-	for _, st := range ds {
-		logger.Debug("Updating object in DB: %s\n", st.Code)
-		if _, e := s.db.Exec(st.Code); e != nil {
-			return &DDLError{table: old.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
+	for _, ddlStatement := range ddlStatements {
+		logger.Debug("Updating object in DB: %syncer\n", ddlStatement.Code)
+		if _, e := syncer.db.Exec(ddlStatement.Code); e != nil {
+			return &DDLError{table: currentBusinessObj.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", ddlStatement.Name, e.Error())}
 		}
 	}
 	return nil
 }
 
-func (s *Syncer) diffScripts(m *meta.Meta) (DDLStmts, error) {
-	nMeta, e := MetaDDLFromMeta(m)
+//Calculates the difference between the given and the existing business object in the database
+func (syncer *Syncer) diffScripts(metaObj *meta.Meta) (DDLStmts, error) {
+	newMetaDdl, e := MetaDDLFromMeta(metaObj)
 	if e != nil {
 		return nil, e
 	}
 
-	if dbMeta, e := MetaDDLFromDB(s.db, m.Name); e == nil {
-		diff, e := dbMeta.Diff(nMeta)
-		if e != nil {
-			return nil, e
+	if metaDdlFromDB, err := MetaDDLFromDB(syncer.db, metaObj.Name); err == nil {
+		diff, err := metaDdlFromDB.Diff(newMetaDdl)
+		if err != nil {
+			return nil, err
 		}
 		return diff.Script()
-	} else if ddlErr, ok := e.(*DDLError); ok && ddlErr.code == ErrNotFound {
-		return nMeta.CreateScript()
+	} else if ddlErr, ok := err.(*DDLError); ok && ddlErr.code == ErrNotFound {
+		return newMetaDdl.CreateScript()
 	} else {
 		return nil, e
 	}
 
 }
 
-func (s *Syncer) UpdateObjTo(m *meta.Meta) error {
-	stms, e := s.diffScripts(m)
+func (syncer *Syncer) UpdateObjTo(businessObject *meta.Meta) error {
+	ddlStatements, e := syncer.diffScripts(businessObject)
 	if e != nil {
 		return e
 	}
-	for _, st := range stms {
-		logger.Debug("Updating object in DB: %s\n", st.Code)
-		if _, e := s.db.Exec(st.Code); e != nil {
-			return &DDLError{table: m.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
+	for _, st := range ddlStatements {
+		logger.Debug("Updating object in DB: %syncer\n", st.Code)
+		if _, e := syncer.db.Exec(st.Code); e != nil {
+			return &DDLError{table: businessObject.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
 		}
 	}
 	return nil
 }
 
-func (s *Syncer) ValidateObj(m *meta.Meta) (bool, error) {
-	stms, e := s.diffScripts(m)
+//Check if the given business object equals to the corresponding one stored in the database.
+//The validation fails if the given business object is different
+func (syncer *Syncer) ValidateObj(businessObject *meta.Meta) (bool, error) {
+	ddlStatements, e := syncer.diffScripts(businessObject)
 	if e != nil {
 		return false, e
 	}
-	return len(stms) == 0, nil
+	return len(ddlStatements) == 0, nil
 }

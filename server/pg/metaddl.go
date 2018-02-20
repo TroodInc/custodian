@@ -646,11 +646,11 @@ func tblAlias(m *meta.Meta) string {
 }
 
 func MetaDDLFromMeta(m *meta.Meta) (*MetaDDL, error) {
-	var md *MetaDDL = &MetaDDL{Table: tblName(m), Pk: m.Key.Name}
-	md.Columns = make([]Column, 0, len(m.Fields))
-	md.IFKs = make([]IFK, 0, len(m.Fields)>>1)
-	md.OFKs = make([]OFK, 0, len(m.Fields)>>1)
-	md.Seqs = make([]Seq, 0)
+	var metaDdl *MetaDDL = &MetaDDL{Table: tblName(m), Pk: m.Key.Name}
+	metaDdl.Columns = make([]Column, 0, len(m.Fields))
+	metaDdl.IFKs = make([]IFK, 0, len(m.Fields)>>1)
+	metaDdl.OFKs = make([]OFK, 0, len(m.Fields)>>1)
+	metaDdl.Seqs = make([]Seq, 0)
 	for i, _ := range m.Fields {
 		f := &m.Fields[i]
 		c := Column{}
@@ -665,29 +665,29 @@ func MetaDDLFromMeta(m *meta.Meta) (*MetaDDL, error) {
 			return nil, err
 		}
 		if ds, ok := colDef.(*ColDefValSeq); ok {
-			md.Seqs = append(md.Seqs, *ds.seq)
+			metaDdl.Seqs = append(metaDdl.Seqs, *ds.seq)
 		}
 
 		if f.IsSimple() {
 			var ok bool
 			if c.Typ, ok = fieldTypeToColumnType(f.Type); !ok {
-				return nil, &DDLError{table: md.Table, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(f.Type)}
+				return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(f.Type)}
 			}
-			md.Columns = append(md.Columns, c)
+			metaDdl.Columns = append(metaDdl.Columns, c)
 		} else if f.Type == meta.FieldTypeObject && f.LinkType == meta.LinkTypeInner {
 			var ok bool
 			if c.Typ, ok = fieldTypeToColumnType(f.LinkMeta.Key.Type); !ok {
-				return nil, &DDLError{table: md.Table, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(f.LinkMeta.Key.Type)}
+				return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(f.LinkMeta.Key.Type)}
 			}
-			md.Columns = append(md.Columns, c)
-			md.IFKs = append(md.IFKs, IFK{FromColumn: f.Name, ToTable: tblName(f.LinkMeta), ToColumn: f.LinkMeta.Key.Name})
+			metaDdl.Columns = append(metaDdl.Columns, c)
+			metaDdl.IFKs = append(metaDdl.IFKs, IFK{FromColumn: f.Name, ToTable: tblName(f.LinkMeta), ToColumn: f.LinkMeta.Key.Name})
 		} else if f.LinkType == meta.LinkTypeOuter {
-			md.OFKs = append(md.OFKs, OFK{FromTable: tblName(f.LinkMeta), FromColumn: f.OuterLinkField.Name, ToTable: tblName(m), ToColumn: m.Key.Name})
+			metaDdl.OFKs = append(metaDdl.OFKs, OFK{FromTable: tblName(f.LinkMeta), FromColumn: f.OuterLinkField.Name, ToTable: tblName(m), ToColumn: m.Key.Name})
 		} else {
-			return nil, &DDLError{table: md.Table, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(f.LinkType), string(f.LinkType))}
+			return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(f.LinkType), string(f.LinkType))}
 		}
 	}
-	return md, nil
+	return metaDdl, nil
 }
 
 var seqNameParseRe *regexp.Regexp = regexp.MustCompile("nextval\\('(.*)'::regclass\\)")
