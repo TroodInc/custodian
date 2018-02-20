@@ -29,6 +29,7 @@ const (
 //The interface of error convertable to JSON in format {"code":"some_code"; "msg":"message"}.
 type JsonError interface {
 	Json() []byte
+	Serialize() map[string]string
 }
 
 type ServerError struct {
@@ -41,16 +42,20 @@ func (e *ServerError) Error() string {
 	return fmt.Sprintf("Server error: status = %d, code = '%s', msg = '%s'", e.status, e.code, e.msg)
 }
 
-func marshalError(code, msg string) []byte {
-	j, _ := json.Marshal(map[string]string{
-		"code": code,
-		"msg":  msg,
-	})
-	return j
+func serializeError(errorCode string, errorMessage string) map[string]string {
+	return map[string]string{
+		"code": errorCode,
+		"msg":  errorMessage,
+	}
+}
+
+func (e *ServerError) Serialize() map[string]string {
+	return serializeError(e.code, e.msg)
 }
 
 func (e *ServerError) Json() []byte {
-	return marshalError(e.code, e.msg)
+	encodedData, _ := json.Marshal(e.Serialize())
+	return encodedData
 }
 
 func NewServerError(status int, code string, msg string, a ...interface{}) *ServerError {
@@ -123,7 +128,7 @@ func (cs *CustodianServer) Run() {
 	}
 
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
-
+	//object operations
 	router.GET(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
 		if metaList, _, err := metaStore.List(); err == nil {
 			js.push(map[string]interface{}{"status": "OK", "data": metaList})
@@ -132,14 +137,10 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 	router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if metaObj, ok, e := metaStore.Get(p.ByName("name")); e == nil {
+		if metaObj, _, e := metaStore.Get(p.ByName("name")); e == nil {
 			js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 		} else {
-			if ok {
-				js.pushError(e)
-			} else {
-				js.pushError(&ServerError{status: http.StatusNotFound, code: ErrNotFound})
-			}
+			js.push(map[string]interface{}{"status": "FAIL", "data": &ServerError{status: http.StatusNotFound, code: ErrNotFound}})
 		}
 	}))
 	router.PUT(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
@@ -180,22 +181,21 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	dm, _ := syncer.NewDataManager()
+	dataManager, _ := syncer.NewDataManager()
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 
-	proc, _ := data.NewProcessor(metaStore, dm)
-
-	//Data routes
+	//Records operations
 	router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values) {
-		if o, e := proc.Put(p.ByName("name"), src.Value); e != nil {
-			sink.pushError(e)
+		if recordData, err := dataProcessor.Put(p.ByName("name"), src.Value); err != nil {
+			sink.pushError(err)
 		} else {
-			sink.pushGeneric(o)
+			sink.pushGeneric(recordData)
 		}
 	}))
 
 	router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
-		e := proc.PutBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		e := dataProcessor.PutBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
@@ -214,7 +214,7 @@ func (cs *CustodianServer) Run() {
 		if i, e := strconv.Atoi(q.Get("depth")); e == nil {
 			depth = i
 		}
-		if o, e := proc.Get(p.ByName("name"), p.ByName("key"), depth); e != nil {
+		if o, e := dataProcessor.Get(p.ByName("name"), p.ByName("key"), depth); e != nil {
 			sink.pushError(e)
 		} else {
 			if o == nil {
@@ -235,7 +235,7 @@ func (cs *CustodianServer) Run() {
 			if i, e := strconv.Atoi(url.QueryEscape(pq.Get("depth"))); e == nil {
 				depth = i
 			}
-			e := proc.GetBulk(p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+			e := dataProcessor.GetBulk(p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
 			if e != nil {
 				sink.pushError(e)
 			}
@@ -243,7 +243,7 @@ func (cs *CustodianServer) Run() {
 	}))
 
 	router.DELETE(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
-		if ok, e := proc.Delete(p.ByName("name"), p.ByName("key")); e != nil {
+		if ok, e := dataProcessor.Delete(p.ByName("name"), p.ByName("key")); e != nil {
 			sink.pushError(e)
 		} else {
 			if ok {
@@ -256,7 +256,7 @@ func (cs *CustodianServer) Run() {
 
 	router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
-		e := proc.DeleteBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		e := dataProcessor.DeleteBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
@@ -271,7 +271,7 @@ func (cs *CustodianServer) Run() {
 	}))
 
 	router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values) {
-		if o, e := proc.Update(p.ByName("name"), p.ByName("key"), src.Value); e != nil {
+		if o, e := dataProcessor.Update(p.ByName("name"), p.ByName("key"), src.Value); e != nil {
 			if dt, ok := e.(*data.DataError); ok && dt.Code == data.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
@@ -288,7 +288,7 @@ func (cs *CustodianServer) Run() {
 
 	router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
-		e := proc.UpdateBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		e := dataProcessor.UpdateBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
@@ -362,20 +362,22 @@ func CreateJsonStreamAction(f func(*JsonSinkStream, httprouter.Params, *url.URL)
 //Otherwise they sets to http.StatusInternalServerError and ErrInternalServerError respectively.
 func returnError(w http.ResponseWriter, e error) {
 	w.Header().Set("Content-Type", "application/json")
+	responseData := map[string]interface{}{"status": "FAIL"}
 	switch e := e.(type) {
 	case *ServerError:
+		responseData["data"] = e.Serialize()
 		w.WriteHeader(e.status)
-		w.Write(e.Json())
-		return
+
 	case JsonError:
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write(e.Json())
-		return
+		responseData["data"] = e.Serialize()
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write(marshalError(ErrInternalServerError, e.Error()))
-		return
+		responseData["data"] = serializeError(ErrInternalServerError, e.Error())
 	}
+	//encoded
+	encodedData, _ := json.Marshal(responseData)
+	w.Write(encodedData)
 }
 
 //The source of JSON object. It contains a value of type map[string]interface{}.
@@ -478,12 +480,12 @@ func (js *JsonSink) pushError(e error) {
 
 //Push an JSON object into JsonSink
 func (js *JsonSink) pushGeneric(obj map[string]interface{}) {
-	if j, e := json.Marshal(obj); e != nil {
-		returnError(js.rw, e)
+	if encodedData, err := json.Marshal(map[string]interface{}{"status": "OK", "data": obj}); err != nil {
+		returnError(js.rw, err)
 	} else {
 		js.rw.Header().Set("Content-Type", "application/json")
 		js.rw.WriteHeader(http.StatusOK)
-		js.rw.Write(j)
+		js.rw.Write(encodedData)
 	}
 }
 
@@ -546,7 +548,8 @@ func (jss *JsonSinkStream) pushError(e error) {
 		return
 	default:
 		jss.httpStatus = http.StatusInternalServerError
-		jss.err = marshalError(ErrInternalServerError, e.Error())
+		encodedResponse, _ := json.Marshal(serializeError(ErrInternalServerError, e.Error()))
+		jss.err = encodedResponse
 		return
 	}
 }
