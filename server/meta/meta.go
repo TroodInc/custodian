@@ -651,7 +651,8 @@ func (metaStore *MetaStore) Update(name string, businessObj *Meta) (bool, error)
 		if !ok {
 			return ok, e
 		}
-
+		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
+		//behaviour should be fixed
 		if e := metaStore.syncer.UpdateObj(currentBusinessObj, businessObj); e == nil {
 			return true, nil
 		} else {
