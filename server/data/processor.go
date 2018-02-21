@@ -66,13 +66,13 @@ type DataManager interface {
 }
 
 type Processor struct {
-	ms     *meta.MetaStore
-	dm     DataManager
-	vCache map[string]objectClassValidator
+	metaStore   *meta.MetaStore
+	dataManager DataManager
+	vCache      map[string]objectClassValidator
 }
 
 func NewProcessor(m *meta.MetaStore, d DataManager) (*Processor, error) {
-	return &Processor{ms: m, dm: d, vCache: make(map[string]objectClassValidator)}, nil
+	return &Processor{metaStore: m, dataManager: d, vCache: make(map[string]objectClassValidator)}, nil
 }
 
 type Tuple2 struct {
@@ -103,7 +103,7 @@ func AssertLink(i interface{}) bool {
 	}
 }
 
-func (p *Processor) validate(t2 *Tuple2, mandatoryCheck bool) ([]Tuple2, error) {
+func (processor *Processor) validate(t2 *Tuple2, mandatoryCheck bool) ([]Tuple2, error) {
 	toCheck := make([]Tuple2, 0)
 	for k, _ := range t2.Second {
 		if f := t2.First.FindField(k); f == nil {
@@ -159,8 +159,8 @@ func (p *Processor) validate(t2 *Tuple2, mandatoryCheck bool) ([]Tuple2, error) 
 	return toCheck, nil
 }
 
-func (p *Processor) getValidator(vk string, preValidator func(pt2 *Tuple2) (*Tuple2, bool, error)) (objectClassValidator, error) {
-	if v, ex := p.vCache[vk]; ex {
+func (processor *Processor) getValidator(vk string, preValidator func(pt2 *Tuple2) (*Tuple2, bool, error)) (objectClassValidator, error) {
+	if v, ex := processor.vCache[vk]; ex {
 		return v, nil
 	}
 	validator := func(t2 Tuple2) ([]Tuple2, error) {
@@ -168,18 +168,18 @@ func (p *Processor) getValidator(vk string, preValidator func(pt2 *Tuple2) (*Tup
 		if err != nil {
 			return nil, err
 		}
-		if toCheck, e := p.validate(preValidatedT2, mandatoryCheck); e != nil {
+		if toCheck, e := processor.validate(preValidatedT2, mandatoryCheck); e != nil {
 			return nil, e
 		} else {
 			return toCheck, nil
 		}
 	}
-	p.vCache[vk] = validator
+	processor.vCache[vk] = validator
 	return validator, nil
 
 }
 
-func (p *Processor) flatten(m *meta.Meta, obj map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Tuple2, error) {
+func (processor *Processor) flatten(m *meta.Meta, obj map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Tuple2, error) {
 	tc := []Tuple2{Tuple2{m, obj}}
 	for tail := tc; len(tail) > 0; tail = tail[1:] {
 		if v, e := validatorFactory(tail[0].First.Name); e != nil {
@@ -199,7 +199,7 @@ type Tuple2a struct {
 	Second []map[string]interface{}
 }
 
-func (p *Processor) spreadByLevelLader(m *meta.Meta, objs []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*Tuple2a, error) {
+func (processor *Processor) spreadByLevelLader(m *meta.Meta, objs []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*Tuple2a, error) {
 	var levelLader = [][]*Tuple2a{[]*Tuple2a{&Tuple2a{m, objs}}}
 
 	for curLevel := levelLader[0]; curLevel != nil; {
@@ -268,8 +268,8 @@ func putValidator(t *Tuple2) (*Tuple2, bool, error) {
 	return t, true, nil
 }
 
-func (p *Processor) Put(objectClass string, obj map[string]interface{}) (map[string]interface{}, error) {
-	m, ok, e := p.ms.Get(objectClass)
+func (processor *Processor) Put(objectClass string, obj map[string]interface{}) (map[string]interface{}, error) {
+	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return nil, e
 	}
@@ -277,8 +277,8 @@ func (p *Processor) Put(objectClass string, obj map[string]interface{}) (map[str
 		return nil, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
-	tc, e := p.flatten(m, obj, func(mn string) (objectClassValidator, error) {
-		return p.getValidator("put:"+mn, putValidator)
+	tc, e := processor.flatten(m, obj, func(mn string) (objectClassValidator, error) {
+		return processor.getValidator("put:"+mn, putValidator)
 	})
 	if e != nil {
 		return nil, e
@@ -286,14 +286,14 @@ func (p *Processor) Put(objectClass string, obj map[string]interface{}) (map[str
 
 	var ops = make([]Operation, 0)
 	for _, t := range tc {
-		if op, e := p.dm.PreparePuts(t.First, []map[string]interface{}{t.Second}); e != nil {
+		if op, e := processor.dataManager.PreparePuts(t.First, []map[string]interface{}{t.Second}); e != nil {
 			return nil, e
 		} else {
 			ops = append(ops, op)
 		}
 	}
 
-	if e := p.dm.Execute(ops); e != nil {
+	if e := processor.dataManager.Execute(ops); e != nil {
 		return nil, e
 	}
 
@@ -303,8 +303,8 @@ func (p *Processor) Put(objectClass string, obj map[string]interface{}) (map[str
 	return obj, nil
 }
 
-func (p *Processor) PutBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) error {
-	m, ok, e := p.ms.Get(objectClass)
+func (processor *Processor) PutBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) error {
+	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return e
 	}
@@ -312,7 +312,7 @@ func (p *Processor) PutBulk(objectClass string, next func() (map[string]interfac
 		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
-	exCtx, e := p.dm.ExecuteContext()
+	exCtx, e := processor.dataManager.ExecuteContext()
 	if e != nil {
 		return e
 	}
@@ -328,8 +328,8 @@ func (p *Processor) PutBulk(objectClass string, next func() (map[string]interfac
 		}
 
 		if len(buf) > 0 {
-			levelLader, e := p.spreadByLevelLader(m, buf, func(mn string) (objectClassValidator, error) {
-				return p.getValidator("put:"+mn, putValidator)
+			levelLader, e := processor.spreadByLevelLader(m, buf, func(mn string) (objectClassValidator, error) {
+				return processor.getValidator("put:"+mn, putValidator)
 			})
 			if e != nil {
 				return e
@@ -337,7 +337,7 @@ func (p *Processor) PutBulk(objectClass string, next func() (map[string]interfac
 
 			for _, level := range levelLader {
 				for _, item := range level {
-					op, e := p.dm.PreparePuts(item.First, item.Second)
+					op, e := processor.dataManager.PreparePuts(item.First, item.Second)
 					if e != nil {
 						return e
 					}
@@ -708,8 +708,8 @@ func (t2 tuple2na) resolveBranches2(ctx SearchContext) ([]tuple2na, error) {
 	return tn, nil
 }
 
-func (p *Processor) Get(objectClass, key string, depth int) (map[string]interface{}, error) {
-	if m, ok, e := p.ms.Get(objectClass); e != nil {
+func (processor *Processor) Get(objectClass, key string, depth int) (map[string]interface{}, error) {
+	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
 		return nil, e
 	} else if !ok {
 		return nil, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
@@ -717,7 +717,7 @@ func (p *Processor) Get(objectClass, key string, depth int) (map[string]interfac
 		if pk, e := m.Key.ValueFromString(key); e != nil {
 			return nil, e
 		} else {
-			ctx := SearchContext{depthLimit: depth, dm: p.dm, lazyPath: "/custodian/data/single"}
+			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single"}
 			root := &Node{KeyFiled: m.Key, Meta: m, Branches: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
 			root.fillBranches(ctx)
 			bs := make([]*Node, 0)
@@ -752,14 +752,14 @@ func (p *Processor) Get(objectClass, key string, depth int) (map[string]interfac
 	}
 }
 
-func (p *Processor) GetBulk(objectClass, filter string, depth int, sink func(map[string]interface{}) error) error {
-	if m, ok, e := p.ms.Get(objectClass); e != nil {
+func (processor *Processor) GetBulk(objectClass, filter string, depth int, sink func(map[string]interface{}) error) error {
+	if businessObject, ok, e := processor.metaStore.Get(objectClass); e != nil {
 		return e
 	} else if !ok {
 		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	} else {
-		ctx := SearchContext{depthLimit: depth, dm: p.dm, lazyPath: "/custodian/data/bulk"}
-		root := &Node{KeyFiled: m.Key, Meta: m, Branches: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
+		ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk"}
+		root := &Node{KeyFiled: businessObject.Key, Meta: businessObject, Branches: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
 		root.fillBranches(ctx)
 		bs := make([]*Node, 0)
 		for _, v := range root.Branches {
@@ -825,8 +825,8 @@ type tuple2d struct {
 	keys []interface{}
 }
 
-func (p *Processor) Delete(objectClass, key string) (bool, error) {
-	if m, ok, e := p.ms.Get(objectClass); e != nil {
+func (processor *Processor) Delete(objectClass, key string) (bool, error) {
+	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
 		return false, e
 	} else if !ok {
 		return false, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
@@ -844,13 +844,13 @@ func (p *Processor) Delete(objectClass, key string) (bool, error) {
 					}
 				}
 			}
-			if op, keys, e := p.dm.PrepareDeletes(root, []interface{}{pk}); e != nil {
+			if op, keys, e := processor.dataManager.PrepareDeletes(root, []interface{}{pk}); e != nil {
 				return false, e
 			} else {
 				ops := []Operation{op}
 				for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 					for _, v := range t2d[0].n.Branches {
-						if op, keys, e := p.dm.PrepareDeletes(v, t2d[0].keys); e != nil {
+						if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
 							return false, e
 						} else {
 							ops = append(ops, op)
@@ -861,7 +861,7 @@ func (p *Processor) Delete(objectClass, key string) (bool, error) {
 				for i := 0; i < len(ops)>>2; i++ {
 					ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
 				}
-				if e := p.dm.Execute(ops); e != nil {
+				if e := processor.dataManager.Execute(ops); e != nil {
 					return false, e
 				} else {
 					return true, nil
@@ -872,8 +872,8 @@ func (p *Processor) Delete(objectClass, key string) (bool, error) {
 	}
 }
 
-func (p *Processor) DeleteBulk(objectClass string, next func() (map[string]interface{}, error)) error {
-	if m, ok, e := p.ms.Get(objectClass); e != nil {
+func (processor *Processor) DeleteBulk(objectClass string, next func() (map[string]interface{}, error)) error {
+	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
 		return e
 	} else if !ok {
 		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
@@ -891,7 +891,7 @@ func (p *Processor) DeleteBulk(objectClass string, next func() (map[string]inter
 			}
 		}
 
-		exCtx, e := p.dm.ExecuteContext()
+		exCtx, e := processor.dataManager.ExecuteContext()
 		if e != nil {
 			return e
 		}
@@ -911,13 +911,13 @@ func (p *Processor) DeleteBulk(objectClass string, next func() (map[string]inter
 			}
 
 			if len(buf) > 0 {
-				if op, keys, e := p.dm.PrepareDeletes(root, buf); e != nil {
+				if op, keys, e := processor.dataManager.PrepareDeletes(root, buf); e != nil {
 					return e
 				} else {
 					ops := []Operation{op}
 					for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 						for _, v := range t2d[0].n.Branches {
-							if op, keys, e := p.dm.PrepareDeletes(v, t2d[0].keys); e != nil {
+							if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
 								return e
 							} else {
 								ops = append(ops, op)
@@ -928,7 +928,7 @@ func (p *Processor) DeleteBulk(objectClass string, next func() (map[string]inter
 					for i := 0; i < len(ops)>>2; i++ {
 						ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
 					}
-					if e := p.dm.Execute(ops); e != nil {
+					if e := processor.dataManager.Execute(ops); e != nil {
 						return e
 					}
 				}
@@ -951,8 +951,8 @@ func updateValidator(t *Tuple2) (*Tuple2, bool, error) {
 	return t, false, nil
 }
 
-func (p *Processor) Update(objectClass, key string, obj map[string]interface{}) (map[string]interface{}, error) {
-	m, ok, e := p.ms.Get(objectClass)
+func (processor *Processor) Update(objectClass, key string, obj map[string]interface{}) (map[string]interface{}, error) {
+	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return nil, e
 	}
@@ -964,8 +964,8 @@ func (p *Processor) Update(objectClass, key string, obj map[string]interface{}) 
 		return nil, e
 	}
 
-	tc, e := p.flatten(m, obj, func(mn string) (objectClassValidator, error) {
-		return p.getValidator("upd:"+mn, updateValidator)
+	tc, e := processor.flatten(m, obj, func(mn string) (objectClassValidator, error) {
+		return processor.getValidator("upd:"+mn, updateValidator)
 	})
 	if e != nil {
 		return nil, e
@@ -973,14 +973,14 @@ func (p *Processor) Update(objectClass, key string, obj map[string]interface{}) 
 
 	var ops = make([]Operation, 0)
 	for _, t := range tc {
-		if op, e := p.dm.PrepareUpdates(t.First, []map[string]interface{}{t.Second}); e != nil {
+		if op, e := processor.dataManager.PrepareUpdates(t.First, []map[string]interface{}{t.Second}); e != nil {
 			return nil, e
 		} else {
 			ops = append(ops, op)
 		}
 	}
 
-	if e := p.dm.Execute(ops); e != nil {
+	if e := processor.dataManager.Execute(ops); e != nil {
 		return nil, e
 	}
 
@@ -990,8 +990,8 @@ func (p *Processor) Update(objectClass, key string, obj map[string]interface{}) 
 	return obj, nil
 }
 
-func (p *Processor) UpdateBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) error {
-	m, ok, e := p.ms.Get(objectClass)
+func (processor *Processor) UpdateBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) error {
+	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return e
 	}
@@ -999,7 +999,7 @@ func (p *Processor) UpdateBulk(objectClass string, next func() (map[string]inter
 		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
-	exCtx, e := p.dm.ExecuteContext()
+	exCtx, e := processor.dataManager.ExecuteContext()
 	if e != nil {
 		return e
 	}
@@ -1015,8 +1015,8 @@ func (p *Processor) UpdateBulk(objectClass string, next func() (map[string]inter
 		}
 
 		if len(buf) > 0 {
-			levelLader, e := p.spreadByLevelLader(m, buf, func(mn string) (objectClassValidator, error) {
-				return p.getValidator("upd:"+mn, updateValidator)
+			levelLader, e := processor.spreadByLevelLader(m, buf, func(mn string) (objectClassValidator, error) {
+				return processor.getValidator("upd:"+mn, updateValidator)
 			})
 			if e != nil {
 				return e
@@ -1024,7 +1024,7 @@ func (p *Processor) UpdateBulk(objectClass string, next func() (map[string]inter
 
 			for _, level := range levelLader {
 				for _, item := range level {
-					op, e := p.dm.PrepareUpdates(item.First, item.Second)
+					op, e := processor.dataManager.PrepareUpdates(item.First, item.Second)
 					if e != nil {
 						return e
 					}

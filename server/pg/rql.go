@@ -7,7 +7,7 @@ import (
 	"github.com/Q-CIS-DEV/custodian/logger"
 	"github.com/Q-CIS-DEV/custodian/server/data"
 	"github.com/Q-CIS-DEV/custodian/server/meta"
-	rqlParser "github.com/reaxoft/go-rql-parser"
+	"github.com/reaxoft/go-rql-parser"
 	"net/url"
 	"strconv"
 	"strings"
@@ -436,9 +436,15 @@ func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error
 
 func (st *SqlTranslator) query(tableAlias string, root *data.Node) (*SqlQuery, error) {
 	ctx := &context{root: root, tblAlias: tableAlias, binds: make([]interface{}, 0)}
-	whereExp, err := ctx.nodeToOpExpr(st.rootNode.Node)
-	if err != nil {
-		return nil, err
+	var whereStatement string
+	if st.rootNode.Node != nil {
+		whereExp, err := ctx.nodeToOpExpr(st.rootNode.Node)
+		if err != nil {
+			return nil, err
+		}
+		whereStatement = whereExp()
+	} else {
+		whereStatement = ""
 	}
 
 	sort, err := st.sort(tableAlias, root)
@@ -446,5 +452,5 @@ func (st *SqlTranslator) query(tableAlias string, root *data.Node) (*SqlQuery, e
 		return nil, err
 	}
 
-	return &SqlQuery{Where: whereExp(), Binds: ctx.binds, Sort: sort, Limit: st.rootNode.Limit(), Offset: st.rootNode.Offset()}, nil
+	return &SqlQuery{Where: whereStatement, Binds: ctx.binds, Sort: sort, Limit: st.rootNode.Limit(), Offset: st.rootNode.Offset()}, nil
 }
