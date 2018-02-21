@@ -365,15 +365,15 @@ func returnError(w http.ResponseWriter, e error) {
 	responseData := map[string]interface{}{"status": "FAIL"}
 	switch e := e.(type) {
 	case *ServerError:
-		responseData["data"] = e.Serialize()
+		responseData["error"] = e.Serialize()
 		w.WriteHeader(e.status)
 
 	case JsonError:
 		w.WriteHeader(http.StatusBadRequest)
-		responseData["data"] = e.Serialize()
+		responseData["error"] = e.Serialize()
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
-		responseData["data"] = serializeError(ErrInternalServerError, e.Error())
+		responseData["error"] = serializeError(ErrInternalServerError, e.Error())
 	}
 	//encoded
 	encodedData, _ := json.Marshal(responseData)
@@ -516,56 +516,58 @@ func asJsonSinkStream(w http.ResponseWriter) (*JsonSinkStream, error) {
 	return &JsonSinkStream{rw: w, empty: true, status: "OK", err: nil, httpStatus: http.StatusOK}, nil
 }
 
-func (jss *JsonSinkStream) PourOff(obj map[string]interface{}) error {
+func (jsonSinkStream *JsonSinkStream) PourOff(obj map[string]interface{}) error {
+	//TODO: rewrite this method, response should not be wrote as byte sequence
 	b, e := json.Marshal(obj)
 	if e != nil {
 		return e
 	}
-	if jss.empty {
-		jss.empty = false
-		jss.rw.Header().Set("Content-Type", "application/json")
-		jss.rw.WriteHeader(jss.httpStatus)
-		jss.rw.Write([]byte("{\"objs\":["))
-		jss.rw.Write(b)
+	if jsonSinkStream.empty {
+		jsonSinkStream.empty = false
+		jsonSinkStream.rw.Header().Set("Content-Type", "application/json")
+		jsonSinkStream.rw.WriteHeader(jsonSinkStream.httpStatus)
+		jsonSinkStream.rw.Write([]byte("{\"data\":["))
+		jsonSinkStream.rw.Write(b)
 		return nil
 	} else {
-		jss.rw.Write([]byte{','})
-		jss.rw.Write(b)
+		jsonSinkStream.rw.Write([]byte{','})
+		jsonSinkStream.rw.Write(b)
 		return nil
 	}
 }
 
-func (jss *JsonSinkStream) pushError(e error) {
-	jss.status = "FAILED"
+func (jsonSinkStream *JsonSinkStream) pushError(e error) {
+	jsonSinkStream.status = "FAILED"
 	switch e := e.(type) {
 	case *ServerError:
-		jss.httpStatus = e.status
-		jss.err = e.Json()
+		jsonSinkStream.httpStatus = e.status
+		jsonSinkStream.err = e.Json()
 		return
 	case JsonError:
-		jss.httpStatus = http.StatusBadRequest
-		jss.err = e.Json()
+		jsonSinkStream.httpStatus = http.StatusBadRequest
+		jsonSinkStream.err = e.Json()
 		return
 	default:
-		jss.httpStatus = http.StatusInternalServerError
+		jsonSinkStream.httpStatus = http.StatusInternalServerError
 		encodedResponse, _ := json.Marshal(serializeError(ErrInternalServerError, e.Error()))
-		jss.err = encodedResponse
+		jsonSinkStream.err = encodedResponse
 		return
 	}
 }
 
-func (jss *JsonSinkStream) Complete() {
-	if jss.empty {
-		jss.empty = false
-		jss.rw.Header().Set("Content-Type", "application/json")
-		jss.rw.WriteHeader(jss.httpStatus)
-		jss.rw.Write([]byte("{\"objs\":["))
+func (jsonSinkStream *JsonSinkStream) Complete() {
+	//TODO: rewrite this method
+	if jsonSinkStream.empty {
+		jsonSinkStream.empty = false
+		jsonSinkStream.rw.Header().Set("Content-Type", "application/json")
+		jsonSinkStream.rw.WriteHeader(jsonSinkStream.httpStatus)
+		jsonSinkStream.rw.Write([]byte("{\"data\":["))
 	}
-	jss.rw.Write([]byte("],\"status\":\"" + jss.status + "\""))
-	if jss.err != nil {
-		jss.rw.Write([]byte(",\"error\":"))
-		jss.rw.Write(jss.err)
+	jsonSinkStream.rw.Write([]byte("],\"status\":\"" + jsonSinkStream.status + "\""))
+	if jsonSinkStream.err != nil {
+		jsonSinkStream.rw.Write([]byte(",\"error\":"))
+		jsonSinkStream.rw.Write(jsonSinkStream.err)
 	}
-	jss.rw.Write([]byte("}"))
+	jsonSinkStream.rw.Write([]byte("}"))
 
 }
