@@ -156,10 +156,10 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 	router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if ok, e := metaStore.Remove(p.ByName("name")); e == nil {
+		if ok, e := metaStore.Remove(p.ByName("name")); ok {
 			js.pushEmpty()
 		} else {
-			if ok {
+			if e != nil {
 				js.pushError(e)
 			} else {
 				js.pushError(&ServerError{status: http.StatusNotFound, code: ErrNotFound})
