@@ -615,23 +615,22 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 
 // Deletes an existing object metadata from the store.
 func (metaStore *MetaStore) Remove(name string) (bool, error) {
-	metaStore.syncerMutex.Lock()
-	defer metaStore.syncerMutex.Unlock()
-	ok, err := metaStore.drv.Remove(name)
-
-	metaStore.cacheMutex.Lock()
-	delete(metaStore.cache, name)
-	metaStore.cacheMutex.Unlock()
-
-	if err != nil {
-		return ok, err
-	}
-
+	//remove object from the database
 	if e := metaStore.syncer.RemoveObj(name); e == nil {
+		//remove object`s description *.json file
+		metaStore.syncerMutex.Lock()
+		defer metaStore.syncerMutex.Unlock()
+		ok, err := metaStore.drv.Remove(name)
+		//remove object from cache
+		metaStore.cacheMutex.Lock()
+		delete(metaStore.cache, name)
+		metaStore.cacheMutex.Unlock()
+		//
 		return ok, err
 	} else {
 		return false, e
 	}
+
 }
 
 // Updates an existing object metadata.
