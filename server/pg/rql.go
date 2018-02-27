@@ -237,7 +237,7 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 		return nil, NewRqlError(ErrRQLWrongFieldName, "The field name is not string")
 	}
 
-	var p bytes.Buffer
+	var expression bytes.Buffer
 	alias := ctx.tblAlias
 	node := ctx.root
 	fields := strings.Split(fieldPath, ".")
@@ -257,12 +257,12 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 				exst.RCol = f.Name
 			}
 
-			p.WriteString("EXISTS (")
-			if err := parsedTemplExists.Execute(&p, exst); err != nil {
+			expression.WriteString("EXISTS (")
+			if err := parsedTemplExists.Execute(&expression, exst); err != nil {
 				logger.Error("RQL 'exists' template processing error: %s", err.Error())
 				return nil, NewRqlError(ErrRQLInternal, err.Error())
 			}
-			p.WriteString(" AND ")
+			expression.WriteString(")")
 
 			n, ok := node.Branches[fieldName]
 			if !ok {
@@ -275,23 +275,23 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 				return nil, NewRqlError(ErrRQLWrongFieldName, "Field path '%s' in 'eq' rql function is incorrect", fieldPath)
 			}
 
-			p.WriteString(alias)
-			p.WriteRune('.')
-			p.WriteString(fieldName)
-			p.WriteRune(' ')
+			expression.WriteString(alias)
+			expression.WriteRune('.')
+			expression.WriteString(fieldName)
+			expression.WriteRune(' ')
 			op, err := sqlOperator(f, args[1:])
 			if err != nil {
 				return nil, err
 			}
-			p.WriteString(op)
+			expression.WriteString(op)
 		}
 	}
 
 	for i := 0; i < len(fields)-1; i++ {
-		p.WriteRune(')')
+		expression.WriteRune(')')
 	}
 	return func() string {
-		return p.String()
+		return expression.String()
 	}, nil
 }
 

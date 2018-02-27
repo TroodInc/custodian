@@ -9,7 +9,7 @@ import (
 	"github.com/Q-CIS-DEV/custodian/server/data"
 	"github.com/Q-CIS-DEV/custodian/server/meta"
 	_ "github.com/lib/pq"
-	rqlParser "github.com/reaxoft/go-rql-parser"
+	"github.com/reaxoft/go-rql-parser"
 	"reflect"
 	"strconv"
 	"strings"
@@ -99,7 +99,7 @@ func (ii *insertInfo) Vals() string {
 	return b.String()
 }
 
-type selectInfo struct {
+type SelectInfo struct {
 	Cols   []string
 	From   string
 	Where  string
@@ -108,8 +108,8 @@ type selectInfo struct {
 	Offset string
 }
 
-func (si *selectInfo) sql(sql *bytes.Buffer) error {
-	return parsedTemplSelect.Execute(sql, si)
+func (selectInfo *SelectInfo) sql(sql *bytes.Buffer) error {
+	return parsedTemplSelect.Execute(sql, selectInfo)
 }
 
 type deleteInfo struct {
@@ -188,17 +188,17 @@ type StmtPreparer interface {
 }
 
 func NewStmt(sp StmtPreparer, q string) (*Stmt, error) {
-	stmt, err := sp.Prepare(q)
+	statement, err := sp.Prepare(q)
 	if err != nil {
 		logger.Error("Prepare statement error: %s %s", q, err.Error())
 		return nil, NewDMLError(ErrDMLFailed, err.Error())
 	}
 	logger.Debug("Prepared sql: %s", q)
-	return &Stmt{stmt}, nil
+	return &Stmt{statement}, nil
 }
 
-func (dm *DataManager) Prepare(q string) (*Stmt, error) {
-	return NewStmt(dm.db, q)
+func (dataManager *DataManager) Prepare(q string) (*Stmt, error) {
+	return NewStmt(dataManager.db, q)
 }
 
 type Tx struct {
@@ -348,7 +348,7 @@ func increaseCasVal(v interface{}) interface{} {
 	return cas + 1
 }
 
-func (ds *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (data.Operation, error) {
+func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (data.Operation, error) {
 	if len(objs) == 0 {
 		return emptyOperation, nil
 	}
@@ -428,7 +428,7 @@ func (ds *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]interface{
 	}, nil
 }
 
-func (ds *DataManager) PreparePuts(m *meta.Meta, objs []map[string]interface{}) (data.Operation, error) {
+func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]interface{}) (data.Operation, error) {
 	if len(objs) == 0 {
 		return emptyOperation, nil
 	}
@@ -493,8 +493,8 @@ func fieldsToCols(fields []*meta.Field, alias string) []string {
 	return cols
 }
 
-func (ds *DataManager) Get(m *meta.Meta, fields []*meta.Field, key string, val interface{}) (map[string]interface{}, error) {
-	objs, err := ds.GetAll(m, fields, key, val)
+func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.Field, key string, val interface{}) (map[string]interface{}, error) {
+	objs, err := dataManager.GetAll(m, fields, key, val)
 	if err != nil {
 		return nil, err
 	}
@@ -511,18 +511,18 @@ func (ds *DataManager) Get(m *meta.Meta, fields []*meta.Field, key string, val i
 	return objs[0], nil
 }
 
-func (ds *DataManager) GetAll(m *meta.Meta, fields []*meta.Field, key string, val interface{}) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.Field, key string, val interface{}) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}
 
-	si := &selectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: key + "=$1"}
+	selectInfo := &SelectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: key + "=$1"}
 	var q bytes.Buffer
-	if err := si.sql(&q); err != nil {
+	if err := selectInfo.sql(&q); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	stmt, err := ds.Prepare(q.String())
+	stmt, err := dataManager.Prepare(q.String())
 	if err != nil {
 		return nil, err
 	}
@@ -530,14 +530,14 @@ func (ds *DataManager) GetAll(m *meta.Meta, fields []*meta.Field, key string, va
 	return stmt.ParsedQuery([]interface{}{val}, fields)
 }
 
-func (ds *DataManager) PrepareDelete(n *data.DNode, key interface{}) (data.Operation, []interface{}, error) {
-	return ds.PrepareDeletes(n, []interface{}{key})
+func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}) (data.Operation, []interface{}, error) {
+	return dataManager.PrepareDeletes(n, []interface{}{key})
 }
 
-func (ds *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}) (data.Operation, []interface{}, error) {
+func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}) (data.Operation, []interface{}, error) {
 	var pks []interface{}
 	if n.KeyFiled.Name != n.Meta.Key.Name {
-		objs, err := ds.GetIn(n.Meta, []*meta.Field{n.Meta.Key}, n.KeyFiled.Name, keys)
+		objs, err := dataManager.GetIn(n.Meta, []*meta.Field{n.Meta.Key}, n.KeyFiled.Name, keys)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -594,8 +594,8 @@ func (ex *ExecuteContext) Close() error {
 	return ex.tx.Rollback()
 }
 
-func (ds *DataManager) ExecuteContext() (data.ExecuteContext, error) {
-	tx, err := ds.db.Begin()
+func (dataManager *DataManager) ExecuteContext() (data.ExecuteContext, error) {
+	tx, err := dataManager.db.Begin()
 	if err != nil {
 		return nil, NewDMLError(ErrTrxFailed, err.Error())
 	}
@@ -603,8 +603,8 @@ func (ds *DataManager) ExecuteContext() (data.ExecuteContext, error) {
 	return &ExecuteContext{tx: &Tx{tx}}, nil
 }
 
-func (ds *DataManager) Execute(ops []data.Operation) error {
-	ex, err := ds.ExecuteContext()
+func (dataManager *DataManager) Execute(ops []data.Operation) error {
+	ex, err := dataManager.ExecuteContext()
 	if err != nil {
 		return err
 	}
@@ -617,10 +617,10 @@ func (ds *DataManager) Execute(ops []data.Operation) error {
 	return ex.Complete()
 }
 
-func (ds *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.Field) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.Field) ([]map[string]interface{}, error) {
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
-	sq, err := translator.query(tableAlias, dataNode)
+	sqlQuery, err := translator.query(tableAlias, dataNode)
 	if err != nil {
 		return nil, err
 	}
@@ -628,28 +628,28 @@ func (ds *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNod
 	if fields == nil {
 		fields = tableFields(dataNode.Meta)
 	}
-	si := &selectInfo{From: tblName(dataNode.Meta) + " " + tableAlias,
+	si := &SelectInfo{From: tblName(dataNode.Meta) + " " + tableAlias,
 		Cols: fieldsToCols(fields, tableAlias),
-		Where: sq.Where,
-		Order: sq.Sort,
-		Limit: sq.Limit,
-		Offset: sq.Offset}
+		Where: sqlQuery.Where,
+		Order: sqlQuery.Sort,
+		Limit: sqlQuery.Limit,
+		Offset: sqlQuery.Offset}
 
-	var q bytes.Buffer
-	if err := si.sql(&q); err != nil {
+	var queryString bytes.Buffer
+	if err := si.sql(&queryString); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	stmt, err := ds.Prepare(q.String())
+	statement, err := dataManager.Prepare(queryString.String())
 	if err != nil {
 		return nil, err
 	}
-	defer stmt.Close()
+	defer statement.Close()
 
-	return stmt.ParsedQuery(sq.Binds, fields)
+	return statement.ParsedQuery(sqlQuery.Binds, fields)
 }
 
-func (ds *DataManager) GetIn(m *meta.Meta, fields []*meta.Field, key string, in []interface{}) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.Field, key string, in []interface{}) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}
@@ -658,13 +658,13 @@ func (ds *DataManager) GetIn(m *meta.Meta, fields []*meta.Field, key string, in 
 	where.WriteString(" IN (")
 	where.WriteString(nBindVals(1, len(in)))
 	where.WriteString(")")
-	si := &selectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: where.String()}
+	si := &SelectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: where.String()}
 	var q bytes.Buffer
 	if err := si.sql(&q); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	stmt, err := ds.Prepare(q.String())
+	stmt, err := dataManager.Prepare(q.String())
 	if err != nil {
 		return nil, err
 	}
