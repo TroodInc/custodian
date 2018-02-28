@@ -76,7 +76,7 @@ func (ctx *context) addBind(v interface{}) string {
 	return b.String()
 }
 
-type exists struct {
+type Exists struct {
 	Table  string
 	Alias  string
 	FK     string
@@ -163,30 +163,30 @@ func argToField(arg interface{}) (string, error) {
 	return field, nil
 }
 
-func argToFieldVal(arg interface{}, f *meta.Field) (interface{}, error) {
-	switch v := arg.(type) {
+func argToFieldVal(arg interface{}, field *meta.Field) (interface{}, error) {
+	switch value := arg.(type) {
 	case *rqlParser.RqlNode:
-		vf, ok := valueFuncs[strings.ToUpper(v.Op)]
+		vf, ok := valueFuncs[strings.ToUpper(value.Op)]
 		if !ok {
-			return nil, NewRqlError(ErrRQLUnknownValueFunc, "Value function '%s' is unknown", v.Op)
+			return nil, NewRqlError(ErrRQLUnknownValueFunc, "Value function '%s' is unknown", value.Op)
 		}
-		val, err := vf(v.Args)
+		val, err := vf(value.Args)
 		if err != nil {
 			return nil, err
 		}
-		if val != nil && !f.IsValueTypeValid(val) {
-			t, _ := f.Type.String()
-			return nil, NewRqlError(ErrRQLWrongValue, "Value '%s' is wrong. Expected: %s", v, t)
+		if val != nil && !field.IsValueTypeValid(val) {
+			t, _ := field.Type.String()
+			return nil, NewRqlError(ErrRQLWrongValue, "Value '%s' is wrong. Expected: %s", value, t)
 		}
 		return val, nil
 	case string:
-		unescaped, err := url.QueryUnescape(v)
+		unescaped, err := url.QueryUnescape(value)
 		if err != nil {
 			return nil, NewRqlError(ErrRQLWrongValue, "Can't unescape '%s' value: %s", arg, err.Error())
 		}
-		return f.ValueFromString(unescaped)
+		return field.ValueFromString(unescaped)
 	default:
-		return nil, NewRqlError(ErrRQLWrongValue, "Unknown operator's value type: '%s'", v)
+		return nil, NewRqlError(ErrRQLWrongValue, "Unknown operator's value type: '%s'", value)
 	}
 }
 
@@ -231,7 +231,11 @@ func not(ctx *context, args []interface{}) (expr, error) {
 
 type sqlOp func(*meta.Field, []interface{}) (string, error)
 
+//Assemble SQL for the given expression
 func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, error) {
+	// 	Recursively walk through each object building joins between tables and query by value at the end
+	//	example: handling "eq(fruit_tags.tag_id,1)" the function will make 1 join with "fruit_tags" and 1 filter with
+	//	"tag_id=1"
 	fieldPath, ok := args[0].(string)
 	if !ok {
 		return nil, NewRqlError(ErrRQLWrongFieldName, "The field name is not string")
@@ -240,46 +244,48 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 	var expression bytes.Buffer
 	alias := ctx.tblAlias
 	node := ctx.root
+	//split fieldPath into separate fields
 	fields := strings.Split(fieldPath, ".")
 	for i, fieldName := range fields {
-		f := node.Meta.FindField(fieldName)
-		if f == nil {
+		field := node.Meta.FindField(fieldName)
+		if field == nil {
 			return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' field", node.Meta.Name, fieldName)
 		}
-
-		if f.LinkMeta != nil {
-			exst := &exists{Table: tblName(f.LinkMeta), Alias: alias + fieldName, RAlias: alias}
-			if f.OuterLinkField != nil {
-				exst.FK = f.OuterLinkField.Name
-				exst.RCol = f.Meta.Key.Name
+		// process related object`s table join
+		// do it only if the current iteration is not that last, because the target field for the query can have the
+		// "LinkMeta"
+		if field.LinkMeta != nil && i != len(fields)-1 {
+			exists := &Exists{Table: tblName(field.LinkMeta), Alias: alias + fieldName, RAlias: alias}
+			if field.OuterLinkField != nil {
+				exists.FK = field.OuterLinkField.Name
+				exists.RCol = field.Meta.Key.Name
 			} else {
-				exst.FK = f.LinkMeta.Key.Name
-				exst.RCol = f.Name
+				exists.FK = field.LinkMeta.Key.Name
+				exists.RCol = field.Name
 			}
 
 			expression.WriteString("EXISTS (")
-			if err := parsedTemplExists.Execute(&expression, exst); err != nil {
+			if err := parsedTemplExists.Execute(&expression, exists); err != nil {
 				logger.Error("RQL 'exists' template processing error: %s", err.Error())
 				return nil, NewRqlError(ErrRQLInternal, err.Error())
 			}
-			expression.WriteString(")")
 
-			n, ok := node.Branches[fieldName]
+			expectedNode, ok := node.Branches[fieldName]
 			if !ok {
 				return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' branch", node.Meta.Name, fieldName)
 			}
-			node = n
-			alias = exst.Alias
+			node = expectedNode
+			alias = exists.Alias
+			expression.WriteString(" AND ")
 		} else {
 			if i != len(fields)-1 {
 				return nil, NewRqlError(ErrRQLWrongFieldName, "Field path '%s' in 'eq' rql function is incorrect", fieldPath)
 			}
-
 			expression.WriteString(alias)
 			expression.WriteRune('.')
 			expression.WriteString(fieldName)
 			expression.WriteRune(' ')
-			op, err := sqlOperator(f, args[1:])
+			op, err := sqlOperator(field, args[1:])
 			if err != nil {
 				return nil, err
 			}
@@ -287,6 +293,7 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 		}
 	}
 
+	//close expressions
 	for i := 0; i < len(fields)-1; i++ {
 		expression.WriteRune(')')
 	}
@@ -310,19 +317,19 @@ func (ctx *context) sqlOpIN(f *meta.Field, vals []interface{}) (string, error) {
 	return p.String(), nil
 }
 
-func (ctx *context) sqlOpEQ(f *meta.Field, vals []interface{}) (string, error) {
-	v, err := argToFieldVal(vals[0], f)
+func (ctx *context) sqlOpEQ(field *meta.Field, vals []interface{}) (string, error) {
+	value, err := argToFieldVal(vals[0], field)
 	if err != nil {
 		return "", err
 	}
 
 	var p bytes.Buffer
-	if v == nil {
+	if value == nil {
 		//special for null processing
 		p.WriteString(" IS NULL")
 	} else {
 		p.WriteString("=")
-		p.WriteString(ctx.addBind(v))
+		p.WriteString(ctx.addBind(value))
 	}
 	return p.String(), nil
 }
