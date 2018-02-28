@@ -531,11 +531,11 @@ func isBackLink(m *meta.Meta, f *meta.Field) bool {
 	return false
 }
 
-func (n *Node) fillBranches(ctx SearchContext) {
-	for i, f := range n.Meta.Fields {
+func (node *Node) fillBranches(ctx SearchContext) {
+	for _, field := range node.Meta.Fields {
 		var onlyLink = false
 		var branches map[string]*Node = nil
-		if n.Depth == ctx.depthLimit {
+		if node.Depth == ctx.depthLimit {
 			onlyLink = true
 		} else {
 			branches = make(map[string]*Node)
@@ -543,29 +543,33 @@ func (n *Node) fillBranches(ctx SearchContext) {
 		var plural = false
 		var keyFiled *meta.Field = nil
 
-		if f.LinkType == meta.LinkTypeInner && (n.Parent == nil || !isBackLink(n.Parent.Meta, &f)) {
-			keyFiled = f.LinkMeta.Key
-			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
-				KeyFiled: keyFiled,
-				Meta: f.LinkMeta,
-				Branches: branches,
-				Depth: n.Depth + 1,
-				OnlyLink: onlyLink,
-				plural: plural,
-				Parent: n}
-		} else if f.LinkType == meta.LinkTypeOuter {
-			keyFiled = f.OuterLinkField
-			if f.Type == meta.FieldTypeArray {
+		if field.LinkType == meta.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, &field)) {
+			keyFiled = field.LinkMeta.Key
+			node.Branches[field.Name] = &Node{
+				LinkField: &field,
+				KeyFiled:  keyFiled,
+				Meta:      field.LinkMeta,
+				Branches:  branches,
+				Depth:     node.Depth + 1,
+				OnlyLink:  onlyLink,
+				plural:    plural,
+				Parent:    node,
+			}
+		} else if field.LinkType == meta.LinkTypeOuter {
+			keyFiled = field.OuterLinkField
+			if field.Type == meta.FieldTypeArray {
 				plural = true
 			}
-			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
-				KeyFiled: keyFiled,
-				Meta: f.LinkMeta,
-				Branches: branches,
-				Depth: n.Depth + 1,
-				OnlyLink: onlyLink,
-				plural: plural,
-				Parent: n}
+			node.Branches[field.Name] = &Node{
+				LinkField: &field,
+				KeyFiled:  keyFiled,
+				Meta:      field.LinkMeta,
+				Branches:  branches,
+				Depth:     node.Depth + 1,
+				OnlyLink:  onlyLink,
+				plural:    plural,
+				Parent:    node,
+			}
 		}
 	}
 }
@@ -752,24 +756,32 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 	}
 }
 
-func (processor *Processor) GetBulk(objectClass, filter string, depth int, sink func(map[string]interface{}) error) error {
-	if businessObject, ok, e := processor.metaStore.Get(objectClass); e != nil {
+func (processor *Processor) GetBulk(objectName, filter string, depth int, sink func(map[string]interface{}) error) error {
+	if businessObject, ok, e := processor.metaStore.Get(objectName); e != nil {
 		return e
 	} else if !ok {
-		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		return NewDataError(objectName, ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
-		ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk"}
-		root := &Node{KeyFiled: businessObject.Key, Meta: businessObject, Branches: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
-		root.fillBranches(ctx)
-		bs := make([]*Node, 0)
-		for _, v := range root.Branches {
-			bs = append(bs, v)
+		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk"}
+		root := &Node{
+			KeyFiled: businessObject.Key,
+			Meta:     businessObject,
+			Branches: make(map[string]*Node),
+			Depth:    1,
+			OnlyLink: false,
+			plural:   false,
+			Parent:   nil,
 		}
-		for ; len(bs) > 0; bs = bs[1:] {
-			if !bs[0].OnlyLink {
-				bs[0].fillBranches(ctx)
-				for _, v := range bs[0].Branches {
-					bs = append(bs, v)
+		root.fillBranches(searchContext)
+		branches := make([]*Node, 0)
+		for _, branch := range root.Branches {
+			branches = append(branches, branch)
+		}
+		for ; len(branches) > 0; branches = branches[1:] {
+			if !branches[0].OnlyLink {
+				branches[0].fillBranches(searchContext)
+				for _, v := range branches[0].Branches {
+					branches = append(branches, v)
 				}
 			}
 		}
@@ -777,15 +789,15 @@ func (processor *Processor) GetBulk(objectClass, filter string, depth int, sink 
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
-			return NewDataError(objectClass, ErrWrongRQL, err.Error())
+			return NewDataError(objectName, ErrWrongRQL, err.Error())
 		}
 
-		objs, e := root.ResolveByRql(ctx, rqlNode)
+		objs, e := root.ResolveByRql(searchContext, rqlNode)
 		if e != nil {
 			return e
 		}
 		for tn := []tuple2na{tuple2na{root, objs}}; len(tn) > 0; tn = tn[1:] {
-			if t, e := tn[0].resolveBranches2(ctx); e != nil {
+			if t, e := tn[0].resolveBranches2(searchContext); e != nil {
 				return e
 			} else {
 				tn = append(tn, t...)
