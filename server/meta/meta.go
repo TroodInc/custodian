@@ -247,16 +247,20 @@ func (f *Field) IsValueTypeValid(v interface{}) bool {
 
 }
 
-func (f *Field) ValueFromString(v string) (interface{}, error) {
-	switch f.Type {
+func (field *Field) ValueFromString(v string) (interface{}, error) {
+	switch field.Type {
 	case FieldTypeString:
 		return v, nil
 	case FieldTypeNumber:
 		return strconv.ParseFloat(v, 64)
 	case FieldTypeBool:
 		return strconv.ParseBool(v)
+	case FieldTypeObject:
+		return strconv.Atoi(v)
+	case FieldTypeArray:
+		return strconv.Atoi(v)
 	default:
-		return nil, NewMetaError(f.Meta.Name, "pk_from_string_conversion", ErrInternal, "Unsupported conversion from 'string' for the field type '%s'", f.Type)
+		return nil, NewMetaError(field.Meta.Name, "pk_from_string_conversion", ErrInternal, "Unsupported conversion from 'string' for the field type '%s'", field.Type)
 	}
 }
 
