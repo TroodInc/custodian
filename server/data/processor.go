@@ -633,6 +633,7 @@ func (t2 tuple2n) resolveBranches(ctx SearchContext) ([]tuple2n, error) {
 func (t2 tuple2na) resolveBranches2(ctx SearchContext) ([]tuple2na, error) {
 	tn := make([]tuple2na, 0)
 	for _, v := range t2.first.Branches {
+
 		if v.LinkField.LinkType == meta.LinkTypeOuter && v.LinkField.Type == meta.FieldTypeArray {
 			keys := make([]interface{}, 0, len(t2.second))
 			refs := make(map[interface{}]map[string]interface{})
@@ -689,11 +690,15 @@ func (t2 tuple2na) resolveBranches2(ctx SearchContext) ([]tuple2na, error) {
 			for _, m := range t2.second {
 				k := m[v.LinkField.Name]
 				keys = append(keys, k)
-				refs[k] = m
+				refs[k] = map[string]interface{}{}
+				for key, value := range m {
+					refs[k][key] = value
+				}
 			}
 			if arr, e := v.Resolve2(ctx, keys); e != nil {
 				return nil, e
 			} else {
+
 				t := make([]map[string]interface{}, 0)
 				for i, o := range arr {
 					if o != nil {
@@ -793,9 +798,11 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 		}
 
 		objs, e := root.ResolveByRql(searchContext, rqlNode)
+
 		if e != nil {
 			return e
 		}
+		//recursively resolves "branches"
 		for tn := []tuple2na{tuple2na{root, objs}}; len(tn) > 0; tn = tn[1:] {
 			if t, e := tn[0].resolveBranches2(searchContext); e != nil {
 				return e
