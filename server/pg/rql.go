@@ -302,10 +302,11 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 	}, nil
 }
 
-func (ctx *context) sqlOpIN(f *meta.Field, vals []interface{}) (string, error) {
+func (ctx *context) sqlOpIN(f *meta.Field, args []interface{}) (string, error) {
+	var valuesNode = args[0].(*rqlParser.RqlNode)
 	p := bytes.NewBufferString("IN (")
-	for i := range vals {
-		v, err := argToFieldVal(vals[i], f)
+	for i := range valuesNode.Args {
+		v, err := argToFieldVal(valuesNode.Args[i], f)
 		if err != nil {
 			return "", err
 		}
@@ -370,7 +371,7 @@ func (ctx *context) sqlOpSimple(op string) sqlOp {
 
 func in(ctx *context, args []interface{}) (expr, error) {
 	if len(args) < 2 {
-		return nil, NewRqlError(ErrRQLWrong, "Expected more then one argument for '%s' rql function but founded '%d'", "in", len(args))
+		return nil, NewRqlError(ErrRQLWrong, "Expected exactly one argument for '%s' rql function but found '%d'", "in", len(args))
 	}
 	return ctx.fieldExpr(args, ctx.sqlOpIN)
 }
