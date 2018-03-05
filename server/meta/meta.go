@@ -638,11 +638,11 @@ func (metaStore *MetaStore) Remove(name string) (bool, error) {
 }
 
 // Updates an existing object metadata.
-func (metaStore *MetaStore) Update(name string, businessObj *Meta) (bool, error) {
+func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, error) {
 	if currentBusinessObj, ok, err := metaStore.Get(name); err == nil {
 		metaStore.syncerMutex.Lock()
 		defer metaStore.syncerMutex.Unlock()
-		ok, e := metaStore.drv.Update(name, *businessObj.meta)
+		ok, e := metaStore.drv.Update(name, *newBusinessObj.meta)
 		metaStore.cacheMutex.Lock()
 		delete(metaStore.cache, name)
 		metaStore.cacheMutex.Unlock()
@@ -656,21 +656,22 @@ func (metaStore *MetaStore) Update(name string, businessObj *Meta) (bool, error)
 		}
 		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
 		//behaviour should be fixed
-		if e := metaStore.syncer.UpdateObj(currentBusinessObj, businessObj); e == nil {
+		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
 			return true, nil
 		} else {
-			e2 := metaStore.syncer.UpdateObjTo(currentBusinessObj)
-			if e2 != nil {
-				logger.Error("Error while rolling back an update of meta '%s': %v", name, e2)
-				return false, e
+			//rollback to the previous version
+			rollbackError := metaStore.syncer.UpdateObjTo(currentBusinessObj)
+			if rollbackError != nil {
+				logger.Error("Error while rolling back an update of meta '%s': %v", name, rollbackError)
+				return false, updateError
 
 			}
-			_, e2 = metaStore.drv.Update(name, *currentBusinessObj.meta)
-			if e2 != nil {
-				logger.Error("Error while rolling back an update of meta '%s': %v", name, e2)
-				return false, e
+			_, rollbackError = metaStore.drv.Update(name, *currentBusinessObj.meta)
+			if rollbackError != nil {
+				logger.Error("Error while rolling back an update of meta '%s': %v", name, rollbackError)
+				return false, updateError
 			}
-			return false, nil
+			return false, updateError
 		}
 	} else {
 		return ok, err
