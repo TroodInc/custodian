@@ -936,11 +936,13 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 					ops := []Operation{op}
 					for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 						for _, v := range t2d[0].n.Branches {
-							if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
-								return e
-							} else {
-								ops = append(ops, op)
-								t2d = append(t2d, tuple2d{v, keys})
+							if len(t2d[0].keys) > 0 {
+								if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
+									return e
+								} else {
+									ops = append(ops, op)
+									t2d = append(t2d, tuple2d{v, keys})
+								}
 							}
 						}
 					}

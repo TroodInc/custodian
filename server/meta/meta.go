@@ -508,6 +508,7 @@ func (metaStore *MetaStore) newMeta(metaObj *meta) (*Meta, error) {
 		}
 
 		if bm.Cas {
+
 			if cas := bm.FindField("cas"); cas != nil {
 				if cas.Type != FieldTypeNumber {
 					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "The filed 'cas' specified in the meta '%s' as CAS must be type of 'number'", bm.meta.Cas, bm.meta.Name)
