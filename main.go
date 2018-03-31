@@ -2,8 +2,8 @@ package main
 
 import (
 	"fmt"
-	"github.com/Q-CIS-DEV/custodian/logger"
-	"github.com/Q-CIS-DEV/custodian/server"
+	"logger"
+	"server"
 	"log"
 	"os"
 )

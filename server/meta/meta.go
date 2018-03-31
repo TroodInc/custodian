@@ -3,7 +3,7 @@ package meta
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/Q-CIS-DEV/custodian/logger"
+	"logger"
 	"io"
 	"reflect"
 	"strconv"
