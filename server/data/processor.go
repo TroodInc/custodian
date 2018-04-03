@@ -483,12 +483,12 @@ func (n *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
 		return obj, nil
 	}
 
-	keyStr, err := n.keyAsString(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return fmt.Sprint(sc.lazyPath, "/", n.Meta.Name, "/", keyStr), nil
+	//keyStr, err := n.keyAsString(obj)
+	//if err != nil {
+	//	return nil, err
+	//}
+	return obj[n.Meta.Key.Name], nil
+	//return fmt.Sprint(sc.lazyPath, "/", n.Meta.Name, "/", keyStr), nil
 }
 
 func (n *Node) ResolvePlural(sc SearchContext, key interface{}) ([]interface{}, error) {
@@ -532,7 +532,7 @@ func isBackLink(m *meta.Meta, f *meta.Field) bool {
 }
 
 func (node *Node) fillBranches(ctx SearchContext) {
-	for _, field := range node.Meta.Fields {
+	for i, field := range node.Meta.Fields {
 		var onlyLink = false
 		var branches map[string]*Node = nil
 		if node.Depth == ctx.depthLimit {
@@ -546,7 +546,7 @@ func (node *Node) fillBranches(ctx SearchContext) {
 		if field.LinkType == meta.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, &field)) {
 			keyFiled = field.LinkMeta.Key
 			node.Branches[field.Name] = &Node{
-				LinkField: &field,
+				LinkField: &node.Meta.Fields[i],
 				KeyFiled:  keyFiled,
 				Meta:      field.LinkMeta,
 				Branches:  branches,
@@ -561,7 +561,7 @@ func (node *Node) fillBranches(ctx SearchContext) {
 				plural = true
 			}
 			node.Branches[field.Name] = &Node{
-				LinkField: &field,
+				LinkField: &node.Meta.Fields[i],
 				KeyFiled:  keyFiled,
 				Meta:      field.LinkMeta,
 				Branches:  branches,
