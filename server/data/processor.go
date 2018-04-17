@@ -4,8 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/Q-CIS-DEV/custodian/logger"
-	"github.com/Q-CIS-DEV/custodian/server/meta"
+	"logger"
+	"server/meta"
 	"github.com/reaxoft/go-rql-parser"
 	"strings"
 )
