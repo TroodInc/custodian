@@ -3,7 +3,7 @@ package meta
 import (
 	"bufio"
 	"encoding/json"
-	"github.com/Q-CIS-DEV/custodian/logger"
+	"logger"
 	"os"
 	"path"
 	"fmt"
