@@ -1,0 +1,29 @@
+version: "2"
+
+services:
+  custodian:
+    image: registry.getbino.com/${COMPOSE_PROJECT_NAME}/custodian:latest
+    build:
+      context: ../
+      dockerfile: ./deployment/Dockerfile
+    container_name: ${COMPOSE_PROJECT_NAME}.custodian
+    networks:
+      - ${COMPOSE_PROJECT_NAME}-network
+
+  custodian_postgres:
+    image: postgres:9.5
+    container_name: ${COMPOSE_PROJECT_NAME}.custodian.postgres
+    environment: 
+      DB_NAME: ${COMPOSE_PROJECT_NAME}_custodian
+    volumes:
+      - ./postgres/${DB_NAME}/data:/var/lib/postgresql/data
+      - ./postgres/${DB_NAME}/conf:/etc/postgresql
+      - ./postgres/${DB_NAME}/logs:/var/log/postgresql
+    environment:
+      LC_ALL: C.UTF-8
+      POSTGRES_DB: custodian
+      POSTGRES_USER: custodian
+      POSTGRES_PASSWORD: custodian
+
+    networks:
+      - ${COMPOSE_PROJECT_NAME}-network

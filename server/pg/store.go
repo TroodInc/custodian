@@ -9,7 +9,7 @@ import (
 	"server/data"
 	"server/meta"
 	_ "github.com/lib/pq"
-	"github.com/reaxoft/go-rql-parser"
+	"github.com/WhackoJacko/go-rql-parser"
 	"reflect"
 	"strconv"
 	"strings"

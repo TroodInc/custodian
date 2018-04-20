@@ -7,7 +7,7 @@
 *.so
 *.dylib
 *.swp
-
+deployment/postgres
 #executable
 custodian
 
