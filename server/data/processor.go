@@ -6,7 +6,8 @@ import (
 
 	"logger"
 	"server/meta"
-	"github.com/WhackoJacko/go-rql-parser"
+	"server/noti"
+	rqlParser "github.com/WhackoJacko/go-rql-parser"
 	"strings"
 )
 
@@ -268,7 +269,57 @@ func putValidator(t *Tuple2) (*Tuple2, bool, error) {
 	return t, true, nil
 }
 
-func (processor *Processor) Put(objectClass string, obj map[string]interface{}) (map[string]interface{}, error) {
+type notification struct {
+	method meta.Method
+	notifs map[string]chan *noti.Event
+}
+
+func newNotification(m meta.Method) *notification {
+	return &notification{method: m, notifs: make(map[string]chan *noti.Event)}
+}
+
+func (n *notification) push(m *meta.Meta, obj map[string]interface{}, isRoot bool) {
+	notifchan, ok := n.notifs[m.Name]
+	if !ok {
+		notifchan = m.Actions.StartNotification(n.method)
+		n.notifs[m.Name] = notifchan
+	}
+	notifchan <- noti.NewObjectEvent(obj, isRoot)
+}
+
+func (n *notification) pushAll(m *meta.Meta, objs []map[string]interface{}, isRoot bool) {
+	notifchan, ok := n.notifs[m.Name]
+	if !ok {
+		notifchan = m.Actions.StartNotification(n.method)
+		n.notifs[m.Name] = notifchan
+	}
+	for i, _ := range objs {
+		notifchan <- noti.NewObjectEvent(objs[i], isRoot)
+	}
+}
+
+func (n *notification) complete(err error) {
+	if err == nil {
+		n.close()
+	} else {
+		n.failed(err)
+	}
+}
+
+func (n *notification) close() {
+	for _, c := range n.notifs {
+		close(c)
+	}
+}
+
+func (n *notification) failed(err error) {
+	for _, c := range n.notifs {
+		c <- noti.NewErrorEvent(err)
+		close(c)
+	}
+}
+
+func (processor *Processor) Put(objectClass string, obj map[string]interface{}) (retObj map[string]interface{}, err error) {
 	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return nil, e
@@ -285,6 +336,10 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}) 
 	}
 
 	var ops = make([]Operation, 0)
+	n := newNotification(meta.MethodCreate)
+	defer func() {
+		n.complete(err)
+	}()
 	for _, t := range tc {
 		if op, e := processor.dataManager.PreparePuts(t.First, []map[string]interface{}{t.Second}); e != nil {
 			return nil, e
@@ -297,13 +352,15 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}) 
 		return nil, e
 	}
 
-	for ; len(tc) > 0; tc = tc[1:] {
-		collapseLinks(tc[0].Second)
+	for i, _ := range tc {
+		collapseLinks(tc[i].Second)
+		n.push(tc[i].First, tc[i].Second, i == 0)
 	}
+
 	return obj, nil
 }
 
-func (processor *Processor) PutBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) error {
+func (processor *Processor) PutBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) (response error) {
 	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return e
@@ -319,6 +376,10 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 	defer exCtx.Close()
 
 	var buf = make([]map[string]interface{}, 0, 100)
+	n := newNotification(meta.MethodCreate)
+	defer func() {
+		n.complete(response)
+	}()
 	for {
 		for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
 			if e != nil {
@@ -335,7 +396,8 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 				return e
 			}
 
-			for _, level := range levelLader {
+            for levelIdx, level := range levelLader {
+				isRoot := levelIdx == 0
 				for _, item := range level {
 					op, e := processor.dataManager.PreparePuts(item.First, item.Second)
 					if e != nil {
@@ -349,6 +411,7 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 					for _, obj := range item.Second {
 						collapseLinks(obj)
 					}
+					n.pushAll(item.First, item.Second, isRoot)
 				}
 			}
 			for _, roots := range levelLader[0] {
@@ -483,12 +546,12 @@ func (n *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
 		return obj, nil
 	}
 
-	//keyStr, err := n.keyAsString(obj)
-	//if err != nil {
-	//	return nil, err
-	//}
-	return obj[n.Meta.Key.Name], nil
-	//return fmt.Sprint(sc.lazyPath, "/", n.Meta.Name, "/", keyStr), nil
+	keyStr, err := n.keyAsString(obj)
+	if err != nil {
+		return nil, err
+	}
+
+	return fmt.Sprint(sc.lazyPath, "/", n.Meta.Name, "/", keyStr), nil
 }
 
 func (n *Node) ResolvePlural(sc SearchContext, key interface{}) ([]interface{}, error) {
@@ -531,11 +594,11 @@ func isBackLink(m *meta.Meta, f *meta.Field) bool {
 	return false
 }
 
-func (node *Node) fillBranches(ctx SearchContext) {
-	for i, field := range node.Meta.Fields {
+func (n *Node) fillBranches(ctx SearchContext) {
+	for i, f := range n.Meta.Fields {
 		var onlyLink = false
 		var branches map[string]*Node = nil
-		if node.Depth == ctx.depthLimit {
+		if n.Depth == ctx.depthLimit {
 			onlyLink = true
 		} else {
 			branches = make(map[string]*Node)
@@ -543,33 +606,29 @@ func (node *Node) fillBranches(ctx SearchContext) {
 		var plural = false
 		var keyFiled *meta.Field = nil
 
-		if field.LinkType == meta.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, &field)) {
-			keyFiled = field.LinkMeta.Key
-			node.Branches[field.Name] = &Node{
-				LinkField: &node.Meta.Fields[i],
-				KeyFiled:  keyFiled,
-				Meta:      field.LinkMeta,
-				Branches:  branches,
-				Depth:     node.Depth + 1,
-				OnlyLink:  onlyLink,
-				plural:    plural,
-				Parent:    node,
-			}
-		} else if field.LinkType == meta.LinkTypeOuter {
-			keyFiled = field.OuterLinkField
-			if field.Type == meta.FieldTypeArray {
+		if f.LinkType == meta.LinkTypeInner && (n.Parent == nil || !isBackLink(n.Parent.Meta, &f)) {
+			keyFiled = f.LinkMeta.Key
+			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
+				KeyFiled: keyFiled,
+				Meta:     f.LinkMeta,
+				Branches: branches,
+				Depth:    n.Depth + 1,
+				OnlyLink: onlyLink,
+				plural:   plural,
+				Parent:   n}
+		} else if f.LinkType == meta.LinkTypeOuter {
+			keyFiled = f.OuterLinkField
+			if f.Type == meta.FieldTypeArray {
 				plural = true
 			}
-			node.Branches[field.Name] = &Node{
-				LinkField: &node.Meta.Fields[i],
-				KeyFiled:  keyFiled,
-				Meta:      field.LinkMeta,
-				Branches:  branches,
-				Depth:     node.Depth + 1,
-				OnlyLink:  onlyLink,
-				plural:    plural,
-				Parent:    node,
-			}
+			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
+				KeyFiled: keyFiled,
+				Meta:     f.LinkMeta,
+				Branches: branches,
+				Depth:    n.Depth + 1,
+				OnlyLink: onlyLink,
+				plural:   plural,
+				Parent:   n}
 		}
 	}
 }
@@ -633,7 +692,6 @@ func (t2 tuple2n) resolveBranches(ctx SearchContext) ([]tuple2n, error) {
 func (t2 tuple2na) resolveBranches2(ctx SearchContext) ([]tuple2na, error) {
 	tn := make([]tuple2na, 0)
 	for _, v := range t2.first.Branches {
-
 		if v.LinkField.LinkType == meta.LinkTypeOuter && v.LinkField.Type == meta.FieldTypeArray {
 			keys := make([]interface{}, 0, len(t2.second))
 			refs := make(map[interface{}]map[string]interface{})
@@ -690,15 +748,11 @@ func (t2 tuple2na) resolveBranches2(ctx SearchContext) ([]tuple2na, error) {
 			for _, m := range t2.second {
 				k := m[v.LinkField.Name]
 				keys = append(keys, k)
-				refs[k] = map[string]interface{}{}
-				for key, value := range m {
-					refs[k][key] = value
-				}
+				refs[k] = m
 			}
 			if arr, e := v.Resolve2(ctx, keys); e != nil {
 				return nil, e
 			} else {
-
 				t := make([]map[string]interface{}, 0)
 				for i, o := range arr {
 					if o != nil {
@@ -844,7 +898,7 @@ type tuple2d struct {
 	keys []interface{}
 }
 
-func (processor *Processor) Delete(objectClass, key string) (bool, error) {
+func (processor *Processor) Delete(objectClass, key string) (isDeleted bool, err error) {
 	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
 		return false, e
 	} else if !ok {
@@ -863,15 +917,25 @@ func (processor *Processor) Delete(objectClass, key string) (bool, error) {
 					}
 				}
 			}
+			n := newNotification(meta.MethodRemove)
+			defer func() {
+				n.complete(err)
+			}()
 			if op, keys, e := processor.dataManager.PrepareDeletes(root, []interface{}{pk}); e != nil {
 				return false, e
 			} else {
+				n.push(root.Meta, map[string]interface{}{root.KeyFiled.Name: pk}, true)
 				ops := []Operation{op}
 				for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 					for _, v := range t2d[0].n.Branches {
 						if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
 							return false, e
 						} else {
+							objs := make([]map[string]interface{}, len(t2d[0].keys))
+							for i, k := range t2d[0].keys {
+								objs[i] = map[string]interface{}{v.KeyFiled.Name: k}
+							}
+							n.pushAll(v.Meta, objs, false)
 							ops = append(ops, op)
 							t2d = append(t2d, tuple2d{v, keys})
 						}
@@ -891,7 +955,7 @@ func (processor *Processor) Delete(objectClass, key string) (bool, error) {
 	}
 }
 
-func (processor *Processor) DeleteBulk(objectClass string, next func() (map[string]interface{}, error)) error {
+func (processor *Processor) DeleteBulk(objectClass string, next func() (map[string]interface{}, error)) (err error) {
 	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
 		return e
 	} else if !ok {
@@ -916,7 +980,10 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 		}
 		defer exCtx.Close()
 		var buf = make([]interface{}, 0, 100)
-
+		n := newNotification(meta.MethodRemove)
+		defer func() {
+			n.complete(err)
+		}()
 		for {
 			for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
 				if e != nil {
@@ -936,13 +1003,16 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 					ops := []Operation{op}
 					for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 						for _, v := range t2d[0].n.Branches {
-							if len(t2d[0].keys) > 0 {
-								if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
-									return e
-								} else {
-									ops = append(ops, op)
-									t2d = append(t2d, tuple2d{v, keys})
+							if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
+								return e
+							} else {
+								objs := make([]map[string]interface{}, len(t2d[0].keys))
+								for i, k := range t2d[0].keys {
+									objs[i] = map[string]interface{}{v.KeyFiled.Name: k}
 								}
+								n.pushAll(v.Meta, objs, false)
+								ops = append(ops, op)
+								t2d = append(t2d, tuple2d{v, keys})
 							}
 						}
 					}
@@ -972,7 +1042,7 @@ func updateValidator(t *Tuple2) (*Tuple2, bool, error) {
 	return t, false, nil
 }
 
-func (processor *Processor) Update(objectClass, key string, obj map[string]interface{}) (map[string]interface{}, error) {
+func (processor *Processor) Update(objectClass, key string, obj map[string]interface{}) (retObj map[string]interface{}, err error) {
 	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return nil, e
@@ -993,10 +1063,15 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 	}
 
 	var ops = make([]Operation, 0)
-	for _, t := range tc {
+	n := newNotification(meta.MethodUpdate)
+	defer func() {
+		n.complete(err)
+	}()
+	for i, t := range tc {
 		if op, e := processor.dataManager.PrepareUpdates(t.First, []map[string]interface{}{t.Second}); e != nil {
 			return nil, e
 		} else {
+			n.push(t.First, t.Second, i == 0)
 			ops = append(ops, op)
 		}
 	}
@@ -1011,7 +1086,7 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 	return obj, nil
 }
 
-func (processor *Processor) UpdateBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) error {
+func (processor *Processor) UpdateBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) (err error) {
 	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return e
@@ -1024,9 +1099,15 @@ func (processor *Processor) UpdateBulk(objectClass string, next func() (map[stri
 	if e != nil {
 		return e
 	}
-	defer exCtx.Close()
+	defer func() {
+		exCtx.Close()
+	}()
 
 	var buf = make([]map[string]interface{}, 0, 100)
+	n := newNotification(meta.MethodUpdate)
+	defer func() {
+		n.complete(err)
+	}()
 	for {
 		for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
 			if e != nil {
@@ -1043,7 +1124,8 @@ func (processor *Processor) UpdateBulk(objectClass string, next func() (map[stri
 				return e
 			}
 
-			for _, level := range levelLader {
+			for levelIdx, level := range levelLader {
+				isRoot := levelIdx == 0
 				for _, item := range level {
 					op, e := processor.dataManager.PrepareUpdates(item.First, item.Second)
 					if e != nil {
@@ -1057,6 +1139,7 @@ func (processor *Processor) UpdateBulk(objectClass string, next func() (map[stri
 					for _, obj := range item.Second {
 						collapseLinks(obj)
 					}
+					n.pushAll(item.First, item.Second, isRoot)
 				}
 			}
 			for _, roots := range levelLader[0] {

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"logger"
+	"server/noti"
 	"io"
 	"reflect"
 	"strconv"
@@ -359,14 +360,92 @@ func (mt Method) MarshalJSON() ([]byte, error) {
 	}
 }
 
-type Action struct {
-	*action
+var protocols []string
+
+type Protocol int
+
+func (p Protocol) String() (string, bool) {
+	if i := int(p); i <= 0 || i > len(protocols) {
+		return "", false
+	} else {
+		return protocols[i-1], true
+	}
+}
+func protocol_iota(s string) Protocol {
+	protocols = append(protocols, s)
+	return Protocol(len(protocols))
+}
+
+func asProtocol(name string) (Protocol, bool) {
+	for i, _ := range protocols {
+		if protocols[i] == name {
+			return Protocol(i + 1), true
+		}
+	}
+	return Protocol(0), false
+}
+
+var (
+	REST = protocol_iota("REST")
+)
+
+func (p *Protocol) MarshalJSON() ([]byte, error) {
+	if s, ok := p.String(); ok {
+		return json.Marshal(s)
+	} else {
+		return nil, NewMetaError("", "json_marshal", ErrJsonMarshal, "Incorrect protocol: %v", p)
+	}
+}
+func (p *Protocol) UnmarshalJSON(b []byte) error {
+	var s string
+	if e := json.Unmarshal(b, &s); e != nil {
+		return e
+	}
+	if protocol, ok := asProtocol(s); ok {
+		*p = protocol
+		return nil
+	} else {
+		return NewMetaError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect protocol: %s", s)
+	}
+}
+
+var notifierFactories = map[Protocol]noti.Factory{
+	REST: noti.NewRestNotifier,
+}
+
+type actions struct {
+	original  []action
+	notifiers map[Method][]noti.Notifier
+}
+
+func newActions(array []action) (*actions, error) {
+	notifiers := make(map[Method][]noti.Notifier)
+	for i, _ := range array {
+		factory, ok := notifierFactories[array[i].Protocol]
+		if !ok {
+			ps, _ := array[i].Protocol.String()
+			return nil, NewMetaError("", "create_actions", ErrInternal, "Notifier factory not found for protocol: %s", ps)
+		}
+
+		notifier, err := factory(array[i].Args, array[i].ActiveIfNotRoot)
+		if err != nil {
+			return nil, err
+		}
+		m := array[i].Method
+		notifiers[m] = append(notifiers[m], notifier)
+	}
+	return &actions{original: array, notifiers: notifiers}, nil
+}
+
+func (a *actions) StartNotification(method Method) chan *noti.Event {
+	return noti.Broadcast(a.notifiers[method])
 }
 
 type action struct {
-	Method   Method
-	Protocol string
-	Args     []string
+	Method          Method   `json:"method"`
+	Protocol        Protocol `json:"protocol"`
+	Args            []string `json:"args,omitempty"`
+	ActiveIfNotRoot bool     `json:"activeIfNotRoot"`
 }
 
 //Object metadata description.
@@ -374,7 +453,7 @@ type Meta struct {
 	*meta
 	Key     *Field
 	Fields  []Field
-	Actions []Action
+	Actions *actions
 }
 
 func (m *Meta) FindField(name string) *Field {
@@ -495,10 +574,10 @@ func (metaStore *MetaStore) newMeta(metaObj *meta) (*Meta, error) {
 			}
 		}
 
-		actionsLen := len(bm.meta.Actions)
-		bm.Actions = make([]Action, actionsLen, actionsLen)
-		for i, _ := range bm.meta.Actions {
-			bm.Actions[i].action = &bm.meta.Actions[i]
+		if a, err := newActions(bm.meta.Actions); err == nil {
+			bm.Actions = a
+		} else {
+			return nil, err
 		}
 
 		if bm.Key = bm.FindField(bm.meta.Key); bm.Key == nil {
@@ -508,7 +587,6 @@ func (metaStore *MetaStore) newMeta(metaObj *meta) (*Meta, error) {
 		}
 
 		if bm.Cas {
-
 			if cas := bm.FindField("cas"); cas != nil {
 				if cas.Type != FieldTypeNumber {
 					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "The filed 'cas' specified in the meta '%s' as CAS must be type of 'number'", bm.meta.Cas, bm.meta.Name)
@@ -635,7 +713,6 @@ func (metaStore *MetaStore) Remove(name string) (bool, error) {
 	} else {
 		return false, e
 	}
-
 }
 
 // Updates an existing object metadata.
