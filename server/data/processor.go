@@ -7,7 +7,7 @@ import (
 	"logger"
 	"server/meta"
 	"server/noti"
-	rqlParser "github.com/WhackoJacko/go-rql-parser"
+	"github.com/WhackoJacko/go-rql-parser"
 	"strings"
 )
 
@@ -396,7 +396,7 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 				return e
 			}
 
-            for levelIdx, level := range levelLader {
+			for levelIdx, level := range levelLader {
 				isRoot := levelIdx == 0
 				for _, item := range level {
 					op, e := processor.dataManager.PreparePuts(item.First, item.Second)
@@ -610,12 +610,12 @@ func (n *Node) fillBranches(ctx SearchContext) {
 			keyFiled = f.LinkMeta.Key
 			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
 				KeyFiled: keyFiled,
-				Meta:     f.LinkMeta,
+				Meta: f.LinkMeta,
 				Branches: branches,
-				Depth:    n.Depth + 1,
+				Depth: n.Depth + 1,
 				OnlyLink: onlyLink,
-				plural:   plural,
-				Parent:   n}
+				plural: plural,
+				Parent: n}
 		} else if f.LinkType == meta.LinkTypeOuter {
 			keyFiled = f.OuterLinkField
 			if f.Type == meta.FieldTypeArray {
@@ -623,12 +623,12 @@ func (n *Node) fillBranches(ctx SearchContext) {
 			}
 			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
 				KeyFiled: keyFiled,
-				Meta:     f.LinkMeta,
+				Meta: f.LinkMeta,
 				Branches: branches,
-				Depth:    n.Depth + 1,
+				Depth: n.Depth + 1,
 				OnlyLink: onlyLink,
-				plural:   plural,
-				Parent:   n}
+				plural: plural,
+				Parent: n}
 		}
 	}
 }
@@ -1003,16 +1003,18 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 					ops := []Operation{op}
 					for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 						for _, v := range t2d[0].n.Branches {
-							if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
-								return e
-							} else {
-								objs := make([]map[string]interface{}, len(t2d[0].keys))
-								for i, k := range t2d[0].keys {
-									objs[i] = map[string]interface{}{v.KeyFiled.Name: k}
+							if len(t2d[0].keys) > 0 {
+								if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
+									return e
+								} else {
+									objs := make([]map[string]interface{}, len(t2d[0].keys))
+									for i, k := range t2d[0].keys {
+										objs[i] = map[string]interface{}{v.KeyFiled.Name: k}
+									}
+									n.pushAll(v.Meta, objs, false)
+									ops = append(ops, op)
+									t2d = append(t2d, tuple2d{v, keys})
 								}
-								n.pushAll(v.Meta, objs, false)
-								ops = append(ops, op)
-								t2d = append(t2d, tuple2d{v, keys})
 							}
 						}
 					}
