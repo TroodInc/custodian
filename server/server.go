@@ -136,6 +136,7 @@ func (cs *CustodianServer) Run() {
 			js.pushError(err)
 		}
 	}))
+
 	router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
 		if metaObj, _, e := metaStore.Get(p.ByName("name")); e == nil {
 			js.push(map[string]interface{}{"status": "OK", "data": metaObj})
@@ -143,6 +144,7 @@ func (cs *CustodianServer) Run() {
 			js.push(map[string]interface{}{"status": "FAIL", "data": &ServerError{status: http.StatusNotFound, code: ErrNotFound}})
 		}
 	}))
+
 	router.PUT(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
 		metaObj, err := metaStore.UnmarshalJSON(r)
 		if err != nil {
