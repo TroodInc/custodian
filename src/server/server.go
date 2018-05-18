@@ -7,6 +7,7 @@ import (
 	"server/data"
 	"server/meta"
 	"server/pg"
+	"server/auth"
 	"github.com/julienschmidt/httprouter"
 	"io"
 	"mime"
@@ -16,6 +17,7 @@ import (
 	"strconv"
 	"strings"
 	"time"
+	"context"
 )
 
 //Server errors description
@@ -36,6 +38,39 @@ type ServerError struct {
 	status int
 	code   string
 	msg    string
+}
+
+type CustodianApp struct {
+	router *httprouter.Router
+	authenticator auth.Authenticator
+}
+
+func GetApp(cs *CustodianServer) *CustodianApp {
+	var authenticator auth.Authenticator
+	if cs.auth_url != "" {
+		authenticator = &auth.TroodAuthenticator{
+			cs.auth_url,
+		}
+	} else {
+		authenticator = &auth.EmptyAuthenticator{}
+	}
+
+	return &CustodianApp{
+		httprouter.New(),
+		authenticator,
+	}
+}
+
+func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+
+	if user, err := app.authenticator.Authenticate(req); err == nil {
+
+		ctx := context.WithValue(req.Context(), "auth_user", user)
+
+		app.router.ServeHTTP(w, req.WithContext(ctx))
+	} else {
+		returnError(w, err)
+	}
 }
 
 func (e *ServerError) Error() string {
@@ -94,6 +129,7 @@ type CustodianServer struct {
 	addr, port, root string
 	s                *http.Server
 	db               string
+	auth_url 		 string
 }
 
 func New(a, p, r, db string) *CustodianServer {
@@ -116,9 +152,13 @@ func (cs *CustodianServer) SetDb(d string) {
 	cs.db = d
 }
 
+func (cs *CustodianServer) SetAuth(s string) {
+	cs.auth_url = s
+}
+
 func (cs *CustodianServer) Run() {
 
-	router := httprouter.New()
+	app := GetApp(cs)
 
 	//Meta routes
 	syncer, err := pg.NewSyncer(cs.db)
@@ -129,7 +169,7 @@ func (cs *CustodianServer) Run() {
 
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 	//object operations
-	router.GET(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
+	app.router.GET(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
 		if metaList, _, err := metaStore.List(); err == nil {
 			js.push(map[string]interface{}{"status": "OK", "data": metaList})
 		} else {
@@ -137,7 +177,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
+	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
 		if metaObj, _, e := metaStore.Get(p.ByName("name")); e == nil {
 			js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 		} else {
@@ -145,7 +185,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.PUT(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
+	app.router.PUT(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
 		metaObj, err := metaStore.UnmarshalJSON(r)
 		if err != nil {
 			js.pushError(err)
@@ -157,7 +197,7 @@ func (cs *CustodianServer) Run() {
 			js.pushError(e)
 		}
 	}))
-	router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
+	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
 		if ok, e := metaStore.Remove(p.ByName("name")); ok {
 			js.pushEmpty()
 		} else {
@@ -168,7 +208,7 @@ func (cs *CustodianServer) Run() {
 			}
 		}
 	}))
-	router.POST(cs.root+"/meta/:name", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
+	app.router.POST(cs.root+"/meta/:name", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
 		//TODO: meta object gets stored in MetaStore cache while unmarshalling, so it would be available even if it was not
 		// actually stored in the Custodian
 		metaObj, err := metaStore.UnmarshalJSON(r)
@@ -187,7 +227,7 @@ func (cs *CustodianServer) Run() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 
 	//Records operations
-	router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values) {
+	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values) {
 		if recordData, err := dataProcessor.Put(p.ByName("name"), src.Value); err != nil {
 			sink.pushError(err)
 		} else {
@@ -195,7 +235,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
+	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
 		e := dataProcessor.PutBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
@@ -211,7 +251,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.GET(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
+	app.router.GET(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
 		var depth = 100
 		if i, e := strconv.Atoi(q.Get("depth")); e == nil {
 			depth = i
@@ -227,7 +267,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.GET(cs.root+"/data/bulk/:name", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL) {
+	app.router.GET(cs.root+"/data/bulk/:name", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL) {
 		defer sink.Complete()
 		pq := make(url.Values)
 		if e := softParseQuery(pq, q.RawQuery); e != nil {
@@ -244,7 +284,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.DELETE(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
+	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
 		if ok, e := dataProcessor.Delete(p.ByName("name"), p.ByName("key")); e != nil {
 			sink.pushError(e)
 		} else {
@@ -256,7 +296,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
+	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
 		e := dataProcessor.DeleteBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
@@ -272,7 +312,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values) {
+	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values) {
 		if o, e := dataProcessor.Update(p.ByName("name"), p.ByName("key"), src.Value); e != nil {
 			if dt, ok := e.(*data.DataError); ok && dt.Code == data.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
@@ -288,7 +328,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
+	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
 		e := dataProcessor.UpdateBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
@@ -310,7 +350,7 @@ func (cs *CustodianServer) Run() {
 
 	cs.s = &http.Server{
 		Addr:           cs.addr + ":" + cs.port,
-		Handler:        router,
+		Handler:        app,
 		ReadTimeout:    60 * time.Second,
 		WriteTimeout:   60 * time.Second,
 		MaxHeaderBytes: 1 << 20,
@@ -369,7 +409,9 @@ func returnError(w http.ResponseWriter, e error) {
 	case *ServerError:
 		responseData["error"] = e.Serialize()
 		w.WriteHeader(e.status)
-
+	case *auth.AuthError:
+		w.WriteHeader(http.StatusForbidden)
+		responseData["error"] = e.Serialize()
 	case JsonError:
 		w.WriteHeader(http.StatusBadRequest)
 		responseData["error"] = e.Serialize()

@@ -1,8 +1,8 @@
 FROM golang:1.8.1
 
 WORKDIR /go/src/app
-COPY ./logger /go/src/logger
-COPY ./server /go/src/server
+COPY ./src/logger /go/src/logger
+COPY ./src/server /go/src/server
 COPY ./main.go .
 COPY ./main.go .
 COPY ./deployment/wait-for-postgres.sh .
