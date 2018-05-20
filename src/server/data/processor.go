@@ -9,6 +9,7 @@ import (
 	"server/noti"
 	"github.com/WhackoJacko/go-rql-parser"
 	"strings"
+	"server/auth"
 )
 
 const (
@@ -319,7 +320,7 @@ func (n *notification) failed(err error) {
 	}
 }
 
-func (processor *Processor) Put(objectClass string, obj map[string]interface{}) (retObj map[string]interface{}, err error) {
+func (processor *Processor) Put(objectClass string, obj map[string]interface{}, actor auth.User) (retObj map[string]interface{}, err error) {
 	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return nil, e
@@ -354,7 +355,13 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}) 
 
 	for i, _ := range tc {
 		collapseLinks(tc[i].Second)
-		n.push(tc[i].First, tc[i].Second, i == 0)
+
+		notificaion_data := make(map[string]interface{})
+
+		notificaion_data["actor"] = actor
+		notificaion_data["data"] = tc[i].Second
+
+		n.push(tc[i].First, notificaion_data, i == 0)
 	}
 
 	return obj, nil
@@ -898,7 +905,7 @@ type tuple2d struct {
 	keys []interface{}
 }
 
-func (processor *Processor) Delete(objectClass, key string) (isDeleted bool, err error) {
+func (processor *Processor) Delete(objectClass, key string, actor auth.User) (isDeleted bool, err error) {
 	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
 		return false, e
 	} else if !ok {
@@ -924,7 +931,13 @@ func (processor *Processor) Delete(objectClass, key string) (isDeleted bool, err
 			if op, keys, e := processor.dataManager.PrepareDeletes(root, []interface{}{pk}); e != nil {
 				return false, e
 			} else {
-				n.push(root.Meta, map[string]interface{}{root.KeyFiled.Name: pk}, true)
+
+				notificaion_data := make(map[string]interface{})
+
+				notificaion_data["actor"] = actor
+				notificaion_data["data"] = map[string]interface{}{root.KeyFiled.Name: pk}
+
+				n.push(root.Meta, notificaion_data, true)
 				ops := []Operation{op}
 				for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 					for _, v := range t2d[0].n.Branches {
@@ -935,7 +948,13 @@ func (processor *Processor) Delete(objectClass, key string) (isDeleted bool, err
 							for i, k := range t2d[0].keys {
 								objs[i] = map[string]interface{}{v.KeyFiled.Name: k}
 							}
-							n.pushAll(v.Meta, objs, false)
+
+							notificaion_data := make(map[string]interface{})
+
+							notificaion_data["actor"] = actor
+							notificaion_data["data"] = objs
+
+							n.push(v.Meta, notificaion_data, false)
 							ops = append(ops, op)
 							t2d = append(t2d, tuple2d{v, keys})
 						}
@@ -1044,7 +1063,7 @@ func updateValidator(t *Tuple2) (*Tuple2, bool, error) {
 	return t, false, nil
 }
 
-func (processor *Processor) Update(objectClass, key string, obj map[string]interface{}) (retObj map[string]interface{}, err error) {
+func (processor *Processor) Update(objectClass, key string, obj map[string]interface{}, actor auth.User) (retObj map[string]interface{}, err error) {
 	m, ok, e := processor.metaStore.Get(objectClass)
 	if e != nil {
 		return nil, e
@@ -1073,7 +1092,12 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 		if op, e := processor.dataManager.PrepareUpdates(t.First, []map[string]interface{}{t.Second}); e != nil {
 			return nil, e
 		} else {
-			n.push(t.First, t.Second, i == 0)
+			notificaion_data := make(map[string]interface{})
+
+			notificaion_data["actor"] = actor
+			notificaion_data["data"] = tc[i].Second
+
+			n.push(t.First, notificaion_data, i == 0)
 			ops = append(ops, op)
 		}
 	}

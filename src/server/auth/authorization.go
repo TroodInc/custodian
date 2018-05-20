@@ -7,11 +7,16 @@ import (
 	"io/ioutil"
 )
 
+type AuthResponse struct {
+	Status string   `json:"status"`
+	User User       `json:"data"`
+}
+
 type User struct {
-	id int
-	login string
-	status string
-	role string
+	Id 		int 	`json:"id"`
+	Login 	string	`json:"login"`
+	Status 	string	`json:"status"`
+	Role 	string	`json:"role"`
 }
 
 func NewError(text string) error {
@@ -75,14 +80,12 @@ func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, error){
 
 
 func (this *TroodAuthenticator) FetchUser(buff io.ReadCloser) (User, error)  {
-	user := User{}
+	response := AuthResponse{}
 	body, err := ioutil.ReadAll(buff)
 	if err == nil {
-		err = json.Unmarshal(body, &user)
+		err = json.Unmarshal(body, &response)
 
-
-
-		return user, nil
+		return response.User, nil
 
 	} else {
 		return User{}, err

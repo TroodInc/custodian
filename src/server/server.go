@@ -227,8 +227,9 @@ func (cs *CustodianServer) Run() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 
 	//Records operations
-	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values) {
-		if recordData, err := dataProcessor.Put(p.ByName("name"), src.Value); err != nil {
+	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+		user := r.Context().Value("auth_user").(auth.User)
+		if recordData, err := dataProcessor.Put(p.ByName("name"), src.Value, user); err != nil {
 			sink.pushError(err)
 		} else {
 			sink.pushGeneric(recordData)
@@ -284,8 +285,9 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
-		if ok, e := dataProcessor.Delete(p.ByName("name"), p.ByName("key")); e != nil {
+	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+		user := r.Context().Value("auth_user").(auth.User)
+		if ok, e := dataProcessor.Delete(p.ByName("name"), p.ByName("key"), user); e != nil {
 			sink.pushError(e)
 		} else {
 			if ok {
@@ -312,8 +314,9 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 
-	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values) {
-		if o, e := dataProcessor.Update(p.ByName("name"), p.ByName("key"), src.Value); e != nil {
+	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+		user := r.Context().Value("auth_user").(auth.User)
+		if o, e := dataProcessor.Update(p.ByName("name"), p.ByName("key"), src.Value, user); e != nil {
 			if dt, ok := e.(*data.DataError); ok && dt.Code == data.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
@@ -360,7 +363,7 @@ func (cs *CustodianServer) Run() {
 
 //Creates an action to process an HTTP request in JSON format.
 //It takes an function to process request, which accepts JsonSource, JsonSink and PathSegments.
-func CreateDualJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Values)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
+func CreateDualJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, *http.Request)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		src, e := (*httpRequest)(r).asJsonSource()
 		if e != nil {
@@ -368,7 +371,7 @@ func CreateDualJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.
 			return
 		}
 		sink, _ := asJsonSink(w)
-		f(src, sink, p, r.URL.Query())
+		f(src, sink, p, r)
 	}
 }
 
