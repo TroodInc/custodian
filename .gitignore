@@ -18,3 +18,7 @@ custodian
 *.out
 
 .fromgit    
+bin
+pkg
+src/github.com
+src/golang.org
