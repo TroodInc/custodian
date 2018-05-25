@@ -54,14 +54,14 @@ func (syncer *Syncer) CreateObj(m *meta.Meta) error {
 	return nil
 }
 
-func (syncer *Syncer) RemoveObj(name string) error {
+func (syncer *Syncer) RemoveObj(name string, force bool) error {
 	var md *MetaDDL
 	var e error
 	if md, e = MetaDDLFromDB(syncer.db, name); e != nil {
 		return e
 	}
 	var ds DDLStmts
-	if ds, e = md.DropScript(); e != nil {
+	if ds, e = md.DropScript(force); e != nil {
 		return e
 	}
 	for _, st := range ds {

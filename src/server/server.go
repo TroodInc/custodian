@@ -41,7 +41,7 @@ type ServerError struct {
 }
 
 type CustodianApp struct {
-	router *httprouter.Router
+	router        *httprouter.Router
 	authenticator auth.Authenticator
 }
 
@@ -129,11 +129,11 @@ type CustodianServer struct {
 	addr, port, root string
 	s                *http.Server
 	db               string
-	auth_url 		 string
+	auth_url         string
 }
 
-func New(a, p, r, db string) *CustodianServer {
-	return &CustodianServer{addr: a, port: p, root: r}
+func New(host, port, urlPrefix, databaseConnectionOptions string) *CustodianServer {
+	return &CustodianServer{addr: host, port: port, root: urlPrefix, db: databaseConnectionOptions}
 }
 
 func (cs *CustodianServer) SetAddr(a string) {
@@ -156,7 +156,7 @@ func (cs *CustodianServer) SetAuth(s string) {
 	cs.auth_url = s
 }
 
-func (cs *CustodianServer) Run() {
+func (cs *CustodianServer) Setup() *http.Server {
 
 	app := GetApp(cs)
 
@@ -198,7 +198,7 @@ func (cs *CustodianServer) Run() {
 		}
 	}))
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if ok, e := metaStore.Remove(p.ByName("name")); ok {
+		if ok, e := metaStore.Remove(p.ByName("name"), false); ok {
 			js.pushEmpty()
 		} else {
 			if e != nil {
@@ -358,7 +358,7 @@ func (cs *CustodianServer) Run() {
 		WriteTimeout:   60 * time.Second,
 		MaxHeaderBytes: 1 << 20,
 	}
-	cs.s.ListenAndServe()
+	return cs.s
 }
 
 //Creates an action to process an HTTP request in JSON format.

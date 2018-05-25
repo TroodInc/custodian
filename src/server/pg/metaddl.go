@@ -64,7 +64,7 @@ func (ds *DDLStmts) Add(s *DDLStmt) {
 type ColumnType int
 
 const (
-	ColumnTypeText ColumnType = iota + 1
+	ColumnTypeText    ColumnType = iota + 1
 	ColumnTypeNumeric
 	ColumnTypeBool
 )
@@ -232,7 +232,7 @@ func valToDdl(v interface{}) (string, error) {
 	}
 }
 
-func newFieldSeq(f *meta.Field, args []interface{}) (*Seq, error) {
+func newFieldSeq(f *meta.FieldDescription, args []interface{}) (*Seq, error) {
 	if len(args) > 0 {
 		if name, err := valToDdl(args[0]); err == nil {
 			return &Seq{Name: name}, nil
@@ -244,7 +244,7 @@ func newFieldSeq(f *meta.Field, args []interface{}) (*Seq, error) {
 	}
 }
 
-func defaultNextval(f *meta.Field, args []interface{}) (ColDefVal, error) {
+func defaultNextval(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
 	if s, err := newFieldSeq(f, args); err == nil {
 		return &ColDefValSeq{s}, nil
 	} else {
@@ -252,11 +252,11 @@ func defaultNextval(f *meta.Field, args []interface{}) (ColDefVal, error) {
 	}
 }
 
-var defaultFuncs = map[string]func(f *meta.Field, args []interface{}) (ColDefVal, error){
+var defaultFuncs = map[string]func(f *meta.FieldDescription, args []interface{}) (ColDefVal, error){
 	"nextval": defaultNextval,
 }
 
-func newColDefVal(f *meta.Field) (ColDefVal, error) {
+func newColDefVal(f *meta.FieldDescription) (ColDefVal, error) {
 	if def := f.Default(); def != nil {
 		switch v := def.(type) {
 		case meta.DefConstStr:
@@ -316,14 +316,20 @@ func (md *MetaDDL) createTableScript() (*DDLStmt, error) {
 
 //DDL drop table template
 const templDropTable95 = `DROP TABLE IF EXISTS {{.Table}};`
-const templDropTable94 = `DROP TABLE {{.Table}};`
+const templDropTable94 = `DROP TABLE {{.Table}} {{.Mode}};`
 
 var parsedTemplDropTable = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(templDropTable94))
 
 //Creates a DDL to drop a table
-func (md *MetaDDL) dropTableScript() (*DDLStmt, error) {
+func (md *MetaDDL) dropTableScript(force bool) (*DDLStmt, error) {
 	var buffer bytes.Buffer
-	if e := parsedTemplDropTable.Execute(&buffer, md); e != nil {
+	var mode string
+	if force {
+		mode = "CASCADE"
+	} else {
+		mode = "STRICT"
+	}
+	if e := parsedTemplDropTable.Execute(&buffer, map[string]string{"Table": md.Table, "Mode": mode}); e != nil {
 		return nil, &DDLError{table: md.Table, code: ErrInternal, msg: e.Error()}
 	}
 	return &DDLStmt{Name: "drop_table#" + md.Table, Code: buffer.String()}, nil
@@ -468,9 +474,9 @@ func (md *MetaDDL) CreateScript() (DDLStmts, error) {
 }
 
 //Creates a full DDL to remove a table and foreign keys refer to it
-func (md *MetaDDL) DropScript() (DDLStmts, error) {
+func (md *MetaDDL) DropScript(force bool) (DDLStmts, error) {
 	var stmts = DDLStmts{}
-	if s, e := md.dropTableScript(); e != nil {
+	if s, e := md.dropTableScript(force); e != nil {
 		return nil, e
 	} else {
 		stmts.Add(s)
