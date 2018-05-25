@@ -197,7 +197,7 @@ func (rn *restNotifier) redelivery(body []byte, attempt byte) {
 	timer := time.NewTimer(time.Second * REST_REDELIVERY_PAUSE_IN_SEC)
 	logger.Info("Scheduled '%d' attempt of re-delivery notification for '%s' URL in '%d' seconds", attempt, rn.url, REST_REDELIVERY_PAUSE_IN_SEC)
 	<-timer.C
-	logger.Info("Run '%d' attempt of rre-delivery notification for '%s' URL", attempt, rn.url)
+	logger.Info("Setup '%d' attempt of rre-delivery notification for '%s' URL", attempt, rn.url)
 	pr, pw := io.Pipe()
 	go func() {
 		pw.Write(body)

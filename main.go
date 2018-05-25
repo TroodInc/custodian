@@ -36,7 +36,7 @@ func init() {
 //host=infra-pdb01 user=custodian password=custodian dbname=custodian_test sslmode=disable
 //For more information see https://godoc.org/github.com/lib/pq
 //
-//Run example: ./custodian -d "host=infra-pdb01 user=custodian password=custodian dbname=custodian_test sslmode=disable"
+//Setup example: ./custodian -d "host=infra-pdb01 user=custodian password=custodian dbname=custodian_test sslmode=disable"
 func main() {
 	var srv = server.New("", "8080", "/custodian", "")
 
@@ -78,5 +78,5 @@ func main() {
 	}
 
 	log.Println("Custodian server started.")
-	srv.Run()
+	srv.Setup().ListenAndServe()
 }

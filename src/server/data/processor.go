@@ -56,10 +56,10 @@ type ExecuteContext interface {
 }
 
 type DataManager interface {
-	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.Field) ([]map[string]interface{}, error)
-	GetIn(m *meta.Meta, fields []*meta.Field, key string, in []interface{}) ([]map[string]interface{}, error)
-	Get(m *meta.Meta, fields []*meta.Field, key string, val interface{}) (map[string]interface{}, error)
-	GetAll(m *meta.Meta, fileds []*meta.Field, key string, val interface{}) ([]map[string]interface{}, error)
+	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription) ([]map[string]interface{}, error)
+	GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}) ([]map[string]interface{}, error)
+	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) (map[string]interface{}, error)
+	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, key string, val interface{}) ([]map[string]interface{}, error)
 	PrepareDeletes(n *DNode, keys []interface{}) (Operation, []interface{}, error)
 	PreparePuts(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
 	PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
@@ -83,13 +83,13 @@ type Tuple2 struct {
 }
 
 type ALink struct {
-	Field *meta.Field
+	Field *meta.FieldDescription
 	outer bool
 	Obj   map[string]interface{}
 }
 
 type DLink struct {
-	Field *meta.Field
+	Field *meta.FieldDescription
 	outer bool
 	Id    interface{}
 }
@@ -449,8 +449,8 @@ type SearchContext struct {
 }
 
 type Node struct {
-	LinkField *meta.Field
-	KeyFiled  *meta.Field
+	LinkField *meta.FieldDescription
+	KeyFiled  *meta.FieldDescription
 	Meta      *meta.Meta
 	Branches  map[string]*Node
 	Depth     int
@@ -473,9 +473,9 @@ func (n *Node) Resolve2(sc SearchContext, keys []interface{}) (map[interface{}]i
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	var fields []*meta.Field = nil
+	var fields []*meta.FieldDescription = nil
 	if n.OnlyLink {
-		fields = []*meta.Field{n.Meta.Key, n.KeyFiled}
+		fields = []*meta.FieldDescription{n.Meta.Key, n.KeyFiled}
 	}
 
 	objs, err := sc.dm.GetIn(n.Meta, fields, n.KeyFiled.Name, keys)
@@ -503,9 +503,9 @@ func (n *Node) ResolvePlural2(sc SearchContext, keys []interface{}) (map[interfa
 	if len(keys) == 0 {
 		return nil, nil
 	}
-	var fields []*meta.Field = nil
+	var fields []*meta.FieldDescription = nil
 	if n.OnlyLink {
-		fields = []*meta.Field{n.Meta.Key, n.KeyFiled}
+		fields = []*meta.FieldDescription{n.Meta.Key, n.KeyFiled}
 	}
 
 	objs, err := sc.dm.GetIn(n.Meta, fields, n.KeyFiled.Name, keys)
@@ -535,9 +535,9 @@ func (n *Node) ResolvePlural2(sc SearchContext, keys []interface{}) (map[interfa
 }
 
 func (n *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
-	var fields []*meta.Field = nil
+	var fields []*meta.FieldDescription = nil
 	if n.OnlyLink {
-		fields = []*meta.Field{n.Meta.Key}
+		fields = []*meta.FieldDescription{n.Meta.Key}
 	}
 
 	obj, err := sc.dm.Get(n.Meta, fields, n.KeyFiled.Name, key)
@@ -563,9 +563,9 @@ func (n *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
 
 func (n *Node) ResolvePlural(sc SearchContext, key interface{}) ([]interface{}, error) {
 	logger.Debug("Resolving plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", n.Meta.Name, n.Depth, n.plural, sc, key)
-	var fields []*meta.Field = nil
+	var fields []*meta.FieldDescription = nil
 	if n.OnlyLink {
-		fields = []*meta.Field{n.Meta.Key}
+		fields = []*meta.FieldDescription{n.Meta.Key}
 	}
 
 	objs, err := sc.dm.GetAll(n.Meta, fields, n.KeyFiled.Name, key)
@@ -592,7 +592,7 @@ func (n *Node) ResolvePlural(sc SearchContext, key interface{}) ([]interface{}, 
 	return result, nil
 }
 
-func isBackLink(m *meta.Meta, f *meta.Field) bool {
+func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	for i, _ := range m.Fields {
 		if m.Fields[i].LinkType == meta.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
 			return true
@@ -611,7 +611,7 @@ func (n *Node) fillBranches(ctx SearchContext) {
 			branches = make(map[string]*Node)
 		}
 		var plural = false
-		var keyFiled *meta.Field = nil
+		var keyFiled *meta.FieldDescription = nil
 
 		if f.LinkType == meta.LinkTypeInner && (n.Parent == nil || !isBackLink(n.Parent.Meta, &f)) {
 			keyFiled = f.LinkMeta.Key
@@ -879,7 +879,7 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 }
 
 type DNode struct {
-	KeyFiled *meta.Field
+	KeyFiled *meta.FieldDescription
 	Meta     *meta.Meta
 	Branches map[string]*DNode
 	Plural   bool

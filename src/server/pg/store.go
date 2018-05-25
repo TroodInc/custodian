@@ -124,8 +124,8 @@ type updateInfo struct {
 	Filters []string
 }
 
-func tableFields(m *meta.Meta) []*meta.Field {
-	fields := make([]*meta.Field, 0)
+func tableFields(m *meta.Meta) []*meta.FieldDescription {
+	fields := make([]*meta.FieldDescription, 0)
 	l := len(m.Fields)
 	for i := 0; i < l; i++ {
 		if m.Fields[i].LinkType != meta.LinkTypeOuter {
@@ -135,7 +135,7 @@ func tableFields(m *meta.Meta) []*meta.Field {
 	return fields
 }
 
-func fieldsNames(fields []*meta.Field) []string {
+func fieldsNames(fields []*meta.FieldDescription) []string {
 	fLen := len(fields)
 	names := make([]string, fLen, fLen)
 	for i := 0; i < fLen; i++ {
@@ -144,7 +144,7 @@ func fieldsNames(fields []*meta.Field) []string {
 	return names
 }
 
-func newFieldValue(f *meta.Field) (interface{}, error) {
+func newFieldValue(f *meta.FieldDescription) (interface{}, error) {
 	switch f.Type {
 	case meta.FieldTypeString:
 		if f.Optional {
@@ -209,7 +209,7 @@ func (tx *Tx) Prepare(q string) (*Stmt, error) {
 	return NewStmt(tx.Tx, q)
 }
 
-func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.Field) ([]map[string]interface{}, error) {
+func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
 	rows, err := s.Query(binds)
 	if err != nil {
 		logger.Error("Query statement error: %s", err.Error())
@@ -219,7 +219,7 @@ func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.Field) ([]map[str
 	return rows.Parse(fields)
 }
 
-func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*meta.Field) (map[string]interface{}, error) {
+func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*meta.FieldDescription) (map[string]interface{}, error) {
 	objs, err := s.ParsedQuery(binds, fields)
 	if err != nil {
 		return nil, err
@@ -250,7 +250,7 @@ type Rows struct {
 	*sql.Rows
 }
 
-func (rows *Rows) Parse(fields []*meta.Field) ([]map[string]interface{}, error) {
+func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, NewDMLError(ErrDMLFailed, err.Error())
@@ -460,7 +460,7 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 						binds = append(binds, val)
 					}
 				} else {
-					return NewDMLError(ErrInvalidArgument, "Field '%s' not found. Object #%d. All objects must have the same set of fileds.", col, i)
+					return NewDMLError(ErrInvalidArgument, "FieldDescription '%s' not found. Object #%d. All objects must have the same set of fileds.", col, i)
 				}
 			}
 		}
@@ -482,7 +482,7 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 	}, nil
 }
 
-func fieldsToCols(fields []*meta.Field, alias string) []string {
+func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 	var cols = make([]string, len(fields), len(fields))
 	if alias != "" {
 		alias = alias + "."
@@ -493,7 +493,7 @@ func fieldsToCols(fields []*meta.Field, alias string) []string {
 	return cols
 }
 
-func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.Field, key string, val interface{}) (map[string]interface{}, error) {
+func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) (map[string]interface{}, error) {
 	objs, err := dataManager.GetAll(m, fields, key, val)
 	if err != nil {
 		return nil, err
@@ -511,7 +511,7 @@ func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.Field, key stri
 	return objs[0], nil
 }
 
-func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.Field, key string, val interface{}) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}
@@ -537,7 +537,7 @@ func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}) (d
 func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}) (data.Operation, []interface{}, error) {
 	var pks []interface{}
 	if n.KeyFiled.Name != n.Meta.Key.Name {
-		objs, err := dataManager.GetIn(n.Meta, []*meta.Field{n.Meta.Key}, n.KeyFiled.Name, keys)
+		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyFiled.Name, keys)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -617,7 +617,7 @@ func (dataManager *DataManager) Execute(ops []data.Operation) error {
 	return ex.Complete()
 }
 
-func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.Field) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
 	sqlQuery, err := translator.query(tableAlias, dataNode)
@@ -649,7 +649,7 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	return statement.ParsedQuery(sqlQuery.Binds, fields)
 }
 
-func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.Field, key string, in []interface{}) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}

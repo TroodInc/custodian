@@ -163,7 +163,7 @@ func argToField(arg interface{}) (string, error) {
 	return field, nil
 }
 
-func argToFieldVal(arg interface{}, field *meta.Field) (interface{}, error) {
+func argToFieldVal(arg interface{}, field *meta.FieldDescription) (interface{}, error) {
 	switch value := arg.(type) {
 	case *rqlParser.RqlNode:
 		vf, ok := valueFuncs[strings.ToUpper(value.Op)]
@@ -229,7 +229,7 @@ func not(ctx *context, args []interface{}) (expr, error) {
 	}, nil
 }
 
-type sqlOp func(*meta.Field, []interface{}) (string, error)
+type sqlOp func(*meta.FieldDescription, []interface{}) (string, error)
 
 //Assemble SQL for the given expression
 func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, error) {
@@ -279,7 +279,7 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 			expression.WriteString(" AND ")
 		} else {
 			if i != len(fields)-1 {
-				return nil, NewRqlError(ErrRQLWrongFieldName, "Field path '%s' in 'eq' rql function is incorrect", fieldPath)
+				return nil, NewRqlError(ErrRQLWrongFieldName, "FieldDescription path '%s' in 'eq' rql function is incorrect", fieldPath)
 			}
 			expression.WriteString(alias)
 			expression.WriteRune('.')
@@ -302,7 +302,7 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 	}, nil
 }
 
-func (ctx *context) sqlOpIN(field *meta.Field, args []interface{}) (string, error) {
+func (ctx *context) sqlOpIN(field *meta.FieldDescription, args []interface{}) (string, error) {
 	expression := bytes.NewBufferString("IN (")
 	if valuesNode, ok := args[0].(*rqlParser.RqlNode); ok {
 		//case of list of values
@@ -328,7 +328,7 @@ func (ctx *context) sqlOpIN(field *meta.Field, args []interface{}) (string, erro
 	return expression.String(), nil
 }
 
-func (ctx *context) sqlOpEQ(field *meta.Field, vals []interface{}) (string, error) {
+func (ctx *context) sqlOpEQ(field *meta.FieldDescription, vals []interface{}) (string, error) {
 	value, err := argToFieldVal(vals[0], field)
 	if err != nil {
 		return "", err
@@ -345,7 +345,7 @@ func (ctx *context) sqlOpEQ(field *meta.Field, vals []interface{}) (string, erro
 	return p.String(), nil
 }
 
-func (ctx *context) sqlOpNE(f *meta.Field, vals []interface{}) (string, error) {
+func (ctx *context) sqlOpNE(f *meta.FieldDescription, vals []interface{}) (string, error) {
 	v, err := argToFieldVal(vals[0], f)
 	if err != nil {
 		return "", err
@@ -363,7 +363,7 @@ func (ctx *context) sqlOpNE(f *meta.Field, vals []interface{}) (string, error) {
 }
 
 func (ctx *context) sqlOpSimple(op string) sqlOp {
-	return func(f *meta.Field, vals []interface{}) (string, error) {
+	return func(f *meta.FieldDescription, vals []interface{}) (string, error) {
 		v, err := argToFieldVal(vals[0], f)
 		if err != nil {
 			return "", err
