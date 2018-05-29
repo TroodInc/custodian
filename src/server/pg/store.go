@@ -278,18 +278,24 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 			case *sql.NullString:
 				if t.Valid {
 					result[i][n] = t.String
+				} else {
+					result[i][n] = nil
 				}
 			case *float64:
 				result[i][n] = *t
 			case *sql.NullFloat64:
 				if t.Valid {
 					result[i][n] = t.Float64
+				} else {
+					result[i][n] = nil
 				}
 			case *bool:
 				result[i][n] = *t
 			case *sql.NullBool:
 				if t.Valid {
 					result[i][n] = t.Bool
+				} else {
+					result[i][n] = nil
 				}
 			default:
 				return nil, NewDMLError(ErrDMLFailed, "uknown reference type '%s'", reflect.TypeOf(values[j]).String())
