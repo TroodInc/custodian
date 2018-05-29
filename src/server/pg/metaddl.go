@@ -296,11 +296,11 @@ func dictionary(values ...interface{}) (map[string]interface{}, error) {
 
 //DDL create table templates
 const (
-	templCreateTable = `CREATE TABLE {{.Table}} (
+	templCreateTable = `CREATE TABLE "{{.Table}}" (
 	{{range .Columns}}{{template "column" .}},{{"\n"}}{{end}}{{$mtable:=.Table}}{{range .IFKs}}{{template "ifk" dict "Mtable" $mtable "dot" .}},{{"\n"}}{{end}}PRIMARY KEY ({{.Pk}})
     );`
-	templCreateTableColumns = `{{define "column"}}{{.Name}} {{.Typ.DdlType}}{{if not .Optional}} NOT NULL{{end}}{{if .Unique}} UNIQUE{{end}}{{if .Defval}} DEFAULT {{.Defval}}{{end}}{{end}}`
-	templCreateTableInnerFK = `{{define "ifk"}}CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} FOREIGN KEY ({{.dot.FromColumn}}) REFERENCES {{.dot.ToTable}} ({{.dot.ToColumn}}){{end}}`
+	templCreateTableColumns = `{{define "column"}}"{{.Name}}" {{.Typ.DdlType}}{{if not .Optional}} NOT NULL{{end}}{{if .Unique}} UNIQUE{{end}}{{if .Defval}} DEFAULT {{.Defval}}{{end}}{{end}}`
+	templCreateTableInnerFK = `{{define "ifk"}}CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} FOREIGN KEY ("{{.dot.FromColumn}}") REFERENCES "{{.dot.ToTable}}" ("{{.dot.ToColumn}}"){{end}}`
 )
 
 var parsedTemplCreateTable = template.Must(template.Must(template.Must(template.New("create_table_ddl").Funcs(ddlFuncs).Parse(templCreateTable)).Parse(templCreateTableColumns)).Parse(templCreateTableInnerFK))
@@ -315,8 +315,8 @@ func (md *MetaDDL) createTableScript() (*DDLStmt, error) {
 }
 
 //DDL drop table template
-const templDropTable95 = `DROP TABLE IF EXISTS {{.Table}};`
-const templDropTable94 = `DROP TABLE {{.Table}} {{.Mode}};`
+const templDropTable95 = `DROP TABLE IF EXISTS "{{.Table}}";`
+const templDropTable94 = `DROP TABLE "{{.Table}}" {{.Mode}};`
 
 var parsedTemplDropTable = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(templDropTable94))
 
@@ -336,7 +336,7 @@ func (md *MetaDDL) dropTableScript(force bool) (*DDLStmt, error) {
 }
 
 //DDL drop table column template
-const templDropTableColumn = `ALTER TABLE {{.Table}} DROP COLUMN {{.dot.Name}};`
+const templDropTableColumn = `ALTER TABLE "{{.Table}}" DROP COLUMN "{{.dot.Name}}";`
 
 var parsedTemplDropTableColumn = template.Must(template.New("drop_table_column").Funcs(ddlFuncs).Parse(templDropTableColumn))
 
@@ -352,7 +352,7 @@ func (cl *Column) dropScript(tname string) (*DDLStmt, error) {
 }
 
 //DDL add table column template
-const templAddTableColumn = `ALTER TABLE {{.Table}} ADD COLUMN {{.dot.Name}} {{.dot.Typ.DdlType}}{{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}};`
+const templAddTableColumn = `ALTER TABLE "{{.Table}}" ADD COLUMN "{{.dot.Name}}" {{.dot.Typ.DdlType}}{{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}};`
 
 var parsedTemplAddTableColumn = template.Must(template.New("add_table_column").Funcs(ddlFuncs).Parse(templAddTableColumn))
 
@@ -368,7 +368,7 @@ func (cl *Column) addScript(tname string) (*DDLStmt, error) {
 }
 
 //DDL create table outer foreign key templates
-const templCreateOuterFK = `ALTER TABLE {{.FromTable}} ADD CONSTRAINT fk_{{.FromColumn}}_{{.ToTable}}_{{.ToColumn}} FOREIGN KEY ({{.FromColumn}}) REFERENCES {{.ToTable}} ({{.ToColumn}});`
+const templCreateOuterFK = `ALTER TABLE "{{.FromTable}}" ADD CONSTRAINT fk_{{.FromColumn}}_{{.ToTable}}_{{.ToColumn}} FOREIGN KEY "({{.FromColumn}})" REFERENCES "{{.ToTable}}" ("{{.ToColumn}}");`
 
 var parsedTemplCreateFK = template.Must(template.New("create_ofk_ddl").Funcs(ddlFuncs).Parse(templCreateOuterFK))
 
@@ -382,7 +382,7 @@ func (fk *OFK) createScript() (*DDLStmt, error) {
 }
 
 //DDL drop table outer foreign key template
-const templDropOuterFK = `ALTER TABLE {{.FromTable}} DROP CONSTRAINT fk_{{.FromColumn}}_{{.ToTable}}_{{.ToColumn}};`
+const templDropOuterFK = `ALTER TABLE "{{.FromTable}}" DROP CONSTRAINT fk_{{.FromColumn}}_{{.ToTable}}_{{.ToColumn}};`
 
 var parsedTemplDropOuterFK = template.Must(template.New("drop_ofk").Funcs(ddlFuncs).Parse(templDropOuterFK))
 
@@ -396,7 +396,7 @@ func (fk *OFK) dropScript() (*DDLStmt, error) {
 }
 
 //DDL drop table inner foreign key template
-const templDropInnerFK = `ALTER TABLE {{.Table}} DROP CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}};`
+const templDropInnerFK = `ALTER TABLE "{{.Table}}" DROP CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}};`
 
 var parsedTemplDropInnerFK = template.Must(template.New("drop_ifk").Funcs(ddlFuncs).Parse(templDropInnerFK))
 
@@ -412,7 +412,7 @@ func (fk *IFK) dropScript(tname string) (*DDLStmt, error) {
 }
 
 //DDL add table inner foreign key template
-const templAddInnerFK = `ALTER TABLE {{.Table}} ADD CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} FOREIGN KEY ({{.dot.FromColumn}}) REFERENCES {{.dot.ToTable}} ({{.dot.ToColumn}});`
+const templAddInnerFK = `ALTER TABLE "{{.Table}}" ADD CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} FOREIGN KEY ("{{.dot.FromColumn}}") REFERENCES "{{.dot.ToTable}}" ("{{.dot.ToColumn}}");`
 
 var parsedTemplAddInnerFK = template.Must(template.New("add_ifk").Funcs(ddlFuncs).Parse(templAddInnerFK))
 
@@ -428,8 +428,8 @@ func (fk *IFK) addScript(tname string) (*DDLStmt, error) {
 }
 
 //DDL scripts to create sequence
-const templCreateSeq94 = `CREATE SEQUENCE {{.Name}};`
-const templCreateSeq95 = `CREATE SEQUENCE IF NOT EXISTS {{.Name}};`
+const templCreateSeq94 = `CREATE SEQUENCE "{{.Name}}";`
+const templCreateSeq95 = `CREATE SEQUENCE IF NOT EXISTS "{{.Name}}";`
 
 var parsedTemplCreateSeq = template.Must(template.New("add_seq").Funcs(ddlFuncs).Parse(templCreateSeq94))
 
@@ -442,8 +442,8 @@ func (s *Seq) createScript() (*DDLStmt, error) {
 }
 
 //DDL scripts to drop sequence
-const templDropSeq94 = `DROP SEQUENCE {{.Name}};`
-const templDropSeq95 = `DROP SEQUENCE IF EXISTS {{.Name}};`
+const templDropSeq94 = `DROP SEQUENCE "{{.Name}}";`
+const templDropSeq95 = `DROP SEQUENCE IF EXISTS "{{.Name}}";`
 
 var parsedTemplDropSeq = template.Must(template.New("drop_seq").Funcs(ddlFuncs).Parse(templDropSeq94))
 
