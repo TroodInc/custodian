@@ -27,6 +27,10 @@ var _ = Describe("Server", func() {
 		metaStore.Flush()
 	})
 
+	AfterEach(func() {
+		metaStore.Flush()
+	})
+
 	It("can create the object", func() {
 		Context("having valid object description", func() {
 			metaData := map[string]interface{}{

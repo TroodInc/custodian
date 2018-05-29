@@ -15,6 +15,9 @@ var _ = Describe("The PG MetaStore", func() {
 	BeforeEach(func() {
 		metaStore.Flush()
 	})
+	AfterEach(func() {
+		metaStore.Flush()
+	})
 
 	It("can flush all objects", func() {
 		Context("once object is created", func() {
@@ -48,6 +51,5 @@ var _ = Describe("The PG MetaStore", func() {
 				Expect(*metaList).To(HaveLen(0))
 			})
 		})
-
 	})
 })
