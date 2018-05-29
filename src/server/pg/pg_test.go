@@ -6,12 +6,17 @@ import (
 
 	"server/pg"
 	"server/meta"
+	"server/data"
+	"server/auth"
 )
 
 var _ = Describe("PG MetaStore test", func() {
 	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
 	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+
+	dataManager, _ := syncer.NewDataManager()
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 
 	BeforeEach(func() {
 		metaStore.Flush()
@@ -166,6 +171,47 @@ var _ = Describe("PG MetaStore test", func() {
 				metaObj, _, _ = metaStore.Get(metaDescription.Name)
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(1))
+			})
+		})
+	})
+
+	It("can create object containing date field with default value", func() {
+		Context("once 'create' method is called with an object containing field with 'date' type", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+					{
+						Name:     "date",
+						Type:     meta.FieldTypeDate,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "CURRENT_DATE",
+						},
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaCreateError := metaStore.Create(metaObj)
+			Expect(metaCreateError).To(BeNil())
+			Context("and record is created", func() {
+				record, recordCreateError := dataProcessor.Put(metaObj.Name, map[string]interface{}{"name": "somename"}, auth.User{})
+				Expect(recordCreateError).To(BeNil())
+				Expect(record["date"]).To(BeAssignableToTypeOf(""))
 			})
 		})
 	})

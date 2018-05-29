@@ -13,6 +13,8 @@ const (
 	FieldTypeBool
 	FieldTypeArray
 	FieldTypeObject
+	FieldTypeDateTime
+	FieldTypeDate
 )
 
 func AsFieldType(s string) (FieldType, bool) {
@@ -27,6 +29,10 @@ func AsFieldType(s string) (FieldType, bool) {
 		return FieldTypeArray, true
 	case "object":
 		return FieldTypeObject, true
+	case "datetime":
+		return FieldTypeDateTime, true
+	case "date":
+		return FieldTypeDate, true
 	default:
 		return 0, false
 	}
@@ -44,6 +50,10 @@ func (fieldType FieldType) String() (string, bool) {
 		return "array", true
 	case FieldTypeObject:
 		return "object", true
+	case FieldTypeDateTime:
+		return "datetime", true
+	case FieldTypeDate:
+		return "date", true
 	default:
 		return "", false
 	}
@@ -51,7 +61,7 @@ func (fieldType FieldType) String() (string, bool) {
 
 func (fieldType FieldType) AssertType(i interface{}) bool {
 	switch fieldType {
-	case FieldTypeString:
+	case FieldTypeString, FieldTypeDateTime, FieldTypeDate:
 		_, ok := i.(string)
 		return ok
 	case FieldTypeNumber:
@@ -73,7 +83,7 @@ func (fieldType FieldType) AssertType(i interface{}) bool {
 
 func (fieldType FieldType) TypeAsserter() func(interface{}) bool {
 	switch fieldType {
-	case FieldTypeString:
+	case FieldTypeString, FieldTypeDateTime, FieldTypeDate:
 		return func(i interface{}) bool {
 			_, ok := i.(string)
 			return ok

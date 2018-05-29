@@ -10,10 +10,10 @@ import (
 	"server/meta"
 	_ "github.com/lib/pq"
 	"github.com/WhackoJacko/go-rql-parser"
-	"reflect"
 	"strconv"
 	"strings"
 	"text/template"
+	"reflect"
 )
 
 type DataManager struct {
@@ -146,7 +146,7 @@ func fieldsNames(fields []*meta.FieldDescription) []string {
 
 func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, error) {
 	switch f.Type {
-	case meta.FieldTypeString:
+	case meta.FieldTypeString, meta.FieldTypeDate, meta.FieldTypeDateTime:
 		if isOptional {
 			return new(sql.NullString), nil
 		} else {
@@ -258,6 +258,15 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 
 	result := make([]map[string]interface{}, 0)
 	i := 0
+	fieldByName := func(name string) *meta.FieldDescription {
+		for _, field := range fields {
+			if field.Name == name {
+				return field
+			}
+		}
+		return nil
+	}
+
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
 		for i := 0; i < len(cols); i++ {
@@ -272,34 +281,42 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 		}
 		result = append(result, make(map[string]interface{}))
 		for j, n := range cols {
-			switch t := values[j].(type) {
-			case *string:
-				result[i][n] = *t
-			case *sql.NullString:
-				if t.Valid {
-					result[i][n] = t.String
+			if fieldByName(n).Type == meta.FieldTypeDate {
+				value := values[j].(*sql.NullString)
+				if value.Valid {
+					result[i][n] = string([]rune(value.String)[0:10])
 				} else {
 					result[i][n] = nil
 				}
-			case *float64:
-				result[i][n] = *t
-			case *sql.NullFloat64:
-				if t.Valid {
-					result[i][n] = t.Float64
-				} else {
-					result[i][n] = nil
+			} else {
+				switch t := values[j].(type) {
+				case *string:
+					result[i][n] = *t
+				case *sql.NullString:
+					if t.Valid {
+						result[i][n] = t.String
+					} else {
+						result[i][n] = nil
+					}
+				case *float64:
+					result[i][n] = *t
+				case *sql.NullFloat64:
+					if t.Valid {
+						result[i][n] = t.Float64
+					} else {
+						result[i][n] = nil
+					}
+				case *bool:
+					result[i][n] = *t
+				case *sql.NullBool:
+					if t.Valid {
+						result[i][n] = t.Bool
+					} else {
+						result[i][n] = nil
+					}
+				default:
+					return nil, NewDMLError(ErrDMLFailed, "unknown reference type '%s'", reflect.TypeOf(values[j]).String())
 				}
-			case *bool:
-				result[i][n] = *t
-			case *sql.NullBool:
-				if t.Valid {
-					result[i][n] = t.Bool
-				} else {
-					result[i][n] = nil
-				}
-			default:
-				return nil, NewDMLError(ErrDMLFailed, "uknown reference type '%s'", reflect.TypeOf(values[j]).String())
-
 			}
 		}
 		i++
