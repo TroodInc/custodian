@@ -282,12 +282,17 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 		result = append(result, make(map[string]interface{}))
 		for j, n := range cols {
 			if fieldByName(n).Type == meta.FieldTypeDate {
-				value := values[j].(*sql.NullString)
-				if value.Valid {
-					result[i][n] = string([]rune(value.String)[0:10])
-				} else {
-					result[i][n] = nil
+				switch value := values[j].(type) {
+				case *sql.NullString:
+					if value.Valid {
+						result[i][n] = string([]rune(value.String)[0:10])
+					} else {
+						result[i][n] = nil
+					}
+				case *string:
+					result[i][n] = string([]rune(*value)[0:10])
 				}
+
 			} else {
 				switch t := values[j].(type) {
 				case *string:

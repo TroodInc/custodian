@@ -82,4 +82,48 @@ var _ = Describe("Data", func() {
 			})
 		})
 	})
+
+	It("can query records by date field", func() {
+		Context("having an object with date field", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "date",
+						Type: meta.FieldTypeDate,
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			Context("and two records with dates that differ by a week", func() {
+				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"date": "2018-05-29"}, auth.User{})
+				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"date": "2018-05-22"}, auth.User{})
+				matchedRecords := []map[string]interface{}{}
+				Expect(err).To(BeNil())
+				callbackFunction := func(obj map[string]interface{}) error {
+					matchedRecords = append(matchedRecords, obj)
+					return nil
+				}
+				Context("query by date returns correct result", func() {
+					dataProcessor.GetBulk(metaObj.Name, "gt(date,2018-05-23)", 1, callbackFunction)
+					Expect(matchedRecords).To(HaveLen(1))
+					Expect(matchedRecords[0]["id"]).To(Equal(record["id"]))
+				})
+			})
+
+		})
+	})
+	//
 })
