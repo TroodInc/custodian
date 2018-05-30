@@ -252,4 +252,42 @@ var _ = Describe("Data", func() {
 			})
 		})
 	})
+
+	It("can query with 'in' expression by single value", func() {
+		Context("having an object", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			recordOne, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{})
+			Expect(err).To(BeNil())
+			_, err = dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			matchedRecords := []map[string]interface{}{}
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+			Context("DataManager queries record with 'in' expression by single value", func() {
+				query := fmt.Sprintf("in(id,(%d))", int(recordOne["id"].(float64)))
+				dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction)
+				Expect(matchedRecords).To(HaveLen(1))
+			})
+		})
+	})
 })
