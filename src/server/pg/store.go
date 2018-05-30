@@ -56,7 +56,7 @@ const (
 )
 
 const (
-	templInsert = `INSERT INTO {{.Table}} ({{join .Cols ", "}}) VALUES {{.Vals}}{{if .RCols}} RETURNING {{join .RCols ", "}}{{end}}`
+	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.Vals}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}}`
 	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
 	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
 	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`

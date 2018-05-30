@@ -176,5 +176,37 @@ var _ = Describe("Data", func() {
 
 		})
 	})
-	//
+
+	It("can create record without specifying any value", func() {
+		Context("having an object with optional fields", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: true,
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			Context("DataManager creates record without any values", func() {
+				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{}, auth.User{})
+				Expect(err).To(BeNil())
+				Expect(record["id"]).To(BeEquivalentTo(1))
+			})
+		})
+	})
 })
