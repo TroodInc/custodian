@@ -17,9 +17,18 @@ var _ = Describe("Store", func() {
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	user := auth.User{1, "staff", "active", "manager"}
-	metaStore.Flush()
 
-	Describe("Having an record for person with null value", func() {
+
+	BeforeEach(func() {
+		metaStore.Flush()
+	})
+
+	AfterEach(func() {
+		metaStore.Flush()
+	})
+
+	It("Having an record for person with null value", func() {
+
 		//create meta
 		meta := meta.MetaDescription{
 			Name: "person",
@@ -45,16 +54,15 @@ var _ = Describe("Store", func() {
 			},
 		}
 		metaDescription, _ := metaStore.NewMeta(&meta)
-		metaStore.Create(metaDescription)
+
+		err := metaStore.Create(metaDescription)
+		Expect(err).To(BeNil())
 
 		//create record
 		recordData := map[string]interface{}{
 			"name": "Sergey",
 		}
 		record, _ := dataProcessor.Put(meta.Name, recordData, user)
-		It("DataProcess returns a list containing one record", func() {
-			Expect(record).To(HaveKey("gender"))
-		})
-
+		Expect(record).To(HaveKey("gender"))
 	})
 })

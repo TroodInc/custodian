@@ -18,6 +18,10 @@ var _ = Describe("The PG MetaStore", func() {
 		metaStore.Flush()
 	})
 
+	AfterEach(func() {
+		metaStore.Flush()
+	})
+
 	It("can flush all objects", func() {
 		Context("once object is created", func() {
 			metaDescription := meta.MetaDescription{

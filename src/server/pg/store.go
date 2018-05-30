@@ -144,31 +144,33 @@ func fieldsNames(fields []*meta.FieldDescription) []string {
 	return names
 }
 
-func newFieldValue(f *meta.FieldDescription) (interface{}, error) {
+
+func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, error) {
+
 	switch f.Type {
 	case meta.FieldTypeString:
-		if f.Optional {
+		if isOptional {
 			return new(sql.NullString), nil
 		} else {
 			return new(string), nil
 		}
 	case meta.FieldTypeNumber:
-		if f.Optional {
+		if isOptional {
 			return new(sql.NullFloat64), nil
 		} else {
 			return new(float64), nil
 		}
 	case meta.FieldTypeBool:
-		if f.Optional {
+		if isOptional {
 			return new(sql.NullBool), nil
 		} else {
 			return new(bool), nil
 		}
 	case meta.FieldTypeObject, meta.FieldTypeArray:
 		if f.LinkType == meta.LinkTypeInner {
-			return newFieldValue(f.LinkMeta.Key)
+			return newFieldValue(f.LinkMeta.Key, f.Optional)
 		} else {
-			return newFieldValue(f.OuterLinkField)
+			return newFieldValue(f.OuterLinkField, f.Optional)
 		}
 	default:
 		return nil, NewDMLError(ErrConvertationFailed, "Unknown field type '%s'", f.Type)
@@ -261,7 +263,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 	for rows.Next() {
 		values := make([]interface{}, len(cols))
 		for i := 0; i < len(cols); i++ {
-			values[i], err = newFieldValue(fields[i])
+			values[i], err = newFieldValue(fields[i], fields[i].Optional)
 			if err != nil {
 				return nil, err
 			}

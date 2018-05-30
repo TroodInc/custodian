@@ -17,6 +17,10 @@ var _ = Describe("PG MetaStore test", func() {
 		metaStore.Flush()
 	})
 
+	AfterEach(func() {
+		metaStore.Flush()
+	})
+
 	It("can create object with fields containing reserved words", func() {
 		Context("Once create method is called with an object containing fields with reserved words", func() {
 			metaDescription := meta.MetaDescription{
