@@ -144,7 +144,9 @@ func fieldsNames(fields []*meta.FieldDescription) []string {
 	return names
 }
 
+
 func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, error) {
+
 	switch f.Type {
 	case meta.FieldTypeString:
 		if isOptional {

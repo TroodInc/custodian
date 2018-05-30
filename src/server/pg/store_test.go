@@ -18,6 +18,7 @@ var _ = Describe("Store", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	user := auth.User{1, "staff", "active", "manager"}
 
+
 	BeforeEach(func() {
 		metaStore.Flush()
 	})
@@ -27,6 +28,7 @@ var _ = Describe("Store", func() {
 	})
 
 	It("Having an record for person with null value", func() {
+
 		//create meta
 		meta := meta.MetaDescription{
 			Name: "person",
@@ -52,8 +54,10 @@ var _ = Describe("Store", func() {
 			},
 		}
 		metaDescription, _ := metaStore.NewMeta(&meta)
+
 		err := metaStore.Create(metaDescription)
 		Expect(err).To(BeNil())
+
 		//create record
 		recordData := map[string]interface{}{
 			"name": "Sergey",
