@@ -363,7 +363,7 @@ func (md *MetaDDL) dropTableScript(force bool) (*DDLStmt, error) {
 	if force {
 		mode = "CASCADE"
 	} else {
-		mode = "STRICT"
+		mode = "RESTRICT"
 	}
 	if e := parsedTemplDropTable.Execute(&buffer, map[string]string{"Table": md.Table, "Mode": mode}); e != nil {
 		return nil, &DDLError{table: md.Table, code: ErrInternal, msg: e.Error()}
