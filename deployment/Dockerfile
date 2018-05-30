@@ -1,4 +1,4 @@
-FROM golang:1.8.1
+FROM golang:1.10
 
 WORKDIR /go/src/app
 COPY ./src/logger /go/src/logger

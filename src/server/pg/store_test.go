@@ -52,13 +52,16 @@ var _ = Describe("Store", func() {
 			},
 		}
 		metaDescription, _ := metaStore.NewMeta(&meta)
+
 		err := metaStore.Create(metaDescription)
 		Expect(err).To(BeNil())
+
 		//create record
 		recordData := map[string]interface{}{
 			"name": "Sergey",
 		}
 		record, _ := dataProcessor.Put(meta.Name, recordData, user)
 		Expect(record).To(HaveKey("gender"))
+
 	})
 })
