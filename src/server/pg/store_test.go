@@ -28,7 +28,6 @@ var _ = Describe("Store", func() {
 	})
 
 	It("Having an record for person with null value", func() {
-
 		//create meta
 		meta := meta.MetaDescription{
 			Name: "person",

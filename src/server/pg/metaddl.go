@@ -64,9 +64,11 @@ func (ds *DDLStmts) Add(s *DDLStmt) {
 type ColumnType int
 
 const (
-	ColumnTypeText    ColumnType = iota + 1
+	ColumnTypeText     ColumnType = iota + 1
 	ColumnTypeNumeric
 	ColumnTypeBool
+	ColumnTypeDate
+	ColumnTypeDateTime
 )
 
 func (ct ColumnType) DdlType() (string, error) {
@@ -77,6 +79,10 @@ func (ct ColumnType) DdlType() (string, error) {
 		return "numeric", nil
 	case ColumnTypeBool:
 		return "bool", nil
+	case ColumnTypeDate:
+		return "date", nil
+	case ColumnTypeDateTime:
+		return "timestamp with timezone", nil
 	default:
 		return "", &DDLError{code: ErrUnsupportedColumnType, msg: "Unsupported column type: " + string(ct)}
 	}
@@ -90,6 +96,10 @@ func fieldTypeToColumnType(ft meta.FieldType) (ColumnType, bool) {
 		return ColumnTypeNumeric, true
 	case meta.FieldTypeBool:
 		return ColumnTypeBool, true
+	case meta.FieldTypeDateTime:
+		return ColumnTypeDateTime, true
+	case meta.FieldTypeDate:
+		return ColumnTypeDate, true
 	default:
 		return 0, false
 	}
@@ -103,6 +113,10 @@ func dbTypeToColumnType(dt string) (ColumnType, bool) {
 		return ColumnTypeNumeric, true
 	case "boolean":
 		return ColumnTypeBool, true
+	case "timestamp with timezone":
+		return ColumnTypeDateTime, true
+	case "date":
+		return ColumnTypeDate, true
 	default:
 		return 0, false
 	}
@@ -158,6 +172,12 @@ var colDefValEmpty = ColDefValEmpty{}
 
 type ColDefValSimple struct {
 	val string
+}
+
+type ColDefDate struct{}
+
+func (colDefDate *ColDefDate) ddlVal() (string, error) {
+	return "CURRENT_DATE", nil
 }
 
 func newColDefValSimple(v interface{}) (*ColDefValSimple, error) {
@@ -252,8 +272,13 @@ func defaultNextval(f *meta.FieldDescription, args []interface{}) (ColDefVal, er
 	}
 }
 
+func defaultCurrentDate(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+	return &ColDefDate{}, nil
+}
+
 var defaultFuncs = map[string]func(f *meta.FieldDescription, args []interface{}) (ColDefVal, error){
-	"nextval": defaultNextval,
+	"nextval":      defaultNextval,
+	"current_date": defaultCurrentDate,
 }
 
 func newColDefVal(f *meta.FieldDescription) (ColDefVal, error) {
@@ -272,7 +297,7 @@ func newColDefVal(f *meta.FieldDescription) (ColDefVal, error) {
 				return &ColDefValFunc{&v}, nil
 			}
 		default:
-			return nil, &DDLError{code: ErrWrongDefultValue, msg: "Wrong defult value"}
+			return nil, &DDLError{code: ErrWrongDefultValue, msg: "Wrong default value"}
 		}
 	} else {
 		return &colDefValEmpty, nil
@@ -315,10 +340,8 @@ func (md *MetaDDL) createTableScript() (*DDLStmt, error) {
 }
 
 //DDL drop table template
-
 const templDropTable95 = `DROP TABLE IF EXISTS "{{.Table}}";`
 const templDropTable94 = `DROP TABLE "{{.Table}}" {{.Mode}};`
-
 
 var parsedTemplDropTable = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(templDropTable94))
 
