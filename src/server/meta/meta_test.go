@@ -7,7 +7,6 @@ import (
 	"server/meta"
 )
 
-
 var _ = Describe("The PG MetaStore", func() {
 	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
 	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
@@ -16,6 +15,7 @@ var _ = Describe("The PG MetaStore", func() {
 	BeforeEach(func() {
 		metaStore.Flush()
 	})
+
 	AfterEach(func() {
 		metaStore.Flush()
 	})

@@ -18,6 +18,7 @@ var _ = Describe("Store", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	user := auth.User{1, "staff", "active", "manager"}
 
+
 	BeforeEach(func() {
 		metaStore.Flush()
 	})
@@ -62,6 +63,5 @@ var _ = Describe("Store", func() {
 		}
 		record, _ := dataProcessor.Put(meta.Name, recordData, user)
 		Expect(record).To(HaveKey("gender"))
-
 	})
 })
