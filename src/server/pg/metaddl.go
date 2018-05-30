@@ -315,8 +315,10 @@ func (md *MetaDDL) createTableScript() (*DDLStmt, error) {
 }
 
 //DDL drop table template
+
 const templDropTable95 = `DROP TABLE IF EXISTS "{{.Table}}";`
 const templDropTable94 = `DROP TABLE "{{.Table}}" {{.Mode}};`
+
 
 var parsedTemplDropTable = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(templDropTable94))
 

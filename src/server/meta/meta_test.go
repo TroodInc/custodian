@@ -8,9 +8,11 @@ import (
 )
 
 var _ = Describe("The PG MetaStore", func() {
+
 	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
 	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+
 
 	BeforeEach(func() {
 		metaStore.Flush()
@@ -48,6 +50,5 @@ var _ = Describe("The PG MetaStore", func() {
 				Expect(*metaList).To(HaveLen(0))
 			})
 		})
-
 	})
 })
