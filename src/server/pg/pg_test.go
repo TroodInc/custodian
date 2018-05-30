@@ -16,6 +16,7 @@ var _ = Describe("PG MetaStore test", func() {
 	BeforeEach(func() {
 		metaStore.Flush()
 	})
+
 	AfterEach(func() {
 		metaStore.Flush()
 	})
