@@ -253,7 +253,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
-		var depth = 100
+		var depth = 2
 		if i, e := strconv.Atoi(q.Get("depth")); e == nil {
 			depth = i
 		}
@@ -274,7 +274,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 		if e := softParseQuery(pq, q.RawQuery); e != nil {
 			sink.pushError(e)
 		} else {
-			var depth = 100
+			var depth = 2
 			if i, e := strconv.Atoi(url.QueryEscape(pq.Get("depth"))); e == nil {
 				depth = i
 			}
