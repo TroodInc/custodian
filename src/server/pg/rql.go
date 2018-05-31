@@ -270,7 +270,7 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 				return nil, NewRqlError(ErrRQLInternal, err.Error())
 			}
 
-			expectedNode, ok := node.Branches[fieldName]
+			expectedNode, ok := node.ChildNodes[fieldName]
 			if !ok {
 				return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' branch", node.Meta.Name, fieldName)
 			}

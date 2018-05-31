@@ -452,13 +452,13 @@ type Node struct {
 	//LinkField is a field which links to the target object
 	LinkField *meta.FieldDescription
 	//KeyField is a field of the target object which LinkField is linking to
-	KeyField *meta.FieldDescription
-	Meta     *meta.Meta
-	Branches map[string]*Node
-	Depth    int
-	OnlyLink bool
-	plural   bool
-	Parent   *Node
+	KeyField   *meta.FieldDescription
+	Meta       *meta.Meta
+	ChildNodes map[string]*Node
+	Depth      int
+	OnlyLink   bool
+	plural     bool
+	Parent     *Node
 }
 
 func (n *Node) keyAsString(obj map[string]interface{}) (string, error) {
@@ -617,10 +617,10 @@ func (n *Node) fillBranches(ctx SearchContext) {
 
 		if f.LinkType == meta.LinkTypeInner && (n.Parent == nil || !isBackLink(n.Parent.Meta, &f)) {
 			keyFiled = f.LinkMeta.Key
-			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
+			n.ChildNodes[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
 				KeyField: keyFiled,
 				Meta: f.LinkMeta,
-				Branches: branches,
+				ChildNodes: branches,
 				Depth: n.Depth + 1,
 				OnlyLink: onlyLink,
 				plural: plural,
@@ -630,10 +630,10 @@ func (n *Node) fillBranches(ctx SearchContext) {
 			if f.Type == meta.FieldTypeArray {
 				plural = true
 			}
-			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
+			n.ChildNodes[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
 				KeyField: keyFiled,
 				Meta: f.LinkMeta,
-				Branches: branches,
+				ChildNodes: branches,
 				Depth: n.Depth + 1,
 				OnlyLink: onlyLink,
 				plural: plural,
@@ -654,7 +654,7 @@ type tuple2na struct {
 
 func (t2 tuple2n) resolveBranches(ctx SearchContext) ([]tuple2n, error) {
 	tn := make([]tuple2n, 0)
-	for _, v := range t2.first.Branches {
+	for _, v := range t2.first.ChildNodes {
 		if v.LinkField.LinkType == meta.LinkTypeOuter && v.LinkField.Type == meta.FieldTypeArray {
 			k := t2.second[v.Meta.Key.Name]
 			if arr, e := v.ResolvePlural(ctx, k); e != nil {
@@ -700,7 +700,7 @@ func (t2 tuple2n) resolveBranches(ctx SearchContext) ([]tuple2n, error) {
 
 func (t2 tuple2na) resolveBranches2(ctx SearchContext) ([]tuple2na, error) {
 	tn := make([]tuple2na, 0)
-	for _, v := range t2.first.Branches {
+	for _, v := range t2.first.ChildNodes {
 		if v.LinkField.LinkType == meta.LinkTypeOuter && v.LinkField.Type == meta.FieldTypeArray {
 			keys := make([]interface{}, 0, len(t2.second))
 			refs := make(map[interface{}]map[string]interface{})
@@ -790,16 +790,16 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 			return nil, e
 		} else {
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single"}
-			root := &Node{KeyField: m.Key, Meta: m, Branches: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
+			root := &Node{KeyField: m.Key, Meta: m, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
 			root.fillBranches(ctx)
 			branches := make([]*Node, 0)
-			for _, v := range root.Branches {
+			for _, v := range root.ChildNodes {
 				branches = append(branches, v)
 			}
 			for ; len(branches) > 0; branches = branches[1:] {
 				if !branches[0].OnlyLink {
 					branches[0].fillBranches(ctx)
-					for _, v := range branches[0].Branches {
+					for _, v := range branches[0].ChildNodes {
 						branches = append(branches, v)
 					}
 				}
@@ -832,23 +832,23 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 	} else {
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk"}
 		root := &Node{
-			KeyField: businessObject.Key,
-			Meta:     businessObject,
-			Branches: make(map[string]*Node),
-			Depth:    1,
-			OnlyLink: false,
-			plural:   false,
-			Parent:   nil,
+			KeyField:   businessObject.Key,
+			Meta:       businessObject,
+			ChildNodes: make(map[string]*Node),
+			Depth:      1,
+			OnlyLink:   false,
+			plural:     false,
+			Parent:     nil,
 		}
 		root.fillBranches(searchContext)
 		branches := make([]*Node, 0)
-		for _, branch := range root.Branches {
+		for _, branch := range root.ChildNodes {
 			branches = append(branches, branch)
 		}
 		for ; len(branches) > 0; branches = branches[1:] {
 			if !branches[0].OnlyLink {
 				branches[0].fillBranches(searchContext)
-				for _, v := range branches[0].Branches {
+				for _, v := range branches[0].ChildNodes {
 					branches = append(branches, v)
 				}
 			}
