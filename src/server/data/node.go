@@ -3,7 +3,7 @@ package data
 import (
 	"logger"
 	"server/meta"
-	"github.com/WhackoJacko/go-rql-parser"
+	"github.com/Q-CIS-DEV/go-rql-parser"
 	"fmt"
 )
 

@@ -7,7 +7,7 @@ import (
 	"logger"
 	"server/data"
 	"server/meta"
-	"github.com/WhackoJacko/go-rql-parser"
+	"github.com/Q-CIS-DEV/go-rql-parser"
 	"net/url"
 	"strconv"
 	"strings"

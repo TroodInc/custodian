@@ -6,7 +6,7 @@ import (
 
 	"server/meta"
 	"server/noti"
-	"github.com/WhackoJacko/go-rql-parser"
+	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strings"
 	"server/auth"
 )

@@ -9,7 +9,7 @@ import (
 	"server/data"
 	"server/meta"
 	_ "github.com/lib/pq"
-	"github.com/WhackoJacko/go-rql-parser"
+	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strconv"
 	"strings"
 	"text/template"
