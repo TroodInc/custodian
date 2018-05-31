@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"logger"
 	"server/meta"
 	"server/noti"
 	"github.com/WhackoJacko/go-rql-parser"
@@ -448,152 +447,6 @@ type SearchContext struct {
 	lazyPath   string
 }
 
-type Node struct {
-	//LinkField is a field which links to the target object
-	LinkField *meta.FieldDescription
-	//KeyField is a field of the target object which LinkField is linking to
-	KeyField   *meta.FieldDescription
-	Meta       *meta.Meta
-	ChildNodes map[string]*Node
-	Depth      int
-	OnlyLink   bool
-	plural     bool
-	Parent     *Node
-}
-
-func (n *Node) keyAsString(obj map[string]interface{}) (string, error) {
-	v := obj[n.Meta.Key.Name]
-	str, err := n.Meta.Key.ValueAsString(v)
-	return str, err
-}
-
-func (n *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, error) {
-	return sc.dm.GetRql(n, rqlNode, nil)
-}
-
-func (n *Node) Resolve2(sc SearchContext, keys []interface{}) (map[interface{}]interface{}, error) {
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	var fields []*meta.FieldDescription = nil
-	if n.OnlyLink {
-		fields = []*meta.FieldDescription{n.Meta.Key, n.KeyField}
-	}
-
-	objs, err := sc.dm.GetIn(n.Meta, fields, n.KeyField.Name, keys)
-	if err != nil {
-		return nil, err
-	}
-
-	res := make(map[interface{}]interface{})
-	for i := range objs {
-		if n.OnlyLink {
-			keyStr, err := n.keyAsString(objs[i])
-			if err != nil {
-				return nil, err
-			}
-			res[objs[i][n.KeyField.Name]] = keyStr
-		} else {
-			res[objs[i][n.KeyField.Name]] = objs[i]
-		}
-	}
-
-	return res, nil
-}
-
-func (n *Node) ResolvePlural2(sc SearchContext, keys []interface{}) (map[interface{}][]interface{}, error) {
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	var fields []*meta.FieldDescription = nil
-	if n.OnlyLink {
-		fields = []*meta.FieldDescription{n.Meta.Key, n.KeyField}
-	}
-
-	objs, err := sc.dm.GetIn(n.Meta, fields, n.KeyField.Name, keys)
-	if err != nil {
-		return nil, err
-	}
-
-	res := make(map[interface{}][]interface{})
-	for i := range objs {
-		key := objs[i][n.KeyField.Name]
-		arr, ok := res[key]
-		if !ok {
-			arr = make([]interface{}, 0)
-		}
-		if n.OnlyLink {
-			keyStr, err := n.keyAsString(objs[i])
-			if err != nil {
-				return nil, err
-			}
-			res[key] = append(arr, fmt.Sprint(sc.lazyPath, "/", n.Meta.Name, "/", keyStr))
-		} else {
-			res[key] = append(arr, objs[i])
-		}
-	}
-
-	return res, nil
-}
-
-func (n *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
-	var fields []*meta.FieldDescription = nil
-	if n.OnlyLink {
-		fields = []*meta.FieldDescription{n.Meta.Key}
-	}
-
-	obj, err := sc.dm.Get(n.Meta, fields, n.KeyField.Name, key)
-	if err != nil {
-		return nil, err
-	}
-
-	if obj == nil {
-		return nil, nil
-	}
-
-	if !n.OnlyLink {
-		return obj, nil
-	}
-
-	keyStr, err := n.keyAsString(obj)
-	if err != nil {
-		return nil, err
-	}
-
-	return fmt.Sprint(sc.lazyPath, "/", n.Meta.Name, "/", keyStr), nil
-}
-
-func (n *Node) ResolvePlural(sc SearchContext, key interface{}) ([]interface{}, error) {
-	logger.Debug("Resolving plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", n.Meta.Name, n.Depth, n.plural, sc, key)
-	var fields []*meta.FieldDescription = nil
-	if n.OnlyLink {
-		fields = []*meta.FieldDescription{n.Meta.Key}
-	}
-
-	objs, err := sc.dm.GetAll(n.Meta, fields, n.KeyField.Name, key)
-	if err != nil {
-		return nil, err
-	}
-
-	objsLength := len(objs)
-	result := make([]interface{}, objsLength, objsLength)
-	if n.OnlyLink {
-		for i, obj := range objs {
-			keyStr, err := n.keyAsString(obj)
-			if err != nil {
-				return nil, err
-			}
-			result[i] = fmt.Sprint(sc.lazyPath, "/", n.Meta.Name, "/", keyStr)
-		}
-	} else {
-		for i, obj := range objs {
-			result[i] = obj
-		}
-	}
-
-	return result, nil
-}
-
 func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	for i, _ := range m.Fields {
 		if m.Fields[i].LinkType == meta.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
@@ -603,99 +456,9 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	return false
 }
 
-func (n *Node) fillBranches(ctx SearchContext) {
-	for i, f := range n.Meta.Fields {
-		var onlyLink = false
-		var branches map[string]*Node = nil
-		if n.Depth == ctx.depthLimit {
-			onlyLink = true
-		} else {
-			branches = make(map[string]*Node)
-		}
-		var plural = false
-		var keyFiled *meta.FieldDescription = nil
-
-		if f.LinkType == meta.LinkTypeInner && (n.Parent == nil || !isBackLink(n.Parent.Meta, &f)) {
-			keyFiled = f.LinkMeta.Key
-			n.ChildNodes[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
-				KeyField: keyFiled,
-				Meta: f.LinkMeta,
-				ChildNodes: branches,
-				Depth: n.Depth + 1,
-				OnlyLink: onlyLink,
-				plural: plural,
-				Parent: n}
-		} else if f.LinkType == meta.LinkTypeOuter {
-			keyFiled = f.OuterLinkField
-			if f.Type == meta.FieldTypeArray {
-				plural = true
-			}
-			n.ChildNodes[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
-				KeyField: keyFiled,
-				Meta: f.LinkMeta,
-				ChildNodes: branches,
-				Depth: n.Depth + 1,
-				OnlyLink: onlyLink,
-				plural: plural,
-				Parent: n}
-		}
-	}
-}
-
-type tuple2n struct {
-	first  *Node
-	second map[string]interface{}
-}
-
 type tuple2na struct {
 	first  *Node
 	second []map[string]interface{}
-}
-
-func (t2 tuple2n) resolveBranches(ctx SearchContext) ([]tuple2n, error) {
-	tn := make([]tuple2n, 0)
-	for _, v := range t2.first.ChildNodes {
-		if v.LinkField.LinkType == meta.LinkTypeOuter && v.LinkField.Type == meta.FieldTypeArray {
-			k := t2.second[v.Meta.Key.Name]
-			if arr, e := v.ResolvePlural(ctx, k); e != nil {
-				return nil, e
-			} else if arr != nil {
-				t2.second[v.LinkField.Name] = arr
-				for _, m := range arr {
-					if !v.OnlyLink {
-						tn = append(tn, tuple2n{v, m.(map[string]interface{})})
-					}
-				}
-			} else {
-				delete(t2.second, v.LinkField.Name)
-			}
-		} else if v.LinkField.LinkType == meta.LinkTypeOuter {
-			k := t2.second[v.Meta.Key.Name]
-			if i, e := v.Resolve(ctx, k); e != nil {
-				return nil, e
-			} else if i != nil {
-				t2.second[v.LinkField.Name] = i
-				if !v.OnlyLink {
-					tn = append(tn, tuple2n{v, i.(map[string]interface{})})
-				}
-			} else {
-				delete(t2.second, v.LinkField.Name)
-			}
-		} else if v.LinkField.LinkType == meta.LinkTypeInner {
-			k := t2.second[v.LinkField.Name]
-			if i, e := v.Resolve(ctx, k); e != nil {
-				return nil, e
-			} else if i != nil {
-				t2.second[v.LinkField.Name] = i
-				if !v.OnlyLink {
-					tn = append(tn, tuple2n{v, i.(map[string]interface{})})
-				}
-			} else {
-				delete(t2.second, v.LinkField.Name)
-			}
-		}
-	}
-	return tn, nil
 }
 
 func (t2 tuple2na) resolveBranches2(ctx SearchContext) ([]tuple2na, error) {
@@ -790,20 +553,9 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 			return nil, e
 		} else {
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single"}
+
 			root := &Node{KeyField: m.Key, Meta: m, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
-			root.fillBranches(ctx)
-			branches := make([]*Node, 0)
-			for _, v := range root.ChildNodes {
-				branches = append(branches, v)
-			}
-			for ; len(branches) > 0; branches = branches[1:] {
-				if !branches[0].OnlyLink {
-					branches[0].fillBranches(ctx)
-					for _, v := range branches[0].ChildNodes {
-						branches = append(branches, v)
-					}
-				}
-			}
+			root.RecursivelyFillChildNodes(ctx.depthLimit)
 
 			if o, e := root.Resolve(ctx, pk); e != nil {
 				return nil, e
@@ -811,11 +563,11 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 				return nil, nil
 			} else {
 				obj := o.(map[string]interface{})
-				for tn := []tuple2n{tuple2n{root, obj}}; len(tn) > 0; tn = tn[1:] {
-					if t, e := tn[0].resolveBranches(ctx); e != nil {
+				for nodeResults := []NodeResult{{root, obj}}; len(nodeResults) > 0; nodeResults = nodeResults[1:] {
+					if childNodesResults, e := nodeResults[0].getFilledChildNodes(ctx); e != nil {
 						return nil, e
 					} else {
-						tn = append(tn, t...)
+						nodeResults = append(nodeResults, childNodesResults...)
 					}
 				}
 				return obj, nil
@@ -840,19 +592,7 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 			plural:     false,
 			Parent:     nil,
 		}
-		root.fillBranches(searchContext)
-		branches := make([]*Node, 0)
-		for _, branch := range root.ChildNodes {
-			branches = append(branches, branch)
-		}
-		for ; len(branches) > 0; branches = branches[1:] {
-			if !branches[0].OnlyLink {
-				branches[0].fillBranches(searchContext)
-				for _, v := range branches[0].ChildNodes {
-					branches = append(branches, v)
-				}
-			}
-		}
+		root.RecursivelyFillChildNodes(searchContext.depthLimit)
 
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
@@ -881,22 +621,22 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 }
 
 type DNode struct {
-	KeyFiled *meta.FieldDescription
-	Meta     *meta.Meta
-	Branches map[string]*DNode
-	Plural   bool
+	KeyFiled   *meta.FieldDescription
+	Meta       *meta.Meta
+	ChildNodes map[string]*DNode
+	Plural     bool
 }
 
-func (dn *DNode) fillOuterBranches() {
+func (dn *DNode) fillOuterChildNodes() {
 	for _, f := range dn.Meta.Fields {
 		if f.LinkType == meta.LinkTypeOuter {
 			var plural = false
 			if f.Type == meta.FieldTypeArray {
 				plural = true
 			}
-			dn.Branches[f.Name] = &DNode{KeyFiled: f.OuterLinkField,
+			dn.ChildNodes[f.Name] = &DNode{KeyFiled: f.OuterLinkField,
 				Meta: f.LinkMeta,
-				Branches: make(map[string]*DNode),
+				ChildNodes: make(map[string]*DNode),
 				Plural: plural}
 		}
 	}
@@ -916,13 +656,13 @@ func (processor *Processor) Delete(objectClass, key string, actor auth.User) (is
 		if pk, e := m.Key.ValueFromString(key); e != nil {
 			return false, e
 		} else {
-			root := &DNode{KeyFiled: m.Key, Meta: m, Branches: make(map[string]*DNode), Plural: false}
-			root.fillOuterBranches()
-			for v := []map[string]*DNode{root.Branches}; len(v) > 0; v = v[1:] {
+			root := &DNode{KeyFiled: m.Key, Meta: m, ChildNodes: make(map[string]*DNode), Plural: false}
+			root.fillOuterChildNodes()
+			for v := []map[string]*DNode{root.ChildNodes}; len(v) > 0; v = v[1:] {
 				for _, n := range v[0] {
-					n.fillOuterBranches()
-					if len(n.Branches) > 0 {
-						v = append(v, n.Branches)
+					n.fillOuterChildNodes()
+					if len(n.ChildNodes) > 0 {
+						v = append(v, n.ChildNodes)
 					}
 				}
 			}
@@ -942,7 +682,7 @@ func (processor *Processor) Delete(objectClass, key string, actor auth.User) (is
 				n.push(root.Meta, notificaion_data, true)
 				ops := []Operation{op}
 				for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
-					for _, v := range t2d[0].n.Branches {
+					for _, v := range t2d[0].n.ChildNodes {
 						if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
 							return false, e
 						} else {
@@ -984,13 +724,13 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 	} else {
 		ts := m.Key.Type.TypeAsserter()
 
-		root := &DNode{KeyFiled: m.Key, Meta: m, Branches: make(map[string]*DNode), Plural: false}
-		root.fillOuterBranches()
-		for v := []map[string]*DNode{root.Branches}; len(v) > 0; v = v[1:] {
+		root := &DNode{KeyFiled: m.Key, Meta: m, ChildNodes: make(map[string]*DNode), Plural: false}
+		root.fillOuterChildNodes()
+		for v := []map[string]*DNode{root.ChildNodes}; len(v) > 0; v = v[1:] {
 			for _, n := range v[0] {
-				n.fillOuterBranches()
-				if len(n.Branches) > 0 {
-					v = append(v, n.Branches)
+				n.fillOuterChildNodes()
+				if len(n.ChildNodes) > 0 {
+					v = append(v, n.ChildNodes)
 				}
 			}
 		}
@@ -1023,7 +763,7 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 				} else {
 					ops := []Operation{op}
 					for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
-						for _, v := range t2d[0].n.Branches {
+						for _, v := range t2d[0].n.ChildNodes {
 							if len(t2d[0].keys) > 0 {
 								if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
 									return e
