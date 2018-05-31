@@ -449,14 +449,16 @@ type SearchContext struct {
 }
 
 type Node struct {
+	//LinkField is a field which links to the target object
 	LinkField *meta.FieldDescription
-	KeyFiled  *meta.FieldDescription
-	Meta      *meta.Meta
-	Branches  map[string]*Node
-	Depth     int
-	OnlyLink  bool
-	plural    bool
-	Parent    *Node
+	//KeyField is a field of the target object which LinkField is linking to
+	KeyField *meta.FieldDescription
+	Meta     *meta.Meta
+	Branches map[string]*Node
+	Depth    int
+	OnlyLink bool
+	plural   bool
+	Parent   *Node
 }
 
 func (n *Node) keyAsString(obj map[string]interface{}) (string, error) {
@@ -475,10 +477,10 @@ func (n *Node) Resolve2(sc SearchContext, keys []interface{}) (map[interface{}]i
 	}
 	var fields []*meta.FieldDescription = nil
 	if n.OnlyLink {
-		fields = []*meta.FieldDescription{n.Meta.Key, n.KeyFiled}
+		fields = []*meta.FieldDescription{n.Meta.Key, n.KeyField}
 	}
 
-	objs, err := sc.dm.GetIn(n.Meta, fields, n.KeyFiled.Name, keys)
+	objs, err := sc.dm.GetIn(n.Meta, fields, n.KeyField.Name, keys)
 	if err != nil {
 		return nil, err
 	}
@@ -490,9 +492,9 @@ func (n *Node) Resolve2(sc SearchContext, keys []interface{}) (map[interface{}]i
 			if err != nil {
 				return nil, err
 			}
-			res[objs[i][n.KeyFiled.Name]] = keyStr
+			res[objs[i][n.KeyField.Name]] = keyStr
 		} else {
-			res[objs[i][n.KeyFiled.Name]] = objs[i]
+			res[objs[i][n.KeyField.Name]] = objs[i]
 		}
 	}
 
@@ -505,17 +507,17 @@ func (n *Node) ResolvePlural2(sc SearchContext, keys []interface{}) (map[interfa
 	}
 	var fields []*meta.FieldDescription = nil
 	if n.OnlyLink {
-		fields = []*meta.FieldDescription{n.Meta.Key, n.KeyFiled}
+		fields = []*meta.FieldDescription{n.Meta.Key, n.KeyField}
 	}
 
-	objs, err := sc.dm.GetIn(n.Meta, fields, n.KeyFiled.Name, keys)
+	objs, err := sc.dm.GetIn(n.Meta, fields, n.KeyField.Name, keys)
 	if err != nil {
 		return nil, err
 	}
 
 	res := make(map[interface{}][]interface{})
 	for i := range objs {
-		key := objs[i][n.KeyFiled.Name]
+		key := objs[i][n.KeyField.Name]
 		arr, ok := res[key]
 		if !ok {
 			arr = make([]interface{}, 0)
@@ -540,7 +542,7 @@ func (n *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
 		fields = []*meta.FieldDescription{n.Meta.Key}
 	}
 
-	obj, err := sc.dm.Get(n.Meta, fields, n.KeyFiled.Name, key)
+	obj, err := sc.dm.Get(n.Meta, fields, n.KeyField.Name, key)
 	if err != nil {
 		return nil, err
 	}
@@ -568,7 +570,7 @@ func (n *Node) ResolvePlural(sc SearchContext, key interface{}) ([]interface{}, 
 		fields = []*meta.FieldDescription{n.Meta.Key}
 	}
 
-	objs, err := sc.dm.GetAll(n.Meta, fields, n.KeyFiled.Name, key)
+	objs, err := sc.dm.GetAll(n.Meta, fields, n.KeyField.Name, key)
 	if err != nil {
 		return nil, err
 	}
@@ -616,7 +618,7 @@ func (n *Node) fillBranches(ctx SearchContext) {
 		if f.LinkType == meta.LinkTypeInner && (n.Parent == nil || !isBackLink(n.Parent.Meta, &f)) {
 			keyFiled = f.LinkMeta.Key
 			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
-				KeyFiled: keyFiled,
+				KeyField: keyFiled,
 				Meta: f.LinkMeta,
 				Branches: branches,
 				Depth: n.Depth + 1,
@@ -629,7 +631,7 @@ func (n *Node) fillBranches(ctx SearchContext) {
 				plural = true
 			}
 			n.Branches[f.Name] = &Node{LinkField: &n.Meta.Fields[i],
-				KeyFiled: keyFiled,
+				KeyField: keyFiled,
 				Meta: f.LinkMeta,
 				Branches: branches,
 				Depth: n.Depth + 1,
@@ -788,17 +790,17 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 			return nil, e
 		} else {
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single"}
-			root := &Node{KeyFiled: m.Key, Meta: m, Branches: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
+			root := &Node{KeyField: m.Key, Meta: m, Branches: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
 			root.fillBranches(ctx)
-			bs := make([]*Node, 0)
+			branches := make([]*Node, 0)
 			for _, v := range root.Branches {
-				bs = append(bs, v)
+				branches = append(branches, v)
 			}
-			for ; len(bs) > 0; bs = bs[1:] {
-				if !bs[0].OnlyLink {
-					bs[0].fillBranches(ctx)
-					for _, v := range bs[0].Branches {
-						bs = append(bs, v)
+			for ; len(branches) > 0; branches = branches[1:] {
+				if !branches[0].OnlyLink {
+					branches[0].fillBranches(ctx)
+					for _, v := range branches[0].Branches {
+						branches = append(branches, v)
 					}
 				}
 			}
@@ -830,7 +832,7 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 	} else {
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk"}
 		root := &Node{
-			KeyFiled: businessObject.Key,
+			KeyField: businessObject.Key,
 			Meta:     businessObject,
 			Branches: make(map[string]*Node),
 			Depth:    1,
