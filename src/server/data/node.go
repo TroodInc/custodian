@@ -30,71 +30,6 @@ func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode)
 	return sc.dm.GetRql(node, rqlNode, nil)
 }
 
-func (node *Node) Resolve2(sc SearchContext, keys []interface{}) (map[interface{}]interface{}, error) {
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	var fields []*meta.FieldDescription = nil
-	if node.OnlyLink {
-		fields = []*meta.FieldDescription{node.Meta.Key, node.KeyField}
-	}
-
-	objs, err := sc.dm.GetIn(node.Meta, fields, node.KeyField.Name, keys)
-	if err != nil {
-		return nil, err
-	}
-
-	res := make(map[interface{}]interface{})
-	for i := range objs {
-		if node.OnlyLink {
-			keyStr, err := node.keyAsString(objs[i])
-			if err != nil {
-				return nil, err
-			}
-			res[objs[i][node.KeyField.Name]] = keyStr
-		} else {
-			res[objs[i][node.KeyField.Name]] = objs[i]
-		}
-	}
-
-	return res, nil
-}
-
-func (node *Node) ResolvePlural2(sc SearchContext, keys []interface{}) (map[interface{}][]interface{}, error) {
-	if len(keys) == 0 {
-		return nil, nil
-	}
-	var fields []*meta.FieldDescription = nil
-	if node.OnlyLink {
-		fields = []*meta.FieldDescription{node.Meta.Key, node.KeyField}
-	}
-
-	objs, err := sc.dm.GetIn(node.Meta, fields, node.KeyField.Name, keys)
-	if err != nil {
-		return nil, err
-	}
-
-	res := make(map[interface{}][]interface{})
-	for i := range objs {
-		key := objs[i][node.KeyField.Name]
-		arr, ok := res[key]
-		if !ok {
-			arr = make([]interface{}, 0)
-		}
-		if node.OnlyLink {
-			keyStr, err := node.keyAsString(objs[i])
-			if err != nil {
-				return nil, err
-			}
-			res[key] = append(arr, fmt.Sprint(sc.lazyPath, "/", node.Meta.Name, "/", keyStr))
-		} else {
-			res[key] = append(arr, objs[i])
-		}
-	}
-
-	return res, nil
-}
-
 func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
 	var fields []*meta.FieldDescription = nil
 	if node.OnlyLink {
@@ -119,7 +54,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 		return nil, err
 	}
 
-	return fmt.Sprint(sc.lazyPath, "/", node.Meta.Name, "/", keyStr), nil
+	return keyStr, nil
 }
 
 func (node *Node) ResolvePlural(sc SearchContext, key interface{}) ([]interface{}, error) {
@@ -213,5 +148,12 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int) {
 				}
 			}
 		}
+	}
+}
+
+func (node *Node) FillRecordValues(record *map[string]interface{}, searchContext SearchContext) {
+	for nodeResults := []NodeResult{{node, *record}}; len(nodeResults) > 0; nodeResults = nodeResults[1:] {
+		childNodesResults, _ := nodeResults[0].getFilledChildNodes(searchContext)
+		nodeResults = append(nodeResults, childNodesResults...)
 	}
 }

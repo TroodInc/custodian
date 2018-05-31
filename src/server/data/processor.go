@@ -456,93 +456,6 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	return false
 }
 
-type tuple2na struct {
-	first  *Node
-	second []map[string]interface{}
-}
-
-func (t2 tuple2na) resolveBranches2(ctx SearchContext) ([]tuple2na, error) {
-	tn := make([]tuple2na, 0)
-	for _, v := range t2.first.ChildNodes {
-		if v.LinkField.LinkType == meta.LinkTypeOuter && v.LinkField.Type == meta.FieldTypeArray {
-			keys := make([]interface{}, 0, len(t2.second))
-			refs := make(map[interface{}]map[string]interface{})
-			for _, m := range t2.second {
-				k := m[v.Meta.Key.Name]
-				keys = append(keys, k)
-				refs[k] = m
-			}
-			if arrs, e := v.ResolvePlural2(ctx, keys); e != nil {
-				return nil, e
-			} else {
-				t := make([]map[string]interface{}, 0)
-				for i, a := range arrs {
-					if a != nil {
-						refs[i][v.LinkField.Name] = a
-						for _, m := range a {
-							if !v.OnlyLink {
-								t = append(t, m.(map[string]interface{}))
-							}
-						}
-					} else {
-						delete(refs[i], v.LinkField.Name)
-					}
-					tn = append(tn, tuple2na{v, t})
-				}
-			}
-		} else if v.LinkField.LinkType == meta.LinkTypeOuter {
-			keys := make([]interface{}, 0, len(t2.second))
-			refs := make(map[interface{}]map[string]interface{})
-			for _, m := range t2.second {
-				k := m[v.Meta.Key.Name]
-				keys = append(keys, k)
-				refs[k] = m
-			}
-			if arr, e := v.Resolve2(ctx, keys); e != nil {
-				return nil, e
-			} else {
-				t := make([]map[string]interface{}, 0)
-				for i, o := range arr {
-					if o != nil {
-						refs[i][v.LinkField.Name] = o
-						if !v.OnlyLink {
-							t = append(t, o.(map[string]interface{}))
-						}
-					} else {
-						delete(refs[i], v.LinkField.Name)
-					}
-					tn = append(tn, tuple2na{v, t})
-				}
-			}
-		} else if v.LinkField.LinkType == meta.LinkTypeInner {
-			keys := make([]interface{}, 0, len(t2.second))
-			refs := make(map[interface{}]map[string]interface{})
-			for _, m := range t2.second {
-				k := m[v.LinkField.Name]
-				keys = append(keys, k)
-				refs[k] = m
-			}
-			if arr, e := v.Resolve2(ctx, keys); e != nil {
-				return nil, e
-			} else {
-				t := make([]map[string]interface{}, 0)
-				for i, o := range arr {
-					if o != nil {
-						refs[i][v.LinkField.Name] = o
-						if !v.OnlyLink {
-							t = append(t, o.(map[string]interface{}))
-						}
-					} else {
-						delete(refs[i], v.LinkField.Name)
-					}
-					tn = append(tn, tuple2na{v, t})
-				}
-			}
-		}
-	}
-	return tn, nil
-}
-
 func (processor *Processor) Get(objectClass, key string, depth int) (map[string]interface{}, error) {
 	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
 		return nil, e
@@ -600,21 +513,14 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 			return NewDataError(objectName, ErrWrongRQL, err.Error())
 		}
 
-		objs, e := root.ResolveByRql(searchContext, rqlNode)
+		records, e := root.ResolveByRql(searchContext, rqlNode)
 
 		if e != nil {
 			return e
 		}
-		//recursively resolves "branches"
-		for tn := []tuple2na{tuple2na{root, objs}}; len(tn) > 0; tn = tn[1:] {
-			if t, e := tn[0].resolveBranches2(searchContext); e != nil {
-				return e
-			} else {
-				tn = append(tn, t...)
-			}
-		}
-		for _, v := range objs {
-			sink(v)
+		for _, record := range records {
+			root.FillRecordValues(&record, searchContext)
+			sink(record)
 		}
 		return nil
 	}
