@@ -55,6 +55,85 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
+	It("can remove object without leaving orphan outer links", func() {
+		Context("having two objects with mutual links", func() {
+			aMetaDescription := meta.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			aMeta, _ := metaStore.NewMeta(&aMetaDescription)
+			metaStore.Create(aMeta)
+
+			bMetaDescription := meta.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "a_fk",
+						Type:     meta.FieldTypeObject,
+						Optional: true,
+						LinkType: meta.LinkTypeInner,
+						LinkMeta: "a",
+					},
+				},
+			}
+			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			metaStore.Create(bMeta)
+			Expect(err).To(BeNil())
+
+			aMetaDescription = meta.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:           "b_set",
+						Type:           meta.FieldTypeObject,
+						Optional:       true,
+						LinkType:       meta.LinkTypeOuter,
+						LinkMeta:       "b",
+						OuterLinkField: "a_fk",
+					},
+				},
+			}
+			aMeta, err = metaStore.NewMeta(&aMetaDescription)
+			metaStore.Update(aMeta.Name, aMeta)
+			Expect(err).To(BeNil())
+
+			Context("and 'remove' method is called", func() {
+				metaStore.Remove(bMeta.Name, true)
+				aMeta, _, _ = metaStore.Get(aMeta.Name)
+				Expect(aMeta.Fields).To(HaveLen(1))
+				Expect(aMeta.Fields[0].Name).To(Equal("id"))
+			})
+		})
+	})
+
 	It("checks object for fields with duplicated names when creating object", func() {
 		Context("having an object description with duplicated field names", func() {
 			metaDescription := meta.MetaDescription{
