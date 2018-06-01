@@ -404,11 +404,12 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]i
 		return b.String()
 	}
 	for col, val := range objs[0] {
-		cols = append(cols, col)
+		//skip key field
 		if m.Key.Name == col {
-			ui.Filters = append(ui.Filters, newBind(col))
-			vals = append(vals, identityVal)
-		} else if col == "cas" {
+			continue
+		}
+		cols = append(cols, col)
+		if col == "cas" {
 			ui.Filters = append(ui.Filters, newBind(col))
 			vals = append(vals, identityVal)
 

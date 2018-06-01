@@ -103,7 +103,7 @@ var _ = Describe("Server", func() {
 			Context("and DELETE request performed by URL with specified record ID", func() {
 
 				url := fmt.Sprintf("%s/data/single/%s/%d", urlPrefix, metaObj.Name, int(firstRecord["id"].(float64)))
-				var request, _ = http.NewRequest("DELETE", url, bytes.NewBuffer([]byte{}))
+				var request, _ = http.NewRequest("DELETE", url, nil)
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
@@ -121,6 +121,58 @@ var _ = Describe("Server", func() {
 					dataProcessor.GetBulk(metaObj.Name, "", 1, callbackFunction)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0]["id"]).To(Not(Equal(firstRecord["id"])))
+				})
+
+			})
+		})
+	})
+
+	It("updates record with the given id, omitting id specified in body", func() {
+		Context("having a record of given object", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			record, _ := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
+
+			Context("and PUT request performed by URL with specified record ID with wrong id specified in body", func() {
+				updateData := map[string]interface{}{
+					"name": "SomeOtherName",
+					"id":   int(record["id"].(float64) + 1),
+				}
+				encodedMetaData, _ := json.Marshal(updateData)
+
+				url := fmt.Sprintf("%s/data/single/%s/%d", urlPrefix, metaObj.Name, int(record["id"].(float64)))
+
+				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+				request.Header.Set("Content-Type", "application/json")
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				Context("response should contain original id and updated name", func() {
+					Expect(responseBody).To(Equal("{\"data\":{\"id\":1,\"name\":\"SomeOtherName\"},\"status\":\"OK\"}"))
 				})
 
 			})
