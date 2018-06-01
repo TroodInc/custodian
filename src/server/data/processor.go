@@ -720,8 +720,11 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 		return nil, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
-	if _, e := m.Key.ValueFromString(key); e != nil {
+	if pkValue, e := m.Key.ValueFromString(key); e != nil {
 		return nil, e
+	} else {
+		//record data must contain valid record`s PK value
+		obj[m.Key.Name] = pkValue
 	}
 
 	tc, e := processor.flatten(m, obj, func(mn string) (objectClassValidator, error) {
