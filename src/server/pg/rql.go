@@ -8,7 +8,6 @@ import (
 	"server/data"
 	"server/meta"
 	"github.com/Q-CIS-DEV/go-rql-parser"
-	"net/url"
 	"strconv"
 	"strings"
 	"text/template"
@@ -121,6 +120,18 @@ func (ctx *context) nodeToOpExpr(node *rqlParser.RqlNode) (expr, error) {
 	if !ok {
 		return nil, NewRqlError(ErrRQLUnknownOperator, "RQL operator '%s' is unknown", node.Op)
 	}
+	//TODO: move translation logic into another structure, goRqlParser.SqlTranslator seems to be suitable
+	if strings.ToUpper(node.Op) == "LIKE" {
+		//	need replace * with %
+		argumentRunes := []rune( node.Args[1].(string))
+		if argumentRunes[0] == '*' {
+			argumentRunes[0] = '%'
+		}
+		if argumentRunes[len(argumentRunes)-1] == '*' {
+			argumentRunes[len(argumentRunes)-1] = '%'
+		}
+		node.Args[1] = string(argumentRunes)
+	}
 	return operator(ctx, node.Args)
 }
 
@@ -155,14 +166,6 @@ func (ctx *context) argsToOpExpr(args []interface{}, sep string) (expr, error) {
 	}, nil
 }
 
-func argToField(arg interface{}) (string, error) {
-	field, ok := arg.(string)
-	if !ok {
-		return "", NewRqlError(ErrRQLWrongFieldName, "The field name is not string")
-	}
-	return field, nil
-}
-
 func argToFieldVal(arg interface{}, field *meta.FieldDescription) (interface{}, error) {
 	switch value := arg.(type) {
 	case *rqlParser.RqlNode:
@@ -180,11 +183,7 @@ func argToFieldVal(arg interface{}, field *meta.FieldDescription) (interface{}, 
 		}
 		return val, nil
 	case string:
-		unescaped, err := url.QueryUnescape(value)
-		if err != nil {
-			return nil, NewRqlError(ErrRQLWrongValue, "Can't unescape '%s' value: %s", arg, err.Error())
-		}
-		return field.ValueFromString(unescaped)
+		return field.ValueFromString(value)
 	default:
 		return nil, NewRqlError(ErrRQLWrongValue, "Unknown operator's value type: '%s'", value)
 	}
