@@ -141,6 +141,12 @@ func (syncer *Syncer) ValidateObj(businessObject *meta.Meta) (bool, error) {
 	ddlStatements, e := syncer.diffScripts(businessObject)
 	if e != nil {
 		return false, e
+	} else {
+		if len(ddlStatements) == 0 {
+			return true, nil
+		} else {
+			return false, &meta.ValidationError{Message: "Inconsistent object state found."}
+		}
 	}
 	return len(ddlStatements) == 0, nil
 }
