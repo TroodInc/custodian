@@ -6,13 +6,13 @@ import (
 	"server"
 	"net/http"
 	"fmt"
-	"encoding/json"
-	"bytes"
 	"net/http/httptest"
 	"server/pg"
 	"server/meta"
-	"server/auth"
 	"server/data"
+	"server/auth"
+	"bytes"
+	"encoding/json"
 )
 
 var _ = Describe("Server", func() {
@@ -103,7 +103,7 @@ var _ = Describe("Server", func() {
 			Context("and DELETE request performed by URL with specified record ID", func() {
 
 				url := fmt.Sprintf("%s/data/single/%s/%d", urlPrefix, metaObj.Name, int(firstRecord["id"].(float64)))
-				var request, _ = http.NewRequest("DELETE", url, nil)
+				var request, _ = http.NewRequest("DELETE", url, bytes.NewBuffer([]byte{}))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
