@@ -469,6 +469,9 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 // Deletes an existing object metadata from the store.
 func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	//remove object from the database
+	meta, _, _ := metaStore.Get(name)
+	metaStore.removeRelatedOuterLinks(meta)
+	metaStore.removeRelatedInnerLinks(meta)
 	if e := metaStore.syncer.RemoveObj(name, force); e == nil {
 		//remove object`s description *.json file
 		metaStore.syncerMutex.Lock()
@@ -482,6 +485,56 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 		return ok, err
 	} else {
 		return false, e
+	}
+}
+
+//Remove all outer fields linking to given Meta
+func (metaStore *MetaStore) removeRelatedOuterLinks(targetMeta *Meta) {
+	for _, field := range targetMeta.Fields {
+		if field.Type == FieldTypeObject && field.LinkType == LinkTypeInner {
+			metaStore.removeRelatedOuterLink(targetMeta, field)
+		}
+	}
+}
+
+//Remove outer field from related object if it links to the given field
+func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFieldDescription FieldDescription) {
+	relatedObjectMeta := innerLinkFieldDescription.LinkMeta
+	for i, relatedObjectField := range relatedObjectMeta.Fields {
+		if relatedObjectField.LinkType == LinkTypeOuter &&
+			relatedObjectField.LinkMeta.Name == targetMeta.Name &&
+			relatedObjectField.OuterLinkField.Field.Name == innerLinkFieldDescription.Field.Name {
+			//omit outer field and update related object
+			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
+			relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
+			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta)
+		}
+	}
+}
+
+//Remove inner fields linking to given Meta
+func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
+	metaDescriptionList, _, _ := metaStore.List()
+	for _, objectMetaDescription := range *metaDescriptionList {
+
+		if targetMeta.Name != objectMetaDescription.Name {
+			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name)
+			objectMetaFields := make([]Field, 0)
+			objectMetaFieldDescriptions := make([]FieldDescription, 0)
+
+			for i, fieldDescription := range objectMeta.Fields {
+				if fieldDescription.LinkType != LinkTypeInner || fieldDescription.LinkMeta.Name != targetMeta.Name {
+					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
+					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+				}
+			}
+			// it means that related object should be updated
+			if len(objectMetaFieldDescriptions) != len(objectMeta.Fields) {
+				objectMeta.Fields = objectMetaFieldDescriptions
+				objectMeta.MetaDescription.Fields = objectMetaFields
+				metaStore.Update(objectMeta.Name, objectMeta)
+			}
+		}
 	}
 }
 
