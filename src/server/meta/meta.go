@@ -38,6 +38,14 @@ func AsLinkType(s string) (LinkType, bool) {
 	}
 }
 
+type ValidationError struct {
+	Message string
+}
+
+func (err *ValidationError) Error() string {
+	return err.Message
+}
+
 func (lt *LinkType) UnmarshalJSON(b []byte) error {
 	var s string
 	if e := json.Unmarshal(b, &s); e != nil {
@@ -269,9 +277,9 @@ func (e *metaError) Error() string {
 func (e *metaError) Json() []byte {
 	j, _ := json.Marshal(map[string]string{
 		"MetaDescription": e.meta,
-		"op":   e.op,
-		"code": "MetaDescription:" + e.code,
-		"msg":  e.msg,
+		"op":              e.op,
+		"code":            "MetaDescription:" + e.code,
+		"msg":             e.msg,
 	})
 	return j
 }
@@ -442,7 +450,6 @@ func (metaStore *MetaStore) Get(name string) (*Meta, bool, error) {
 		return businessObject, isFound, nil
 	}
 
-	logger.Error("Error while validating a MetaDescription from store against the object in DB: %v", err)
 	return nil, false, err
 }
 

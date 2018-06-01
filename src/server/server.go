@@ -181,7 +181,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 		if metaObj, _, e := metaStore.Get(p.ByName("name")); e == nil {
 			js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 		} else {
-			js.push(map[string]interface{}{"status": "FAIL", "data": &ServerError{status: http.StatusNotFound, code: ErrNotFound}})
+			js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
 		}
 	}))
 
