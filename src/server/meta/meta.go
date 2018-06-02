@@ -500,13 +500,10 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, err
 		delete(metaStore.cache, name)
 		metaStore.cacheMutex.Unlock()
 
-		if e != nil {
+		if e != nil || !ok {
 			return ok, e
 		}
 
-		if !ok {
-			return ok, e
-		}
 		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
 		//behaviour should be fixed
 		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
