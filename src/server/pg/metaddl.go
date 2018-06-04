@@ -68,6 +68,7 @@ const (
 	ColumnTypeNumeric
 	ColumnTypeBool
 	ColumnTypeDate
+	ColumnTypeTime
 	ColumnTypeDateTime
 )
 
@@ -83,6 +84,8 @@ func (ct ColumnType) DdlType() (string, error) {
 		return "date", nil
 	case ColumnTypeDateTime:
 		return "timestamp with time zone", nil
+	case ColumnTypeTime:
+		return "time with time zone", nil
 	default:
 		return "", &DDLError{code: ErrUnsupportedColumnType, msg: "Unsupported column type: " + string(ct)}
 	}
@@ -100,6 +103,8 @@ func fieldTypeToColumnType(ft meta.FieldType) (ColumnType, bool) {
 		return ColumnTypeDateTime, true
 	case meta.FieldTypeDate:
 		return ColumnTypeDate, true
+	case meta.FieldTypeTime:
+		return ColumnTypeTime, true
 	default:
 		return 0, false
 	}
@@ -116,6 +121,8 @@ func dbTypeToColumnType(dt string) (ColumnType, bool) {
 	case "timestamp with time zone":
 		return ColumnTypeDateTime, true
 	case "date":
+		return ColumnTypeDate, true
+	case "time with time zone":
 		return ColumnTypeDate, true
 	default:
 		return 0, false
@@ -184,6 +191,12 @@ type ColDefTimestamp struct{}
 
 func (colDefTimestamp *ColDefTimestamp) ddlVal() (string, error) {
 	return "CURRENT_TIMESTAMP", nil
+}
+
+type ColDefNow struct{}
+
+func (colDefNow *ColDefNow) ddlVal() (string, error) {
+	return "NOW()", nil
 }
 
 func newColDefValSimple(v interface{}) (*ColDefValSimple, error) {
@@ -286,10 +299,15 @@ func defaultCurrentTimestamp(f *meta.FieldDescription, args []interface{}) (ColD
 	return &ColDefTimestamp{}, nil
 }
 
+func defaultNow(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+	return &ColDefNow{}, nil
+}
+
 var defaultFuncs = map[string]func(f *meta.FieldDescription, args []interface{}) (ColDefVal, error){
 	"nextval":           defaultNextval,
 	"current_date":      defaultCurrentDate,
 	"current_timestamp": defaultCurrentTimestamp,
+	"now":               defaultNow,
 }
 
 func newColDefVal(f *meta.FieldDescription) (ColDefVal, error) {

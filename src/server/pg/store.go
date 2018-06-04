@@ -146,7 +146,7 @@ func fieldsNames(fields []*meta.FieldDescription) []string {
 
 func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, error) {
 	switch f.Type {
-	case meta.FieldTypeString, meta.FieldTypeDate, meta.FieldTypeDateTime:
+	case meta.FieldTypeString, meta.FieldTypeDate, meta.FieldTypeDateTime, meta.FieldTypeTime:
 		if isOptional {
 			return new(sql.NullString), nil
 		} else {
@@ -292,7 +292,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 				case *string:
 					result[i][n] = string([]rune(*value)[0:10])
 				}
-			} else if fieldByName(n).Type == meta.FieldTypeDateTime {
+			} else if fieldByName(n).Type == meta.FieldTypeDateTime || fieldByName(n).Type == meta.FieldTypeTime {
 				switch value := values[j].(type) {
 				case *sql.NullString:
 					if value.Valid {

@@ -210,6 +210,43 @@ var _ = Describe("PG MetaStore test", func() {
 			})
 		})
 	})
+
+	It("can create object containing time field with default value", func() {
+		Context("once 'create' method is called with an object containing field with 'time' type", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "someobject",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "time",
+						Type:     meta.FieldTypeTime,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "now",
+						},
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaCreateError := metaStore.Create(metaObj)
+			Expect(metaCreateError).To(BeNil())
+			Context("and record is created", func() {
+				record, recordCreateError := dataProcessor.Put(metaObj.Name, map[string]interface{}{}, auth.User{})
+				Expect(recordCreateError).To(BeNil())
+				Expect(record["time"]).To(BeAssignableToTypeOf(""))
+			})
+		})
+	})
+
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
 			metaDescription := meta.MetaDescription{

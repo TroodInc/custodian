@@ -170,6 +170,50 @@ var _ = Describe("Data", func() {
 		})
 	})
 
+	It("can query records by time field", func() {
+		Context("having an object with datetime field", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "created_time",
+						Type: meta.FieldTypeTime,
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			Context("and two records with 'created_time' values that differ by several hours", func() {
+				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"created_time": "14:00:00 +05:00"}, auth.User{})
+				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"created_time": "09:00:00 +05:00"}, auth.User{})
+				matchedRecords := []map[string]interface{}{}
+				Expect(err).To(BeNil())
+				callbackFunction := func(obj map[string]interface{}) error {
+					matchedRecords = append(matchedRecords, obj)
+					return nil
+				}
+				Context("query by 'created' field returns correct result", func() {
+					//query by value greater than 10:00:00 +05:00
+					dataProcessor.GetBulk(metaObj.Name, "gt(created_time,10%3A00%3A00%20%2B05%3A00)", 1, callbackFunction)
+					Expect(matchedRecords).To(HaveLen(1))
+					Expect(matchedRecords[0]["id"]).To(Equal(record["id"]))
+				})
+			})
+
+		})
+	})
+
 	It("can query records by multiple ids", func() {
 		Context("having an object", func() {
 			metaDescription := meta.MetaDescription{
