@@ -72,9 +72,9 @@ type Method int
 
 const (
 	MethodRetrive Method = iota + 1
-	MethodCreate
-	MethodRemove
-	MethodUpdate
+	MethodCreate  
+	MethodRemove  
+	MethodUpdate  
 )
 
 func (m Method) String() (string, bool) {
@@ -324,23 +324,20 @@ func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
 		bm.Fields = make([]FieldDescription, fieldsLen, fieldsLen)
 		for i := 0; i < fieldsLen; i++ {
 			bm.Fields[i].Meta = bm
-			f := &bm.MetaDescription.Fields[i]
-			bm.Fields[i].Field = f
-			if f.LinkMeta != "" {
+			field := &bm.MetaDescription.Fields[i]
+			bm.Fields[i].Field = field
+			if field.LinkMeta != "" {
 				var ok bool
-				if bm.Fields[i].LinkMeta, ok = metaStore.cache[f.LinkMeta]; ok {
-					continue
-				}
-				if bm.Fields[i].LinkMeta, ok = shadowCache[f.LinkMeta]; ok {
+				if bm.Fields[i].LinkMeta, ok = shadowCache[field.LinkMeta]; ok {
 					continue
 				}
 
-				lm, _, err := metaStore.drv.Get(f.LinkMeta)
+				linkedMeta, _, err := metaStore.drv.Get(field.LinkMeta)
 				if err != nil {
-					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "FieldDescription '%s' has iccorect link MetaDescription: %s", f.Name, err.Error())
+					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "FieldDescription '%s' has iccorect link MetaDescription: %s", field.Name, err.Error())
 				}
-				bm.Fields[i].LinkMeta = &Meta{MetaDescription: lm}
-				shadowCache[f.LinkMeta] = bm.Fields[i].LinkMeta
+				bm.Fields[i].LinkMeta = &Meta{MetaDescription: linkedMeta}
+				shadowCache[field.LinkMeta] = bm.Fields[i].LinkMeta
 				notResolved = append(notResolved, bm.Fields[i].LinkMeta)
 			}
 		}
@@ -541,6 +538,8 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 // Updates an existing object metadata.
 func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, error) {
 	if currentBusinessObj, ok, err := metaStore.Get(name); err == nil {
+		// remove possible outer links before main update processing
+		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
 		metaStore.syncerMutex.Lock()
 		defer metaStore.syncerMutex.Unlock()
 		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
@@ -573,6 +572,26 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, err
 		}
 	} else {
 		return ok, err
+	}
+}
+
+// compare current object`s version to the version is being updated and remove outer links
+// if any inner link is being removed
+func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) {
+	for _, currentFieldDescription := range currentMeta.Fields {
+		if currentFieldDescription.LinkType == LinkTypeInner {
+			fieldIsBeingRemoved := true
+			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
+				if fieldDescriptionToBeUpdated.Name == fieldDescriptionToBeUpdated.Name &&
+					fieldDescriptionToBeUpdated.LinkType == LinkTypeInner &&
+					fieldDescriptionToBeUpdated.LinkMeta.Name == fieldDescriptionToBeUpdated.LinkMeta.Name {
+					fieldIsBeingRemoved = false
+				}
+			}
+			if fieldIsBeingRemoved {
+				metaStore.removeRelatedOuterLink(currentMeta, currentFieldDescription)
+			}
+		}
 	}
 }
 
