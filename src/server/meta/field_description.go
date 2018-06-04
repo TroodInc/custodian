@@ -33,7 +33,7 @@ func (f *FieldDescription) Default() Def {
 
 func (f *FieldDescription) IsValueTypeValid(v interface{}) bool {
 	switch f.Type {
-	case FieldTypeString, FieldTypeDateTime, FieldTypeDate:
+	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime:
 		_, ok := v.(string)
 		return ok
 	case FieldTypeNumber:
@@ -50,7 +50,7 @@ func (f *FieldDescription) IsValueTypeValid(v interface{}) bool {
 
 func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 	switch field.Type {
-	case FieldTypeString, FieldTypeDateTime, FieldTypeDate:
+	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime:
 		return v, nil
 	case FieldTypeNumber:
 		return strconv.ParseFloat(v, 64)
@@ -67,7 +67,7 @@ func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 
 func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 	switch f.Type {
-	case FieldTypeString, FieldTypeDateTime, FieldTypeDate:
+	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime:
 		if str, ok := v.(string); !ok {
 			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
 				"Wrong input value type '%s'. For Field '%s' expects 'string' type", reflect.TypeOf(v).String(), f.Name)
