@@ -290,4 +290,55 @@ var _ = Describe("Data", func() {
 			})
 		})
 	})
+
+	It("Performs case insensitive search when using 'like' operator", func() {
+
+		Context("having an object with string field", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "name",
+						Type: meta.FieldTypeString,
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			Context("and three records of this object", func() {
+
+				By("two matching records")
+				firstPersonRecord, _ := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "Some Person"}, auth.User{})
+				secondPersonRecord, _ := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "Some Another person"}, auth.User{})
+
+				By("and one mismatching record")
+				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "Some Other dog"}, auth.User{})
+
+				matchedRecords := []map[string]interface{}{}
+				callbackFunction := func(obj map[string]interface{}) error {
+					matchedRecords = append(matchedRecords, obj)
+					return nil
+				}
+				Context("query by date returns correct result", func() {
+					dataProcessor.GetBulk(metaObj.Name, "like(name,*Person*)", 1, callbackFunction)
+					Expect(matchedRecords).To(HaveLen(2))
+					Expect(matchedRecords[0]["id"]).To(Equal(firstPersonRecord["id"]))
+					Expect(matchedRecords[1]["id"]).To(Equal(secondPersonRecord["id"]))
+				})
+			})
+
+		})
+
+	})
 })
