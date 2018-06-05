@@ -335,6 +335,37 @@ var _ = Describe("Data", func() {
 		})
 	})
 
+	It("can create record with null value for optional field", func() {
+		Context("having an object", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: true,
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			recordOne, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": nil}, auth.User{})
+			Expect(err).To(BeNil())
+			Expect(recordOne["name"]).To(BeNil())
+		})
+	})
+
 	It("Performs case insensitive search when using 'like' operator", func() {
 
 		Context("having an object with string field", func() {
