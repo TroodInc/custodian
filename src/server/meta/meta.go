@@ -38,14 +38,6 @@ func AsLinkType(s string) (LinkType, bool) {
 	}
 }
 
-type ValidationError struct {
-	Message string
-}
-
-func (err *ValidationError) Error() string {
-	return err.Message
-}
-
 func (lt *LinkType) UnmarshalJSON(b []byte) error {
 	var s string
 	if e := json.Unmarshal(b, &s); e != nil {
@@ -320,6 +312,9 @@ func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
 }
 
 func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
+	if ok, err := (&ValidationService{}).Validate(metaObj); !ok {
+		return nil, err
+	}
 	createdMeta := &Meta{MetaDescription: metaObj}
 	notResolved := []*Meta{createdMeta}
 	shadowCache := map[string]*Meta{metaObj.Name: createdMeta}

@@ -53,4 +53,36 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 		})
 	})
+
+	It("checks object for fields with duplicated names when creating object", func() {
+		Context("having an object description with duplicated field names", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "person",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					}, {
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					}, {
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: true,
+					},
+				},
+			}
+			Context("When 'create' method is called it should return error", func() {
+				_, err := metaStore.NewMeta(&metaDescription)
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(Equal("Object contains duplicated field 'name'"))
+			})
+		})
+	})
 })
