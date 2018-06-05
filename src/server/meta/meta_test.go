@@ -33,6 +33,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					}, {
 						Name:     "name",
 						Type:     meta.FieldTypeString,
@@ -78,10 +79,35 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			Context("When 'create' method is called it should return error", func() {
+			Context("When 'NewMeta' method is called it should return error", func() {
 				_, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(Not(BeNil()))
 				Expect(err.Error()).To(Equal("Object contains duplicated field 'name'"))
+			})
+		})
+	})
+
+	It("checks object for fields with inconsistent configuration", func() {
+		Context("having an object description with both 'optional' and 'default' specified", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "person",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: false,
+					},
+				},
+			}
+			Context("When 'NewMeta' method is called it should return error", func() {
+				_, err := metaStore.NewMeta(&metaDescription)
+				Expect(err).To(Not(BeNil()))
+				Expect(err.Error()).To(Equal("Mandatory field 'id' cannot have default value"))
 			})
 		})
 	})

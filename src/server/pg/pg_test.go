@@ -38,6 +38,7 @@ var _ = Describe("PG MetaStore test", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					}, {
 						Name:     "select",
 						Type:     meta.FieldTypeString,
@@ -66,6 +67,7 @@ var _ = Describe("PG MetaStore test", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					}, {
 						Name:     "select",
 						Type:     meta.FieldTypeString,
@@ -95,6 +97,7 @@ var _ = Describe("PG MetaStore test", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 				},
 			}
@@ -112,6 +115,7 @@ var _ = Describe("PG MetaStore test", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
+							Optional: true,
 						}, {
 							Name:     "select",
 							Type:     meta.FieldTypeString,
@@ -141,6 +145,7 @@ var _ = Describe("PG MetaStore test", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:     "select",
@@ -163,6 +168,7 @@ var _ = Describe("PG MetaStore test", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
+							Optional: true,
 						},
 					},
 				}
