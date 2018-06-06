@@ -3,7 +3,7 @@ FROM golang:1.10
 WORKDIR /go/src/app
 COPY ./src/logger /go/src/logger
 COPY ./src/server /go/src/server
-COPY ./main.go .
+COPY ./src/utils /go/src/utils
 COPY ./main.go .
 COPY ./deployment/wait-for-postgres.sh .
 
