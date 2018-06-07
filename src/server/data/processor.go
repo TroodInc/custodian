@@ -114,47 +114,49 @@ func (processor *Processor) validate(t2 *Tuple2, mandatoryCheck bool) ([]Tuple2,
 
 	for i := 0; i < len(t2.First.Fields); i++ {
 		k := t2.First.Fields[i].Name
-		v := &t2.First.Fields[i]
+		fieldDescription := &t2.First.Fields[i]
 
-		f, ex := t2.Second[k]
-		if mandatoryCheck && !ex && !v.Optional {
+		value, valueIsSet := t2.Second[k]
+		if mandatoryCheck && !valueIsSet && !fieldDescription.Optional {
 			return nil, NewDataError(t2.First.Name, ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", k)
 		}
-
-		if ex {
+		//skip validation if field is optional and value is null
+		//perform validation otherwise
+		if valueIsSet && !(value == nil && fieldDescription.Optional) {
 			switch {
-			case v.Type.AssertType(f):
-				if v.Type == meta.FieldTypeArray {
-					var a = f.([]interface{})
+			case fieldDescription.Type.AssertType(value):
+				if fieldDescription.Type == meta.FieldTypeArray {
+					var a = value.([]interface{})
 					for _, av := range a {
 						if m, ok := av.(map[string]interface{}); ok {
-							m[v.OuterLinkField.Name] = ALink{Field: v, outer: true, Obj: t2.Second}
-							toCheck = append(toCheck, Tuple2{v.LinkMeta, m})
+							m[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, outer: true, Obj: t2.Second}
+							toCheck = append(toCheck, Tuple2{fieldDescription.LinkMeta, m})
 						} else {
 							return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Array in field '%s' must contain only JSON object", k)
 						}
 					}
 					delete(t2.Second, k)
-				} else if v.Type == meta.FieldTypeObject {
-					var of = f.(map[string]interface{})
-					if v.LinkType == meta.LinkTypeOuter {
-						of[v.OuterLinkField.Name] = ALink{Field: v, outer: true, Obj: t2.Second}
+				} else if fieldDescription.Type == meta.FieldTypeObject {
+					var of = value.(map[string]interface{})
+					if fieldDescription.LinkType == meta.LinkTypeOuter {
+						of[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, outer: true, Obj: t2.Second}
 						delete(t2.Second, k)
-					} else if v.LinkType == meta.LinkTypeInner {
-						t2.Second[v.Name] = ALink{Field: v.LinkMeta.Key, outer: false, Obj: of}
+					} else if fieldDescription.LinkType == meta.LinkTypeInner {
+						t2.Second[fieldDescription.Name] = ALink{Field: fieldDescription.LinkMeta.Key, outer: false, Obj: of}
 					} else {
-						return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Unknown link type %s", v.LinkType)
+						return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Unknown link type %s", fieldDescription.LinkType)
 					}
-					toCheck = append(toCheck, Tuple2{v.LinkMeta, of})
-				} else if v.IsSimple() && v.LinkType == meta.LinkTypeInner {
-					t2.Second[v.Name] = DLink{Field: v.LinkMeta.Key, outer: false, Id: f}
+					toCheck = append(toCheck, Tuple2{fieldDescription.LinkMeta, of})
+				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == meta.LinkTypeInner {
+					t2.Second[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
 				}
-			case v.LinkType == meta.LinkTypeInner && v.LinkMeta.Key.Type.AssertType(f):
-				t2.Second[v.Name] = DLink{Field: v.LinkMeta.Key, outer: false, Id: f}
-			case v.LinkType == meta.LinkTypeInner && AssertLink(f):
+			case fieldDescription.LinkType == meta.LinkTypeInner && fieldDescription.LinkMeta.Key.Type.AssertType(value):
+				t2.Second[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
+			case fieldDescription.LinkType == meta.LinkTypeInner && AssertLink(value):
 			default:
 				return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Filed '%s' has a wrong type", k)
 			}
+
 		}
 	}
 	return toCheck, nil
@@ -180,8 +182,8 @@ func (processor *Processor) getValidator(vk string, preValidator func(pt2 *Tuple
 
 }
 
-func (processor *Processor) flatten(m *meta.Meta, obj map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Tuple2, error) {
-	tc := []Tuple2{Tuple2{m, obj}}
+func (processor *Processor) flatten(objectMeta *meta.Meta, recordValues map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Tuple2, error) {
+	tc := []Tuple2{{objectMeta, recordValues}}
 	for tail := tc; len(tail) > 0; tail = tail[1:] {
 		if v, e := validatorFactory(tail[0].First.Name); e != nil {
 			return nil, e
@@ -720,8 +722,11 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 		return nil, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
-	if _, e := m.Key.ValueFromString(key); e != nil {
+	if pkValue, e := m.Key.ValueFromString(key); e != nil {
 		return nil, e
+	} else {
+		//record data must contain valid record`s PK value
+		obj[m.Key.Name] = pkValue
 	}
 
 	tc, e := processor.flatten(m, obj, func(mn string) (objectClassValidator, error) {

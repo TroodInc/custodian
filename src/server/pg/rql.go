@@ -424,7 +424,7 @@ func like(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "like", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpSimple("LIKE "))
+	return ctx.fieldExpr(args, ctx.sqlOpSimple("ILIKE "))
 }
 
 func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error) {

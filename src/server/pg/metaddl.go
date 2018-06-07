@@ -421,6 +421,28 @@ func (cl *Column) addScript(tname string) (*DDLStmt, error) {
 	return &DDLStmt{Name: fmt.Sprintf("add_table_column#%s.%s", tname, cl.Name), Code: buffer.String()}, nil
 }
 
+const templAlterTableColumnAlterNull = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if not .dot.Optional}} SET {{else}} DROP {{end}} NOT NULL;`
+const templAlterTableColumnAlterDefault = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if .dot.Defval}} SET DEFAULT {{.dot.Defval}} {{else}} DROP DEFAULT {{end}};`
+
+var parsedTemplAlterTableColumnAlterNull = template.Must(template.New("alter_table_column_alter_null").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterNull))
+var parsedTemplAlterTableColumnAlterDefault = template.Must(template.New("alter_table_column_alter_default").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterDefault))
+
+//Creates a DDL to alter a table's column
+func (cl *Column) alterScript(tname string) (*DDLStmt, error) {
+	var buffer bytes.Buffer
+	if e := parsedTemplAlterTableColumnAlterNull.Execute(&buffer, map[string]interface{}{
+		"Table": tname,
+		"dot":   cl}); e != nil {
+		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
+	}
+	if e := parsedTemplAlterTableColumnAlterDefault.Execute(&buffer, map[string]interface{}{
+		"Table": tname,
+		"dot":   cl}); e != nil {
+		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
+	}
+	return &DDLStmt{Name: fmt.Sprintf("alter_table_column#%s.%s", tname, cl.Name), Code: buffer.String()}, nil
+}
+
 //DDL create table outer foreign key templates
 const templCreateOuterFK = `ALTER TABLE "{{.FromTable}}" ADD CONSTRAINT fk_{{.FromColumn}}_{{.ToTable}}_{{.ToColumn}} FOREIGN KEY "({{.FromColumn}})" REFERENCES "{{.ToTable}}" ("{{.ToColumn}}");`
 
@@ -615,15 +637,16 @@ func (cp *OFKSliceCP) Copy(i int) { *cp.to = append(*cp.to, cp.from[i]) }
 
 // Difference of two meta DDL
 type MetaDDLDiff struct {
-	Table   string
-	ColsRem []Column
-	ColsAdd []Column
-	IFKsRem []IFK
-	IFKsAdd []IFK
-	OFKsRem []OFK
-	OFKsAdd []OFK
-	SeqsAdd []Seq
-	SeqsRem []Seq
+	Table     string
+	ColsRem   []Column
+	ColsAdd   []Column
+	ColsAlter []Column
+	IFKsRem   []IFK
+	IFKsAdd   []IFK
+	OFKsRem   []OFK
+	OFKsAdd   []OFK
+	SeqsAdd   []Seq
+	SeqsRem   []Seq
 }
 
 // Calculate difference between two meta DDL
@@ -636,6 +659,17 @@ func (m1 *MetaDDL) Diff(m2 *MetaDDL) (*MetaDDLDiff, error) {
 	InverseIntersect(&IFKSliceCP{m1.IFKs, &mdd.IFKsRem}, &IFKSliceCP{m2.IFKs, &mdd.IFKsAdd})
 	InverseIntersect(&OFKSliceCP{m1.OFKs, &mdd.OFKsRem}, &OFKSliceCP{m2.OFKs, &mdd.OFKsAdd})
 	InverseIntersect(&SeqSliceCP{m1.Seqs, &mdd.SeqsRem}, &SeqSliceCP{m2.Seqs, &mdd.SeqsAdd})
+	//process fields update check
+	for _, currentObjectColumn := range m1.Columns {
+		for _, objectToUpdateColumn := range m2.Columns {
+			//omit this check for PK`s until TB-116 is implemented
+			if currentObjectColumn.Name == objectToUpdateColumn.Name && m1.Pk != currentObjectColumn.Name {
+				if currentObjectColumn.Optional != objectToUpdateColumn.Optional {
+					mdd.ColsAlter = append(mdd.ColsAlter, objectToUpdateColumn)
+				}
+			}
+		}
+	}
 	return mdd, nil
 }
 
@@ -671,6 +705,13 @@ func (m *MetaDDLDiff) Script() (DDLStmts, error) {
 	}
 	for i, _ := range m.ColsAdd {
 		if s, e := m.ColsAdd[i].addScript(m.Table); e != nil {
+			return nil, e
+		} else {
+			stmts.Add(s)
+		}
+	}
+	for i, _ := range m.ColsAlter {
+		if s, e := m.ColsAlter[i].alterScript(m.Table); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)

@@ -38,14 +38,6 @@ func AsLinkType(s string) (LinkType, bool) {
 	}
 }
 
-type ValidationError struct {
-	Message string
-}
-
-func (err *ValidationError) Error() string {
-	return err.Message
-}
-
 func (lt *LinkType) UnmarshalJSON(b []byte) error {
 	var s string
 	if e := json.Unmarshal(b, &s); e != nil {
@@ -80,9 +72,9 @@ type Method int
 
 const (
 	MethodRetrive Method = iota + 1
-	MethodCreate
-	MethodRemove
-	MethodUpdate
+	MethodCreate  
+	MethodRemove  
+	MethodUpdate  
 )
 
 func (m Method) String() (string, bool) {
@@ -320,6 +312,9 @@ func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
 }
 
 func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
+	if ok, err := (&ValidationService{}).Validate(metaObj); !ok {
+		return nil, err
+	}
 	createdMeta := &Meta{MetaDescription: metaObj}
 	notResolved := []*Meta{createdMeta}
 	shadowCache := map[string]*Meta{metaObj.Name: createdMeta}
@@ -329,23 +324,20 @@ func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
 		bm.Fields = make([]FieldDescription, fieldsLen, fieldsLen)
 		for i := 0; i < fieldsLen; i++ {
 			bm.Fields[i].Meta = bm
-			f := &bm.MetaDescription.Fields[i]
-			bm.Fields[i].Field = f
-			if f.LinkMeta != "" {
+			field := &bm.MetaDescription.Fields[i]
+			bm.Fields[i].Field = field
+			if field.LinkMeta != "" {
 				var ok bool
-				if bm.Fields[i].LinkMeta, ok = metaStore.cache[f.LinkMeta]; ok {
-					continue
-				}
-				if bm.Fields[i].LinkMeta, ok = shadowCache[f.LinkMeta]; ok {
+				if bm.Fields[i].LinkMeta, ok = shadowCache[field.LinkMeta]; ok {
 					continue
 				}
 
-				lm, _, err := metaStore.drv.Get(f.LinkMeta)
+				linkedMeta, _, err := metaStore.drv.Get(field.LinkMeta)
 				if err != nil {
-					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "FieldDescription '%s' has iccorect link MetaDescription: %s", f.Name, err.Error())
+					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "FieldDescription '%s' has iccorect link MetaDescription: %s", field.Name, err.Error())
 				}
-				bm.Fields[i].LinkMeta = &Meta{MetaDescription: lm}
-				shadowCache[f.LinkMeta] = bm.Fields[i].LinkMeta
+				bm.Fields[i].LinkMeta = &Meta{MetaDescription: linkedMeta}
+				shadowCache[field.LinkMeta] = bm.Fields[i].LinkMeta
 				notResolved = append(notResolved, bm.Fields[i].LinkMeta)
 			}
 		}
@@ -474,6 +466,9 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 // Deletes an existing object metadata from the store.
 func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	//remove object from the database
+	meta, _, _ := metaStore.Get(name)
+	metaStore.removeRelatedOuterLinks(meta)
+	metaStore.removeRelatedInnerLinks(meta)
 	if e := metaStore.syncer.RemoveObj(name, force); e == nil {
 		//remove object`s description *.json file
 		metaStore.syncerMutex.Lock()
@@ -490,9 +485,61 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	}
 }
 
+//Remove all outer fields linking to given Meta
+func (metaStore *MetaStore) removeRelatedOuterLinks(targetMeta *Meta) {
+	for _, field := range targetMeta.Fields {
+		if field.Type == FieldTypeObject && field.LinkType == LinkTypeInner {
+			metaStore.removeRelatedOuterLink(targetMeta, field)
+		}
+	}
+}
+
+//Remove outer field from related object if it links to the given field
+func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFieldDescription FieldDescription) {
+	relatedObjectMeta := innerLinkFieldDescription.LinkMeta
+	for i, relatedObjectField := range relatedObjectMeta.Fields {
+		if relatedObjectField.LinkType == LinkTypeOuter &&
+			relatedObjectField.LinkMeta.Name == targetMeta.Name &&
+			relatedObjectField.OuterLinkField.Field.Name == innerLinkFieldDescription.Field.Name {
+			//omit outer field and update related object
+			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
+			relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
+			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta)
+		}
+	}
+}
+
+//Remove inner fields linking to given Meta
+func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
+	metaDescriptionList, _, _ := metaStore.List()
+	for _, objectMetaDescription := range *metaDescriptionList {
+
+		if targetMeta.Name != objectMetaDescription.Name {
+			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name)
+			objectMetaFields := make([]Field, 0)
+			objectMetaFieldDescriptions := make([]FieldDescription, 0)
+
+			for i, fieldDescription := range objectMeta.Fields {
+				if fieldDescription.LinkType != LinkTypeInner || fieldDescription.LinkMeta.Name != targetMeta.Name {
+					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
+					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+				}
+			}
+			// it means that related object should be updated
+			if len(objectMetaFieldDescriptions) != len(objectMeta.Fields) {
+				objectMeta.Fields = objectMetaFieldDescriptions
+				objectMeta.MetaDescription.Fields = objectMetaFields
+				metaStore.Update(objectMeta.Name, objectMeta)
+			}
+		}
+	}
+}
+
 // Updates an existing object metadata.
 func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, error) {
 	if currentBusinessObj, ok, err := metaStore.Get(name); err == nil {
+		// remove possible outer links before main update processing
+		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
 		metaStore.syncerMutex.Lock()
 		defer metaStore.syncerMutex.Unlock()
 		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
@@ -500,13 +547,10 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, err
 		delete(metaStore.cache, name)
 		metaStore.cacheMutex.Unlock()
 
-		if e != nil {
+		if e != nil || !ok {
 			return ok, e
 		}
 
-		if !ok {
-			return ok, e
-		}
 		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
 		//behaviour should be fixed
 		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
@@ -528,6 +572,26 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, err
 		}
 	} else {
 		return ok, err
+	}
+}
+
+// compare current object`s version to the version is being updated and remove outer links
+// if any inner link is being removed
+func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) {
+	for _, currentFieldDescription := range currentMeta.Fields {
+		if currentFieldDescription.LinkType == LinkTypeInner {
+			fieldIsBeingRemoved := true
+			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
+				if fieldDescriptionToBeUpdated.Name == fieldDescriptionToBeUpdated.Name &&
+					fieldDescriptionToBeUpdated.LinkType == LinkTypeInner &&
+					fieldDescriptionToBeUpdated.LinkMeta.Name == fieldDescriptionToBeUpdated.LinkMeta.Name {
+					fieldIsBeingRemoved = false
+				}
+			}
+			if fieldIsBeingRemoved {
+				metaStore.removeRelatedOuterLink(currentMeta, currentFieldDescription)
+			}
+		}
 	}
 }
 

@@ -234,7 +234,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 		} else {
 			sink.pushGeneric(recordData)
 		}
-	}))
+	}, false))
 
 	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
@@ -291,12 +291,12 @@ func (cs *CustodianServer) Setup() *http.Server {
 			sink.pushError(e)
 		} else {
 			if ok {
-				sink.pushEmpty()
+				sink.pushGeneric(nil)
 			} else {
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
 			}
 		}
-	}))
+	}, true))
 
 	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
@@ -329,7 +329,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
 			}
 		}
-	}))
+	}, false))
 
 	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
 		defer sink.Complete()
@@ -363,10 +363,10 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 //Creates an action to process an HTTP request in JSON format.
 //It takes an function to process request, which accepts JsonSource, JsonSink and PathSegments.
-func CreateDualJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, *http.Request)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
+func CreateDualJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, *http.Request), allowEmptyBody bool) func(http.ResponseWriter, *http.Request, httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
 		src, e := (*httpRequest)(r).asJsonSource()
-		if e != nil {
+		if e != nil && !allowEmptyBody {
 			returnError(w, e)
 			return
 		}
@@ -527,7 +527,11 @@ func (js *JsonSink) pushError(e error) {
 
 //Push an JSON object into JsonSink
 func (js *JsonSink) pushGeneric(obj map[string]interface{}) {
-	if encodedData, err := json.Marshal(map[string]interface{}{"status": "OK", "data": obj}); err != nil {
+	responseData := map[string]interface{}{"status": "OK"}
+	if obj != nil {
+		responseData["data"] = obj
+	}
+	if encodedData, err := json.Marshal(responseData); err != nil {
 		returnError(js.rw, err)
 	} else {
 		js.rw.Header().Set("Content-Type", "application/json")
