@@ -105,7 +105,7 @@ func (r *Reverser) Columns(cols *[]Column, pk *string) error {
 		}
 		//TODO: implement this: *cols = append(*cols, Column{Name: column, Typ: coltyp, Optional: len(defval) > 0 || !notnull, Defval: defval})
 		//when invariants` restrictions would be implemented (TB-116)
-		*cols = append(*cols, Column{Name: column, Typ: coltyp, Optional: len(defval) > 0 || !notnull, Defval: defval})
+		*cols = append(*cols, Column{Name: column, Typ: coltyp, Optional: !notnull, Defval: defval})
 		colsmap[column] = i
 	}
 

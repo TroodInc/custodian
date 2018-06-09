@@ -289,4 +289,61 @@ var _ = Describe("PG MetaStore test", func() {
 			})
 		})
 	})
+
+	It("can create object containing datetime field with default value", func() {
+		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaCreateError := metaStore.Create(metaObj)
+			Expect(metaCreateError).To(BeNil())
+			Context("and record is created", func() {
+				_, recordCreateError := dataProcessor.Put(metaObj.Name, map[string]interface{}{}, auth.User{})
+				Expect(recordCreateError).To(BeNil())
+				Context("Mandatory field added", func() {
+					updatedMetaDescription := meta.MetaDescription{
+						Name: "order",
+						Key:  "id",
+						Cas:  false,
+						Fields: []meta.Field{
+							{
+								Name:     "id",
+								Type:     meta.FieldTypeNumber,
+								Optional: true,
+								Def: map[string]interface{}{
+									"func": "nextval",
+								},
+							},
+							{
+								Name:     "created",
+								Type:     meta.FieldTypeDateTime,
+								Optional: false,
+								Def: map[string]interface{}{
+									"func": "CURRENT_TIMESTAMP",
+								},
+							},
+						},
+					}
+					metaObj, err := metaStore.NewMeta(&updatedMetaDescription)
+					Expect(err).To(BeNil())
+					ok, err := metaStore.Update(metaObj.Name, metaObj)
+					Expect(ok).To(BeTrue())
+					Expect(err).To(BeNil())
+				})
+			})
+		})
+	})
 })

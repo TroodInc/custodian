@@ -72,9 +72,9 @@ type Method int
 
 const (
 	MethodRetrive Method = iota + 1
-	MethodCreate  
-	MethodRemove  
-	MethodUpdate  
+	MethodCreate
+	MethodRemove
+	MethodUpdate
 )
 
 func (m Method) String() (string, bool) {
