@@ -14,6 +14,7 @@ import (
 	"strings"
 	"text/template"
 	"reflect"
+	"server/pg/dml_info"
 )
 
 type DataManager struct {
@@ -55,8 +56,9 @@ const (
 	ErrPreconditionFailed = "precondition_failed"
 )
 
+//{{ if isLast $key .Cols}}{{else}},{{end}}
 const (
-	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.Vals}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}}`
+	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}}`
 	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
 	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
 	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
@@ -67,37 +69,6 @@ var parsedTemplInsert = template.Must(template.New("dml_insert").Funcs(funcs).Pa
 var parsedTemplSelect = template.Must(template.New("dml_select").Funcs(funcs).Parse(templSelect))
 var parsedTemplDelete = template.Must(template.New("dml_delete").Funcs(funcs).Parse(templDelete))
 var parsedTemplUpdate = template.Must(template.New("dml_update").Funcs(funcs).Parse(templUpdate))
-
-type insertInfo struct {
-	Table      string
-	Cols       []string
-	RCols      []string
-	ObjectsLen int
-}
-
-func nBindVals(from int, n int) string {
-	var vals bytes.Buffer
-	for i := from; i < from+n; i++ {
-		vals.WriteString("$")
-		vals.WriteString(strconv.Itoa(i))
-		vals.WriteString(",")
-	}
-	if vals.Len() > 0 {
-		vals.Truncate(vals.Len() - 1)
-	}
-	return vals.String()
-}
-
-func (ii *insertInfo) Vals() string {
-	var b bytes.Buffer
-	for i := 0; i < ii.ObjectsLen; i++ {
-		b.WriteRune('(')
-		b.WriteString(nBindVals(i*len(ii.Cols)+1, len(ii.Cols)))
-		b.WriteString("),")
-	}
-	b.Truncate(b.Len() - 1)
-	return b.String()
-}
 
 type SelectInfo struct {
 	Cols   []string
@@ -110,18 +81,6 @@ type SelectInfo struct {
 
 func (selectInfo *SelectInfo) sql(sql *bytes.Buffer) error {
 	return parsedTemplSelect.Execute(sql, selectInfo)
-}
-
-type deleteInfo struct {
-	Table   string
-	Filters []string
-}
-
-type updateInfo struct {
-	Table   string
-	Cols    []string
-	Values  []string
-	Filters []string
 }
 
 func tableFields(m *meta.Meta) []*meta.FieldDescription {
@@ -392,13 +351,13 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]i
 	}
 
 	rFields := tableFields(m)
-	ui := &updateInfo{Table: tblName(m), Values: make([]string, 0), Filters: make([]string, 0), Cols: fieldsNames(rFields)}
+	updateInfo := dml_info.NewUpdateInfo(tblName(m), fieldsNames(rFields), make([]string, 0), make([]string, 0))
 	cols := make([]string, 0, len(objs[0]))
 	vals := make([]func(interface{}) interface{}, 0, len(objs[0]))
 	var b bytes.Buffer
 	newBind := func(col string) string {
 		defer b.Reset()
-		b.WriteString(col)
+		b.WriteString(fmt.Sprintf("\"%s\"", col))
 		b.WriteString("=$")
 		b.WriteString(strconv.Itoa(len(cols)))
 		return b.String()
@@ -406,31 +365,31 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]i
 	for col, val := range objs[0] {
 		cols = append(cols, col)
 		if m.Key.Name == col {
-			ui.Filters = append(ui.Filters, newBind(col))
+			updateInfo.Filters = append(updateInfo.Filters, newBind(col))
 			vals = append(vals, identityVal)
 		} else if col == "cas" {
-			ui.Filters = append(ui.Filters, newBind(col))
+			updateInfo.Filters = append(updateInfo.Filters, newBind(col))
 			vals = append(vals, identityVal)
 
 			cols = append(cols, col)
-			ui.Values = append(ui.Values, newBind(col))
+			updateInfo.Values = append(updateInfo.Values, newBind(col))
 			vals = append(vals, increaseCasVal)
 		} else {
 			switch val.(type) {
 			case data.ALink:
-				ui.Filters = append(ui.Filters, newBind(col))
+				updateInfo.Filters = append(updateInfo.Filters, newBind(col))
 				vals = append(vals, alinkVal)
 			case data.DLink:
-				ui.Values = append(ui.Values, newBind(col))
+				updateInfo.Values = append(updateInfo.Values, newBind(col))
 				vals = append(vals, dlinkVal)
 			default:
-				ui.Values = append(ui.Values, newBind(col))
+				updateInfo.Values = append(updateInfo.Values, newBind(col))
 				vals = append(vals, identityVal)
 			}
 		}
 	}
 
-	if err := parsedTemplUpdate.Execute(&b, ui); err != nil {
+	if err := parsedTemplUpdate.Execute(&b, updateInfo); err != nil {
 		logger.Error("Prepare update SQL by template error: %s", err.Error())
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
@@ -474,9 +433,9 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 	//fix the columns by the first object
 	fields := tableFields(m)
 	cols := keys(objs[0])
-	ii := &insertInfo{Table: tblName(m), Cols: cols, RCols: fieldsNames(fields), ObjectsLen: len(objs)}
+	insertInfo := dml_info.NewInsertInfo(tblName(m), cols, fieldsNames(fields), len(objs))
 	var insertDML bytes.Buffer
-	if err := parsedTemplInsert.Execute(&insertDML, ii); err != nil {
+	if err := parsedTemplInsert.Execute(&insertDML, insertInfo); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
@@ -502,7 +461,6 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 				}
 			}
 		}
-
 		stmt, err := ctx.(*pgOpCtx).tx.Prepare(insertDML.String())
 		if err != nil {
 			return err
@@ -586,10 +544,10 @@ func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}
 	} else {
 		pks = keys
 	}
-
-	di := &deleteInfo{Table: tblName(n.Meta), Filters: []string{n.KeyFiled.Name + " IN (" + nBindVals(1, len(keys)) + ")"}}
+	sqlHelper := dml_info.SqlHelper{}
+	deleteInfo := dml_info.NewDeleteInfo(tblName(n.Meta), []string{sqlHelper.EscapeColumn(n.KeyFiled.Name) + " IN (" + sqlHelper.BindValues(1, len(keys)) + ")"})
 	var q bytes.Buffer
-	if err := parsedTemplDelete.Execute(&q, di); err != nil {
+	if err := parsedTemplDelete.Execute(&q, deleteInfo); err != nil {
 		return nil, nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
@@ -691,10 +649,10 @@ func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescript
 	if fields == nil {
 		fields = tableFields(m)
 	}
-
+	sqlHelper := dml_info.SqlHelper{}
 	where := bytes.NewBufferString(key)
 	where.WriteString(" IN (")
-	where.WriteString(nBindVals(1, len(in)))
+	where.WriteString(sqlHelper.BindValues(1, len(in)))
 	where.WriteString(")")
 	si := &SelectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: where.String()}
 	var q bytes.Buffer
