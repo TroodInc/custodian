@@ -419,7 +419,6 @@ var _ = Describe("Data", func() {
 		})
 
 	})
-
 	It("Can create records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
 			metaDescription := meta.MetaDescription{
@@ -528,4 +527,39 @@ var _ = Describe("Data", func() {
 			})
 		})
 	})
+
+	It("Can insert numeric value into string field", func() {
+		Context("having an object with string field", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "name",
+						Type: meta.FieldTypeString,
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			Context("record can contain numeric value for string field", func() {
+				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": 202}, auth.User{})
+				Expect(err).To(BeNil())
+				Expect(record["name"]).To(Equal("202"))
+			})
+
+		})
+
+	})
+
 })

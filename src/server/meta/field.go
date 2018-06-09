@@ -70,8 +70,9 @@ func (fieldType FieldType) AssertType(i interface{}) bool {
 		_, ok := i.(string)
 		return ok
 	case FieldTypeNumber:
-		_, ok := i.(float64)
-		return ok
+		_, floatOk := i.(float64)
+		_, intOk := i.(int)
+		return floatOk || intOk
 	case FieldTypeBool:
 		_, ok := i.(bool)
 		return ok

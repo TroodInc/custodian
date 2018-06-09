@@ -124,6 +124,8 @@ func (processor *Processor) validate(t2 *Tuple2, mandatoryCheck bool) ([]Tuple2,
 		//perform validation otherwise
 		if valueIsSet && !(value == nil && fieldDescription.Optional) {
 			switch {
+			case fieldDescription.Type == meta.FieldTypeString && meta.FieldTypeNumber.AssertType(value):
+				break
 			case fieldDescription.Type.AssertType(value):
 				if fieldDescription.Type == meta.FieldTypeArray {
 					var a = value.([]interface{})
@@ -154,7 +156,7 @@ func (processor *Processor) validate(t2 *Tuple2, mandatoryCheck bool) ([]Tuple2,
 				t2.Second[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
 			case fieldDescription.LinkType == meta.LinkTypeInner && AssertLink(value):
 			default:
-				return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Filed '%s' has a wrong type", k)
+				return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Field '%s' has a wrong type", k)
 			}
 
 		}
