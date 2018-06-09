@@ -351,7 +351,7 @@ func dictionary(values ...interface{}) (map[string]interface{}, error) {
 //DDL create table templates
 const (
 	templCreateTable = `CREATE TABLE "{{.Table}}" (
-	{{range .Columns}}{{template "column" .}},{{"\n"}}{{end}}{{$mtable:=.Table}}{{range .IFKs}}{{template "ifk" dict "Mtable" $mtable "dot" .}},{{"\n"}}{{end}}PRIMARY KEY ({{.Pk}})
+	{{range .Columns}}{{template "column" .}},{{"\n"}}{{end}}{{$mtable:=.Table}}{{range .IFKs}}{{template "ifk" dict "Mtable" $mtable "dot" .}},{{"\n"}}{{end}}PRIMARY KEY ("{{.Pk}}")
     );`
 	templCreateTableColumns = `{{define "column"}}"{{.Name}}" {{.Typ.DdlType}}{{if not .Optional}} NOT NULL{{end}}{{if .Unique}} UNIQUE{{end}}{{if .Defval}} DEFAULT {{.Defval}}{{end}}{{end}}`
 	templCreateTableInnerFK = `{{define "ifk"}}CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} FOREIGN KEY ("{{.dot.FromColumn}}") REFERENCES "{{.dot.ToTable}}" ("{{.dot.ToColumn}}"){{end}}`
