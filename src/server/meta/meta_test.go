@@ -82,10 +82,12 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 				},
 			}
-			aMeta, _ := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
 			bMetaDescription := meta.MetaDescription{
@@ -99,6 +101,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:     "a_fk",
@@ -110,6 +113,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				},
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
@@ -124,6 +128,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:           "b_set",
@@ -136,8 +141,8 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				},
 			}
 			aMeta, err = metaStore.NewMeta(&aMetaDescription)
-			metaStore.Update(aMeta.Name, aMeta)
 			Expect(err).To(BeNil())
+			metaStore.Update(aMeta.Name, aMeta)
 
 			Context("and 'remove' method is called for B meta", func() {
 				metaStore.Remove(bMeta.Name, true)
@@ -164,10 +169,12 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 				},
 			}
-			aMeta, _ := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
 			bMetaDescription := meta.MetaDescription{
@@ -181,6 +188,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:     "a_fk",
@@ -220,10 +228,12 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 				},
 			}
-			aMeta, _ := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
 			bMetaDescription := meta.MetaDescription{
@@ -237,6 +247,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:     "a_fk",
@@ -248,6 +259,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				},
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
@@ -262,6 +274,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:           "b_set",
@@ -289,6 +302,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
+							Optional: true,
 						},
 					},
 				}
