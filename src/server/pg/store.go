@@ -251,7 +251,18 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 				case *string:
 					result[i][n] = string([]rune(*value)[0:10])
 				}
-			} else if fieldByName(n).Type == meta.FieldTypeDateTime || fieldByName(n).Type == meta.FieldTypeTime {
+			} else if fieldByName(n).Type == meta.FieldTypeTime {
+				switch value := values[j].(type) {
+				case *sql.NullString:
+					if value.Valid {
+						result[i][n] = string([]rune(value.String)[11:])
+					} else {
+						result[i][n] = nil
+					}
+				case *string:
+					result[i][n] = string([]rune(*value)[11:])
+				}
+			} else if fieldByName(n).Type == meta.FieldTypeDateTime {
 				switch value := values[j].(type) {
 				case *sql.NullString:
 					if value.Valid {
