@@ -7,6 +7,7 @@ import (
 	"server/pg"
 	"server/data"
 	"server/auth"
+	"strconv"
 	"fmt"
 )
 
@@ -34,8 +35,9 @@ var _ = Describe("Data", func() {
 				Cas:  false,
 				Fields: []meta.Field{
 					{
-						Name: "id",
-						Type: meta.FieldTypeString,
+						Name:     "id",
+						Type:     meta.FieldTypeString,
+						Optional: true,
 					},
 				},
 			}
@@ -69,7 +71,8 @@ var _ = Describe("Data", func() {
 						},
 					},
 				}
-				leadMetaObj, _ := metaStore.NewMeta(&leadMetaDescription)
+				leadMetaObj, err := metaStore.NewMeta(&leadMetaDescription)
+				Expect(err).To(BeNil())
 				metaStore.Create(leadMetaObj)
 				Context("Lead record with empty reason is created", func() {
 					leadData := map[string]interface{}{
@@ -416,4 +419,147 @@ var _ = Describe("Data", func() {
 		})
 
 	})
+	It("Can create records containing reserved words", func() {
+		Context("having an object named by reserved word and containing field named by reserved word", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "order",
+						Type: meta.FieldTypeString,
+					},
+				},
+			}
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
+			Context("and record has values containing reserved word", func() {
+				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"order": "order"}, auth.User{})
+				Expect(err).To(BeNil())
+				Expect(record["id"]).To(Equal(float64(1)))
+
+			})
+
+		})
+
+	})
+
+	It("Can update records containing reserved words", func() {
+		Context("having an object named by reserved word and containing field named by reserved word", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "order",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "order",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "select",
+						Type: meta.FieldTypeString,
+					},
+				},
+			}
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
+			Context("and record of this object", func() {
+				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"select": "some value"}, auth.User{})
+				Expect(err).To(BeNil())
+				Context("is being updated with values containing reserved word", func() {
+					record, err := dataProcessor.Update(metaDescription.Name, strconv.Itoa(int(record["order"].(float64))), map[string]interface{}{"select": "select"}, auth.User{})
+					Expect(err).To(BeNil())
+					Expect(record["select"]).To(Equal("select"))
+				})
+
+			})
+
+		})
+
+	})
+
+	It("Can delete records containing reserved words", func() {
+		Context("having an object named by reserved word and containing field named by reserved word", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "from",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "from",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
+			Context("and record of this object", func() {
+				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{}, auth.User{})
+				Expect(err).To(BeNil())
+				Context("is being deleted", func() {
+					isDeleted, err := dataProcessor.Delete(metaDescription.Name, strconv.Itoa(int(record["from"].(float64))), auth.User{})
+					Expect(err).To(BeNil())
+					Expect(isDeleted).To(BeTrue())
+				})
+			})
+		})
+	})
+
+	It("Can insert numeric value into string field", func() {
+		Context("having an object with string field", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "name",
+						Type: meta.FieldTypeString,
+					},
+				},
+			}
+			metaObj, _ := metaStore.NewMeta(&metaDescription)
+			metaStore.Create(metaObj)
+
+			Context("record can contain numeric value for string field", func() {
+				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": 202}, auth.User{})
+				Expect(err).To(BeNil())
+				Expect(record["name"]).To(Equal("202"))
+			})
+
+		})
+
+	})
+
 })
