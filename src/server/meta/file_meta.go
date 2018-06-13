@@ -25,8 +25,7 @@ type FileMetaDriver struct {
 }
 
 func NewFileMetaDriver(d string) *FileMetaDriver {
-	metaListNames := make([]string, 0)
-	return &FileMetaDriver{d, nil, metaListNames, NotInitiated}
+	return &FileMetaDriver{d, nil, nil, NotInitiated}
 }
 
 func closeFile(f *os.File) error {
@@ -164,11 +163,10 @@ func (fm *FileMetaDriver) Update(name string, m MetaDescription) (bool, error) {
 }
 
 func (fm *FileMetaDriver) BeginTransaction() (error) {
-	if fm.state == NotInitiated {
+	if fm.state != Pending {
 		fm.state = Pending
-		return nil
 	} else {
-		return &TransactionError{"Meta driver is in initiated state"}
+		return &TransactionError{"Meta driver`s transaction is in pending state"}
 	}
 	// store initial state
 	metaList, _, err := fm.List()
@@ -176,6 +174,7 @@ func (fm *FileMetaDriver) BeginTransaction() (error) {
 		return err
 	}
 	fm.initialMetaList = metaList
+	fm.createdMetaListNames = make([]string, 0)
 	return nil
 }
 
@@ -190,10 +189,7 @@ func (fm *FileMetaDriver) CommitTransaction() (error) {
 }
 
 func (fm *FileMetaDriver) RollbackTransaction() (error) {
-	if fm.state == Pending {
-		fm.state = RolledBacked
-		return nil
-	} else {
+	if fm.state != Pending {
 		return &TransactionError{"Meta driver is not in pending state"}
 	}
 	//remove created meta
@@ -204,6 +200,7 @@ func (fm *FileMetaDriver) RollbackTransaction() (error) {
 	for _, metaDescription := range *fm.initialMetaList {
 		createMetaFile(fm.getMetaFileName(metaDescription.Name), metaDescription)
 	}
+	fm.state = RolledBacked
 	return nil
 }
 
