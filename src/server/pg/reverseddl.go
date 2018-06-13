@@ -7,7 +7,7 @@ import (
 )
 
 type Reverser struct {
-	db    *sql.DB
+	tx    *sql.Tx
 	table string
 	oid   int64
 }
@@ -66,9 +66,9 @@ const (
 
 //NewReverser create a new Reversers. Returns errors if some error has occurred.
 //For example, iIf the table not exists error code will be ErrNotFound.
-func NewReverser(db *sql.DB, table string) (*Reverser, error) {
-	reverser := &Reverser{db: db, table: table}
-	err := db.QueryRow(SQL_GET_OBJ_ID, table).Scan(&reverser.oid)
+func NewReverser(tx *sql.Tx, table string) (*Reverser, error) {
+	reverser := &Reverser{tx: tx, table: table}
+	err := tx.QueryRow(SQL_GET_OBJ_ID, table).Scan(&reverser.oid)
 	if err == sql.ErrNoRows {
 		return nil, &DDLError{table: table, code: ErrNotFound, msg: err.Error()}
 	}
@@ -80,7 +80,7 @@ func NewReverser(db *sql.DB, table string) (*Reverser, error) {
 
 //Revers columns and primary key of the table.
 func (r *Reverser) Columns(cols *[]Column, pk *string) error {
-	colrows, err := r.db.Query(SQL_COLUMNS_DESC, r.oid)
+	colrows, err := r.tx.Query(SQL_COLUMNS_DESC, r.oid)
 	if err != nil {
 		return &DDLError{table: r.table, code: ErrInternal, msg: "select column desc: " + err.Error()}
 	}
@@ -109,7 +109,7 @@ func (r *Reverser) Columns(cols *[]Column, pk *string) error {
 		colsmap[column] = i
 	}
 
-	conrows, err := r.db.Query(SQL_PU_CONSTRAINTS, r.oid)
+	conrows, err := r.tx.Query(SQL_PU_CONSTRAINTS, r.oid)
 	if err != nil {
 		return &DDLError{table: r.table, code: ErrInternal, msg: "select PK and UK: " + err.Error()}
 	}
@@ -141,7 +141,7 @@ func (r *Reverser) Columns(cols *[]Column, pk *string) error {
 }
 
 func (r *Reverser) Constraints(ifks *[]IFK, ofks *[]OFK) error {
-	ofkrows, err := r.db.Query(SQL_OFK_TO_TABLE, r.oid)
+	ofkrows, err := r.tx.Query(SQL_OFK_TO_TABLE, r.oid)
 	if err != nil {
 		return &DDLError{table: r.table, code: ErrInternal, msg: "select OFK: " + err.Error()}
 	}
@@ -156,7 +156,7 @@ func (r *Reverser) Constraints(ifks *[]IFK, ofks *[]OFK) error {
 		*ofks = append(*ofks, OFK{fromTbl, fromCol, toCol, r.table})
 	}
 
-	ifkrows, err := r.db.Query(SQL_IFK_TO_TABLE, r.oid)
+	ifkrows, err := r.tx.Query(SQL_IFK_TO_TABLE, r.oid)
 	if err != nil {
 		return &DDLError{table: r.table, code: ErrInternal, msg: "select IFK: " + err.Error()}
 	}

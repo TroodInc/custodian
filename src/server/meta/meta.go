@@ -72,9 +72,9 @@ type Method int
 
 const (
 	MethodRetrive Method = iota + 1
-	MethodCreate  
-	MethodRemove  
-	MethodUpdate  
+	MethodCreate
+	MethodRemove
+	MethodUpdate
 )
 
 func (m Method) String() (string, bool) {
@@ -449,9 +449,11 @@ func (metaStore *MetaStore) Get(name string) (*Meta, bool, error) {
 func (metaStore *MetaStore) Create(m *Meta) error {
 	metaStore.syncerMutex.Lock()
 	defer metaStore.syncerMutex.Unlock()
-
+	metaStore.syncer.BeginTransaction()
+	defer metaStore.syncer.RollbackTransaction()
 	if e := metaStore.syncer.CreateObj(m); e == nil {
 		if e := metaStore.drv.Create(*m.MetaDescription); e == nil {
+			metaStore.syncer.CommitTransaction()
 			return nil
 		} else {
 			var e2 = metaStore.syncer.RemoveObj(m.Name, false)
@@ -465,20 +467,22 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 
 // Deletes an existing object metadata from the store.
 func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
-	//remove object from the database
+	//begin transaction
+	metaStore.syncer.BeginTransaction()
+	defer metaStore.syncer.RollbackTransaction()
+
 	meta, _, _ := metaStore.Get(name)
+	//remove related links from the database
 	metaStore.removeRelatedOuterLinks(meta)
 	metaStore.removeRelatedInnerLinks(meta)
+
+	//remove object from the database
 	if e := metaStore.syncer.RemoveObj(name, force); e == nil {
 		//remove object`s description *.json file
-		metaStore.syncerMutex.Lock()
-		defer metaStore.syncerMutex.Unlock()
 		ok, err := metaStore.drv.Remove(name)
-		//remove object from cache
-		metaStore.cacheMutex.Lock()
-		delete(metaStore.cache, name)
-		metaStore.cacheMutex.Unlock()
-		//
+		if err == nil {
+			metaStore.syncer.CommitTransaction()
+		}
 		return ok, err
 	} else {
 		return false, e
@@ -537,15 +541,14 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 
 // Updates an existing object metadata.
 func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, error) {
+	//begin transaction
+	metaStore.syncer.BeginTransaction()
+	defer metaStore.syncer.RollbackTransaction()
+
 	if currentBusinessObj, ok, err := metaStore.Get(name); err == nil {
 		// remove possible outer links before main update processing
 		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
-		metaStore.syncerMutex.Lock()
-		defer metaStore.syncerMutex.Unlock()
 		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
-		metaStore.cacheMutex.Lock()
-		delete(metaStore.cache, name)
-		metaStore.cacheMutex.Unlock()
 
 		if e != nil || !ok {
 			return ok, e
@@ -554,6 +557,7 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, err
 		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
 		//behaviour should be fixed
 		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
+			metaStore.syncer.CommitTransaction()
 			return true, nil
 		} else {
 			//rollback to the previous version
@@ -621,4 +625,7 @@ type MetaDbSyncer interface {
 	UpdateObj(old, new *Meta) error
 	UpdateObjTo(*Meta) error
 	ValidateObj(*Meta) (bool, error)
+	BeginTransaction() (error)
+	CommitTransaction() (error)
+	RollbackTransaction() (error)
 }

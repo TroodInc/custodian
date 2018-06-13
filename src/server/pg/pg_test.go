@@ -48,7 +48,8 @@ var _ = Describe("PG MetaStore test", func() {
 				},
 			}
 			meta, _ := metaStore.NewMeta(&metaDescription)
-			metaStore.Create(meta)
+			err := metaStore.Create(meta)
+			Expect(err).To(BeNil())
 			object, _, _ := metaStore.Get(metaDescription.Name)
 
 			Expect(object.Name).To(BeEquivalentTo(metaDescription.Name))
@@ -77,7 +78,8 @@ var _ = Describe("PG MetaStore test", func() {
 				},
 			}
 			meta, _ := metaStore.NewMeta(&metaDescription)
-			metaStore.Create(meta)
+			err := metaStore.Create(meta)
+			Expect(err).To(BeNil())
 			metaStore.Remove(metaDescription.Name, true)
 			_, objectRetrieved, _ := metaStore.Get(metaDescription.Name)
 
@@ -125,7 +127,8 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 				}
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
-				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj)
+				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj)
+				Expect(err).To(BeNil())
 				metaObj, _, _ = metaStore.Get(metaDescription.Name)
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(2))
@@ -174,7 +177,8 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 				}
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
-				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj)
+				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj)
+				Expect(err).To(BeNil())
 				metaObj, _, _ = metaStore.Get(metaDescription.Name)
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(1))

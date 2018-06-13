@@ -9,10 +9,11 @@ import (
 
 type Syncer struct {
 	db *sql.DB
+	tx *sql.Tx
 }
 
 /*
-Example of the db info:
+Example of the tx info:
     - user=%s password=%s dbname=%s sslmode=disable
     - user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full
 */
@@ -24,7 +25,7 @@ func NewSyncer(dbInfo string) (*Syncer, error) {
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
-	return &Syncer{db: db}, nil
+	return &Syncer{db: db, tx: nil}, nil
 }
 
 func (syncer *Syncer) Close() error {
@@ -36,6 +37,9 @@ func (syncer *Syncer) NewDataManager() (*DataManager, error) {
 }
 
 func (syncer *Syncer) CreateObj(m *meta.Meta) error {
+	if err := syncer.ensureTransactionBegun(); err != nil {
+		return err
+	}
 	var md *MetaDDL
 	var e error
 	if md, e = MetaDDLFromMeta(m); e != nil {
@@ -47,7 +51,7 @@ func (syncer *Syncer) CreateObj(m *meta.Meta) error {
 	}
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
-		if _, e := syncer.db.Exec(st.Code); e != nil {
+		if _, e := syncer.tx.Exec(st.Code); e != nil {
 			return &DDLError{table: m.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
 		}
 	}
@@ -55,18 +59,21 @@ func (syncer *Syncer) CreateObj(m *meta.Meta) error {
 }
 
 func (syncer *Syncer) RemoveObj(name string, force bool) error {
-	var md *MetaDDL
+	if err := syncer.ensureTransactionBegun(); err != nil {
+		return err
+	}
+	var metaDdlFromDb *MetaDDL
 	var e error
-	if md, e = MetaDDLFromDB(syncer.db, name); e != nil {
+	if metaDdlFromDb, e = MetaDDLFromDB(syncer.tx, name); e != nil {
 		return e
 	}
 	var ds DDLStmts
-	if ds, e = md.DropScript(force); e != nil {
+	if ds, e = metaDdlFromDb.DropScript(force); e != nil {
 		return e
 	}
 	for _, st := range ds {
 		logger.Debug("Removing object from DB: %syncer\n", st.Code)
-		if _, e := syncer.db.Exec(st.Code); e != nil {
+		if _, e := syncer.tx.Exec(st.Code); e != nil {
 			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
 		}
 	}
@@ -75,6 +82,9 @@ func (syncer *Syncer) RemoveObj(name string, force bool) error {
 
 //Update an existing business object
 func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta) error {
+	if err := syncer.ensureTransactionBegun(); err != nil {
+		return err
+	}
 	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
 	var err error
 	if currentBusinessObjMeta, err = MetaDDLFromMeta(currentBusinessObj); err != nil {
@@ -93,7 +103,7 @@ func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta
 	}
 	for _, ddlStatement := range ddlStatements {
 		logger.Debug("Updating object in DB: %syncer\n", ddlStatement.Code)
-		if _, e := syncer.db.Exec(ddlStatement.Code); e != nil {
+		if _, e := syncer.tx.Exec(ddlStatement.Code); e != nil {
 			return &DDLError{table: currentBusinessObj.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", ddlStatement.Name, e.Error())}
 		}
 	}
@@ -107,7 +117,7 @@ func (syncer *Syncer) diffScripts(metaObj *meta.Meta) (DDLStmts, error) {
 		return nil, e
 	}
 
-	if metaDdlFromDB, err := MetaDDLFromDB(syncer.db, metaObj.Name); err == nil {
+	if metaDdlFromDB, err := MetaDDLFromDB(syncer.tx, metaObj.Name); err == nil {
 		diff, err := metaDdlFromDB.Diff(newMetaDdl)
 		if err != nil {
 			return nil, err
@@ -122,13 +132,16 @@ func (syncer *Syncer) diffScripts(metaObj *meta.Meta) (DDLStmts, error) {
 }
 
 func (syncer *Syncer) UpdateObjTo(businessObject *meta.Meta) error {
+	if err := syncer.ensureTransactionBegun(); err != nil {
+		return err
+	}
 	ddlStatements, e := syncer.diffScripts(businessObject)
 	if e != nil {
 		return e
 	}
 	for _, st := range ddlStatements {
 		logger.Debug("Updating object in DB: %syncer\n", st.Code)
-		if _, e := syncer.db.Exec(st.Code); e != nil {
+		if _, e := syncer.tx.Exec(st.Code); e != nil {
 			return &DDLError{table: businessObject.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
 		}
 	}
@@ -138,6 +151,9 @@ func (syncer *Syncer) UpdateObjTo(businessObject *meta.Meta) error {
 //Check if the given business object equals to the corresponding one stored in the database.
 //The validation fails if the given business object is different
 func (syncer *Syncer) ValidateObj(businessObject *meta.Meta) (bool, error) {
+	if err := syncer.ensureTransactionBegun(); err != nil {
+		return false, err
+	}
 	ddlStatements, e := syncer.diffScripts(businessObject)
 	if e != nil {
 		return false, e
@@ -150,3 +166,27 @@ func (syncer *Syncer) ValidateObj(businessObject *meta.Meta) (bool, error) {
 	}
 	return len(ddlStatements) == 0, nil
 }
+
+//transaction related methods
+func (syncer *Syncer) BeginTransaction() (error) {
+	tx, err := syncer.db.Begin()
+	syncer.tx = tx
+	return err
+}
+
+func (syncer *Syncer) CommitTransaction() (error) {
+	return syncer.tx.Commit()
+}
+
+func (syncer *Syncer) RollbackTransaction() (error) {
+	return syncer.tx.Rollback()
+}
+
+func (syncer *Syncer) ensureTransactionBegun() (error) {
+	if syncer.tx == nil {
+		return &TransactionNotBegunError{}
+	}
+	return nil
+}
+
+//

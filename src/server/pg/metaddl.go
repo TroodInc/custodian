@@ -3,7 +3,6 @@ package pg
 import (
 	"bytes"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	//	"git.reaxoft.loc/infomir/custodian/logger"
@@ -13,36 +12,6 @@ import (
 	"strings"
 	"text/template"
 )
-
-// Meta DDL errors
-const (
-	ErrUnsupportedColumnType = "unsuported_column_type"
-	ErrUnsupportedLinkType   = "unsuported_link_type"
-	ErrNotFound              = "not_found"
-	ErrTooManyFound          = "too_many_found"
-	ErrInternal              = "internal"
-	ErrWrongDefultValue      = "wrong_default_value"
-	ErrExecutingDDL          = "error_exec_ddl"
-)
-
-type DDLError struct {
-	code  string
-	msg   string
-	table string
-}
-
-func (e *DDLError) Error() string {
-	return fmt.Sprintf("DDL error:  table = '%s', code='%s'  msg = '%s'", e.table, e.code, e.msg)
-}
-
-func (e *DDLError) Json() []byte {
-	j, _ := json.Marshal(map[string]string{
-		"table": e.table,
-		"code":  "table:" + e.code,
-		"msg":   e.msg,
-	})
-	return j
-}
 
 //DDL statament description
 type DDLStmt struct {
@@ -793,9 +762,9 @@ func MetaDDLFromMeta(m *meta.Meta) (*MetaDDL, error) {
 
 var seqNameParseRe *regexp.Regexp = regexp.MustCompile("nextval\\('(.*)'::regclass\\)")
 
-func MetaDDLFromDB(db *sql.DB, name string) (*MetaDDL, error) {
+func MetaDDLFromDB(tx *sql.Tx, name string) (*MetaDDL, error) {
 	md := &MetaDDL{Table: TableNamePrefix + name}
-	reverser, err := NewReverser(db, md.Table)
+	reverser, err := NewReverser(tx, md.Table)
 	if err != nil {
 		return nil, err
 	}
