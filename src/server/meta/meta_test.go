@@ -7,7 +7,7 @@ import (
 	"server/meta"
 )
 
-var metaStoreCommonTestCase = Describe("The PG MetaStore", func() {
+var _ = Describe("The PG MetaStore", func() {
 	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
 	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
@@ -45,28 +45,16 @@ var metaStoreCommonTestCase = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			meta, _ := metaStore.NewMeta(&metaDescription)
-			metaStore.Create(meta)
+			meta, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(meta)
+			Expect(err).To(BeNil())
 			Context("and 'flush' method is called", func() {
 				metaStore.Flush()
 				metaList, _, _ := metaStore.List()
 				Expect(*metaList).To(HaveLen(0))
 			})
 		})
-	})
-})
-
-var linksProcessingTestCase = Describe("The PG MetaStore", func() {
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
-
-	BeforeEach(func() {
-		metaStore.Flush()
-	})
-
-	AfterEach(func() {
-		metaStore.Flush()
 	})
 
 	It("can remove object without leaving orphan outer links", func() {
@@ -82,11 +70,14 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 				},
 			}
-			aMeta, _ := metaStore.NewMeta(&aMetaDescription)
-			metaStore.Create(aMeta)
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(aMeta)
+			Expect(err).To(BeNil())
 
 			bMetaDescription := meta.MetaDescription{
 				Name: "b",
@@ -192,6 +183,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				},
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
@@ -248,6 +240,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				},
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
