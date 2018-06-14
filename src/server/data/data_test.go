@@ -41,8 +41,10 @@ var _ = Describe("Data", func() {
 					},
 				},
 			}
-			reasonMetaObj, _ := metaStore.NewMeta(&reasonMetaDescription)
-			metaStore.Create(reasonMetaObj)
+			reasonMetaObj, err := metaStore.NewMeta(&reasonMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(reasonMetaObj)
+			Expect(err).To(BeNil())
 
 			Context("and Lead object referencing Reason object", func() {
 				leadMetaDescription := meta.MetaDescription{
@@ -108,8 +110,10 @@ var _ = Describe("Data", func() {
 					},
 				},
 			}
-			metaObj, _ := metaStore.NewMeta(&metaDescription)
-			metaStore.Create(metaObj)
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
 
 			Context("and two records with dates that differ by a week", func() {
 				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"date": "2018-05-29"}, auth.User{})
@@ -151,14 +155,16 @@ var _ = Describe("Data", func() {
 					},
 				},
 			}
-			metaObj, _ := metaStore.NewMeta(&metaDescription)
-			metaStore.Create(metaObj)
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
 
 			Context("and two records with 'created' values that differ by a week", func() {
 				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"created": "2018-05-29T15:29:58.627755+05:00"}, auth.User{})
+				Expect(err).To(BeNil())
 				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"created": "2018-05-22T15:29:58.627755+05:00"}, auth.User{})
 				matchedRecords := []map[string]interface{}{}
-				Expect(err).To(BeNil())
 				callbackFunction := func(obj map[string]interface{}) error {
 					matchedRecords = append(matchedRecords, obj)
 					return nil

@@ -466,7 +466,10 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 // Deletes an existing object metadata from the store.
 func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	//remove object from the database
-	meta, _, _ := metaStore.Get(name)
+	meta, _, err := metaStore.Get(name)
+	if err != nil {
+		return false, err
+	}
 	metaStore.removeRelatedOuterLinks(meta)
 	metaStore.removeRelatedInnerLinks(meta)
 	if e := metaStore.syncer.RemoveObj(name, force); e == nil {
@@ -597,9 +600,14 @@ func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBe
 
 // Updates an existing object metadata.
 func (metaStore *MetaStore) Flush() error {
-	metaList, _, _ := metaStore.List()
+	metaList, _, err := metaStore.List()
+	if err != nil {
+		return err
+	}
 	for _, meta := range *metaList {
-		metaStore.Remove(meta.Name, true)
+		if _, err := metaStore.Remove(meta.Name, true); err != nil {
+			return err
+		}
 	}
 	return nil
 }
