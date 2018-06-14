@@ -6,15 +6,13 @@ services:
     build:
       context: ../
       dockerfile: ./deployment/Dockerfile
-    container_name: ${COMPOSE_PROJECT_NAME}.custodian
+    container_name: custodian
     networks:
-      - ${COMPOSE_PROJECT_NAME}-network
+      - test-network
 
   custodian_postgres:
     image: postgres:9.5
-    container_name: ${COMPOSE_PROJECT_NAME}.custodian.postgres
-    environment: 
-      DB_NAME: ${COMPOSE_PROJECT_NAME}_custodian
+    container_name: postgres.custodian
     volumes:
       - ./postgres/${DB_NAME}/data:/var/lib/postgresql/data
       - ./postgres/${DB_NAME}/conf:/etc/postgresql
@@ -26,4 +24,8 @@ services:
       POSTGRES_PASSWORD: custodian
 
     networks:
-      - ${COMPOSE_PROJECT_NAME}-network
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
