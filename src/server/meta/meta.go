@@ -61,7 +61,8 @@ func (lt LinkType) MarshalJSON() ([]byte, error) {
 
 type Def interface{}
 type DefConstStr struct{ Value string }
-type DefConstNum struct{ Value float64 }
+type DefConstFloat struct{ Value float64 }
+type DefConstInt struct{ Value int }
 type DefConstBool struct{ Value bool }
 type DefExpr struct {
 	Func string
@@ -72,9 +73,9 @@ type Method int
 
 const (
 	MethodRetrive Method = iota + 1
-	MethodCreate  
-	MethodRemove  
-	MethodUpdate  
+	MethodCreate
+	MethodRemove
+	MethodUpdate
 )
 
 func (m Method) String() (string, bool) {

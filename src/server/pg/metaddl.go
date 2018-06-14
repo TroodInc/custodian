@@ -239,23 +239,11 @@ var ddlFuncs = template.FuncMap{"dict": dictionary}
 func valToDdl(v interface{}) (string, error) {
 	switch v := v.(type) {
 	case string:
-		return "\"" + v + "\"", nil
-	case uint8:
-		return string(v), nil
-	case uint16:
-		return string(v), nil
-	case uint32:
-		return string(v), nil
-	case uint64:
-		return string(v), nil
-	case int8:
-		return string(v), nil
-	case int16:
-		return string(v), nil
-	case int32:
-		return string(v), nil
-	case int64:
-		return string(v), nil
+		return fmt.Sprintf(`'%s'`, v), nil
+	case int:
+		return strconv.Itoa(v), nil
+	case uint:
+		return strconv.Itoa(int(v)), nil
 	case float32:
 		return strconv.FormatFloat(float64(v), 'f', -1, 32), nil
 	case float64:
@@ -315,7 +303,9 @@ func newColDefVal(f *meta.FieldDescription) (ColDefVal, error) {
 		switch v := def.(type) {
 		case meta.DefConstStr:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstNum:
+		case meta.DefConstFloat:
+			return newColDefValSimple(v.Value)
+		case meta.DefConstInt:
 			return newColDefValSimple(v.Value)
 		case meta.DefConstBool:
 			return newColDefValSimple(v.Value)
