@@ -48,7 +48,7 @@ func (syncer *Syncer) CreateObj(m *meta.Meta) error {
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
 		if _, e := syncer.db.Exec(st.Code); e != nil {
-			return &DDLError{table: m.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
+			return &DDLError{table: m.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
 		}
 	}
 	return nil
@@ -67,7 +67,7 @@ func (syncer *Syncer) RemoveObj(name string, force bool) error {
 	for _, st := range ds {
 		logger.Debug("Removing object from DB: %syncer\n", st.Code)
 		if _, e := syncer.db.Exec(st.Code); e != nil {
-			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
+			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
 		}
 	}
 	return nil
@@ -94,7 +94,7 @@ func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta
 	for _, ddlStatement := range ddlStatements {
 		logger.Debug("Updating object in DB: %syncer\n", ddlStatement.Code)
 		if _, e := syncer.db.Exec(ddlStatement.Code); e != nil {
-			return &DDLError{table: currentBusinessObj.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", ddlStatement.Name, e.Error())}
+			return &DDLError{table: currentBusinessObj.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", ddlStatement.Name, e.Error())}
 		}
 	}
 	return nil

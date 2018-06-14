@@ -17,7 +17,9 @@ func (f *FieldDescription) Default() Def {
 	case string:
 		return DefConstStr{t}
 	case float64:
-		return DefConstNum{t}
+		return DefConstFloat{t}
+	case int:
+		return DefConstInt{t}
 	case bool:
 		return DefConstBool{t}
 	case map[string]interface{}:
