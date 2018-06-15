@@ -7,6 +7,7 @@ def build():
     with lcd('./deployment/'):
         local('docker-compose build')
         local('docker-compose up -d')
+        local('docker-compose exec custodian go get -t ../server/...')
 
 @task
 def test():
