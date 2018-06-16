@@ -5,11 +5,12 @@ import (
 	. "github.com/onsi/gomega"
 	"server/pg"
 	"server/meta"
+	"utils"
 )
 
 var _ = Describe("The PG MetaStore", func() {
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+	appConfig := utils.GetConfig()
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	BeforeEach(func() {

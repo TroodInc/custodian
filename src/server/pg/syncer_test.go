@@ -6,11 +6,12 @@ import (
 	"server/meta"
 	"server/pg"
 	"database/sql"
+	"utils"
 )
 
 var _ = Describe("Store", func() {
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+	appConfig := utils.GetConfig()
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	BeforeEach(func() {
@@ -71,7 +72,7 @@ var _ = Describe("Store", func() {
 				_, err := metaStore.Update(objectMeta.Name, objectMeta)
 				Expect(err).To(BeNil())
 
-				db, err := sql.Open("postgres", databaseConnectionOptions)
+				db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
 
 				metaDdl, err := pg.MetaDDLFromDB(db, objectMeta.Name)
 				Expect(err).To(BeNil())
@@ -131,7 +132,7 @@ var _ = Describe("Store", func() {
 				_, err := metaStore.Update(objectMeta.Name, objectMeta)
 				Expect(err).To(BeNil())
 
-				db, err := sql.Open("postgres", databaseConnectionOptions)
+				db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
 
 				metaDdl, err := pg.MetaDDLFromDB(db, objectMeta.Name)
 				Expect(err).To(BeNil())
