@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"server/pg"
 	"server/meta"
+	"database/sql"
 )
 
 var _ = Describe("The PG MetaStore", func() {
@@ -329,5 +330,62 @@ var _ = Describe("The PG MetaStore", func() {
 				Expect(err.Error()).To(Equal("Object contains duplicated field 'name'"))
 			})
 		})
+	})
+
+	It("can change field type of existing object", func() {
+		By("having an existing object with string field")
+		metaDescription := meta.MetaDescription{
+			Name: "person",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				}, {
+					Name:     "name",
+					Type:     meta.FieldTypeNumber,
+					Optional: false,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+
+		Context("when object is updated with modified field`s type", func() {
+			metaDescription = meta.MetaDescription{
+				Name: "person",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					}, {
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+				},
+			}
+			meta, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			_, err = metaStore.Update(meta.Name, meta)
+			Expect(err).To(BeNil())
+
+			db, err := sql.Open("postgres", databaseConnectionOptions)
+			actualMeta, err := pg.MetaDDLFromDB(db, meta.Name)
+			Expect(err).To(BeNil())
+			Expect(actualMeta.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
+		})
+
 	})
 })

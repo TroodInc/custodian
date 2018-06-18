@@ -123,7 +123,7 @@ func dbTypeToColumnType(dt string) (ColumnType, bool) {
 	case "date":
 		return ColumnTypeDate, true
 	case "time with time zone":
-		return ColumnTypeDate, true
+		return ColumnTypeTime, true
 	default:
 		return 0, false
 	}
@@ -413,9 +413,11 @@ func (cl *Column) addScript(tname string) (*DDLStmt, error) {
 
 const templAlterTableColumnAlterNull = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if not .dot.Optional}} SET {{else}} DROP {{end}} NOT NULL;`
 const templAlterTableColumnAlterDefault = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if .dot.Defval}} SET DEFAULT {{.dot.Defval}} {{else}} DROP DEFAULT {{end}};`
+const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{.dot.Typ.DdlType}};`
 
 var parsedTemplAlterTableColumnAlterNull = template.Must(template.New("alter_table_column_alter_null").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterNull))
 var parsedTemplAlterTableColumnAlterDefault = template.Must(template.New("alter_table_column_alter_default").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterDefault))
+var parsedTemplAlterTableColumnAlterType = template.Must(template.New("alter_table_column_alter_type").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterType))
 
 //Creates a DDL to alter a table's column
 func (cl *Column) alterScript(tname string) (*DDLStmt, error) {
@@ -426,6 +428,11 @@ func (cl *Column) alterScript(tname string) (*DDLStmt, error) {
 		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
 	}
 	if e := parsedTemplAlterTableColumnAlterDefault.Execute(&buffer, map[string]interface{}{
+		"Table": tname,
+		"dot":   cl}); e != nil {
+		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
+	}
+	if e := parsedTemplAlterTableColumnAlterType.Execute(&buffer, map[string]interface{}{
 		"Table": tname,
 		"dot":   cl}); e != nil {
 		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
@@ -654,7 +661,8 @@ func (m1 *MetaDDL) Diff(m2 *MetaDDL) (*MetaDDLDiff, error) {
 		for _, objectToUpdateColumn := range m2.Columns {
 			//omit this check for PK`s until TB-116 is implemented
 			if currentObjectColumn.Name == objectToUpdateColumn.Name && m1.Pk != currentObjectColumn.Name {
-				if currentObjectColumn.Optional != objectToUpdateColumn.Optional {
+				if currentObjectColumn.Optional != objectToUpdateColumn.Optional ||
+					currentObjectColumn.Typ != objectToUpdateColumn.Typ {
 					mdd.ColsAlter = append(mdd.ColsAlter, objectToUpdateColumn)
 				}
 			}
@@ -730,10 +738,6 @@ func tblName(m *meta.Meta) string {
 	name := bytes.NewBufferString(TableNamePrefix)
 	name.WriteString(m.Name)
 	return name.String()
-}
-
-func tblAlias(m *meta.Meta) string {
-	return string(m.Name[0])
 }
 
 func MetaDDLFromMeta(m *meta.Meta) (*MetaDDL, error) {
