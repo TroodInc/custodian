@@ -6,7 +6,7 @@ import (
 	"server/meta"
 )
 
-var _ = FDescribe("File Meta driver", func() {
+var _ = Describe("File Meta driver", func() {
 	fileMetaDriver := meta.NewFileMetaDriver("./")
 
 	flushMeta := func() {

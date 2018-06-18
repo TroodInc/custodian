@@ -60,7 +60,8 @@ func (lt LinkType) MarshalJSON() ([]byte, error) {
 
 type Def interface{}
 type DefConstStr struct{ Value string }
-type DefConstNum struct{ Value float64 }
+type DefConstFloat struct{ Value float64 }
+type DefConstInt struct{ Value int }
 type DefConstBool struct{ Value bool }
 type DefExpr struct {
 	Func string
@@ -375,7 +376,11 @@ func (metaStore *MetaStore) List() (*[]*MetaDescription, bool, error) {
 /*
    Retrives object metadata from the underlying store.
 */
-func (metaStore *MetaStore) Get(name string) (*Meta, bool, error) {
+func (metaStore *MetaStore) Get(name string, handleTransaction bool) (*Meta, bool, error) {
+	if handleTransaction {
+		metaStore.beginTransaction()
+		defer metaStore.rollbackTransaction()
+	}
 	//retrieve business object metadata from the storage
 	metaData, isFound, err := metaStore.drv.Get(name)
 
@@ -417,13 +422,18 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 }
 
 // Deletes an existing object metadata from the store.
-func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
-	//begin transaction
-	metaStore.beginTransaction()
-	defer metaStore.rollbackTransaction()
-
-	meta, _, _ := metaStore.Get(name)
+func (metaStore *MetaStore) Remove(name string, force bool, handleTransaction bool) (bool, error) {
+	if handleTransaction {
+		//begin transaction
+		metaStore.beginTransaction()
+		defer metaStore.rollbackTransaction()
+	}
+	meta, _, err := metaStore.Get(name, false)
+	if err != nil {
+		return false, err
+	}
 	//remove related links from the database
+
 	metaStore.removeRelatedOuterLinks(meta)
 	metaStore.removeRelatedInnerLinks(meta)
 
@@ -431,7 +441,7 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	if e := metaStore.syncer.RemoveObj(name, force); e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.drv.Remove(name)
-		if err == nil {
+		if err == nil && handleTransaction {
 			metaStore.commitTransaction()
 		}
 		return ok, err
@@ -459,7 +469,7 @@ func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFi
 			//omit outer field and update related object
 			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
 			relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
-			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta)
+			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
 		}
 	}
 }
@@ -470,7 +480,7 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 	for _, objectMetaDescription := range *metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
-			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name)
+			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
 			objectMetaFields := make([]Field, 0)
 			objectMetaFieldDescriptions := make([]FieldDescription, 0)
 
@@ -484,19 +494,21 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 			if len(objectMetaFieldDescriptions) != len(objectMeta.Fields) {
 				objectMeta.Fields = objectMetaFieldDescriptions
 				objectMeta.MetaDescription.Fields = objectMetaFields
-				metaStore.Update(objectMeta.Name, objectMeta)
+				metaStore.Update(objectMeta.Name, objectMeta, false)
 			}
 		}
 	}
 }
 
 // Updates an existing object metadata.
-func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, error) {
-	//begin transaction
-	metaStore.beginTransaction()
-	defer metaStore.rollbackTransaction()
+func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTransaction bool) (bool, error) {
+	if handleTransaction {
+		//begin transaction
+		metaStore.beginTransaction()
+		defer metaStore.rollbackTransaction()
+	}
 
-	if currentBusinessObj, ok, err := metaStore.Get(name); err == nil {
+	if currentBusinessObj, ok, err := metaStore.Get(name, false); err == nil {
 		// remove possible outer links before main update processing
 		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
 		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
@@ -508,7 +520,9 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, err
 		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
 		//behaviour should be fixed
 		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
-			metaStore.commitTransaction()
+			if handleTransaction {
+				metaStore.commitTransaction()
+			}
 			return true, nil
 		} else {
 			//rollback to the previous version
@@ -554,9 +568,12 @@ func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBe
 func (metaStore *MetaStore) Flush() error {
 	metaStore.beginTransaction()
 	defer metaStore.rollbackTransaction()
-	metaList, _, _ := metaStore.List()
+	metaList, _, err := metaStore.List()
+	if err != nil {
+		return err
+	}
 	for _, meta := range *metaList {
-		if _, err := metaStore.Remove(meta.Name, true); err != nil {
+		if _, err := metaStore.Remove(meta.Name, true, false); err != nil {
 			return err
 		}
 	}

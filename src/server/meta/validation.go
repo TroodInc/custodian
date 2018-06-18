@@ -20,11 +20,6 @@ func (validationService *ValidationService) Validate(metaDescription *MetaDescri
 	if ok, err := validationService.checkFieldsDoesNotContainDuplicates(metaDescription.Fields); !ok {
 		return false, err
 	}
-	for _, field := range metaDescription.Fields {
-		if ok, err := validationService.checkFieldIsConsistent(field); !ok {
-			return false, err
-		}
-	}
 	return true, nil
 
 }
@@ -38,13 +33,6 @@ func (validationService *ValidationService) checkFieldsDoesNotContainDuplicates(
 		} else {
 			return false, &ValidationError{fmt.Sprintf("Object contains duplicated field '%s'", field.Name)}
 		}
-	}
-	return true, nil
-}
-
-func (validationService *ValidationService) checkFieldIsConsistent(field Field) (bool, error) {
-	if !field.Optional && field.Def != nil {
-		return false, &ValidationError{fmt.Sprintf("Mandatory field '%s' cannot have default value", field.Name)}
 	}
 	return true, nil
 }

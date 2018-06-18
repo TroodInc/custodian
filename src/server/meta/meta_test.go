@@ -7,7 +7,7 @@ import (
 	"server/meta"
 )
 
-var metaStoreCommonTestCase = Describe("The PG MetaStore", func() {
+var _ = Describe("The PG MetaStore", func() {
 	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
 	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
@@ -45,28 +45,16 @@ var metaStoreCommonTestCase = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			meta, _ := metaStore.NewMeta(&metaDescription)
-			metaStore.Create(meta)
+			meta, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(meta)
+			Expect(err).To(BeNil())
 			Context("and 'flush' method is called", func() {
 				metaStore.Flush()
 				metaList, _, _ := metaStore.List()
 				Expect(*metaList).To(HaveLen(0))
 			})
 		})
-	})
-})
-
-var linksProcessingTestCase = Describe("The PG MetaStore", func() {
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
-
-	BeforeEach(func() {
-		metaStore.Flush()
-	})
-
-	AfterEach(func() {
-		metaStore.Flush()
 	})
 
 	It("can remove object without leaving orphan outer links", func() {
@@ -88,7 +76,8 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 			}
 			aMeta, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(aMeta)
+			err = metaStore.Create(aMeta)
+			Expect(err).To(BeNil())
 
 			bMetaDescription := meta.MetaDescription{
 				Name: "b",
@@ -114,7 +103,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(bMeta)
+			err = metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
 			aMetaDescription = meta.MetaDescription{
@@ -142,12 +131,12 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 			}
 			aMeta, err = metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(aMeta.Name, aMeta)
+			metaStore.Update(aMeta.Name, aMeta, true)
 
 			Context("and 'remove' method is called for B meta", func() {
-				metaStore.Remove(bMeta.Name, true)
+				metaStore.Remove(bMeta.Name, true, true)
 				Context("meta A should not contain outer link field which references B meta", func() {
-					aMeta, _, _ = metaStore.Get(aMeta.Name)
+					aMeta, _, _ = metaStore.Get(aMeta.Name, true)
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
 				})
@@ -200,14 +189,15 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				},
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
 			Context("and 'remove' method is called for meta A", func() {
-				metaStore.Remove(aMeta.Name, true)
+				metaStore.Remove(aMeta.Name, true, true)
 
 				Context("meta B should not contain inner link field which references A meta", func() {
-					bMeta, _, _ = metaStore.Get(bMeta.Name)
+					bMeta, _, _ = metaStore.Get(bMeta.Name, true)
 					Expect(bMeta.Fields).To(HaveLen(1))
 					Expect(bMeta.Fields[0].Name).To(Equal("id"))
 				})
@@ -287,7 +277,7 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				},
 			}
 			aMeta, err = metaStore.NewMeta(&aMetaDescription)
-			metaStore.Update(aMeta.Name, aMeta)
+			metaStore.Update(aMeta.Name, aMeta, true)
 			Expect(err).To(BeNil())
 
 			Context("and inner link field was removed from object B", func() {
@@ -308,10 +298,10 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				}
 				bMeta, err := metaStore.NewMeta(&bMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(bMeta.Name, bMeta)
+				metaStore.Update(bMeta.Name, bMeta,true)
 
 				Context("outer link field should be removed from object A", func() {
-					aMeta, _, err = metaStore.Get(aMeta.Name)
+					aMeta, _, err = metaStore.Get(aMeta.Name,true)
 					Expect(err).To(BeNil())
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
@@ -348,31 +338,6 @@ var linksProcessingTestCase = Describe("The PG MetaStore", func() {
 				_, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(Not(BeNil()))
 				Expect(err.Error()).To(Equal("Object contains duplicated field 'name'"))
-			})
-		})
-	})
-
-	It("checks object for fields with inconsistent configuration", func() {
-		Context("having an object description with both 'optional' and 'default' specified", func() {
-			metaDescription := meta.MetaDescription{
-				Name: "person",
-				Key:  "id",
-				Cas:  false,
-				Fields: []meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: false,
-					},
-				},
-			}
-			Context("When 'NewMeta' method is called it should return error", func() {
-				_, err := metaStore.NewMeta(&metaDescription)
-				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(Equal("Mandatory field 'id' cannot have default value"))
 			})
 		})
 	})

@@ -112,7 +112,7 @@ func (fm *FileMetaDriver) Get(name string) (*MetaDescription, bool, error) {
 func (fm *FileMetaDriver) Create(m MetaDescription) error {
 	var metaFile = fm.getMetaFileName(m.Name)
 	if _, err := os.Stat(metaFile); err == nil {
-		logger.Debug("File '%s' of MetaDescription '%s' already exists: %s", metaFile, m.Name, err.Error())
+		logger.Debug("File '%s' of MetaDescription '%s' already exists: %s", metaFile, m.Name)
 		return NewMetaError(m.Name, "meta_file_create", ErrDuplicated, "The MetaDescription '%s' already exists", m.Name)
 	}
 

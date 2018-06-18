@@ -10,10 +10,19 @@ import (
 
 var _ = Describe("Node", func() {
 
+	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
+	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+
+	BeforeEach(func() {
+		metaStore.Flush()
+	})
+
+	AfterEach(func() {
+		metaStore.Flush()
+	})
+
 	It("can fill child nodes with circular dependency", func() {
-		databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-		syncer, _ := pg.NewSyncer(databaseConnectionOptions)
-		metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 		Describe("Having three objects with mediated circular dependency", func() {
 			objectA := meta.MetaDescription{
@@ -27,8 +36,10 @@ var _ = Describe("Node", func() {
 					},
 				},
 			}
-			objectAMeta, _ := metaStore.NewMeta(&objectA)
-			metaStore.Create(objectAMeta)
+			objectAMeta, err := metaStore.NewMeta(&objectA)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(objectAMeta)
+			Expect(err).To(BeNil())
 
 			objectB := meta.MetaDescription{
 				Name: "b",
@@ -48,8 +59,10 @@ var _ = Describe("Node", func() {
 					},
 				},
 			}
-			objectBMeta, _ := metaStore.NewMeta(&objectB)
-			metaStore.Create(objectBMeta)
+			objectBMeta, err := metaStore.NewMeta(&objectB)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(objectBMeta)
+			Expect(err).To(BeNil())
 
 			objectC := meta.MetaDescription{
 				Name: "c",
@@ -69,8 +82,10 @@ var _ = Describe("Node", func() {
 					},
 				},
 			}
-			objectCMeta, _ := metaStore.NewMeta(&objectC)
-			metaStore.Create(objectCMeta)
+			objectCMeta, err := metaStore.NewMeta(&objectC)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(objectCMeta)
+			Expect(err).To(BeNil())
 
 			objectA = meta.MetaDescription{
 				Name: "a",
@@ -90,8 +105,10 @@ var _ = Describe("Node", func() {
 					},
 				},
 			}
-			objectAMeta, _ = metaStore.NewMeta(&objectA)
-			metaStore.Update(objectA.Name, objectAMeta)
+			objectAMeta, err = metaStore.NewMeta(&objectA)
+			Expect(err).To(BeNil())
+			_, err = metaStore.Update(objectA.Name, objectAMeta, true)
+			Expect(err).To(BeNil())
 
 			Describe("", func() {
 

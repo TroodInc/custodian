@@ -72,7 +72,7 @@ var _ = Describe("Store", func() {
 				objectMeta, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(BeNil())
 
-				_, err = metaStore.Update(objectMeta.Name, objectMeta)
+				_, err = metaStore.Update(objectMeta.Name, objectMeta,true)
 				Expect(err).To(BeNil())
 
 				db, err := sql.Open("postgres", databaseConnectionOptions)
@@ -140,7 +140,7 @@ var _ = Describe("Store", func() {
 				}
 				objectMeta, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(BeNil())
-				_, err = metaStore.Update(objectMeta.Name, objectMeta)
+				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
 				db, err := sql.Open("postgres", databaseConnectionOptions)
