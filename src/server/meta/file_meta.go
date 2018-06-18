@@ -14,7 +14,7 @@ const (
 	NotInitiated = -1
 	Pending      = 0
 	Committed    = 1
-	RolledBacked = 2
+	RolledBack   = 2
 )
 
 type FileMetaDriver struct {
@@ -200,7 +200,7 @@ func (fm *FileMetaDriver) RollbackTransaction() (error) {
 	for _, metaDescription := range *fm.initialMetaList {
 		createMetaFile(fm.getMetaFileName(metaDescription.Name), metaDescription)
 	}
-	fm.state = RolledBacked
+	fm.state = RolledBack
 	return nil
 }
 
