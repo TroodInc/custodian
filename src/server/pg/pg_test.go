@@ -361,4 +361,43 @@ var _ = Describe("PG MetaStore test", func() {
 			})
 		})
 	})
+
+	It("can query object containing reserved words", func() {
+		Context("once 'create' method is called with an object containing fields with reserved words", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:     "order",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+				},
+			}
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
+
+			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
+			Expect(err).To(BeNil())
+
+
+			record, err := dataProcessor.Get(metaObj.Name, "1", 1)
+			Expect(err).To(BeNil())
+			Expect(record["order"]).To(Equal("value"))
+
+		})
+	})
+
 })

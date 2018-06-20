@@ -511,8 +511,8 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 	if fields == nil {
 		fields = tableFields(m)
 	}
-
-	selectInfo := &SelectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: key + "=$1"}
+	sqlHelper := dml_info.SqlHelper{}
+	selectInfo := &SelectInfo{From: tblName(m), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: key + "=$1"}
 	var q bytes.Buffer
 	if err := selectInfo.sql(&q); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
