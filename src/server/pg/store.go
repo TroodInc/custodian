@@ -70,6 +70,7 @@ var parsedTemplSelect = template.Must(template.New("dml_select").Funcs(funcs).Pa
 var parsedTemplDelete = template.Must(template.New("dml_delete").Funcs(funcs).Parse(templDelete))
 var parsedTemplUpdate = template.Must(template.New("dml_update").Funcs(funcs).Parse(templUpdate))
 
+//TODO: move SelectInfo to dml_info and implement constructor method NewSelectInfo with escaping
 type SelectInfo struct {
 	Cols   []string
 	From   string
