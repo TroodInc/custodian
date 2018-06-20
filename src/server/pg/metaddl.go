@@ -411,28 +411,28 @@ func (cl *Column) addScript(tname string) (*DDLStmt, error) {
 	return &DDLStmt{Name: fmt.Sprintf("add_table_column#%s.%s", tname, cl.Name), Code: buffer.String()}, nil
 }
 
+const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{.dot.Typ.DdlType}};`
 const templAlterTableColumnAlterNull = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if not .dot.Optional}} SET {{else}} DROP {{end}} NOT NULL;`
 const templAlterTableColumnAlterDefault = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if .dot.Defval}} SET DEFAULT {{.dot.Defval}} {{else}} DROP DEFAULT {{end}};`
-const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{.dot.Typ.DdlType}};`
 
+var parsedTemplAlterTableColumnAlterType = template.Must(template.New("alter_table_column_alter_type").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterType))
 var parsedTemplAlterTableColumnAlterNull = template.Must(template.New("alter_table_column_alter_null").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterNull))
 var parsedTemplAlterTableColumnAlterDefault = template.Must(template.New("alter_table_column_alter_default").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterDefault))
-var parsedTemplAlterTableColumnAlterType = template.Must(template.New("alter_table_column_alter_type").Funcs(ddlFuncs).Parse(templAlterTableColumnAlterType))
 
 //Creates a DDL to alter a table's column
 func (cl *Column) alterScript(tname string) (*DDLStmt, error) {
 	var buffer bytes.Buffer
+	if e := parsedTemplAlterTableColumnAlterType.Execute(&buffer, map[string]interface{}{
+		"Table": tname,
+		"dot":   cl}); e != nil {
+		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
+	}
 	if e := parsedTemplAlterTableColumnAlterNull.Execute(&buffer, map[string]interface{}{
 		"Table": tname,
 		"dot":   cl}); e != nil {
 		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
 	}
 	if e := parsedTemplAlterTableColumnAlterDefault.Execute(&buffer, map[string]interface{}{
-		"Table": tname,
-		"dot":   cl}); e != nil {
-		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
-	}
-	if e := parsedTemplAlterTableColumnAlterType.Execute(&buffer, map[string]interface{}{
 		"Table": tname,
 		"dot":   cl}); e != nil {
 		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
