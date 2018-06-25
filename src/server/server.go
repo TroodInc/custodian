@@ -178,7 +178,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if metaObj, _, e := metaStore.Get(p.ByName("name")); e == nil {
+		if metaObj, _, e := metaStore.Get(p.ByName("name"), true); e == nil {
 			js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 		} else {
 			js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
@@ -198,7 +198,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 		}
 	}))
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if ok, e := metaStore.Remove(p.ByName("name"), false); ok {
+		if ok, e := metaStore.Remove(p.ByName("name"), false, true); ok {
 			js.pushEmpty()
 		} else {
 			if e != nil {
@@ -216,7 +216,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			js.pushError(err)
 			return
 		}
-		if _, err := metaStore.Update(p.ByName("name"), metaObj); err == nil {
+		if _, err := metaStore.Update(p.ByName("name"), metaObj, true); err == nil {
 			js.pushEmpty()
 		} else {
 			js.pushError(err)

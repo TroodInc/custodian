@@ -452,7 +452,7 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 	}
 
 	return func(ctx data.OperationContext) error {
-		//prepare binds only on executing step otherwise the foregin key may be absent (db sequence)
+		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
 		binds := make([]interface{}, 0, len(cols)*len(objs))
 		for i, obj := range objs {
 			if len(cols) != len(obj) {

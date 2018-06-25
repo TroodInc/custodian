@@ -10,12 +10,22 @@ import (
 	"path/filepath"
 )
 
+const (
+	NotInitiated = -1
+	Pending      = 0
+	Committed    = 1
+	RolledBack   = 2
+)
+
 type FileMetaDriver struct {
-	dir string
+	dir                  string
+	initialMetaList      *[] *MetaDescription
+	createdMetaListNames []string
+	state                int
 }
 
 func NewFileMetaDriver(d string) *FileMetaDriver {
-	return &FileMetaDriver{d}
+	return &FileMetaDriver{d, nil, nil, NotInitiated}
 }
 
 func closeFile(f *os.File) error {
@@ -78,7 +88,7 @@ func (fm *FileMetaDriver) List() (*[] *MetaDescription, bool, error) {
 }
 
 func (fm *FileMetaDriver) Get(name string) (*MetaDescription, bool, error) {
-	var metaFile = path.Join(fm.dir, name+".json")
+	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
 		logger.Debug("File '%s' of MetaDescription '%s' not found", metaFile, name)
 		return nil, false, NewMetaError(name, "meta_file_get", ErrNotFound, "The MetaDescription '%s' not found", name)
@@ -100,7 +110,7 @@ func (fm *FileMetaDriver) Get(name string) (*MetaDescription, bool, error) {
 }
 
 func (fm *FileMetaDriver) Create(m MetaDescription) error {
-	var metaFile = path.Join(fm.dir, m.Name+".json")
+	var metaFile = fm.getMetaFileName(m.Name)
 	if _, err := os.Stat(metaFile); err == nil {
 		logger.Debug("File '%s' of MetaDescription '%s' already exists: %s", metaFile, m.Name)
 		return NewMetaError(m.Name, "meta_file_create", ErrDuplicated, "The MetaDescription '%s' already exists", m.Name)
@@ -110,12 +120,12 @@ func (fm *FileMetaDriver) Create(m MetaDescription) error {
 		logger.Error("Can't save MetaDescription '%s' fo file '%s': %s", m.Name, metaFile, err.Error())
 		return NewMetaError(m.Name, "meta_file_create", ErrInternal, "Can't save MetaDescription'%s'", m.Name)
 	}
-
+	fm.createdMetaListNames = append(fm.createdMetaListNames, m.Name)
 	return nil
 }
 
 func (fm *FileMetaDriver) Remove(name string) (bool, error) {
-	var metaFile = path.Join(fm.dir, name+".json")
+	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
 		return false, NewMetaError(name, "meta_file_remove", ErrNotFound, "The MetaDescription '%s' not found", name)
 	}
@@ -128,7 +138,7 @@ func (fm *FileMetaDriver) Remove(name string) (bool, error) {
 }
 
 func (fm *FileMetaDriver) Update(name string, m MetaDescription) (bool, error) {
-	var metaFile = path.Join(fm.dir, name+".json")
+	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
 		logger.Debug("Can't find file '%s' of MetaDescription '%s'", metaFile, name)
 		return false, NewMetaError(name, "meta_file_update", ErrNotFound, "The MetaDescription '%s' not found", name)
@@ -150,4 +160,50 @@ func (fm *FileMetaDriver) Update(name string, m MetaDescription) (bool, error) {
 	}
 
 	return true, nil
+}
+
+func (fm *FileMetaDriver) BeginTransaction() (error) {
+	if fm.state != Pending {
+		fm.state = Pending
+	} else {
+		return &TransactionError{"Meta driver`s transaction is in pending state"}
+	}
+	// store initial state
+	metaList, _, err := fm.List()
+	if err != nil {
+		return err
+	}
+	fm.initialMetaList = metaList
+	fm.createdMetaListNames = make([]string, 0)
+	return nil
+}
+
+func (fm *FileMetaDriver) CommitTransaction() (error) {
+	if fm.state == Pending {
+		fm.state = Committed
+		return nil
+	} else {
+		return &TransactionError{"Meta driver is not in pending state"}
+	}
+
+}
+
+func (fm *FileMetaDriver) RollbackTransaction() (error) {
+	if fm.state != Pending {
+		return &TransactionError{"Meta driver is not in pending state"}
+	}
+	//remove created meta
+	for _, metaName := range fm.createdMetaListNames {
+		fm.Remove(metaName)
+	}
+	//restore initial state
+	for _, metaDescription := range *fm.initialMetaList {
+		createMetaFile(fm.getMetaFileName(metaDescription.Name), metaDescription)
+	}
+	fm.state = RolledBack
+	return nil
+}
+
+func (fm *FileMetaDriver) getMetaFileName(metaName string) string {
+	return path.Join(fm.dir, metaName+".json")
 }

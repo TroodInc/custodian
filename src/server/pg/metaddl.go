@@ -3,7 +3,6 @@ package pg
 import (
 	"bytes"
 	"database/sql"
-	"encoding/json"
 	"errors"
 	"fmt"
 	//	"git.reaxoft.loc/infomir/custodian/logger"
@@ -13,36 +12,6 @@ import (
 	"strings"
 	"text/template"
 )
-
-// Meta DDL errors
-const (
-	ErrUnsupportedColumnType = "unsuported_column_type"
-	ErrUnsupportedLinkType   = "unsuported_link_type"
-	ErrNotFound              = "not_found"
-	ErrTooManyFound          = "too_many_found"
-	ErrInternal              = "internal"
-	ErrWrongDefultValue      = "wrong_default_value"
-	ErrExecutingDDL          = "error_exec_ddl"
-)
-
-type DDLError struct {
-	code  string
-	msg   string
-	table string
-}
-
-func (e *DDLError) Error() string {
-	return fmt.Sprintf("DDL error:  table = '%s', code='%s'  msg = '%s'", e.table, e.code, e.msg)
-}
-
-func (e *DDLError) Json() []byte {
-	j, _ := json.Marshal(map[string]string{
-		"table": e.table,
-		"code":  "table:" + e.code,
-		"msg":   e.msg,
-	})
-	return j
-}
 
 //DDL statament description
 type DDLStmt struct {
@@ -359,7 +328,6 @@ func (md *MetaDDL) createTableScript() (*DDLStmt, error) {
 }
 
 //DDL drop table template
-const templDropTable95 = `DROP TABLE IF EXISTS "{{.Table}}";`
 const templDropTable94 = `DROP TABLE "{{.Table}}" {{.Mode}};`
 
 var parsedTemplDropTable = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(templDropTable94))
@@ -502,7 +470,6 @@ func (fk *IFK) addScript(tname string) (*DDLStmt, error) {
 
 //DDL scripts to create sequence
 const templCreateSeq94 = `CREATE SEQUENCE "{{.Name}}";`
-const templCreateSeq95 = `CREATE SEQUENCE IF NOT EXISTS "{{.Name}}";`
 
 var parsedTemplCreateSeq = template.Must(template.New("add_seq").Funcs(ddlFuncs).Parse(templCreateSeq94))
 
@@ -516,7 +483,6 @@ func (s *Seq) createScript() (*DDLStmt, error) {
 
 //DDL scripts to drop sequence
 const templDropSeq94 = `DROP SEQUENCE "{{.Name}}";`
-const templDropSeq95 = `DROP SEQUENCE IF EXISTS "{{.Name}}";`
 
 var parsedTemplDropSeq = template.Must(template.New("drop_seq").Funcs(ddlFuncs).Parse(templDropSeq94))
 
@@ -576,7 +542,7 @@ type SliceCopyProcessor interface {
 // Id() is used as unique identifier in a set.
 // Second slice of m1 contains m1 / m2 difference, second slice of m2 contains m2 / m1 difference.
 func InverseIntersect(m1, m2 SliceCopyProcessor) {
-	var set map[string]int = make(map[string]int)
+	var set = make(map[string]int)
 	for i := 0; i < m1.Len(); i++ {
 		set[m1.Id(i)] = i
 	}
@@ -732,7 +698,7 @@ func (m *MetaDDLDiff) Script() (DDLStmts, error) {
 	return stmts, nil
 }
 
-const TableNamePrefix string = "o_"
+const TableNamePrefix = "o_"
 
 func tblName(m *meta.Meta) string {
 	name := bytes.NewBufferString(TableNamePrefix)
@@ -741,7 +707,7 @@ func tblName(m *meta.Meta) string {
 }
 
 func MetaDDLFromMeta(m *meta.Meta) (*MetaDDL, error) {
-	var metaDdl *MetaDDL = &MetaDDL{Table: tblName(m), Pk: m.Key.Name}
+	var metaDdl = &MetaDDL{Table: tblName(m), Pk: m.Key.Name}
 	metaDdl.Columns = make([]Column, 0, len(m.Fields))
 	metaDdl.IFKs = make([]IFK, 0, len(m.Fields)>>1)
 	metaDdl.OFKs = make([]OFK, 0, len(m.Fields)>>1)
@@ -785,11 +751,11 @@ func MetaDDLFromMeta(m *meta.Meta) (*MetaDDL, error) {
 	return metaDdl, nil
 }
 
-var seqNameParseRe *regexp.Regexp = regexp.MustCompile("nextval\\('(.*)'::regclass\\)")
+var seqNameParseRe = regexp.MustCompile("nextval\\('(.*)'::regclass\\)")
 
-func MetaDDLFromDB(db *sql.DB, name string) (*MetaDDL, error) {
+func MetaDDLFromDB(tx *sql.Tx, name string) (*MetaDDL, error) {
 	md := &MetaDDL{Table: TableNamePrefix + name}
-	reverser, err := NewReverser(db, md.Table)
+	reverser, err := NewReverser(tx, md.Table)
 	if err != nil {
 		return nil, err
 	}
@@ -807,9 +773,4 @@ func MetaDDLFromDB(db *sql.DB, name string) (*MetaDDL, error) {
 	}
 
 	return md, nil
-}
-
-func (mddl *MetaDDL) create() {
-	//	var b bytes.Buffer
-	//	b.WriteString(")
 }

@@ -2,7 +2,6 @@ package meta
 
 import (
 	"encoding/json"
-	"fmt"
 	"logger"
 	"server/noti"
 	"io"
@@ -247,40 +246,6 @@ type MetaDescription struct {
 	Cas     bool     `json:"cas"`
 }
 
-const (
-	ErrDuplicated    = "duplicated"
-	ErrNotFound      = "not_found"
-	ErrNotValid      = "not_valid"
-	ErrInternal      = "internal"
-	ErrJsonUnmarshal = "json_unmarshal"
-	ErrJsonMarshal   = "json_marshal"
-)
-
-type metaError struct {
-	code string
-	msg  string
-	meta string
-	op   string
-}
-
-func (e *metaError) Error() string {
-	return fmt.Sprintf("Meta error:  MetaDescription = '%s', operation = '%s', code='%s'  msg = '%s'", e.meta, e.op, e.code, e.msg)
-}
-
-func (e *metaError) Json() []byte {
-	j, _ := json.Marshal(map[string]string{
-		"MetaDescription": e.meta,
-		"op":              e.op,
-		"code":            "MetaDescription:" + e.code,
-		"msg":             e.msg,
-	})
-	return j
-}
-
-func NewMetaError(meta string, op string, code string, msg string, a ...interface{}) *metaError {
-	return &metaError{meta: meta, op: op, code: code, msg: fmt.Sprintf(msg, a...)}
-}
-
 /*
    Metadata store of objects persisted in DB.
 */
@@ -411,18 +376,11 @@ func (metaStore *MetaStore) List() (*[]*MetaDescription, bool, error) {
 /*
    Retrives object metadata from the underlying store.
 */
-func (metaStore *MetaStore) Get(name string) (*Meta, bool, error) {
-	//try to get business object from cache
-	//metaStore.cacheMutex.RLock()
-	//if businessObject, ok := metaStore.cache[name]; ok {
-	//	metaStore.cacheMutex.RUnlock()
-	//	return businessObject, true, nil
-	//}
-	//metaStore.cacheMutex.RUnlock()
-	metaStore.syncerMutex.RLock()
-	defer metaStore.syncerMutex.RUnlock()
-
-	//otherwise
+func (metaStore *MetaStore) Get(name string, handleTransaction bool) (*Meta, bool, error) {
+	if handleTransaction {
+		metaStore.beginTransaction()
+		defer metaStore.rollbackTransaction()
+	}
 	//retrieve business object metadata from the storage
 	metaData, isFound, err := metaStore.drv.Get(name)
 
@@ -437,9 +395,6 @@ func (metaStore *MetaStore) Get(name string) (*Meta, bool, error) {
 	//validate the newly created business object against existing one in the database
 	ok, err := metaStore.syncer.ValidateObj(businessObject)
 	if ok {
-		metaStore.cacheMutex.Lock()
-		metaStore.cache[name] = businessObject
-		metaStore.cacheMutex.Unlock()
 		return businessObject, isFound, nil
 	}
 
@@ -448,11 +403,13 @@ func (metaStore *MetaStore) Get(name string) (*Meta, bool, error) {
 
 // Creates a new object type described by passed metadata.
 func (metaStore *MetaStore) Create(m *Meta) error {
-	metaStore.syncerMutex.Lock()
-	defer metaStore.syncerMutex.Unlock()
+	//begin transaction
+	metaStore.beginTransaction()
+	defer metaStore.rollbackTransaction()
 
 	if e := metaStore.syncer.CreateObj(m); e == nil {
 		if e := metaStore.drv.Create(*m.MetaDescription); e == nil {
+			metaStore.commitTransaction()
 			return nil
 		} else {
 			var e2 = metaStore.syncer.RemoveObj(m.Name, false)
@@ -465,24 +422,28 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 }
 
 // Deletes an existing object metadata from the store.
-func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
-	//remove object from the database
-	meta, _, err := metaStore.Get(name)
+func (metaStore *MetaStore) Remove(name string, force bool, handleTransaction bool) (bool, error) {
+	if handleTransaction {
+		//begin transaction
+		metaStore.beginTransaction()
+		defer metaStore.rollbackTransaction()
+	}
+	meta, _, err := metaStore.Get(name, false)
 	if err != nil {
 		return false, err
 	}
+	//remove related links from the database
+
 	metaStore.removeRelatedOuterLinks(meta)
 	metaStore.removeRelatedInnerLinks(meta)
+
+	//remove object from the database
 	if e := metaStore.syncer.RemoveObj(name, force); e == nil {
 		//remove object`s description *.json file
-		metaStore.syncerMutex.Lock()
-		defer metaStore.syncerMutex.Unlock()
 		ok, err := metaStore.drv.Remove(name)
-		//remove object from cache
-		metaStore.cacheMutex.Lock()
-		delete(metaStore.cache, name)
-		metaStore.cacheMutex.Unlock()
-		//
+		if err == nil && handleTransaction {
+			metaStore.commitTransaction()
+		}
 		return ok, err
 	} else {
 		return false, e
@@ -508,7 +469,7 @@ func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFi
 			//omit outer field and update related object
 			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
 			relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
-			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta)
+			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
 		}
 	}
 }
@@ -519,7 +480,7 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 	for _, objectMetaDescription := range *metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
-			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name)
+			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
 			objectMetaFields := make([]Field, 0)
 			objectMetaFieldDescriptions := make([]FieldDescription, 0)
 
@@ -533,23 +494,24 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 			if len(objectMetaFieldDescriptions) != len(objectMeta.Fields) {
 				objectMeta.Fields = objectMetaFieldDescriptions
 				objectMeta.MetaDescription.Fields = objectMetaFields
-				metaStore.Update(objectMeta.Name, objectMeta)
+				metaStore.Update(objectMeta.Name, objectMeta, false)
 			}
 		}
 	}
 }
 
 // Updates an existing object metadata.
-func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, error) {
-	if currentBusinessObj, ok, err := metaStore.Get(name); err == nil {
+func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTransaction bool) (bool, error) {
+	if handleTransaction {
+		//begin transaction
+		metaStore.beginTransaction()
+		defer metaStore.rollbackTransaction()
+	}
+
+	if currentBusinessObj, ok, err := metaStore.Get(name, false); err == nil {
 		// remove possible outer links before main update processing
 		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
-		metaStore.syncerMutex.Lock()
-		defer metaStore.syncerMutex.Unlock()
 		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
-		metaStore.cacheMutex.Lock()
-		delete(metaStore.cache, name)
-		metaStore.cacheMutex.Unlock()
 
 		if e != nil || !ok {
 			return ok, e
@@ -558,6 +520,9 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta) (bool, err
 		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
 		//behaviour should be fixed
 		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
+			if handleTransaction {
+				metaStore.commitTransaction()
+			}
 			return true, nil
 		} else {
 			//rollback to the previous version
@@ -601,16 +566,44 @@ func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBe
 
 // Updates an existing object metadata.
 func (metaStore *MetaStore) Flush() error {
+	metaStore.beginTransaction()
+	defer metaStore.rollbackTransaction()
 	metaList, _, err := metaStore.List()
 	if err != nil {
 		return err
 	}
 	for _, meta := range *metaList {
-		if _, err := metaStore.Remove(meta.Name, true); err != nil {
+		if _, err := metaStore.Remove(meta.Name, true, false); err != nil {
 			return err
 		}
 	}
+	metaStore.commitTransaction()
 	return nil
+}
+
+func (metaStore *MetaStore) beginTransaction() (error) {
+	if err := metaStore.syncer.BeginTransaction(); err != nil {
+		return err
+	}
+	if err := metaStore.drv.BeginTransaction(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (metaStore *MetaStore) commitTransaction() (error) {
+	if err := metaStore.syncer.CommitTransaction(); err != nil {
+		return err
+	}
+	if err := metaStore.drv.CommitTransaction(); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (metaStore *MetaStore) rollbackTransaction() {
+	metaStore.syncer.RollbackTransaction()
+	metaStore.drv.RollbackTransaction()
 }
 
 /*
@@ -622,6 +615,9 @@ type MetaDriver interface {
 	Create(m MetaDescription) error
 	Remove(name string) (bool, error)
 	Update(name string, m MetaDescription) (bool, error)
+	BeginTransaction() (error)
+	CommitTransaction() (error)
+	RollbackTransaction() (error)
 }
 
 type MetaDbSyncer interface {
@@ -630,4 +626,7 @@ type MetaDbSyncer interface {
 	UpdateObj(old, new *Meta) error
 	UpdateObjTo(*Meta) error
 	ValidateObj(*Meta) (bool, error)
+	BeginTransaction() (error)
+	CommitTransaction() (error)
+	RollbackTransaction() (error)
 }

@@ -51,7 +51,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(meta)
 			Expect(err).To(BeNil())
-			object, _, err := metaStore.Get(metaDescription.Name)
+			object, _, err := metaStore.Get(metaDescription.Name, true)
 			Expect(err).To(BeNil())
 			Expect(object.Name).To(BeEquivalentTo(metaDescription.Name))
 		})
@@ -82,9 +82,9 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(meta)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Remove(metaDescription.Name, true)
+			_, err = metaStore.Remove(metaDescription.Name, true, true)
 			Expect(err).To(BeNil())
-			_, objectRetrieved, err := metaStore.Get(metaDescription.Name)
+			_, objectRetrieved, err := metaStore.Get(metaDescription.Name, true)
 			Expect(err).To(Not(BeNil()))
 
 			Expect(objectRetrieved).To(BeEquivalentTo(false))
@@ -131,8 +131,9 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 				}
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
-				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj)
-				metaObj, _, err := metaStore.Get(metaDescription.Name)
+				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj,true)
+				Expect(err).To(BeNil())
+				metaObj, _, err := metaStore.Get(metaDescription.Name,true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(2))
@@ -184,8 +185,8 @@ var _ = Describe("PG MetaStore test", func() {
 				}
 				updatedMetaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj)
-				metaObj, _, err = metaStore.Get(metaDescription.Name)
+				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
+				metaObj, _, err = metaStore.Get(metaDescription.Name, true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(1))
@@ -357,7 +358,7 @@ var _ = Describe("PG MetaStore test", func() {
 					}
 					metaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 					Expect(err).To(BeNil())
-					ok, err := metaStore.Update(metaObj.Name, metaObj)
+					ok, err := metaStore.Update(metaObj.Name, metaObj, true)
 					Expect(ok).To(BeTrue())
 					Expect(err).To(BeNil())
 				})

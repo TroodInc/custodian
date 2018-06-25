@@ -107,7 +107,7 @@ var _ = Describe("Node", func() {
 			}
 			objectAMeta, err = metaStore.NewMeta(&objectA)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(objectA.Name, objectAMeta)
+			_, err = metaStore.Update(objectA.Name, objectAMeta, true)
 			Expect(err).To(BeNil())
 
 			Describe("", func() {

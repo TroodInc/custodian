@@ -91,6 +91,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:     "a_fk",
@@ -103,7 +104,8 @@ var _ = Describe("The PG MetaStore", func() {
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(bMeta)
+			err = metaStore.Create(bMeta)
+			Expect(err).To(BeNil())
 
 			aMetaDescription = meta.MetaDescription{
 				Name: "a",
@@ -116,6 +118,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:           "b_set",
@@ -128,13 +131,13 @@ var _ = Describe("The PG MetaStore", func() {
 				},
 			}
 			aMeta, err = metaStore.NewMeta(&aMetaDescription)
-			metaStore.Update(aMeta.Name, aMeta)
 			Expect(err).To(BeNil())
+			metaStore.Update(aMeta.Name, aMeta, true)
 
 			Context("and 'remove' method is called for B meta", func() {
-				metaStore.Remove(bMeta.Name, true)
+				metaStore.Remove(bMeta.Name, true, true)
 				Context("meta A should not contain outer link field which references B meta", func() {
-					aMeta, _, _ = metaStore.Get(aMeta.Name)
+					aMeta, _, _ = metaStore.Get(aMeta.Name, true)
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
 				})
@@ -156,10 +159,12 @@ var _ = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 				},
 			}
-			aMeta, _ := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
 			bMetaDescription := meta.MetaDescription{
@@ -173,6 +178,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:     "a_fk",
@@ -189,10 +195,10 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			Context("and 'remove' method is called for meta A", func() {
-				metaStore.Remove(aMeta.Name, true)
+				metaStore.Remove(aMeta.Name, true, true)
 
 				Context("meta B should not contain inner link field which references A meta", func() {
-					bMeta, _, _ = metaStore.Get(bMeta.Name)
+					bMeta, _, _ = metaStore.Get(bMeta.Name, true)
 					Expect(bMeta.Fields).To(HaveLen(1))
 					Expect(bMeta.Fields[0].Name).To(Equal("id"))
 				})
@@ -213,10 +219,12 @@ var _ = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 				},
 			}
-			aMeta, _ := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
 			bMetaDescription := meta.MetaDescription{
@@ -230,6 +238,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:     "a_fk",
@@ -256,6 +265,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
 					},
 					{
 						Name:           "b_set",
@@ -268,7 +278,7 @@ var _ = Describe("The PG MetaStore", func() {
 				},
 			}
 			aMeta, err = metaStore.NewMeta(&aMetaDescription)
-			metaStore.Update(aMeta.Name, aMeta)
+			metaStore.Update(aMeta.Name, aMeta, true)
 			Expect(err).To(BeNil())
 
 			Context("and inner link field was removed from object B", func() {
@@ -283,15 +293,16 @@ var _ = Describe("The PG MetaStore", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
+							Optional: true,
 						},
 					},
 				}
 				bMeta, err := metaStore.NewMeta(&bMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(bMeta.Name, bMeta)
+				metaStore.Update(bMeta.Name, bMeta,true)
 
 				Context("outer link field should be removed from object A", func() {
-					aMeta, _, err = metaStore.Get(aMeta.Name)
+					aMeta, _, err = metaStore.Get(aMeta.Name,true)
 					Expect(err).To(BeNil())
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
