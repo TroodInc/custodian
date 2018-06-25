@@ -13,21 +13,23 @@ import (
 	"server/auth"
 	"bytes"
 	"encoding/json"
+	"utils"
 )
 
 var _ = Describe("Server", func() {
+	appConfig := utils.GetConfig()
+
 	var httpServer *http.Server
-	var urlPrefix = "/custodian"
 	var recorder *httptest.ResponseRecorder
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 
 	BeforeEach(func() {
-		httpServer = server.New("localhost", "8081", urlPrefix, databaseConnectionOptions).Setup()
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup()
 		recorder = httptest.NewRecorder()
 		metaStore.Flush()
 	})
@@ -67,7 +69,7 @@ var _ = Describe("Server", func() {
 			}
 			Context("and valid HTTP request object", func() {
 				encodedMetaData, _ := json.Marshal(metaData)
-				var request, _ = http.NewRequest("PUT", fmt.Sprintf("%s/meta", urlPrefix), bytes.NewBuffer(encodedMetaData))
+				var request, _ = http.NewRequest("PUT", fmt.Sprintf("%s/meta", appConfig.UrlPrefix), bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
 
 				httpServer.Handler.ServeHTTP(recorder, request)
@@ -105,7 +107,7 @@ var _ = Describe("Server", func() {
 
 			Context("and DELETE request performed by URL with specified record ID", func() {
 
-				url := fmt.Sprintf("%s/data/single/%s/%d", urlPrefix, metaObj.Name, int(firstRecord["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, metaObj.Name, int(firstRecord["id"].(float64)))
 				var request, _ = http.NewRequest("DELETE", url, bytes.NewBuffer([]byte{}))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
@@ -173,7 +175,7 @@ var _ = Describe("Server", func() {
 				}
 				encodedMetaData, _ := json.Marshal(updateData)
 
-				url := fmt.Sprintf("%s/data/single/%s/%d", urlPrefix, metaObj.Name, int(record["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, metaObj.Name, int(record["id"].(float64)))
 
 				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")

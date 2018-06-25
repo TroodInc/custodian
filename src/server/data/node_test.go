@@ -6,12 +6,12 @@ import (
 	"server/meta"
 	"server/pg"
 	"server/data"
+	"utils"
 )
 
 var _ = Describe("Node", func() {
-
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+	appConfig := utils.GetConfig()
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	BeforeEach(func() {

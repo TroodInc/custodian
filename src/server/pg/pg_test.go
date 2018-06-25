@@ -8,12 +8,14 @@ import (
 	"server/meta"
 	"server/data"
 	"server/auth"
+	"utils"
 	"regexp"
 )
 
 var _ = Describe("PG MetaStore test", func() {
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+	appConfig := utils.GetConfig()
+
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()

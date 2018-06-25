@@ -7,17 +7,17 @@ import (
 	"server/pg"
 	"server/data"
 	"server/auth"
+	"utils"
 )
 
 var _ = Describe("Store", func() {
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+	appConfig := utils.GetConfig()
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	user := auth.User{1, "staff", "active", "manager"}
-
 
 	BeforeEach(func() {
 		metaStore.Flush()

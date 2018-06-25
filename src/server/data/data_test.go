@@ -9,11 +9,12 @@ import (
 	"server/auth"
 	"strconv"
 	"fmt"
+	"utils"
 )
 
 var _ = Describe("Data", func() {
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+	appConfig := utils.GetConfig()
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()

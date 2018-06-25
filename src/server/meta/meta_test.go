@@ -5,12 +5,13 @@ import (
 	. "github.com/onsi/gomega"
 	"server/pg"
 	"server/meta"
+	"utils"
 	"database/sql"
 )
 
 var _ = Describe("The PG MetaStore", func() {
-	databaseConnectionOptions := "host=localhost dbname=custodian sslmode=disable"
-	syncer, _ := pg.NewSyncer(databaseConnectionOptions)
+	appConfig := utils.GetConfig()
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	BeforeEach(func() {
@@ -299,10 +300,10 @@ var _ = Describe("The PG MetaStore", func() {
 				}
 				bMeta, err := metaStore.NewMeta(&bMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(bMeta.Name, bMeta,true)
+				metaStore.Update(bMeta.Name, bMeta, true)
 
 				Context("outer link field should be removed from object A", func() {
-					aMeta, _, err = metaStore.Get(aMeta.Name,true)
+					aMeta, _, err = metaStore.Get(aMeta.Name, true)
 					Expect(err).To(BeNil())
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
@@ -389,11 +390,17 @@ var _ = Describe("The PG MetaStore", func() {
 			}
 			meta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(meta.Name, meta)
+			_, err = metaStore.Update(meta.Name, meta, true)
 			Expect(err).To(BeNil())
 
-			db, err := sql.Open("postgres", databaseConnectionOptions)
-			actualMeta, err := pg.MetaDDLFromDB(db, meta.Name)
+			db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
+
+			tx, err := db.Begin()
+			Expect(err).To(BeNil())
+
+			actualMeta, err := pg.MetaDDLFromDB(tx, meta.Name)
+			Expect(err).To(BeNil())
+
 			Expect(err).To(BeNil())
 			Expect(actualMeta.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
 		})
