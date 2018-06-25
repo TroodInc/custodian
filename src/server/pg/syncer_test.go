@@ -35,7 +35,7 @@ var _ = Describe("Store", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
-						Optional: false,
+						Optional: true,
 					}, {
 						Name:     "name",
 						Type:     meta.FieldTypeString,
@@ -59,7 +59,7 @@ var _ = Describe("Store", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
-							Optional: false,
+							Optional: true,
 						}, {
 							Name:     "name",
 							Type:     meta.FieldTypeString,
@@ -95,7 +95,7 @@ var _ = Describe("Store", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
-						Optional: false,
+						Optional: true,
 					}, {
 						Name:     "name",
 						Type:     meta.FieldTypeString,
@@ -119,7 +119,7 @@ var _ = Describe("Store", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
-							Optional: false,
+							Optional: true,
 						}, {
 							Name:     "name",
 							Type:     meta.FieldTypeString,
