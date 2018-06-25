@@ -36,7 +36,7 @@ var _ = Describe("Store", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
-						Optional: false,
+						Optional: true,
 					}, {
 						Name:     "name",
 						Type:     meta.FieldTypeString,
@@ -44,8 +44,10 @@ var _ = Describe("Store", func() {
 					},
 				},
 			}
-			objectMeta, _ := metaStore.NewMeta(&metaDescription)
-			err := metaStore.Create(objectMeta)
+			objectMeta, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+
+			err = metaStore.Create(objectMeta)
 			Expect(err).To(BeNil())
 
 			Describe("this field is specified as optional and object is updated", func() {
@@ -60,7 +62,7 @@ var _ = Describe("Store", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
-							Optional: false,
+							Optional: true,
 						}, {
 							Name:     "name",
 							Type:     meta.FieldTypeString,
@@ -68,13 +70,21 @@ var _ = Describe("Store", func() {
 						},
 					},
 				}
-				objectMeta, _ := metaStore.NewMeta(&metaDescription)
-				_, err := metaStore.Update(objectMeta.Name, objectMeta)
+				objectMeta, err := metaStore.NewMeta(&metaDescription)
+				Expect(err).To(BeNil())
+
+				_, err = metaStore.Update(objectMeta.Name, objectMeta,true)
 				Expect(err).To(BeNil())
 
 				db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
+				Expect(err).To(BeNil())
 
-				metaDdl, err := pg.MetaDDLFromDB(db, objectMeta.Name)
+				tx, err := db.Begin()
+				Expect(err).To(BeNil())
+
+				defer tx.Rollback()
+
+				metaDdl, err := pg.MetaDDLFromDB(tx, objectMeta.Name)
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeTrue())
 			})
@@ -96,7 +106,7 @@ var _ = Describe("Store", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
-						Optional: false,
+						Optional: true,
 					}, {
 						Name:     "name",
 						Type:     meta.FieldTypeString,
@@ -104,8 +114,9 @@ var _ = Describe("Store", func() {
 					},
 				},
 			}
-			objectMeta, _ := metaStore.NewMeta(&metaDescription)
-			err := metaStore.Create(objectMeta)
+			objectMeta, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(objectMeta)
 			Expect(err).To(BeNil())
 
 			Describe("this field is specified as optional and object is updated", func() {
@@ -120,7 +131,7 @@ var _ = Describe("Store", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
-							Optional: false,
+							Optional: true,
 						}, {
 							Name:     "name",
 							Type:     meta.FieldTypeString,
@@ -128,13 +139,18 @@ var _ = Describe("Store", func() {
 						},
 					},
 				}
-				objectMeta, _ := metaStore.NewMeta(&metaDescription)
-				_, err := metaStore.Update(objectMeta.Name, objectMeta)
+				objectMeta, err := metaStore.NewMeta(&metaDescription)
+				Expect(err).To(BeNil())
+				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
 				db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
+				Expect(err).To(BeNil())
 
-				metaDdl, err := pg.MetaDDLFromDB(db, objectMeta.Name)
+				tx, err := db.Begin()
+				Expect(err).To(BeNil())
+
+				metaDdl, err := pg.MetaDDLFromDB(tx, objectMeta.Name)
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeFalse())
 			})

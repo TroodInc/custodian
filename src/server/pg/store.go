@@ -70,6 +70,7 @@ var parsedTemplSelect = template.Must(template.New("dml_select").Funcs(funcs).Pa
 var parsedTemplDelete = template.Must(template.New("dml_delete").Funcs(funcs).Parse(templDelete))
 var parsedTemplUpdate = template.Must(template.New("dml_update").Funcs(funcs).Parse(templUpdate))
 
+//TODO: move SelectInfo to dml_info and implement constructor method NewSelectInfo with escaping
 type SelectInfo struct {
 	Cols   []string
 	From   string
@@ -251,7 +252,18 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 				case *string:
 					result[i][n] = string([]rune(*value)[0:10])
 				}
-			} else if fieldByName(n).Type == meta.FieldTypeDateTime || fieldByName(n).Type == meta.FieldTypeTime {
+			} else if fieldByName(n).Type == meta.FieldTypeTime {
+				switch value := values[j].(type) {
+				case *sql.NullString:
+					if value.Valid {
+						result[i][n] = string([]rune(value.String)[11:])
+					} else {
+						result[i][n] = nil
+					}
+				case *string:
+					result[i][n] = string([]rune(*value)[11:])
+				}
+			} else if fieldByName(n).Type == meta.FieldTypeDateTime {
 				switch value := values[j].(type) {
 				case *sql.NullString:
 					if value.Valid {
@@ -440,7 +452,7 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 	}
 
 	return func(ctx data.OperationContext) error {
-		//prepare binds only on executing step otherwise the foregin key may be absent (db sequence)
+		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
 		binds := make([]interface{}, 0, len(cols)*len(objs))
 		for i, obj := range objs {
 			if len(cols) != len(obj) {
@@ -511,8 +523,8 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 	if fields == nil {
 		fields = tableFields(m)
 	}
-
-	selectInfo := &SelectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: key + "=$1"}
+	sqlHelper := dml_info.SqlHelper{}
+	selectInfo := &SelectInfo{From: tblName(m), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: key + "=$1"}
 	var q bytes.Buffer
 	if err := selectInfo.sql(&q); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())

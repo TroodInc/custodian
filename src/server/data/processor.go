@@ -324,7 +324,7 @@ func (n *notification) failed(err error) {
 }
 
 func (processor *Processor) Put(objectClass string, obj map[string]interface{}, actor auth.User) (retObj map[string]interface{}, err error) {
-	m, ok, e := processor.metaStore.Get(objectClass)
+	m, ok, e := processor.metaStore.Get(objectClass, true)
 	if e != nil {
 		return nil, e
 	}
@@ -371,7 +371,7 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}, 
 }
 
 func (processor *Processor) PutBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) (response error) {
-	m, ok, e := processor.metaStore.Get(objectClass)
+	m, ok, e := processor.metaStore.Get(objectClass, true)
 	if e != nil {
 		return e
 	}
@@ -461,7 +461,7 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 }
 
 func (processor *Processor) Get(objectClass, key string, depth int) (map[string]interface{}, error) {
-	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
+	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return nil, e
 	} else if !ok {
 		return nil, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
@@ -494,7 +494,7 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 }
 
 func (processor *Processor) GetBulk(objectName, filter string, depth int, sink func(map[string]interface{}) error) error {
-	if businessObject, ok, e := processor.metaStore.Get(objectName); e != nil {
+	if businessObject, ok, e := processor.metaStore.Get(objectName, true); e != nil {
 		return e
 	} else if !ok {
 		return NewDataError(objectName, ErrObjectClassNotFound, "Object class '%s' not found", objectName)
@@ -558,7 +558,7 @@ type tuple2d struct {
 }
 
 func (processor *Processor) Delete(objectClass, key string, actor auth.User) (isDeleted bool, err error) {
-	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
+	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return false, e
 	} else if !ok {
 		return false, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
@@ -627,7 +627,7 @@ func (processor *Processor) Delete(objectClass, key string, actor auth.User) (is
 }
 
 func (processor *Processor) DeleteBulk(objectClass string, next func() (map[string]interface{}, error)) (err error) {
-	if m, ok, e := processor.metaStore.Get(objectClass); e != nil {
+	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return e
 	} else if !ok {
 		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
@@ -716,7 +716,7 @@ func updateValidator(t *Tuple2) (*Tuple2, bool, error) {
 }
 
 func (processor *Processor) Update(objectClass, key string, obj map[string]interface{}, actor auth.User) (retObj map[string]interface{}, err error) {
-	m, ok, e := processor.metaStore.Get(objectClass)
+	m, ok, e := processor.metaStore.Get(objectClass, true)
 	if e != nil {
 		return nil, e
 	}
@@ -768,7 +768,7 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 }
 
 func (processor *Processor) UpdateBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) (err error) {
-	m, ok, e := processor.metaStore.Get(objectClass)
+	m, ok, e := processor.metaStore.Get(objectClass, true)
 	if e != nil {
 		return e
 	}

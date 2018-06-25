@@ -9,6 +9,7 @@ import (
 	"server/data"
 	"server/auth"
 	"utils"
+	"regexp"
 )
 
 var _ = Describe("PG MetaStore test", func() {
@@ -52,7 +53,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(meta)
 			Expect(err).To(BeNil())
-			object, _, err := metaStore.Get(metaDescription.Name)
+			object, _, err := metaStore.Get(metaDescription.Name, true)
 			Expect(err).To(BeNil())
 			Expect(object.Name).To(BeEquivalentTo(metaDescription.Name))
 		})
@@ -83,9 +84,9 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(meta)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Remove(metaDescription.Name, true)
+			_, err = metaStore.Remove(metaDescription.Name, true, true)
 			Expect(err).To(BeNil())
-			_, objectRetrieved, err := metaStore.Get(metaDescription.Name)
+			_, objectRetrieved, err := metaStore.Get(metaDescription.Name, true)
 			Expect(err).To(Not(BeNil()))
 
 			Expect(objectRetrieved).To(BeEquivalentTo(false))
@@ -132,8 +133,9 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 				}
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
-				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj)
-				metaObj, _, err := metaStore.Get(metaDescription.Name)
+				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj,true)
+				Expect(err).To(BeNil())
+				metaObj, _, err := metaStore.Get(metaDescription.Name,true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(2))
@@ -185,8 +187,8 @@ var _ = Describe("PG MetaStore test", func() {
 				}
 				updatedMetaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj)
-				metaObj, _, err = metaStore.Get(metaDescription.Name)
+				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
+				metaObj, _, err = metaStore.Get(metaDescription.Name, true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(1))
@@ -226,7 +228,8 @@ var _ = Describe("PG MetaStore test", func() {
 			Context("and record is created", func() {
 				record, recordCreateError := dataProcessor.Put(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
-				Expect(record["date"]).To(BeAssignableToTypeOf(""))
+				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", record["date"].(string))
+				Expect(matched).To(BeTrue())
 			})
 		})
 	})
@@ -263,7 +266,8 @@ var _ = Describe("PG MetaStore test", func() {
 			Context("and record is created", func() {
 				record, recordCreateError := dataProcessor.Put(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
-				Expect(record["time"]).To(BeAssignableToTypeOf(""))
+				matched, _ := regexp.MatchString("^[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+\\+[0-9]{2}:[0-9]{2}$", record["time"].(string))
+				Expect(matched).To(BeTrue())
 			})
 		})
 	})
@@ -300,8 +304,8 @@ var _ = Describe("PG MetaStore test", func() {
 			Context("and record is created", func() {
 				record, recordCreateError := dataProcessor.Put(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
-				Expect(record["created"]).To(BeAssignableToTypeOf(""))
-				Expect(record["created"]).To(HaveLen(32))
+				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+\\+[0-9]{2}:[0-9]{2}$", record["created"].(string))
+				Expect(matched).To(BeTrue())
 			})
 		})
 	})
@@ -356,11 +360,50 @@ var _ = Describe("PG MetaStore test", func() {
 					}
 					metaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 					Expect(err).To(BeNil())
-					ok, err := metaStore.Update(metaObj.Name, metaObj)
+					ok, err := metaStore.Update(metaObj.Name, metaObj, true)
 					Expect(ok).To(BeTrue())
 					Expect(err).To(BeNil())
 				})
 			})
 		})
 	})
+
+	It("can query object containing reserved words", func() {
+		Context("once 'create' method is called with an object containing fields with reserved words", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:     "order",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+				},
+			}
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
+
+			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
+			Expect(err).To(BeNil())
+
+
+			record, err := dataProcessor.Get(metaObj.Name, "1", 1)
+			Expect(err).To(BeNil())
+			Expect(record["order"]).To(Equal("value"))
+
+		})
+	})
+
 })
