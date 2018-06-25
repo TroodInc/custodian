@@ -4,7 +4,6 @@ import (
 	"logger"
 	"server/meta"
 	"github.com/Q-CIS-DEV/go-rql-parser"
-	"fmt"
 )
 
 type Node struct {
@@ -77,7 +76,7 @@ func (node *Node) ResolvePlural(sc SearchContext, key interface{}) ([]interface{
 			if err != nil {
 				return nil, err
 			}
-			result[i] = fmt.Sprint(sc.lazyPath, "/", node.Meta.Name, "/", keyStr)
+			result[i] = keyStr
 		}
 	} else {
 		for i, obj := range objs {

@@ -569,4 +569,105 @@ var _ = Describe("Data", func() {
 
 	})
 
+	It("returns a list of related outer links as a list of ids", func() {
+		Context("having an object with outer link to another object", func() {
+			orderMetaDescription := meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			orderMetaObj, err := metaStore.NewMeta(&orderMetaDescription)
+			Expect(err).To(BeNil())
+			metaStore.Create(orderMetaObj)
+
+			paymentMetaDescription := meta.MetaDescription{
+				Name: "payment",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "order_id",
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
+						LinkMeta: "order",
+						Optional: true,
+					},
+				},
+			}
+			paymentMetaObj, err := metaStore.NewMeta(&paymentMetaDescription)
+			Expect(err).To(BeNil())
+			metaStore.Create(paymentMetaObj)
+
+			orderMetaDescription = meta.MetaDescription{
+				Name: "order",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:           "payments",
+						Type:           meta.FieldTypeArray,
+						Optional:       true,
+						LinkType:       meta.LinkTypeOuter,
+						OuterLinkField: "order_id",
+						LinkMeta:       "payment",
+					},
+				},
+			}
+			orderMetaObj, err = metaStore.NewMeta(&orderMetaDescription)
+			Expect(err).To(BeNil())
+			metaStore.Update(orderMetaObj.Name, orderMetaObj, true)
+			//
+
+			Context("record can contain numeric value for string field", func() {
+				record, err := dataProcessor.Put(orderMetaObj.Name, map[string]interface{}{}, auth.User{})
+				Expect(err).To(BeNil())
+				record, err = dataProcessor.Put(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{})
+				Expect(err).To(BeNil())
+				record, err = dataProcessor.Put(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{})
+				Expect(err).To(BeNil())
+
+				matchedRecords := []map[string]interface{}{}
+				callbackFunction := func(obj map[string]interface{}) error {
+					matchedRecords = append(matchedRecords, obj)
+					return nil
+				}
+				dataProcessor.GetBulk(orderMetaObj.Name, "", 1, callbackFunction)
+
+				Expect(matchedRecords).To(HaveLen(1))
+				payments, ok := matchedRecords[0]["payments"].([]interface{})
+				Expect(ok).To(BeTrue())
+				Expect(payments).To(HaveLen(2))
+				paymentId, ok := payments[0].(string)
+				Expect(ok).To(BeTrue())
+				Expect(paymentId).To(Equal("1"))
+
+			})
+		})
+	})
 })
