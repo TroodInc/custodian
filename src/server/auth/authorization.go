@@ -5,6 +5,13 @@ import (
 	"io"
 	"encoding/json"
 	"io/ioutil"
+	"strings"
+	"os"
+	"bytes"
+	"github.com/pkg/errors"
+	"encoding/base64"
+	"crypto/hmac"
+	"crypto/sha1"
 )
 
 type AuthResponse struct {
@@ -52,14 +59,42 @@ type TroodAuthenticator struct {
 	AuthUrl string
 }
 
+func (this *TroodAuthenticator) GetServiceToken() (string, error) {
+	secret := os.Getenv("SERVICE_AUTH_SECRET")
+	domain := os.Getenv("SERVICE_DOMAIN")
+
+	if secret != "" && domain != "" {
+
+		key := sha1.New()
+		key.Write([]byte("trood.signer" + secret))
+
+		signature := hmac.New(sha1.New, key.Sum(nil))
+		signature.Write([]byte(domain))
+
+		result := domain + ":" + base64.RawURLEncoding.EncodeToString(signature.Sum(nil))
+
+		return result, nil
+	}
+
+	return "", errors.New("SERVICE_AUTH_SECRET or SERVICE_DOMAIN not found")
+}
+
 func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, error){
 	var auth_header = req.Header.Get("Authorization")
 
 	if auth_header != "" {
 		client := &http.Client{}
 
-		auth_request, _ := http.NewRequest("POST", this.AuthUrl + "/api/v1.0/verify-token", nil)
-		auth_request.Header.Add("Authorization", auth_header)
+		user_token := strings.Split(auth_header, " ");
+		service_token, err := this.GetServiceToken()
+
+
+		body := []byte(`{"token":"`+user_token[1]+`"}`)
+
+		auth_request, _ := http.NewRequest("POST", this.AuthUrl + "/api/v1.0/verify-token", bytes.NewBuffer(body))
+		auth_request.Header.Add("Authorization", "Service " + service_token)
+		auth_request.Header.Add("Content-Type", "application/json")
+
 		auth_response, err  := client.Do(auth_request)
 
 		if err == nil && auth_response.StatusCode == 200 {
