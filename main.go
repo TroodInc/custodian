@@ -6,6 +6,8 @@ import (
 	"server"
 	"log"
 	"os"
+	"github.com/getsentry/raven-go"
+	"utils"
 )
 
 type OptsError struct {
@@ -25,6 +27,11 @@ func init() {
 	logger.SetOut(os.Stdout)
 	logger.SetLevel("debug")
 	log.Printf("The logger is initialized: level: '%s', output: '%s'.\n", "debug", "stdout")
+
+	appConfig := utils.GetConfig()
+	if len(appConfig.SentryDsn) > 0 {
+		raven.SetDSN(appConfig.SentryDsn)
+	}
 }
 
 //Main function runs Custodian server. The following options are avaliable:
