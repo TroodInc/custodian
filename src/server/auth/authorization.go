@@ -88,8 +88,12 @@ func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, error){
 		user_token := strings.Split(auth_header, " ");
 		service_token, err := this.GetServiceToken()
 
+		token_type := "user"
+		if user_token[0] == "Service" {
+			token_type = "service"
+		}
 
-		body := []byte(`{"token":"`+user_token[1]+`"}`)
+		body := []byte(`{"type":"`+token_type+`", "token":"`+user_token[1]+`"}`)
 
 		auth_request, _ := http.NewRequest("POST", this.AuthUrl + "/api/v1.0/verify-token", bytes.NewBuffer(body))
 		auth_request.Header.Add("Authorization", "Service " + service_token)
