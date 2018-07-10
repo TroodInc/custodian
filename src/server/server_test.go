@@ -66,6 +66,18 @@ var _ = Describe("Server", func() {
 						"optional": false,
 					},
 				},
+				"actions": []map[string]interface{}{
+					{
+						"protocol": "REST",
+						"method":   "create",
+						"args":     []string{"http://localhost:2000/create/contact"},
+						"includeValues": map[string]string{
+							"amount":        "amount",
+							"account__plan": "accountPlan",
+						},
+						"activeIfNotRoot": true,
+					},
+				},
 			}
 			Context("and valid HTTP request object", func() {
 				encodedMetaData, _ := json.Marshal(metaData)
@@ -75,6 +87,11 @@ var _ = Describe("Server", func() {
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 				Expect(responseBody).To(Equal("{\"status\":\"OK\"}"))
+
+				meta, _, err := metaStore.Get("person", true)
+				Expect(err).To(BeNil())
+				Expect(meta.Actions.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
+				Expect(meta.Actions.Original[0].IncludeValues["amount"]).To(Equal("amount"))
 			})
 		})
 	})
