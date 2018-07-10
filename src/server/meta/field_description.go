@@ -59,7 +59,11 @@ func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 	case FieldTypeBool:
 		return strconv.ParseBool(v)
 	case FieldTypeObject:
-		return strconv.Atoi(v)
+		if field.LinkMeta.Key.Field.Type == FieldTypeString {
+			return v, nil
+		} else {
+			return strconv.Atoi(v)
+		}
 	case FieldTypeArray:
 		return strconv.Atoi(v)
 	default:
