@@ -236,8 +236,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 		}
 	}, false))
 
-	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
+	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		defer sink.Complete()
+		user := request.Context().Value("auth_user").(auth.User)
 		e := dataProcessor.PutBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
@@ -246,7 +247,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
 		if e != nil {
 			sink.pushError(e)
 		}
@@ -298,8 +299,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 		}
 	}, true))
 
-	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
+	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		defer sink.Complete()
+		user := request.Context().Value("auth_user").(auth.User)
 		e := dataProcessor.DeleteBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
@@ -308,7 +310,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		})
+		}, user)
 		if e != nil {
 			sink.pushError(e)
 		}
@@ -331,8 +333,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 		}
 	}, false))
 
-	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, q url.Values) {
+	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		defer sink.Complete()
+		user := request.Context().Value("auth_user").(auth.User)
 		e := dataProcessor.UpdateBulk(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
@@ -341,7 +344,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
 		if e != nil {
 			if dt, ok := e.(*data.DataError); ok && dt.Code == data.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
@@ -375,15 +378,15 @@ func CreateDualJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, *htt
 	}
 }
 
-func CreateDualJsonStreamAction(f func(*JsonStream, *JsonSinkStream, httprouter.Params, url.Values)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		stream, e := (*httpRequest)(r).asJsonStream()
+func CreateDualJsonStreamAction(callbackFunction func(*JsonStream, *JsonSinkStream, httprouter.Params, *http.Request)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
+	return func(w http.ResponseWriter, request *http.Request, p httprouter.Params) {
+		stream, e := (*httpRequest)(request).asJsonStream()
 		if e != nil {
 			returnError(w, e)
 			return
 		}
 		sink, _ := asJsonSinkStream(w)
-		f(stream, sink, p, r.URL.Query())
+		callbackFunction(stream, sink, p, request)
 	}
 }
 
