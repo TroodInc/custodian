@@ -544,8 +544,8 @@ func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}) (d
 
 func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}) (data.Operation, []interface{}, error) {
 	var pks []interface{}
-	if n.KeyFiled.Name != n.Meta.Key.Name {
-		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyFiled.Name, keys)
+	if n.KeyField.Name != n.Meta.Key.Name {
+		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -557,7 +557,7 @@ func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}
 		pks = keys
 	}
 	sqlHelper := dml_info.SqlHelper{}
-	deleteInfo := dml_info.NewDeleteInfo(tblName(n.Meta), []string{sqlHelper.EscapeColumn(n.KeyFiled.Name) + " IN (" + sqlHelper.BindValues(1, len(keys)) + ")"})
+	deleteInfo := dml_info.NewDeleteInfo(tblName(n.Meta), []string{sqlHelper.EscapeColumn(n.KeyField.Name) + " IN (" + sqlHelper.BindValues(1, len(keys)) + ")"})
 	var q bytes.Buffer
 	if err := parsedTemplDelete.Execute(&q, deleteInfo); err != nil {
 		return nil, nil, NewDMLError(ErrTemplateFailed, err.Error())

@@ -5,7 +5,6 @@ import (
 	"fmt"
 
 	"server/meta"
-	"server/noti"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strings"
 	"server/auth"
@@ -273,57 +272,7 @@ func putValidator(t *Tuple2) (*Tuple2, bool, error) {
 	return t, true, nil
 }
 
-type notification struct {
-	method meta.Method
-	notifs map[string]chan *noti.Event
-}
-
-func newNotification(m meta.Method) *notification {
-	return &notification{method: m, notifs: make(map[string]chan *noti.Event)}
-}
-
-func (n *notification) push(m *meta.Meta, obj map[string]interface{}, isRoot bool) {
-	notifchan, ok := n.notifs[m.Name]
-	if !ok {
-		notifchan = m.Actions.StartNotification(n.method)
-		n.notifs[m.Name] = notifchan
-	}
-	notifchan <- noti.NewObjectEvent(obj, isRoot)
-}
-
-func (n *notification) pushAll(m *meta.Meta, objs []map[string]interface{}, isRoot bool) {
-	notifchan, ok := n.notifs[m.Name]
-	if !ok {
-		notifchan = m.Actions.StartNotification(n.method)
-		n.notifs[m.Name] = notifchan
-	}
-	for i, _ := range objs {
-		notifchan <- noti.NewObjectEvent(objs[i], isRoot)
-	}
-}
-
-func (n *notification) complete(err error) {
-	if err == nil {
-		n.close()
-	} else {
-		n.failed(err)
-	}
-}
-
-func (n *notification) close() {
-	for _, c := range n.notifs {
-		close(c)
-	}
-}
-
-func (n *notification) failed(err error) {
-	for _, c := range n.notifs {
-		c <- noti.NewErrorEvent(err)
-		close(c)
-	}
-}
-
-func (processor *Processor) Put(objectClass string, obj map[string]interface{}, actor auth.User) (retObj map[string]interface{}, err error) {
+func (processor *Processor) Put(objectClass string, obj map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
 	m, ok, e := processor.metaStore.Get(objectClass, true)
 	if e != nil {
 		return nil, e
@@ -340,10 +289,6 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}, 
 	}
 
 	var ops = make([]Operation, 0)
-	n := newNotification(meta.MethodCreate)
-	defer func() {
-		n.complete(err)
-	}()
 	for _, t := range tc {
 		if op, e := processor.dataManager.PreparePuts(t.First, []map[string]interface{}{t.Second}); e != nil {
 			return nil, e
@@ -356,21 +301,20 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}, 
 		return nil, e
 	}
 
+	//process notifications
+	notificationSender := newNotificationSender(meta.MethodCreate)
+	defer func() {
+		notificationSender.complete(err)
+	}()
 	for i, _ := range tc {
 		collapseLinks(tc[i].Second)
-
-		notificaion_data := make(map[string]interface{})
-
-		notificaion_data["actor"] = actor
-		notificaion_data["data"] = tc[i].Second
-
-		n.push(tc[i].First, notificaion_data, i == 0)
+		notificationSender.push(NOTIFICATION_CREATE, tc[i].First, tc[i].Second, user, i == 0)
 	}
 
 	return obj, nil
 }
 
-func (processor *Processor) PutBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) (response error) {
+func (processor *Processor) PutBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (response error) {
 	m, ok, e := processor.metaStore.Get(objectClass, true)
 	if e != nil {
 		return e
@@ -386,9 +330,9 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 	defer exCtx.Close()
 
 	var buf = make([]map[string]interface{}, 0, 100)
-	n := newNotification(meta.MethodCreate)
+	notification := newNotificationSender(meta.MethodCreate)
 	defer func() {
-		n.complete(response)
+		notification.complete(response)
 	}()
 	for {
 		for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
@@ -418,10 +362,10 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 						return e
 					}
 
-					for _, obj := range item.Second {
-						collapseLinks(obj)
+					for _, recordData := range item.Second {
+						collapseLinks(recordData)
+						notification.push(NOTIFICATION_CREATE, item.First, recordData, user, isRoot)
 					}
-					n.pushAll(item.First, item.Second, isRoot)
 				}
 			}
 			for _, roots := range levelLader[0] {
@@ -531,7 +475,7 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 }
 
 type DNode struct {
-	KeyFiled   *meta.FieldDescription
+	KeyField   *meta.FieldDescription
 	Meta       *meta.Meta
 	ChildNodes map[string]*DNode
 	Plural     bool
@@ -544,7 +488,7 @@ func (dn *DNode) fillOuterChildNodes() {
 			if f.Type == meta.FieldTypeArray {
 				plural = true
 			}
-			dn.ChildNodes[f.Name] = &DNode{KeyFiled: f.OuterLinkField,
+			dn.ChildNodes[f.Name] = &DNode{KeyField: f.OuterLinkField,
 				Meta: f.LinkMeta,
 				ChildNodes: make(map[string]*DNode),
 				Plural: plural}
@@ -557,7 +501,7 @@ type tuple2d struct {
 	keys []interface{}
 }
 
-func (processor *Processor) Delete(objectClass, key string, actor auth.User) (isDeleted bool, err error) {
+func (processor *Processor) Delete(objectClass, key string, user auth.User) (isDeleted bool, err error) {
 	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return false, e
 	} else if !ok {
@@ -566,7 +510,7 @@ func (processor *Processor) Delete(objectClass, key string, actor auth.User) (is
 		if pk, e := m.Key.ValueFromString(key); e != nil {
 			return false, e
 		} else {
-			root := &DNode{KeyFiled: m.Key, Meta: m, ChildNodes: make(map[string]*DNode), Plural: false}
+			root := &DNode{KeyField: m.Key, Meta: m, ChildNodes: make(map[string]*DNode), Plural: false}
 			root.fillOuterChildNodes()
 			for v := []map[string]*DNode{root.ChildNodes}; len(v) > 0; v = v[1:] {
 				for _, n := range v[0] {
@@ -576,39 +520,31 @@ func (processor *Processor) Delete(objectClass, key string, actor auth.User) (is
 					}
 				}
 			}
-			n := newNotification(meta.MethodRemove)
+			//process notifications
+			notificationSender := newNotificationSender(meta.MethodRemove)
 			defer func() {
-				n.complete(err)
+				notificationSender.complete(err)
 			}()
 			if op, keys, e := processor.dataManager.PrepareDeletes(root, []interface{}{pk}); e != nil {
 				return false, e
 			} else {
+				//process root records notificationSender
+				notificationSender.push(NOTIFICATION_DELETE, root.Meta, map[string]interface{}{root.KeyField.Name: pk}, user, true)
 
-				notificaion_data := make(map[string]interface{})
-
-				notificaion_data["actor"] = actor
-				notificaion_data["data"] = map[string]interface{}{root.KeyFiled.Name: pk}
-
-				n.push(root.Meta, notificaion_data, true)
 				ops := []Operation{op}
 				for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 					for _, v := range t2d[0].n.ChildNodes {
 						if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
 							return false, e
 						} else {
-							objs := make([]map[string]interface{}, len(t2d[0].keys))
-							for i, k := range t2d[0].keys {
-								objs[i] = map[string]interface{}{v.KeyFiled.Name: k}
-							}
-
-							notificaion_data := make(map[string]interface{})
-
-							notificaion_data["actor"] = actor
-							notificaion_data["data"] = objs
-
-							n.push(v.Meta, notificaion_data, false)
 							ops = append(ops, op)
 							t2d = append(t2d, tuple2d{v, keys})
+
+							//process affected records notifications
+							for _, primaryKeyValue := range t2d[0].keys {
+								notificationSender.push(NOTIFICATION_DELETE, v.Meta, map[string]interface{}{v.KeyField.Name: primaryKeyValue}, user, false)
+							}
+
 						}
 					}
 				}
@@ -626,7 +562,7 @@ func (processor *Processor) Delete(objectClass, key string, actor auth.User) (is
 	}
 }
 
-func (processor *Processor) DeleteBulk(objectClass string, next func() (map[string]interface{}, error)) (err error) {
+func (processor *Processor) DeleteBulk(objectClass string, next func() (map[string]interface{}, error), user auth.User) (err error) {
 	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return e
 	} else if !ok {
@@ -634,7 +570,7 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 	} else {
 		ts := m.Key.Type.TypeAsserter()
 
-		root := &DNode{KeyFiled: m.Key, Meta: m, ChildNodes: make(map[string]*DNode), Plural: false}
+		root := &DNode{KeyField: m.Key, Meta: m, ChildNodes: make(map[string]*DNode), Plural: false}
 		root.fillOuterChildNodes()
 		for v := []map[string]*DNode{root.ChildNodes}; len(v) > 0; v = v[1:] {
 			for _, n := range v[0] {
@@ -651,9 +587,9 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 		}
 		defer exCtx.Close()
 		var buf = make([]interface{}, 0, 100)
-		n := newNotification(meta.MethodRemove)
+		notificationSender := newNotificationSender(meta.MethodRemove)
 		defer func() {
-			n.complete(err)
+			notificationSender.complete(err)
 		}()
 		for {
 			for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
@@ -678,11 +614,10 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 								if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
 									return e
 								} else {
-									objs := make([]map[string]interface{}, len(t2d[0].keys))
-									for i, k := range t2d[0].keys {
-										objs[i] = map[string]interface{}{v.KeyFiled.Name: k}
+									for _, primaryKeyValue := range t2d[0].keys {
+										notificationSender.push(NOTIFICATION_DELETE, v.Meta, map[string]interface{}{v.KeyField.Name: primaryKeyValue}, user, false)
 									}
-									n.pushAll(v.Meta, objs, false)
+
 									ops = append(ops, op)
 									t2d = append(t2d, tuple2d{v, keys})
 								}
@@ -715,7 +650,7 @@ func updateValidator(t *Tuple2) (*Tuple2, bool, error) {
 	return t, false, nil
 }
 
-func (processor *Processor) Update(objectClass, key string, obj map[string]interface{}, actor auth.User) (retObj map[string]interface{}, err error) {
+func (processor *Processor) Update(objectClass, key string, obj map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
 	m, ok, e := processor.metaStore.Get(objectClass, true)
 	if e != nil {
 		return nil, e
@@ -739,20 +674,17 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 	}
 
 	var ops = make([]Operation, 0)
-	n := newNotification(meta.MethodUpdate)
+
+	//process notifications
+	notificationSender := newNotificationSender(meta.MethodUpdate)
 	defer func() {
-		n.complete(err)
+		notificationSender.complete(err)
 	}()
 	for i, t := range tc {
 		if op, e := processor.dataManager.PrepareUpdates(t.First, []map[string]interface{}{t.Second}); e != nil {
 			return nil, e
 		} else {
-			notificaion_data := make(map[string]interface{})
-
-			notificaion_data["actor"] = actor
-			notificaion_data["data"] = tc[i].Second
-
-			n.push(t.First, notificaion_data, i == 0)
+			notificationSender.push(NOTIFICATION_UPDATE, t.First, t.Second, user, i == 0)
 			ops = append(ops, op)
 		}
 	}
@@ -767,7 +699,7 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 	return obj, nil
 }
 
-func (processor *Processor) UpdateBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error) (err error) {
+func (processor *Processor) UpdateBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
 	m, ok, e := processor.metaStore.Get(objectClass, true)
 	if e != nil {
 		return e
@@ -785,9 +717,9 @@ func (processor *Processor) UpdateBulk(objectClass string, next func() (map[stri
 	}()
 
 	var buf = make([]map[string]interface{}, 0, 100)
-	n := newNotification(meta.MethodUpdate)
+	notificationSender := newNotificationSender(meta.MethodUpdate)
 	defer func() {
-		n.complete(err)
+		notificationSender.complete(err)
 	}()
 	for {
 		for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
@@ -817,10 +749,11 @@ func (processor *Processor) UpdateBulk(objectClass string, next func() (map[stri
 						return e
 					}
 
-					for _, obj := range item.Second {
-						collapseLinks(obj)
+					for _, recordData := range item.Second {
+						collapseLinks(recordData)
+						notificationSender.push(NOTIFICATION_UPDATE, item.First, recordData, user, isRoot)
 					}
-					n.pushAll(item.First, item.Second, isRoot)
+
 				}
 			}
 			for _, roots := range levelLader[0] {
