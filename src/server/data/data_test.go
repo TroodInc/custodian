@@ -135,6 +135,78 @@ var _ = Describe("Data", func() {
 		})
 	})
 
+	It("can query records by string PK value", func() {
+		Context("having an A object with string PK field", func() {
+			metaDescription := meta.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+				},
+			}
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
+
+			By("having two records of this object")
+
+			_, err = dataProcessor.Put(metaDescription.Name, map[string]interface{}{"id": "PKVALUE"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			_, err = dataProcessor.Put(metaDescription.Name, map[string]interface{}{"id": "ANOTHERPKVALUE"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			matchedRecords := []map[string]interface{}{}
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+
+			By("having another object, containing A object as a link")
+
+			metaDescription = meta.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+					{
+						Name:     "a",
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
+						LinkMeta: "a",
+						Optional: true,
+					},
+				},
+			}
+			bMetaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(bMetaObj)
+			Expect(err).To(BeNil())
+
+			By("having a record of B object")
+			_, err = dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"id": "pk", "a": "PKVALUE"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			Context("query by PK returns correct result", func() {
+				dataProcessor.GetBulk(bMetaObj.Name, "eq(a,PKVALUE)", 1, callbackFunction)
+				Expect(matchedRecords).To(HaveLen(1))
+				Expect(matchedRecords[0]["id"]).To(Equal("pk"))
+			})
+
+		})
+	})
+
 	It("can query records by datetime field", func() {
 		Context("having an object with datetime field", func() {
 			metaDescription := meta.MetaDescription{
