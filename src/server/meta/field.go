@@ -16,6 +16,7 @@ const (
 	FieldTypeDateTime
 	FieldTypeDate
 	FieldTypeTime
+	FieldTypeGeneric
 )
 
 func AsFieldType(s string) (FieldType, bool) {
@@ -30,6 +31,8 @@ func AsFieldType(s string) (FieldType, bool) {
 		return FieldTypeArray, true
 	case "object":
 		return FieldTypeObject, true
+	case "generic":
+		return FieldTypeGeneric, true
 	case "datetime":
 		return FieldTypeDateTime, true
 	case "date":
@@ -59,6 +62,8 @@ func (fieldType FieldType) String() (string, bool) {
 		return "date", true
 	case FieldTypeTime:
 		return "time", true
+	case FieldTypeGeneric:
+		return "generic", true
 	default:
 		return "", false
 	}

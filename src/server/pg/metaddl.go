@@ -706,51 +706,6 @@ func tblName(m *meta.Meta) string {
 	return name.String()
 }
 
-func MetaDDLFromMeta(m *meta.Meta) (*MetaDDL, error) {
-	var metaDdl = &MetaDDL{Table: tblName(m), Pk: m.Key.Name}
-	metaDdl.Columns = make([]Column, 0, len(m.Fields))
-	metaDdl.IFKs = make([]IFK, 0, len(m.Fields)>>1)
-	metaDdl.OFKs = make([]OFK, 0, len(m.Fields)>>1)
-	metaDdl.Seqs = make([]Seq, 0)
-	for i, _ := range m.Fields {
-		f := &m.Fields[i]
-		c := Column{}
-		c.Name = f.Name
-		c.Optional = f.Optional
-		c.Unique = false
-		colDef, err := newColDefVal(f)
-		if err != nil {
-			return nil, err
-		}
-		if c.Defval, err = colDef.ddlVal(); err != nil {
-			return nil, err
-		}
-		if ds, ok := colDef.(*ColDefValSeq); ok {
-			metaDdl.Seqs = append(metaDdl.Seqs, *ds.seq)
-		}
-
-		if f.IsSimple() {
-			var ok bool
-			if c.Typ, ok = fieldTypeToColumnType(f.Type); !ok {
-				return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(f.Type)}
-			}
-			metaDdl.Columns = append(metaDdl.Columns, c)
-		} else if f.Type == meta.FieldTypeObject && f.LinkType == meta.LinkTypeInner {
-			var ok bool
-			if c.Typ, ok = fieldTypeToColumnType(f.LinkMeta.Key.Type); !ok {
-				return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(f.LinkMeta.Key.Type)}
-			}
-			metaDdl.Columns = append(metaDdl.Columns, c)
-			metaDdl.IFKs = append(metaDdl.IFKs, IFK{FromColumn: f.Name, ToTable: tblName(f.LinkMeta), ToColumn: f.LinkMeta.Key.Name})
-		} else if f.LinkType == meta.LinkTypeOuter {
-			metaDdl.OFKs = append(metaDdl.OFKs, OFK{FromTable: tblName(f.LinkMeta), FromColumn: f.OuterLinkField.Name, ToTable: tblName(m), ToColumn: m.Key.Name})
-		} else {
-			return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(f.LinkType), string(f.LinkType))}
-		}
-	}
-	return metaDdl, nil
-}
-
 var seqNameParseRe = regexp.MustCompile("nextval\\('(.*)'::regclass\\)")
 
 func MetaDDLFromDB(tx *sql.Tx, name string) (*MetaDDL, error) {
