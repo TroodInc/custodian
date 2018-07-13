@@ -3,6 +3,7 @@ package meta
 import (
 	"encoding/json"
 	"server/noti"
+	"utils"
 )
 
 type LinkType int
@@ -244,7 +245,11 @@ type MetaDescription struct {
 }
 
 func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
-	return (f.IsSimple() && f.Type == m.Key.Type) || (f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner)
+	isSimpleFieldWithSameTypeAsPk := f.IsSimple() && f.Type == m.Key.Type
+	isInnerLinkToMeta := f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner
+	isGenericInnerLinkToMeta := f.Type == FieldTypeGeneric && f.LinkType == LinkTypeInner && utils.Contains(f.Field.LinkMetaList, m.Name)
+	canBeLinkTo := isSimpleFieldWithSameTypeAsPk || isInnerLinkToMeta || isGenericInnerLinkToMeta
+	return canBeLinkTo
 }
 
 /*

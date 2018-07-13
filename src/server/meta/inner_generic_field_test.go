@@ -9,7 +9,7 @@ import (
 	"database/sql"
 )
 
-var _ = Describe("Generic field", func() {
+var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
@@ -22,7 +22,7 @@ var _ = Describe("Generic field", func() {
 		metaStore.Flush()
 	})
 
-	It("can create object with generic field", func() {
+	It("can create object with inner generic field", func() {
 		By("having two objects: A and B")
 		aMetaDescription := meta.MetaDescription{
 			Name: "a",

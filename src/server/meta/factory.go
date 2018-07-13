@@ -108,9 +108,8 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 		if shouldBuild {
 			metaFactory.enqueueForResolving(fieldDescription.LinkMeta)
 		}
-
 	}
-	if field.Type == FieldTypeGeneric {
+	if len(field.LinkMetaList) > 0 {
 		for _, metaName := range field.LinkMetaList {
 			if linkMeta, shouldBuild, err := metaFactory.buildMeta(metaName); err != nil {
 				return nil, NewMetaError(objectMeta.Name, "new_meta", ErrNotFound, "Generic field references meta %s, which does not exist", metaName)
@@ -157,9 +156,13 @@ func (metaFactory *MetaFactory) setOuterLinks(objectMeta *Meta) (error) {
 				continue
 			}
 			if field.OuterLinkField = field.LinkMeta.FindField(field.Field.OuterLinkField); field.OuterLinkField == nil {
-				return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Filed '%s' has incorrect outer link. Meta '%s' doesn't have a Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
+				if field.Field.OuterLinkField == "" {
+					return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has no outer link field specified", field.Name)
+				} else {
+					return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. Meta '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
+				}
 			} else if !field.OuterLinkField.canBeLinkTo(field.Meta) {
-				return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Filed '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, field.OuterLinkField.Name, field.OuterLinkField.Meta.Name, field.Meta.Name)
+				return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, field.OuterLinkField.Name, field.OuterLinkField.Meta.Name, field.Meta.Name)
 			}
 		}
 	}
