@@ -9,7 +9,7 @@ import (
 	"database/sql"
 )
 
-var _ = FDescribe("Generic field", func() {
+var _ = Describe("Generic field", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
@@ -136,5 +136,74 @@ var _ = FDescribe("Generic field", func() {
 		By("Meta should not be created")
 		_, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(Not(BeNil()))
+	})
+
+	It("can remove generic field from object", func() {
+		By("having object A with generic field")
+		metaDescription := meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{},
+					Optional:     false,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+		By("when generic field is removed from object and object has been updated")
+
+		metaDescription = meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		metaObj, err = metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(metaObj.Name, metaObj, true)
+		Expect(err).To(BeNil())
+
+		//check database columns
+		db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
+		tx, err := db.Begin()
+		Expect(err).To(BeNil())
+
+		tableName := pg.GetTableName(metaObj)
+
+		reverser, err := pg.NewReverser(tx, tableName)
+		columns := make([]pg.Column, 0)
+		pk := ""
+		reverser.Columns(&columns, &pk)
+		Expect(columns).To(HaveLen(1))
+		Expect(columns[0].Name).To(Equal("id"))
+		// check meta fields
+		cMeta, _, err := metaStore.Get(metaDescription.Name, true)
+		Expect(err).To(BeNil())
+		Expect(cMeta.Fields).To(HaveLen(1))
+		Expect(cMeta.Fields[0].Name).To(Equal("id"))
+
 	})
 })
