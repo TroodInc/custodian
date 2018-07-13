@@ -10,6 +10,7 @@ type FieldDescription struct {
 	Meta           *Meta
 	LinkMeta       *Meta
 	OuterLinkField *FieldDescription
+	LinkMetaList   []*Meta
 }
 
 func (f *FieldDescription) Default() Def {

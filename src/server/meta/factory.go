@@ -97,7 +97,7 @@ func (metaFactory *MetaFactory) buildMeta(metaName string) (metaObj *Meta, shoul
 
 //factory field description by provided Field
 func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
-	fieldDescription := FieldDescription{&field, objectMeta, nil, nil}
+	fieldDescription := FieldDescription{&field, objectMeta, nil, nil, make([]*Meta, 0)}
 
 	if field.LinkMeta != "" {
 		var err error
@@ -109,6 +109,18 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 			metaFactory.enqueueForResolving(fieldDescription.LinkMeta)
 		}
 
+	}
+	if field.Type == FieldTypeGeneric {
+		for _, metaName := range field.LinkMetaList {
+			if linkMeta, shouldBuild, err := metaFactory.buildMeta(metaName); err != nil {
+				return nil, NewMetaError(objectMeta.Name, "new_meta", ErrNotFound, "Generic field references meta %s, which does not exist", metaName)
+			} else {
+				fieldDescription.LinkMetaList = append(fieldDescription.LinkMetaList, linkMeta)
+				if shouldBuild {
+					metaFactory.enqueueForResolving(linkMeta)
+				}
+			}
+		}
 	}
 	return &fieldDescription, nil
 }
