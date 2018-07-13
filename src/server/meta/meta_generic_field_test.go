@@ -90,6 +90,7 @@ var _ = FDescribe("Generic field", func() {
 		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 
+		//check database columns
 		db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
 		tx, err := db.Begin()
 		Expect(err).To(BeNil())
@@ -101,7 +102,11 @@ var _ = FDescribe("Generic field", func() {
 		pk := ""
 		reverser.Columns(&columns, &pk)
 		Expect(columns).To(HaveLen(3))
-
+		// check meta fields
+		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
+		Expect(err).To(BeNil())
+		Expect(cMeta.Fields).To(HaveLen(2))
+		Expect(cMeta.Fields[1].LinkMetaList).To(HaveLen(2))
 	})
 
 	It("Validates linked metas", func() {
