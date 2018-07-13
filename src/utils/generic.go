@@ -2,10 +2,14 @@ package utils
 
 // Contains tells whether a contains x.
 func Contains(a []string, x string) bool {
-	for _, n := range a {
+	return IndexOf(a, x) >= 0
+}
+
+func IndexOf(a []string, x string) int {
+	for i, n := range a {
 		if x == n {
-			return true
+			return i
 		}
 	}
-	return false
+	return -1
 }

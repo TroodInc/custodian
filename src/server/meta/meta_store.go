@@ -5,6 +5,7 @@ import (
 	"io"
 	"encoding/json"
 	"logger"
+	"utils"
 )
 
 /*
@@ -163,16 +164,36 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
 			objectMetaFields := make([]Field, 0)
 			objectMetaFieldDescriptions := make([]FieldDescription, 0)
+			objectNeedsUpdate := false
 
 			for i, fieldDescription := range objectMeta.Fields {
 				//omit orphan fields
-				if fieldDescription.LinkType != LinkTypeInner || (fieldDescription.LinkMeta != nil && fieldDescription.LinkMeta.Name != targetMeta.Name) {
+				fieldIsTargetInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObject && fieldDescription.LinkMeta.Name == targetMeta.Name
+				fieldIsTargetOuterLink := fieldDescription.LinkType == LinkTypeOuter && fieldDescription.Type == FieldTypeArray && fieldDescription.LinkMeta.Name == targetMeta.Name
+				fieldIsTargetGenericInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeGeneric && utils.Contains(fieldDescription.Field.LinkMetaList, targetMeta.Name)
+
+				if !(fieldIsTargetInnerLink || fieldIsTargetOuterLink || fieldIsTargetGenericInnerLink) {
 					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
 					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+				} else {
+					objectNeedsUpdate = true
+					if fieldIsTargetGenericInnerLink {
+						indexOfTargetMeta := utils.IndexOf(fieldDescription.Field.LinkMetaList, targetMeta.Name)
+
+						//alter field
+						field := objectMeta.MetaDescription.Fields[i]
+						field.LinkMetaList = append(field.LinkMetaList[:indexOfTargetMeta], field.LinkMetaList[indexOfTargetMeta+1:]...)
+						objectMetaFields = append(objectMetaFields, field)
+
+						//alter field description
+						fieldDescription := objectMeta.Fields[i]
+						fieldDescription.LinkMetaList = append(fieldDescription.LinkMetaList[:indexOfTargetMeta], fieldDescription.LinkMetaList[indexOfTargetMeta+1:]...)
+						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, fieldDescription)
+					}
 				}
 			}
 			// it means that related object should be updated
-			if len(objectMetaFieldDescriptions) != len(objectMeta.Fields) {
+			if objectNeedsUpdate {
 				objectMeta.Fields = objectMetaFieldDescriptions
 				objectMeta.MetaDescription.Fields = objectMetaFields
 				metaStore.Update(objectMeta.Name, objectMeta, false)

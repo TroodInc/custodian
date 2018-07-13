@@ -206,4 +206,80 @@ var _ = Describe("Generic field", func() {
 		Expect(cMeta.Fields[0].Name).To(Equal("id"))
 
 	})
+
+	It("does not leave orphan links in LinkMetaList on object removal", func() {
+		By("having two objects A and B reference by generic field of object C")
+		aMetaDescription := meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(aMetaObj)
+		Expect(err).To(BeNil())
+
+		bMetaDescription := meta.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(bMetaObj)
+		Expect(err).To(BeNil())
+
+		cMetaDescription := meta.MetaDescription{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{aMetaObj.Name, bMetaObj.Name},
+					Optional:     false,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&cMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+
+		By("since object A is deleted, it should be removed from LinkMetaList")
+
+		_, err = metaStore.Remove(aMetaObj.Name, false, true)
+		Expect(err).To(BeNil())
+
+		cMetaObj, _, err := metaStore.Get(cMetaDescription.Name, true)
+		Expect(err).To(BeNil())
+		Expect(cMetaObj.Fields[1].LinkMetaList).To(HaveLen(1))
+	})
 })
