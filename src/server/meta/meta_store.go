@@ -155,6 +155,23 @@ func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFi
 	}
 }
 
+//Remove generic outer field from each of linkMetaList`s meta
+func (metaStore *MetaStore) removeRelatedGenericOuterLinks(targetMeta *Meta, genericInnerLinkFieldDescription FieldDescription, linkMetaList []*Meta) {
+	for _, relatedObjectMeta := range linkMetaList {
+		for i, relatedObjectField := range relatedObjectMeta.Fields {
+			if relatedObjectField.Type == FieldTypeGeneric &&
+				relatedObjectField.LinkType == LinkTypeOuter &&
+				relatedObjectField.LinkMeta.Name == targetMeta.Name &&
+				relatedObjectField.OuterLinkField.Field.Name == genericInnerLinkFieldDescription.Field.Name {
+				//omit outer field and update related object
+				relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
+				relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
+				metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
+			}
+		}
+	}
+}
+
 //Remove inner fields linking to given Meta
 func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 	metaDescriptionList, _, _ := metaStore.List()
@@ -213,6 +230,8 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTran
 	if currentBusinessObj, ok, err := metaStore.Get(name, false); err == nil {
 		// remove possible outer links before main update processing
 		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
+		metaStore.processGenericInnerLinksRemoval(currentBusinessObj, newBusinessObj)
+
 		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
 
 		if e != nil || !ok {
@@ -261,6 +280,39 @@ func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBe
 			}
 			if fieldIsBeingRemoved {
 				metaStore.removeRelatedOuterLink(currentMeta, currentFieldDescription)
+			}
+		}
+	}
+}
+
+// compare current object`s version to the version is being updated and remove outer links
+// if any generic inner link is being removed
+func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) {
+	for _, currentFieldDescription := range currentMeta.Fields {
+		if currentFieldDescription.LinkType == LinkTypeInner && currentFieldDescription.Type == FieldTypeGeneric {
+			fieldIsBeingRemoved := true
+			fieldIsBeingUpdated := true
+			var linkMetaListDiff []*Meta
+			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
+				if fieldDescriptionToBeUpdated.Name == currentFieldDescription.Name &&
+					fieldDescriptionToBeUpdated.LinkType == LinkTypeInner {
+					if utils.Equal(fieldDescriptionToBeUpdated.Field.LinkMetaList, currentFieldDescription.Field.LinkMetaList) {
+						fieldIsBeingRemoved = false
+						fieldIsBeingUpdated = false
+					} else {
+						fieldIsBeingRemoved = false
+						fieldIsBeingUpdated = true
+						linkMetaListDiff = MetaListDiff(currentFieldDescription.LinkMetaList, fieldDescriptionToBeUpdated.LinkMetaList)
+					}
+				}
+			}
+			//process generic outer link removal only for removed metas
+			if fieldIsBeingUpdated {
+				metaStore.removeRelatedGenericOuterLinks(currentMeta, currentFieldDescription, linkMetaListDiff)
+			}
+			//process generic outer link removal for each linked meta
+			if fieldIsBeingRemoved {
+				metaStore.removeRelatedGenericOuterLinks(currentMeta, currentFieldDescription, currentFieldDescription.LinkMetaList)
 			}
 		}
 	}
