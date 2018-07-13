@@ -149,7 +149,8 @@ func (fieldType FieldType) MarshalJSON() ([]byte, error) {
 type Field struct {
 	Name           string      `json:"name"`
 	Type           FieldType   `json:"type"`
-	LinkMeta       string      `json:"linkMeta,omitempty"` //only for array and objects
+	LinkMeta       string      `json:"linkMeta,omitempty"`     //only for array and objects
+	LinkMetaList   []string    `json:"linkMetaList,omitempty"` //only for array and objects
 	LinkType       LinkType    `json:"linkType,omitempty"`
 	OuterLinkField string      `json:"outerLinkField,omitempty"`
 	Optional       bool        `json:"optional"`
