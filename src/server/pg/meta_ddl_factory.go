@@ -8,7 +8,7 @@ import (
 type MetaDdlFactory struct{}
 
 func (metaDdlFactory *MetaDdlFactory) Factory(m *meta.Meta) (*MetaDDL, error) {
-	var metaDdl = &MetaDDL{Table: tblName(m), Pk: m.Key.Name}
+	var metaDdl = &MetaDDL{Table: GetTableName(m), Pk: m.Key.Name}
 	metaDdl.Columns = make([]Column, 0, )
 	metaDdl.IFKs = make([]IFK, 0)
 	metaDdl.OFKs = make([]OFK, 0)
@@ -39,8 +39,8 @@ func (metaDdlFactory *MetaDdlFactory) processField(field *meta.FieldDescription)
 		return metaDdlFactory.processInnerLinkField(field)
 	} else if field.LinkType == meta.LinkTypeOuter {
 		return metaDdlFactory.processOuterLinkField(field)
-	} else if field.Type == meta.FieldTypeGeneric {
-		return metaDdlFactory.processOuterLinkField(field)
+	} else if field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeInner {
+		return metaDdlFactory.processGenericInnerLinkField(field)
 	} else {
 		return nil, nil, nil, nil, &DDLError{table: field.Meta.Name, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(field.LinkType), string(field.LinkType))}
 
@@ -72,13 +72,13 @@ func (metaDdlFactory *MetaDdlFactory) processInnerLinkField(field *meta.FieldDes
 		return nil, nil, nil, nil, &DDLError{table: field.Meta.Name, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(field.LinkMeta.Key.Type)}
 	}
 
-	ifk := IFK{FromColumn: field.Name, ToTable: tblName(field.LinkMeta), ToColumn: field.LinkMeta.Key.Name}
+	ifk := IFK{FromColumn: field.Name, ToTable: GetTableName(field.LinkMeta), ToColumn: field.LinkMeta.Key.Name}
 
 	return []Column{*column}, &ifk, nil, metaDdlFactory.factorySequence(field), nil
 }
 
 func (metaDdlFactory *MetaDdlFactory) processOuterLinkField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
-	outerForeignKey := OFK{FromTable: tblName(field.LinkMeta), FromColumn: field.OuterLinkField.Name, ToTable: tblName(field.Meta), ToColumn: field.Meta.Key.Name}
+	outerForeignKey := OFK{FromTable: GetTableName(field.LinkMeta), FromColumn: field.OuterLinkField.Name, ToTable: GetTableName(field.Meta), ToColumn: field.Meta.Key.Name}
 	return nil, nil, &outerForeignKey, nil, nil
 
 }
@@ -86,11 +86,13 @@ func (metaDdlFactory *MetaDdlFactory) processOuterLinkField(field *meta.FieldDes
 func (metaDdlFactory *MetaDdlFactory) processGenericInnerLinkField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
 	typeColumn := Column{}
 	typeColumn.Name = fmt.Sprintf("%s__type", field.Name)
+	typeColumn.Typ = ColumnTypeText
 	typeColumn.Optional = field.Optional
 	typeColumn.Unique = false
 
 	keyColumn := Column{}
 	keyColumn.Name = fmt.Sprintf("%s__key", field.Name)
+	keyColumn.Typ = ColumnTypeText
 	keyColumn.Optional = field.Optional
 	keyColumn.Unique = false
 

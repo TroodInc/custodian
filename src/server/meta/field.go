@@ -158,5 +158,5 @@ type Field struct {
 }
 
 func (f *Field) IsSimple() bool {
-	return f.Type != FieldTypeObject && f.Type != FieldTypeArray
+	return f.Type != FieldTypeObject && f.Type != FieldTypeArray && f.Type != FieldTypeGeneric
 }

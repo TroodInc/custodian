@@ -165,7 +165,8 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 			objectMetaFieldDescriptions := make([]FieldDescription, 0)
 
 			for i, fieldDescription := range objectMeta.Fields {
-				if fieldDescription.LinkType != LinkTypeInner || fieldDescription.LinkMeta.Name != targetMeta.Name {
+				//omit orphan fields
+				if fieldDescription.LinkType != LinkTypeInner || (fieldDescription.LinkMeta != nil && fieldDescription.LinkMeta.Name != targetMeta.Name) {
 					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
 					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
 				}
@@ -228,7 +229,7 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTran
 // if any inner link is being removed
 func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) {
 	for _, currentFieldDescription := range currentMeta.Fields {
-		if currentFieldDescription.LinkType == LinkTypeInner {
+		if currentFieldDescription.LinkType == LinkTypeInner && currentFieldDescription.Type == FieldTypeObject {
 			fieldIsBeingRemoved := true
 			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
 				if fieldDescriptionToBeUpdated.Name == fieldDescriptionToBeUpdated.Name &&

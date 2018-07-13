@@ -254,7 +254,7 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 		// do it only if the current iteration is not that last, because the target field for the query can have the
 		// "LinkMeta"
 		if field.LinkMeta != nil && i != len(fields)-1 {
-			exists := &Exists{Table: tblName(field.LinkMeta), Alias: alias + fieldName, RAlias: alias}
+			exists := &Exists{Table: GetTableName(field.LinkMeta), Alias: alias + fieldName, RAlias: alias}
 			if field.OuterLinkField != nil {
 				exists.FK = field.OuterLinkField.Name
 				exists.RCol = field.Meta.Key.Name

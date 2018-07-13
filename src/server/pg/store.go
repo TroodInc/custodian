@@ -363,7 +363,7 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]i
 	}
 
 	rFields := tableFields(m)
-	updateInfo := dml_info.NewUpdateInfo(tblName(m), fieldsNames(rFields), make([]string, 0), make([]string, 0))
+	updateInfo := dml_info.NewUpdateInfo(GetTableName(m), fieldsNames(rFields), make([]string, 0), make([]string, 0))
 	cols := make([]string, 0, len(objs[0]))
 	vals := make([]func(interface{}) interface{}, 0, len(objs[0]))
 	var b bytes.Buffer
@@ -445,7 +445,7 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 	//fix the columns by the first object
 	fields := tableFields(m)
 	cols := keys(objs[0])
-	insertInfo := dml_info.NewInsertInfo(tblName(m), cols, fieldsNames(fields), len(objs))
+	insertInfo := dml_info.NewInsertInfo(GetTableName(m), cols, fieldsNames(fields), len(objs))
 	var insertDML bytes.Buffer
 	if err := parsedTemplInsert.Execute(&insertDML, insertInfo); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
@@ -524,7 +524,7 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 		fields = tableFields(m)
 	}
 	sqlHelper := dml_info.SqlHelper{}
-	selectInfo := &SelectInfo{From: tblName(m), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: key + "=$1"}
+	selectInfo := &SelectInfo{From: GetTableName(m), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: key + "=$1"}
 	var q bytes.Buffer
 	if err := selectInfo.sql(&q); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
@@ -557,7 +557,7 @@ func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}
 		pks = keys
 	}
 	sqlHelper := dml_info.SqlHelper{}
-	deleteInfo := dml_info.NewDeleteInfo(tblName(n.Meta), []string{sqlHelper.EscapeColumn(n.KeyField.Name) + " IN (" + sqlHelper.BindValues(1, len(keys)) + ")"})
+	deleteInfo := dml_info.NewDeleteInfo(GetTableName(n.Meta), []string{sqlHelper.EscapeColumn(n.KeyField.Name) + " IN (" + sqlHelper.BindValues(1, len(keys)) + ")"})
 	var q bytes.Buffer
 	if err := parsedTemplDelete.Execute(&q, deleteInfo); err != nil {
 		return nil, nil, NewDMLError(ErrTemplateFailed, err.Error())
@@ -636,7 +636,7 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	if fields == nil {
 		fields = tableFields(dataNode.Meta)
 	}
-	si := &SelectInfo{From: tblName(dataNode.Meta) + " " + tableAlias,
+	si := &SelectInfo{From: GetTableName(dataNode.Meta) + " " + tableAlias,
 		Cols: fieldsToCols(fields, tableAlias),
 		Where: sqlQuery.Where,
 		Order: sqlQuery.Sort,
@@ -666,7 +666,7 @@ func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescript
 	where.WriteString(" IN (")
 	where.WriteString(sqlHelper.BindValues(1, len(in)))
 	where.WriteString(")")
-	si := &SelectInfo{From: tblName(m), Cols: fieldsToCols(fields, ""), Where: where.String()}
+	si := &SelectInfo{From: GetTableName(m), Cols: fieldsToCols(fields, ""), Where: where.String()}
 	var q bytes.Buffer
 	if err := si.sql(&q); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
