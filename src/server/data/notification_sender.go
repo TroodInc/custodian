@@ -19,12 +19,25 @@ func newNotificationSender(m meta.Method) *notificationSender {
 	return &notificationSender{method: m, notifs: make(map[string]chan *noti.Event)}
 }
 
+func adaptRecordData(recordData map[string]interface{}) map[string]interface{} {
+	adaptedRecordData := map[string]interface{}{}
+	for key, value := range recordData {
+		switch castValue := value.(type) {
+		case DLink:
+			adaptedRecordData[key] = castValue.Id
+		default:
+			adaptedRecordData[key] = castValue
+		}
+	}
+	return adaptedRecordData
+}
+
 func (n *notificationSender) push(action string, meta *meta.Meta, recordData map[string]interface{}, user auth.User, isRoot bool) {
 
 	notificationData := make(map[string]interface{})
 	notificationData["action"] = action
 	notificationData["object"] = meta.MetaDescription.Name
-	notificationData["data"] = recordData
+	notificationData["data"] = adaptRecordData(recordData)
 	notificationData["user"] = user
 
 	notifchan, ok := n.notifs[meta.Name]

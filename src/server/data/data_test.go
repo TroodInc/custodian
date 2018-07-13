@@ -574,6 +574,80 @@ var _ = Describe("Data", func() {
 
 	})
 
+	It("Can update records containing foreign keys", func() {
+		Context("having an object B with foreign key to object A", func() {
+			aMetaDescription := meta.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(aMetaObj)
+			Expect(err).To(BeNil())
+
+			bMetaDescription := meta.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "a",
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
+						Optional: false,
+						LinkMeta: "a",
+					},
+				},
+			}
+			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(bMetaObj)
+			Expect(err).To(BeNil())
+
+			Context("and record of B object with referenced A record created", func() {
+				aRecord, err := dataProcessor.Put(aMetaObj.Name, map[string]interface{}{}, auth.User{})
+				Expect(err).To(BeNil())
+
+				bRecord, err := dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"a": aRecord["id"]}, auth.User{})
+				bRecordId, _ := bRecord["id"].(float64)
+				Expect(err).To(BeNil())
+
+				Context("B record is being updated with another A record", func() {
+
+					anotherARecord, err := dataProcessor.Put(aMetaObj.Name, map[string]interface{}{}, auth.User{})
+					Expect(err).To(BeNil())
+
+					bRecord, err := dataProcessor.Update(bMetaObj.Name, strconv.Itoa(int(bRecordId)), map[string]interface{}{"a": anotherARecord["id"]}, auth.User{})
+					Expect(err).To(BeNil())
+
+					Expect(bRecord["a"]).To(Equal(anotherARecord["id"]))
+				})
+
+			})
+
+		})
+
+	})
+
 	It("Can delete records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
 			metaDescription := meta.MetaDescription{
