@@ -114,9 +114,12 @@ func (metaStore *MetaStore) Remove(name string, force bool, handleTransaction bo
 		return false, err
 	}
 	//remove related links from the database
-
 	metaStore.removeRelatedOuterLinks(meta)
 	metaStore.removeRelatedInnerLinks(meta)
+
+	//remove related generic links from the database
+	metaStore.removeRelatedGenericOuterLinks(meta)
+	metaStore.removeRelatedGenericInnerLinks(meta)
 
 	//remove object from the database
 	if e := metaStore.syncer.RemoveObj(name, force); e == nil {
@@ -155,8 +158,17 @@ func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFi
 	}
 }
 
-//Remove generic outer field from each of linkMetaList`s meta
-func (metaStore *MetaStore) removeRelatedGenericOuterLinks(targetMeta *Meta, genericInnerLinkFieldDescription FieldDescription, linkMetaList []*Meta) {
+//Remove all outer fields linking to given Meta
+func (metaStore *MetaStore) removeRelatedGenericOuterLinks(targetMeta *Meta) {
+	for _, field := range targetMeta.Fields {
+		if field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner {
+			metaStore.removeRelatedToInnerGenericOuterLinks(targetMeta, field, field.LinkMetaList)
+		}
+	}
+}
+
+//Remove generic outer field from each of linkMetaList`s meta related to the given inner generic field
+func (metaStore *MetaStore) removeRelatedToInnerGenericOuterLinks(targetMeta *Meta, genericInnerLinkFieldDescription FieldDescription, linkMetaList []*Meta) {
 	for _, relatedObjectMeta := range linkMetaList {
 		for i, relatedObjectField := range relatedObjectMeta.Fields {
 			if relatedObjectField.Type == FieldTypeGeneric &&
@@ -187,9 +199,40 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 				//omit orphan fields
 				fieldIsTargetInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObject && fieldDescription.LinkMeta.Name == targetMeta.Name
 				fieldIsTargetOuterLink := fieldDescription.LinkType == LinkTypeOuter && fieldDescription.Type == FieldTypeArray && fieldDescription.LinkMeta.Name == targetMeta.Name
+
+				if !(fieldIsTargetInnerLink || fieldIsTargetOuterLink) {
+					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
+					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+				} else {
+					objectNeedsUpdate = true
+				}
+			}
+			// it means that related object should be updated
+			if objectNeedsUpdate {
+				objectMeta.Fields = objectMetaFieldDescriptions
+				objectMeta.MetaDescription.Fields = objectMetaFields
+				metaStore.Update(objectMeta.Name, objectMeta, false)
+			}
+		}
+	}
+}
+
+//Remove inner fields linking to given Meta
+func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
+	metaDescriptionList, _, _ := metaStore.List()
+	for _, objectMetaDescription := range *metaDescriptionList {
+
+		if targetMeta.Name != objectMetaDescription.Name {
+			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
+			objectMetaFields := make([]Field, 0)
+			objectMetaFieldDescriptions := make([]FieldDescription, 0)
+			objectNeedsUpdate := false
+
+			for i, fieldDescription := range objectMeta.Fields {
+				//omit orphan fields
 				fieldIsTargetGenericInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeGeneric && utils.Contains(fieldDescription.Field.LinkMetaList, targetMeta.Name)
 
-				if !(fieldIsTargetInnerLink || fieldIsTargetOuterLink || fieldIsTargetGenericInnerLink) {
+				if !fieldIsTargetGenericInnerLink {
 					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
 					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
 				} else {
@@ -308,11 +351,11 @@ func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, m
 			}
 			//process generic outer link removal only for removed metas
 			if fieldIsBeingUpdated {
-				metaStore.removeRelatedGenericOuterLinks(currentMeta, currentFieldDescription, linkMetaListDiff)
+				metaStore.removeRelatedToInnerGenericOuterLinks(currentMeta, currentFieldDescription, linkMetaListDiff)
 			}
 			//process generic outer link removal for each linked meta
 			if fieldIsBeingRemoved {
-				metaStore.removeRelatedGenericOuterLinks(currentMeta, currentFieldDescription, currentFieldDescription.LinkMetaList)
+				metaStore.removeRelatedToInnerGenericOuterLinks(currentMeta, currentFieldDescription, currentFieldDescription.LinkMetaList)
 			}
 		}
 	}

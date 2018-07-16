@@ -248,7 +248,7 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and object B, containing generic inner field")
-		cMetaDescription := meta.MetaDescription{
+		bMetaDescription := meta.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
@@ -269,9 +269,9 @@ var _ = Describe("Outer generic field", func() {
 				},
 			},
 		}
-		metaObj, err := metaStore.NewMeta(&cMetaDescription)
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
@@ -298,7 +298,7 @@ var _ = Describe("Outer generic field", func() {
 		}
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true)
+		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true)
 		Expect(err).To(BeNil())
 
 		By("and outer generic field removed from object A")
@@ -318,7 +318,7 @@ var _ = Describe("Outer generic field", func() {
 		}
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true)
+		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true)
 		Expect(err).To(BeNil())
 
 	})
@@ -400,13 +400,6 @@ var _ = Describe("Outer generic field", func() {
 
 		//
 
-		By("outer link should be removed from object A")
-		// check meta fields
-		aMeta, _, err := metaStore.Get(aMetaDescription.Name, true)
-		Expect(err).To(BeNil())
-		Expect(aMeta.Fields).To(HaveLen(2))
-		//
-
 		By("and inner generic field removed from object B")
 		bMetaDescription := meta.MetaDescription{
 			Name: "b",
@@ -429,10 +422,101 @@ var _ = Describe("Outer generic field", func() {
 
 		By("outer link should be removed from object A")
 		// check meta fields
-		aMeta, _, err = metaStore.Get(aMetaDescription.Name, true)
+		aMetaObj, _, err = metaStore.Get(aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
-		Expect(aMeta.Fields).To(HaveLen(1))
-		Expect(aMeta.Fields[0].Name).To(Equal("id"))
+		Expect(aMetaObj.Fields).To(HaveLen(1))
+		Expect(aMetaObj.Fields[0].Name).To(Equal("id"))
+
+	})
+
+	It("removes outer field if object containing corresponding inner field is removed", func() {
+		By("having object A")
+		aMetaDescription := meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(aMetaObj)
+		Expect(err).To(BeNil())
+
+		By("and object B, containing generic inner field")
+		bMetaDescription := meta.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{aMetaObj.Name},
+					Optional:     false,
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(bMetaObj)
+		Expect(err).To(BeNil())
+
+		By("and outer generic field added to object A")
+		aMetaDescription = meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:           "b_set",
+					Type:           meta.FieldTypeGeneric,
+					LinkType:       meta.LinkTypeOuter,
+					LinkMeta:       "b",
+					OuterLinkField: "target",
+				},
+			},
+		}
+		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		Expect(err).To(BeNil())
+
+		//
+
+		By("and object B is removed")
+
+		_, err = metaStore.Remove(bMetaObj.Name, true, true)
+		Expect(err).To(BeNil())
+
+		By("outer link should be removed from object A")
+		// check meta fields
+		aMetaObj, _, err = metaStore.Get(aMetaDescription.Name, true)
+		Expect(err).To(BeNil())
+		Expect(aMetaObj.Fields).To(HaveLen(1))
+		Expect(aMetaObj.Fields[0].Name).To(Equal("id"))
 
 	})
 })
