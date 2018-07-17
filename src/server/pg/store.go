@@ -292,6 +292,11 @@ func dlinkVal(v interface{}) interface{} {
 	return v.(data.DLink).Id
 }
 
+func genericInnerLinkValue(value interface{}) interface{} {
+	castValue := value.(*types.GenericInnerLink)
+	return []string{castValue.ObjectName, castValue.Pk}
+}
+
 func identityVal(v interface{}) interface{} {
 	return v
 }
@@ -301,45 +306,71 @@ func increaseCasVal(v interface{}) interface{} {
 	return cas + 1
 }
 
-func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (data.Operation, error) {
-	if len(objs) == 0 {
+func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, recordValues []map[string]interface{}) (data.Operation, error) {
+	if len(recordValues) == 0 {
 		return emptyOperation, nil
 	}
 
 	rFields := tableFields(m)
 	updateInfo := dml_info.NewUpdateInfo(GetTableName(m), getFieldsColumnsNames(rFields), make([]string, 0), make([]string, 0))
-	cols := make([]string, 0, len(objs[0]))
-	vals := make([]func(interface{}) interface{}, 0, len(objs[0]))
+	updateFields := make([]string, 0, len(recordValues[0]))
+	vals := make([]func(interface{}) interface{}, 0, len(recordValues[0]))
+	currentColumnIndex := 0
 	var b bytes.Buffer
-	newBind := func(col string) string {
+	newBind := func(col string, columnIndex int) string {
 		defer b.Reset()
 		b.WriteString(fmt.Sprintf("\"%s\"", col))
 		b.WriteString("=$")
-		b.WriteString(strconv.Itoa(len(cols)))
+		b.WriteString(strconv.Itoa(columnIndex))
 		return b.String()
 	}
-	for col, val := range objs[0] {
-		cols = append(cols, col)
-		if m.Key.Name == col {
-			updateInfo.Filters = append(updateInfo.Filters, newBind(col))
+	for fieldName, val := range recordValues[0] {
+		//primary key column
+		if m.Key.Name == fieldName {
+			currentColumnIndex++
+			updateFields = append(updateFields, fieldName)
+			updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))
 			vals = append(vals, identityVal)
-		} else if col == "cas" {
-			updateInfo.Filters = append(updateInfo.Filters, newBind(col))
+			//cas column
+		} else if fieldName == "cas" {
+
+			currentColumnIndex++
+			updateFields = append(updateFields, fieldName)
+			updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))
 			vals = append(vals, identityVal)
 
-			cols = append(cols, col)
-			updateInfo.Values = append(updateInfo.Values, newBind(col))
+			currentColumnIndex++
+			updateFields = append(updateFields, fieldName)
+			updateInfo.Values = append(updateInfo.Values, newBind(fieldName, currentColumnIndex))
 			vals = append(vals, increaseCasVal)
+
 		} else {
 			switch val.(type) {
 			case data.ALink:
-				updateInfo.Filters = append(updateInfo.Filters, newBind(col))
+				currentColumnIndex++
+				updateFields = append(updateFields, fieldName)
+				updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))
 				vals = append(vals, alinkVal)
 			case data.DLink:
-				updateInfo.Values = append(updateInfo.Values, newBind(col))
+				currentColumnIndex++
+				updateFields = append(updateFields, fieldName)
+				updateInfo.Values = append(updateInfo.Values, newBind(fieldName, currentColumnIndex))
 				vals = append(vals, dlinkVal)
+			case *types.GenericInnerLink:
+
+				currentColumnIndex++
+				updateInfo.Values = append(updateInfo.Values, newBind(meta.GetGenericFieldTypeColumnName(fieldName), currentColumnIndex))
+
+				currentColumnIndex++
+				updateInfo.Values = append(updateInfo.Values, newBind(meta.GetGenericFieldKeyColumnName(fieldName), currentColumnIndex))
+
+				updateFields = append(updateFields, fieldName)
+
+				vals = append(vals, genericInnerLinkValue)
 			default:
-				updateInfo.Values = append(updateInfo.Values, newBind(col))
+				currentColumnIndex++
+				updateFields = append(updateFields, fieldName)
+				updateInfo.Values = append(updateInfo.Values, newBind(fieldName, currentColumnIndex))
 				vals = append(vals, identityVal)
 			}
 		}
@@ -357,17 +388,25 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]i
 		}
 		defer stmt.Close()
 
-		binds := make([]interface{}, len(cols))
-		for i := range objs {
-			for j := range cols {
-				if v, ok := objs[i][cols[j]]; !ok {
+		binds := make([]interface{}, 0)
+		for i := range recordValues {
+			for j := range updateFields {
+				if v, ok := recordValues[i][updateFields[j]]; !ok {
 					return NewDMLError(ErrInvalidArgument, "Different set of fields. Object #%d. All objects must have the same set of fields.", i)
 				} else {
-					binds[j] = vals[j](v)
+					value := vals[j](v)
+					switch castValue := value.(type) {
+					case []string:
+						for _, value := range castValue {
+							binds = append(binds, value)
+						}
+					case interface{}:
+						binds = append(binds, castValue)
+					}
 				}
 			}
 			if uo, err := stmt.ParsedSingleQuery(binds, rFields); err == nil {
-				updateNodes(objs[i], uo)
+				updateNodes(recordValues[i], uo)
 			} else {
 				if dml, ok := err.(*DMLError); ok && dml.code == ErrNotFound {
 					return errors.NewDataError("", errors.ErrCasFailed, "Precondition failed on object #%d.", i)
