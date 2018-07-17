@@ -7,14 +7,16 @@ import (
 	"fmt"
 	"logger"
 	"server/data"
+	"server/data/errors"
 	"server/meta"
 	_ "github.com/lib/pq"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strconv"
 	"strings"
 	"text/template"
-	"reflect"
 	"server/pg/dml_info"
+	"server/data/types"
+	"utils"
 )
 
 type DataManager struct {
@@ -95,11 +97,16 @@ func tableFields(m *meta.Meta) []*meta.FieldDescription {
 	return fields
 }
 
-func fieldsNames(fields []*meta.FieldDescription) []string {
-	fLen := len(fields)
-	names := make([]string, fLen, fLen)
-	for i := 0; i < fLen; i++ {
-		names[i] = fields[i].Name
+func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
+	names := make([]string, 0)
+	for _, field := range fields {
+		switch field.Type {
+		case meta.FieldTypeGeneric:
+			names = append(names, meta.GetGenericFieldTypeColumnName(field.Name))
+			names = append(names, meta.GetGenericFieldKeyColumnName(field.Name))
+		default:
+			names = append(names, field.Name)
+		}
 	}
 	return names
 }
@@ -127,6 +134,12 @@ func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, erro
 	case meta.FieldTypeObject, meta.FieldTypeArray:
 		if f.LinkType == meta.LinkTypeInner {
 			return newFieldValue(f.LinkMeta.Key, f.Optional)
+		} else {
+			return newFieldValue(f.OuterLinkField, f.Optional)
+		}
+	case meta.FieldTypeGeneric:
+		if f.LinkType == meta.LinkTypeInner {
+			return []interface{}{new(sql.NullString), new(sql.NullString)}, nil
 		} else {
 			return newFieldValue(f.OuterLinkField, f.Optional)
 		}
@@ -206,133 +219,64 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	return &Rows{rows}, nil
 }
 
-type Rows struct {
-	*sql.Rows
-}
-
-func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
-	cols, err := rows.Columns()
-	if err != nil {
-		return nil, NewDMLError(ErrDMLFailed, err.Error())
-	}
-
-	result := make([]map[string]interface{}, 0)
-	i := 0
-	fieldByName := func(name string) *meta.FieldDescription {
-		for _, field := range fields {
-			if field.Name == name {
-				return field
-			}
-		}
-		return nil
-	}
-
-	for rows.Next() {
-		values := make([]interface{}, len(cols))
-		for i := 0; i < len(cols); i++ {
-			values[i], err = newFieldValue(fields[i], fields[i].Optional)
-			if err != nil {
-				return nil, err
-			}
-		}
-
-		if err = rows.Scan(values...); err != nil {
-			return nil, NewDMLError(ErrDMLFailed, err.Error())
-		}
-		result = append(result, make(map[string]interface{}))
-		for j, n := range cols {
-			if fieldByName(n).Type == meta.FieldTypeDate {
-				switch value := values[j].(type) {
-				case *sql.NullString:
-					if value.Valid {
-						result[i][n] = string([]rune(value.String)[0:10])
-					} else {
-						result[i][n] = nil
-					}
-				case *string:
-					result[i][n] = string([]rune(*value)[0:10])
-				}
-			} else if fieldByName(n).Type == meta.FieldTypeTime {
-				switch value := values[j].(type) {
-				case *sql.NullString:
-					if value.Valid {
-						result[i][n] = string([]rune(value.String)[11:])
-					} else {
-						result[i][n] = nil
-					}
-				case *string:
-					result[i][n] = string([]rune(*value)[11:])
-				}
-			} else if fieldByName(n).Type == meta.FieldTypeDateTime {
-				switch value := values[j].(type) {
-				case *sql.NullString:
-					if value.Valid {
-						result[i][n] = value.String
-					} else {
-						result[i][n] = nil
-					}
-				case *string:
-					result[i][n] = *value
-				}
-			} else {
-				switch t := values[j].(type) {
-				case *string:
-					result[i][n] = *t
-				case *sql.NullString:
-					if t.Valid {
-						result[i][n] = t.String
-					} else {
-						result[i][n] = nil
-					}
-				case *float64:
-					result[i][n] = *t
-				case *sql.NullFloat64:
-					if t.Valid {
-						result[i][n] = t.Float64
-					} else {
-						result[i][n] = nil
-					}
-				case *bool:
-					result[i][n] = *t
-				case *sql.NullBool:
-					if t.Valid {
-						result[i][n] = t.Bool
-					} else {
-						result[i][n] = nil
-					}
-				default:
-					return nil, NewDMLError(ErrDMLFailed, "unknown reference type '%s'", reflect.TypeOf(values[j]).String())
-				}
-			}
-		}
-		i++
-	}
-	return result, nil
-}
-
 func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
-	for col, rv := range dbObj {
-		if val, ok := nodes[col]; ok {
+	for fieldName, rv := range dbObj {
+		if val, ok := nodes[fieldName]; ok {
 			switch val := val.(type) {
 			case data.ALink:
 				continue
 			case data.DLink:
 				val.Id = rv
+			case *types.GenericInnerLink:
+				nodes[fieldName] = map[string]string{types.GENERIC_PK_KEY: val.Pk, types.GENERIC_INNER_LINK_OBJECT_KEY: val.ObjectName}
 			default:
-				nodes[col] = rv
+				nodes[fieldName] = rv
 			}
 		} else {
-			nodes[col] = rv
+			nodes[fieldName] = rv
 		}
 	}
 }
 
-func keys(m map[string]interface{}) []string {
+func getColumnsToInsert(m map[string]interface{}) []string {
 	ks := make([]string, 0, len(m))
 	for k := range m {
-		ks = append(ks, k)
+		switch m[k].(type) {
+		case *types.GenericInnerLink:
+			ks = append(ks, meta.GetGenericFieldTypeColumnName(k))
+			ks = append(ks, meta.GetGenericFieldKeyColumnName(k))
+		default:
+			ks = append(ks, k)
+		}
 	}
 	return ks
+}
+
+func getValuesToInsert(rawValues map[string]interface{}, columns []string) ([]interface{}, error) {
+	values := make([]interface{}, 0)
+	processedColumns := make([]string, 0)
+	for key, value := range rawValues {
+		switch castValue := value.(type) {
+		case *types.GenericInnerLink:
+			values = append(values, castValue.ObjectName)
+			values = append(values, castValue.Pk)
+			processedColumns = append(processedColumns, meta.GetGenericFieldTypeColumnName(key))
+			processedColumns = append(processedColumns, meta.GetGenericFieldKeyColumnName(key))
+		case data.ALink:
+			values = append(values, castValue.Obj[castValue.Field.Meta.Key.Name])
+			processedColumns = append(processedColumns, key)
+		case data.DLink:
+			values = append(values, castValue.Id)
+			processedColumns = append(processedColumns, key)
+		default:
+			values = append(values, castValue)
+			processedColumns = append(processedColumns, key)
+		}
+	}
+	if !utils.Equal(columns, processedColumns, false) {
+		return nil, NewDMLError(ErrInvalidArgument, "FieldDescription '%s' not found. All objects must have the same set of fileds.")
+	}
+	return values, nil
 }
 
 func emptyOperation(ctx data.OperationContext) error {
@@ -363,7 +307,7 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]i
 	}
 
 	rFields := tableFields(m)
-	updateInfo := dml_info.NewUpdateInfo(GetTableName(m), fieldsNames(rFields), make([]string, 0), make([]string, 0))
+	updateInfo := dml_info.NewUpdateInfo(GetTableName(m), getFieldsColumnsNames(rFields), make([]string, 0), make([]string, 0))
 	cols := make([]string, 0, len(objs[0]))
 	vals := make([]func(interface{}) interface{}, 0, len(objs[0]))
 	var b bytes.Buffer
@@ -426,7 +370,7 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, objs []map[string]i
 				updateNodes(objs[i], uo)
 			} else {
 				if dml, ok := err.(*DMLError); ok && dml.code == ErrNotFound {
-					return data.NewDataError("", data.ErrCasFailed, "Precondition failed on object #%d.", i)
+					return errors.NewDataError("", errors.ErrCasFailed, "Precondition failed on object #%d.", i)
 				} else {
 					return err
 				}
@@ -444,8 +388,8 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 
 	//fix the columns by the first object
 	fields := tableFields(m)
-	cols := keys(objs[0])
-	insertInfo := dml_info.NewInsertInfo(GetTableName(m), cols, fieldsNames(fields), len(objs))
+	insertColumns := getColumnsToInsert(objs[0])
+	insertInfo := dml_info.NewInsertInfo(GetTableName(m), insertColumns, getFieldsColumnsNames(fields), len(objs))
 	var insertDML bytes.Buffer
 	if err := parsedTemplInsert.Execute(&insertDML, insertInfo); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
@@ -453,24 +397,12 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 
 	return func(ctx data.OperationContext) error {
 		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
-		binds := make([]interface{}, 0, len(cols)*len(objs))
-		for i, obj := range objs {
-			if len(cols) != len(obj) {
-				return NewDMLError(ErrInvalidArgument, "Different set of filds. Object #%d. All objects must have the same set of fileds.", i)
-			}
-			for _, col := range cols {
-				if val, ok := obj[col]; ok {
-					switch val := val.(type) {
-					case data.ALink:
-						binds = append(binds, val.Obj[val.Field.Meta.Key.Name])
-					case data.DLink:
-						binds = append(binds, val.Id)
-					default:
-						binds = append(binds, val)
-					}
-				} else {
-					return NewDMLError(ErrInvalidArgument, "FieldDescription '%s' not found. Object #%d. All objects must have the same set of fileds.", col, i)
-				}
+		binds := make([]interface{}, 0, len(insertColumns)*len(objs))
+		for _, obj := range objs {
+			if values, err := getValuesToInsert(obj, insertColumns); err != nil {
+				return err
+			} else {
+				binds = append(binds, values...)
 			}
 		}
 		stmt, err := ctx.(*pgOpCtx).tx.Prepare(insertDML.String())

@@ -84,13 +84,13 @@ func (metaDdlFactory *MetaDdlFactory) processOuterLinkField(field *meta.FieldDes
 
 func (metaDdlFactory *MetaDdlFactory) processGenericInnerLinkField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
 	typeColumn := Column{}
-	typeColumn.Name = fmt.Sprintf("%s__type", field.Name)
+	typeColumn.Name = meta.GetGenericFieldTypeColumnName(field.Name)
 	typeColumn.Typ = ColumnTypeText
 	typeColumn.Optional = field.Optional
 	typeColumn.Unique = false
 
 	keyColumn := Column{}
-	keyColumn.Name = fmt.Sprintf("%s__key", field.Name)
+	keyColumn.Name = meta.GetGenericFieldKeyColumnName(field.Name)
 	keyColumn.Typ = ColumnTypeText
 	keyColumn.Optional = field.Optional
 	keyColumn.Unique = false

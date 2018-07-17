@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"logger"
 	"server/data"
+	"server/data/errors"
 	"server/meta"
 	"server/pg"
 	"server/auth"
@@ -319,7 +320,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
 		if o, e := dataProcessor.Update(p.ByName("name"), p.ByName("key"), src.Value, user); e != nil {
-			if dt, ok := e.(*data.DataError); ok && dt.Code == data.ErrCasFailed {
+			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
 				sink.pushError(e)
@@ -346,7 +347,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}
 		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
 		if e != nil {
-			if dt, ok := e.(*data.DataError); ok && dt.Code == data.ErrCasFailed {
+			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
 				sink.pushError(e)

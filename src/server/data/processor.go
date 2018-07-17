@@ -1,47 +1,12 @@
 package data
 
 import (
-	"encoding/json"
-	"fmt"
-
 	"server/meta"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strings"
 	"server/auth"
+	"server/data/errors"
 )
-
-const (
-	ErrDataInternal         = "internal_data_error"
-	ErrObjectClassNotFound  = "object_class_not_found"
-	ErrMandatoryFiledAbsent = "mandatory_filed_absent"
-	ErrWrongFiledType       = "wrong_field_type"
-	ErrWrongRQL             = "wrong_rql"
-	ErrKeyValueNotFound     = "key_value_not_found"
-	ErrCasFailed            = "cas_failed"
-)
-
-type DataError struct {
-	Code        string
-	Msg         string
-	objectClass string
-}
-
-func (e *DataError) Error() string {
-	return fmt.Sprintf("Data error:  object class = '%s', code='%s'  msg = '%s'", e.objectClass, e.Code, e.Msg)
-}
-
-func (e *DataError) Json() []byte {
-	j, _ := json.Marshal(map[string]string{
-		"objectClass": e.objectClass,
-		"code":        "table:" + e.Code,
-		"msg":         e.Msg,
-	})
-	return j
-}
-
-func NewDataError(objectClass string, code string, msg string, a ...interface{}) *DataError {
-	return &DataError{objectClass: objectClass, Code: code, Msg: fmt.Sprintf(msg, a...)}
-}
 
 type objectClassValidator func(Tuple2) ([]Tuple2, error)
 
@@ -103,66 +68,6 @@ func AssertLink(i interface{}) bool {
 	}
 }
 
-func (processor *Processor) validate(t2 *Tuple2, mandatoryCheck bool) ([]Tuple2, error) {
-	toCheck := make([]Tuple2, 0)
-	for k, _ := range t2.Second {
-		if f := t2.First.FindField(k); f == nil {
-			delete(t2.Second, k)
-		}
-	}
-
-	for i := 0; i < len(t2.First.Fields); i++ {
-		k := t2.First.Fields[i].Name
-		fieldDescription := &t2.First.Fields[i]
-
-		value, valueIsSet := t2.Second[k]
-		if mandatoryCheck && !valueIsSet && !fieldDescription.Optional {
-			return nil, NewDataError(t2.First.Name, ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", k)
-		}
-		//skip validation if field is optional and value is null
-		//perform validation otherwise
-		if valueIsSet && !(value == nil && fieldDescription.Optional) {
-			switch {
-			case fieldDescription.Type == meta.FieldTypeString && meta.FieldTypeNumber.AssertType(value):
-				break
-			case fieldDescription.Type.AssertType(value):
-				if fieldDescription.Type == meta.FieldTypeArray {
-					var a = value.([]interface{})
-					for _, av := range a {
-						if m, ok := av.(map[string]interface{}); ok {
-							m[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, outer: true, Obj: t2.Second}
-							toCheck = append(toCheck, Tuple2{fieldDescription.LinkMeta, m})
-						} else {
-							return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Array in field '%s' must contain only JSON object", k)
-						}
-					}
-					delete(t2.Second, k)
-				} else if fieldDescription.Type == meta.FieldTypeObject {
-					var of = value.(map[string]interface{})
-					if fieldDescription.LinkType == meta.LinkTypeOuter {
-						of[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, outer: true, Obj: t2.Second}
-						delete(t2.Second, k)
-					} else if fieldDescription.LinkType == meta.LinkTypeInner {
-						t2.Second[fieldDescription.Name] = ALink{Field: fieldDescription.LinkMeta.Key, outer: false, Obj: of}
-					} else {
-						return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Unknown link type %s", fieldDescription.LinkType)
-					}
-					toCheck = append(toCheck, Tuple2{fieldDescription.LinkMeta, of})
-				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == meta.LinkTypeInner {
-					t2.Second[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
-				}
-			case fieldDescription.LinkType == meta.LinkTypeInner && fieldDescription.LinkMeta.Key.Type.AssertType(value):
-				t2.Second[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
-			case fieldDescription.LinkType == meta.LinkTypeInner && AssertLink(value):
-			default:
-				return nil, NewDataError(t2.First.Name, ErrWrongFiledType, "Field '%s' has a wrong type", k)
-			}
-
-		}
-	}
-	return toCheck, nil
-}
-
 func (processor *Processor) getValidator(vk string, preValidator func(pt2 *Tuple2) (*Tuple2, bool, error)) (objectClassValidator, error) {
 	if v, ex := processor.vCache[vk]; ex {
 		return v, nil
@@ -172,7 +77,7 @@ func (processor *Processor) getValidator(vk string, preValidator func(pt2 *Tuple
 		if err != nil {
 			return nil, err
 		}
-		if toCheck, e := processor.validate(preValidatedT2, mandatoryCheck); e != nil {
+		if toCheck, e := NewValidationService(processor.metaStore, processor).Validate(preValidatedT2, mandatoryCheck); e != nil {
 			return nil, e
 		} else {
 			return toCheck, nil
@@ -278,7 +183,7 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}, 
 		return nil, e
 	}
 	if !ok {
-		return nil, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		return nil, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
 	tc, e := processor.flatten(m, obj, func(mn string) (objectClassValidator, error) {
@@ -320,7 +225,7 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 		return e
 	}
 	if !ok {
-		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
 	exCtx, e := processor.dataManager.ExecuteContext()
@@ -408,7 +313,7 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return nil, e
 	} else if !ok {
-		return nil, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		return nil, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	} else {
 		if pk, e := m.Key.ValueFromString(key); e != nil {
 			return nil, e
@@ -441,7 +346,7 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 	if businessObject, ok, e := processor.metaStore.Get(objectName, true); e != nil {
 		return e
 	} else if !ok {
-		return NewDataError(objectName, ErrObjectClassNotFound, "Object class '%s' not found", objectName)
+		return errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk"}
 		root := &Node{
@@ -458,7 +363,7 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
-			return NewDataError(objectName, ErrWrongRQL, err.Error())
+			return errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
 		}
 
 		records, e := root.ResolveByRql(searchContext, rqlNode)
@@ -505,7 +410,7 @@ func (processor *Processor) Delete(objectClass, key string, user auth.User) (isD
 	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return false, e
 	} else if !ok {
-		return false, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		return false, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	} else {
 		if pk, e := m.Key.ValueFromString(key); e != nil {
 			return false, e
@@ -566,7 +471,7 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return e
 	} else if !ok {
-		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	} else {
 		ts := m.Key.Type.TypeAsserter()
 
@@ -598,7 +503,7 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 				}
 				k, ok := o[m.Key.Name]
 				if !ok || !ts(k) {
-					return NewDataError(objectClass, ErrKeyValueNotFound, "Key value not found or has a wrong type", objectClass)
+					return errors.NewDataError(objectClass, errors.ErrKeyValueNotFound, "Key value not found or has a wrong type", objectClass)
 				}
 				buf = append(buf, k)
 			}
@@ -656,7 +561,7 @@ func (processor *Processor) Update(objectClass, key string, obj map[string]inter
 		return nil, e
 	}
 	if !ok {
-		return nil, NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		return nil, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
 	if pkValue, e := m.Key.ValueFromString(key); e != nil {
@@ -705,7 +610,7 @@ func (processor *Processor) UpdateBulk(objectClass string, next func() (map[stri
 		return e
 	}
 	if !ok {
-		return NewDataError(objectClass, ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
 	exCtx, e := processor.dataManager.ExecuteContext()

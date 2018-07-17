@@ -14,13 +14,26 @@ func IndexOf(a []string, x string) int {
 	return -1
 }
 
-func Equal(a, b []string) bool {
+func Equal(a, b []string, strictOrder bool) bool {
 	if len(a) != len(b) {
 		return false
 	}
 	for i, v := range a {
-		if v != b[i] {
-			return false
+		if strictOrder {
+			if v != b[i] {
+				return false
+			}
+		} else {
+			vFound := false
+			for j := range b {
+				if b[j] == v {
+					vFound = true
+					break
+				}
+			}
+			if !vFound {
+				return false
+			}
 		}
 	}
 	return true

@@ -339,7 +339,7 @@ func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, m
 			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
 				if fieldDescriptionToBeUpdated.Name == currentFieldDescription.Name &&
 					fieldDescriptionToBeUpdated.LinkType == LinkTypeInner {
-					if utils.Equal(fieldDescriptionToBeUpdated.Field.LinkMetaList, currentFieldDescription.Field.LinkMetaList) {
+					if utils.Equal(fieldDescriptionToBeUpdated.Field.LinkMetaList, currentFieldDescription.Field.LinkMetaList, false) {
 						fieldIsBeingRemoved = false
 						fieldIsBeingUpdated = false
 					} else {

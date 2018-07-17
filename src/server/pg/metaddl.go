@@ -494,7 +494,7 @@ func (s *Seq) dropScript() (*DDLStmt, error) {
 	return &DDLStmt{Name: fmt.Sprintf("drop_seq#%s", s.Name), Code: buffer.String()}, nil
 }
 
-//Creates a full DDL to create a table and foreign keys refer to it
+//Creates a full DDL to create a table and foreign getColumnsToInsert refer to it
 func (md *MetaDDL) CreateScript() (DDLStmts, error) {
 	var stmts = DDLStmts{}
 	for i, _ := range md.Seqs {
@@ -512,7 +512,7 @@ func (md *MetaDDL) CreateScript() (DDLStmts, error) {
 	return stmts, nil
 }
 
-//Creates a full DDL to remove a table and foreign keys refer to it
+//Creates a full DDL to remove a table and foreign getColumnsToInsert refer to it
 func (md *MetaDDL) DropScript(force bool) (DDLStmts, error) {
 	var stmts = DDLStmts{}
 	if s, e := md.dropTableScript(force); e != nil {
