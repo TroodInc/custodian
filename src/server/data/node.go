@@ -51,6 +51,9 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 	case node.IsOfGenericType():
 		objectMeta = node.MetaList.GetByName(key.(types.GenericInnerLink).ObjectName)
 		pkValue = key.(types.GenericInnerLink).Pk
+		if pkValue == "" {
+			return nil, nil
+		}
 	}
 
 	if node.OnlyLink {

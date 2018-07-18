@@ -239,7 +239,7 @@ var _ = Describe("Data", func() {
 						Type:         meta.FieldTypeGeneric,
 						LinkType:     meta.LinkTypeInner,
 						LinkMetaList: []string{"a"},
-						Optional:     false,
+						Optional:     true,
 					},
 				},
 			}
@@ -288,6 +288,20 @@ var _ = Describe("Data", func() {
 			Expect(targetValue["_object"]).To(Equal("a"))
 			Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
 			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"]))
+		})
+
+		It("can retrieve record containing null generic inner value", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having a record of object A", havingARecordOfObjectA)
+
+			bRecord, err = dataProcessor.Put("b", map[string]interface{}{}, auth.User{})
+			Expect(err).To(BeNil())
+
+			bRecord, err = dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 3)
+			Expect(err).To(BeNil())
+			Expect(bRecord["target"]).To(BeNil())
 		})
 	})
 
