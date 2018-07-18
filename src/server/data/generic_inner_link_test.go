@@ -11,7 +11,7 @@ import (
 	"strconv"
 )
 
-var _ = FDescribe("Data", func() {
+var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
@@ -181,6 +181,114 @@ var _ = FDescribe("Data", func() {
 		targetValue := bRecord["target"].(map[string]string)
 		Expect(targetValue["_object"]).To(Equal(cMetaObj.Name))
 		Expect(strconv.Atoi(targetValue["pk"])).To(Equal(int(bRecord["id"].(float64))))
-
 	})
+
+	Describe("Retrieving records with generic values", func() {
+
+		var aRecord map[string]interface{}
+		var bRecord map[string]interface{}
+		var err error
+
+		havingObjectA := func() {
+			By("having two objects: A and B")
+			aMetaDescription := meta.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+				},
+			}
+			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(aMetaObj)
+			Expect(err).To(BeNil())
+		}
+
+		havingObjectBWithGenericLinkToA := func() {
+
+			By("B contains generic inner field")
+
+			bMetaDescription := meta.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:         "target",
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []string{"a"},
+						Optional:     false,
+					},
+				},
+			}
+			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(bMetaObj)
+			Expect(err).To(BeNil())
+		}
+
+		havingARecordOfObjectA := func() {
+			aRecord, err = dataProcessor.Put("a", map[string]interface{}{"name": "A record"}, auth.User{})
+			Expect(err).To(BeNil())
+		}
+
+		havingARecordOfObjectBContainingRecordOfObjectB := func() {
+			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "pk": aRecord["id"]}}, auth.User{})
+			Expect(err).To(BeNil())
+		}
+
+		It("can retrieve record containing generic inner value as a key", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having a record of object A", havingARecordOfObjectA)
+
+			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
+
+			bRecord, err := dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 1)
+			Expect(err).To(BeNil())
+			targetValue := bRecord["target"].(map[string]string)
+			Expect(targetValue["_object"]).To(Equal("a"))
+			Expect(strconv.Atoi(targetValue["pk"])).To(Equal(int(aRecord["id"].(float64))))
+		})
+
+		It("can retrieve record containing generic inner value as a full object", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having a record of object A", havingARecordOfObjectA)
+
+			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
+
+			bRecord, err = dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 3)
+			Expect(err).To(BeNil())
+			targetValue := bRecord["target"].(map[string]interface{})
+			Expect(targetValue["_object"]).To(Equal("a"))
+			Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
+			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"]))
+		})
+	})
+
 })

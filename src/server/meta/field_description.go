@@ -7,10 +7,10 @@ import (
 
 type FieldDescription struct {
 	*Field
-	Meta            *Meta
-	LinkMeta        *Meta
-	OuterLinkField  *FieldDescription
-	LinkMetaList    []*Meta
+	Meta           *Meta
+	LinkMeta       *Meta
+	OuterLinkField *FieldDescription
+	LinkMetaList   *MetaList
 }
 
 func (f *FieldDescription) Default() Def {

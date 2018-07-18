@@ -162,7 +162,7 @@ func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFi
 func (metaStore *MetaStore) removeRelatedGenericOuterLinks(targetMeta *Meta) {
 	for _, field := range targetMeta.Fields {
 		if field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner {
-			metaStore.removeRelatedToInnerGenericOuterLinks(targetMeta, field, field.LinkMetaList)
+			metaStore.removeRelatedToInnerGenericOuterLinks(targetMeta, field, field.LinkMetaList.GetAll())
 		}
 	}
 }
@@ -247,7 +247,7 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
 
 						//alter field description
 						fieldDescription := objectMeta.Fields[i]
-						fieldDescription.LinkMetaList = append(fieldDescription.LinkMetaList[:indexOfTargetMeta], fieldDescription.LinkMetaList[indexOfTargetMeta+1:]...)
+						fieldDescription.LinkMetaList.RemoveByName(targetMeta.Name)
 						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, fieldDescription)
 					}
 				}
@@ -345,7 +345,7 @@ func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, m
 					} else {
 						fieldIsBeingRemoved = false
 						fieldIsBeingUpdated = true
-						linkMetaListDiff = MetaListDiff(currentFieldDescription.LinkMetaList, fieldDescriptionToBeUpdated.LinkMetaList)
+						linkMetaListDiff = currentFieldDescription.LinkMetaList.GetDiff(fieldDescriptionToBeUpdated.LinkMetaList.GetAll())
 					}
 				}
 			}
@@ -355,7 +355,7 @@ func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, m
 			}
 			//process generic outer link removal for each linked meta
 			if fieldIsBeingRemoved {
-				metaStore.removeRelatedToInnerGenericOuterLinks(currentMeta, currentFieldDescription, currentFieldDescription.LinkMetaList)
+				metaStore.removeRelatedToInnerGenericOuterLinks(currentMeta, currentFieldDescription, currentFieldDescription.LinkMetaList.GetAll())
 			}
 		}
 	}

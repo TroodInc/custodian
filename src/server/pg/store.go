@@ -462,14 +462,14 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 }
 
 func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
-	var cols = make([]string, len(fields), len(fields))
+	columns := getFieldsColumnsNames(fields)
 	if alias != "" {
 		alias = alias + "."
 	}
-	for i, f := range fields {
-		cols[i] = alias + f.Name
+	for i, column := range columns {
+		columns[i] = alias + column
 	}
-	return cols
+	return columns
 }
 
 func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) (map[string]interface{}, error) {

@@ -310,17 +310,17 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 }
 
 func (processor *Processor) Get(objectClass, key string, depth int) (map[string]interface{}, error) {
-	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
+	if objectMeta, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
 		return nil, e
 	} else if !ok {
 		return nil, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	} else {
-		if pk, e := m.Key.ValueFromString(key); e != nil {
+		if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
 			return nil, e
 		} else {
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single"}
 
-			root := &Node{KeyField: m.Key, Meta: m, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil}
+			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
 			root.RecursivelyFillChildNodes(ctx.depthLimit)
 
 			if o, e := root.Resolve(ctx, pk); e != nil {
@@ -328,15 +328,15 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 			} else if o == nil {
 				return nil, nil
 			} else {
-				obj := o.(map[string]interface{})
-				for nodeResults := []NodeResult{{root, obj}}; len(nodeResults) > 0; nodeResults = nodeResults[1:] {
-					if childNodesResults, e := nodeResults[0].getFilledChildNodes(ctx); e != nil {
+				recordValues := o.(map[string]interface{})
+				for resultNodes := []ResultNode{{root, recordValues}}; len(resultNodes) > 0; resultNodes = resultNodes[1:] {
+					if childResultNodes, e := resultNodes[0].getFilledChildNodes(ctx); e != nil {
 						return nil, e
 					} else {
-						nodeResults = append(nodeResults, childNodesResults...)
+						resultNodes = append(resultNodes, childResultNodes...)
 					}
 				}
-				return obj, nil
+				return recordValues, nil
 			}
 		}
 	}
@@ -357,6 +357,7 @@ func (processor *Processor) GetBulk(objectName, filter string, depth int, sink f
 			OnlyLink:   false,
 			plural:     false,
 			Parent:     nil,
+			Type:       NodeTypeRegular,
 		}
 		root.RecursivelyFillChildNodes(searchContext.depthLimit)
 

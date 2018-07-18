@@ -106,7 +106,7 @@ var _ = Describe("Inner generic field", func() {
 		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(cMeta.Fields).To(HaveLen(2))
-		Expect(cMeta.Fields[1].LinkMetaList).To(HaveLen(2))
+		Expect(cMeta.Fields[1].LinkMetaList.GetAll()).To(HaveLen(2))
 	})
 
 	It("Validates linked metas", func() {
@@ -280,6 +280,6 @@ var _ = Describe("Inner generic field", func() {
 
 		cMetaObj, _, err := metaStore.Get(cMetaDescription.Name, true)
 		Expect(err).To(BeNil())
-		Expect(cMetaObj.Fields[1].LinkMetaList).To(HaveLen(1))
+		Expect(cMetaObj.Fields[1].LinkMetaList.GetAll()).To(HaveLen(1))
 	})
 })
