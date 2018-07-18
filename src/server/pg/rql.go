@@ -231,7 +231,7 @@ func not(ctx *context, args []interface{}) (expr, error) {
 type sqlOp func(*meta.FieldDescription, []interface{}) (string, error)
 
 //Assemble SQL for the given expression
-func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, error) {
+func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (expr, error) {
 	// 	Recursively walk through each object building joins between tables and query by value at the end
 	//	example: handling "eq(fruit_tags.tag_id,1)" the function will make 1 join with "fruit_tags" and 1 filter with
 	//	"tag_id=1"
@@ -242,47 +242,68 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 
 	var expression bytes.Buffer
 	alias := ctx.tblAlias
-	node := ctx.root
-	//split fieldPath into separate fields
-	fields := strings.Split(fieldPath, ".")
-	for i, fieldName := range fields {
-		field := node.Meta.FindField(fieldName)
+	currentNode := ctx.root
+	currentMeta := ctx.root.Meta
+	joinsCount := 0
+
+	//split fieldPath into separate fieldPathParts
+	fieldPathParts := strings.Split(fieldPath, ".")
+
+	for i := 0; i < len(fieldPathParts); i++ {
+		field := currentMeta.FindField(fieldPathParts[i])
+
 		if field == nil {
-			return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' field", node.Meta.Name, fieldName)
+			return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' field", currentMeta.Name, field.Name)
 		}
 		// process related object`s table join
 		// do it only if the current iteration is not that last, because the target field for the query can have the
 		// "LinkMeta"
-		if field.LinkMeta != nil && i != len(fields)-1 {
-			exists := &Exists{Table: GetTableName(field.LinkMeta), Alias: alias + fieldName, RAlias: alias}
-			if field.OuterLinkField != nil {
-				exists.FK = field.OuterLinkField.Name
-				exists.RCol = field.Meta.Key.Name
+		if field.Type == meta.FieldTypeGeneric {
+			//skip next iteration, because next fieldPathPart is an identifier of Meta
+			i++
+		}
+
+		if i != len(fieldPathParts)-1 {
+			linkedMeta := ctx.getMetaToJoin(field, fieldPathParts[i:])
+			if linkedMeta != nil {
+				joinsCount++
+				exists := &Exists{Table: GetTableName(linkedMeta), Alias: alias + field.Name, RAlias: alias}
+				if field.OuterLinkField != nil {
+					exists.FK = field.OuterLinkField.Name
+					exists.RCol = linkedMeta.Key.Name
+				} else {
+
+					if field.Type == meta.FieldTypeGeneric {
+						//cast object PK to string, because join is performed by generic __id field, which has string type
+						exists.FK = linkedMeta.Key.Name + "::text"
+						exists.RCol = meta.GetGenericFieldKeyColumnName(field.Name)
+					} else {
+						exists.RCol = field.Name
+						exists.FK = linkedMeta.Key.Name
+					}
+				}
+
+				expression.WriteString("EXISTS (")
+				if err := parsedTemplExists.Execute(&expression, exists); err != nil {
+					logger.Error("RQL 'exists' template processing error: %s", err.Error())
+					return nil, NewRqlError(ErrRQLInternal, err.Error())
+				}
+
+				expectedNode, ok := currentNode.ChildNodes[field.Name]
+				if !ok {
+					return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' branch", linkedMeta.Name, field.Name)
+				}
+				currentNode = expectedNode
+				currentMeta = linkedMeta
+				alias = exists.Alias
+				expression.WriteString(" AND ")
 			} else {
-				exists.FK = field.LinkMeta.Key.Name
-				exists.RCol = field.Name
-			}
-
-			expression.WriteString("EXISTS (")
-			if err := parsedTemplExists.Execute(&expression, exists); err != nil {
-				logger.Error("RQL 'exists' template processing error: %s", err.Error())
-				return nil, NewRqlError(ErrRQLInternal, err.Error())
-			}
-
-			expectedNode, ok := node.ChildNodes[fieldName]
-			if !ok {
-				return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' branch", node.Meta.Name, fieldName)
-			}
-			node = expectedNode
-			alias = exists.Alias
-			expression.WriteString(" AND ")
-		} else {
-			if i != len(fields)-1 {
 				return nil, NewRqlError(ErrRQLWrongFieldName, "FieldDescription path '%s' in 'eq' rql function is incorrect", fieldPath)
 			}
+		} else {
 			expression.WriteString(alias)
 			expression.WriteRune('.')
-			expression.WriteString(fieldName)
+			expression.WriteString(field.Name)
 			expression.WriteRune(' ')
 			op, err := sqlOperator(field, args[1:])
 			if err != nil {
@@ -293,12 +314,23 @@ func (ctx *context) fieldExpr(args []interface{}, sqlOperator sqlOp) (expr, erro
 	}
 
 	//close expressions
-	for i := 0; i < len(fields)-1; i++ {
+	for i := 0; i < joinsCount; i++ {
 		expression.WriteRune(')')
 	}
 	return func() string {
 		return expression.String()
 	}, nil
+}
+
+//get meta to join based on fieldDescription and query path
+//eg: queryPath is "target.a.name" and field is generic, then A meta should be returned
+//regular field case is straightforward
+func (ctx *context) getMetaToJoin(fieldDescription *meta.FieldDescription, queryPath []string) *meta.Meta {
+	if fieldDescription.Type == meta.FieldTypeGeneric {
+		return fieldDescription.LinkMetaList.GetByName(queryPath[0])
+	} else {
+		return fieldDescription.Meta
+	}
 }
 
 func (ctx *context) sqlOpIN(field *meta.FieldDescription, args []interface{}) (string, error) {
@@ -382,49 +414,49 @@ func in(ctx *context, args []interface{}) (expr, error) {
 	if len(args) < 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected exactly one argument for '%s' rql function but found '%d'", "in", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpIN)
+	return ctx.makeFieldExpression(args, ctx.sqlOpIN)
 }
 func eq(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "eq", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpEQ)
+	return ctx.makeFieldExpression(args, ctx.sqlOpEQ)
 }
 func ne(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "ne", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpNE)
+	return ctx.makeFieldExpression(args, ctx.sqlOpNE)
 }
 func lt(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "lt", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpSimple("<"))
+	return ctx.makeFieldExpression(args, ctx.sqlOpSimple("<"))
 }
 func le(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "le", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpSimple("<="))
+	return ctx.makeFieldExpression(args, ctx.sqlOpSimple("<="))
 }
 func gt(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "gt", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpSimple(">"))
+	return ctx.makeFieldExpression(args, ctx.sqlOpSimple(">"))
 }
 func ge(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "ge", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpSimple(">="))
+	return ctx.makeFieldExpression(args, ctx.sqlOpSimple(">="))
 }
 func like(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "like", len(args))
 	}
-	return ctx.fieldExpr(args, ctx.sqlOpSimple("ILIKE "))
+	return ctx.makeFieldExpression(args, ctx.sqlOpSimple("ILIKE "))
 }
 
 func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error) {

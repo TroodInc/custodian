@@ -305,4 +305,126 @@ var _ = Describe("Data", func() {
 		})
 	})
 
+	Describe("Querying records by generic fields` values", func() {
+
+		var aRecord map[string]interface{}
+		var bRecord map[string]interface{}
+		var err error
+
+		havingObjectA := func() {
+			By("having two objects: A and B")
+			aMetaDescription := meta.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+				},
+			}
+			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(aMetaObj)
+			Expect(err).To(BeNil())
+		}
+
+		havingObjectBWithGenericLinkToA := func() {
+
+			By("B contains generic inner field")
+
+			bMetaDescription := meta.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:         "target",
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []string{"a"},
+						Optional:     true,
+					},
+				},
+			}
+			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(bMetaObj)
+			Expect(err).To(BeNil())
+		}
+
+		havingARecordOfObjectA := func() {
+			aRecord, err = dataProcessor.Put("a", map[string]interface{}{"name": "A record"}, auth.User{})
+			Expect(err).To(BeNil())
+		}
+
+		havingARecordOfObjectBContainingRecordOfObjectA := func() {
+			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "pk": aRecord["id"]}}, auth.User{})
+			Expect(err).To(BeNil())
+		}
+
+		It("can retrieve record with generic field as key by querying by A record`s field", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having a record of object A", havingARecordOfObjectA)
+
+			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+
+			matchedRecords := []map[string]interface{}{}
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+
+			err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", 1, callbackFunction)
+			Expect(err).To(BeNil())
+			Expect(matchedRecords).To(HaveLen(1))
+			targetValue := matchedRecords[0]["target"].(map[string]string)
+			Expect(targetValue["_object"]).To(Equal("a"))
+			Expect(strconv.Atoi(targetValue["pk"])).To(Equal(int(aRecord["id"].(float64))))
+
+		})
+
+		It("can retrieve record with generic field as full object by querying by A record`s field", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having a record of object A", havingARecordOfObjectA)
+
+			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+
+			matchedRecords := []map[string]interface{}{}
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+
+			err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", 2, callbackFunction)
+			Expect(err).To(BeNil())
+			Expect(matchedRecords).To(HaveLen(1))
+			targetValue := matchedRecords[0]["target"].(map[string]interface{})
+			Expect(targetValue["_object"].(string)).To(Equal("a"))
+			Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
+			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"].(string)))
+		})
+	})
 })
