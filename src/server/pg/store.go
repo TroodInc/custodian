@@ -86,6 +86,18 @@ func (selectInfo *SelectInfo) sql(sql *bytes.Buffer) error {
 	return parsedTemplSelect.Execute(sql, selectInfo)
 }
 
+func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filterKeys []interface{}) *SelectInfo {
+	sqlHelper := dml_info.SqlHelper{}
+	whereExpression := ""
+	for i, key := range filterKeys {
+		if i > 0 {
+			whereExpression += " AND "
+		}
+		whereExpression += key.(string) + "=$" + strconv.Itoa(i+1)
+	}
+	return &SelectInfo{From: GetTableName(objectMeta), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
+}
+
 func tableFields(m *meta.Meta) []*meta.FieldDescription {
 	fields := make([]*meta.FieldDescription, 0)
 	l := len(m.Fields)
@@ -228,7 +240,7 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 			case data.DLink:
 				val.Id = rv
 			case *types.GenericInnerLink:
-				nodes[fieldName] = map[string]string{types.GENERIC_PK_KEY: val.Pk, types.GENERIC_INNER_LINK_OBJECT_KEY: val.ObjectName}
+				nodes[fieldName] = map[string]string{types.GenericPkKey: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
 			default:
 				nodes[fieldName] = rv
 			}
@@ -473,7 +485,7 @@ func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 }
 
 func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) (map[string]interface{}, error) {
-	objs, err := dataManager.GetAll(m, fields, key, val)
+	objs, err := dataManager.GetAll(m, fields, map[string]interface{}{key: val})
 	if err != nil {
 		return nil, err
 	}
@@ -490,12 +502,12 @@ func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescriptio
 	return objs[0], nil
 }
 
-func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}
-	sqlHelper := dml_info.SqlHelper{}
-	selectInfo := &SelectInfo{From: GetTableName(m), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: key + "=$1"}
+	filterKeys, filterValues := utils.GetMapKeysValues(filters)
+	selectInfo := NewSelectInfo(m, fields, filterKeys)
 	var q bytes.Buffer
 	if err := selectInfo.sql(&q); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
@@ -506,7 +518,7 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 		return nil, err
 	}
 	defer stmt.Close()
-	return stmt.ParsedQuery([]interface{}{val}, fields)
+	return stmt.ParsedQuery(filterValues, fields)
 }
 
 func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}) (data.Operation, []interface{}, error) {

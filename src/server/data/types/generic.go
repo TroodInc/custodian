@@ -1,8 +1,8 @@
 package types
 
 const (
-	GENERIC_INNER_LINK_OBJECT_KEY = "_object"
-	GENERIC_PK_KEY                = "pk"
+	GenericInnerLinkObjectKey = "_object"
+	GenericPkKey              = "pk"
 )
 
 type GenericInnerLink struct {

@@ -11,9 +11,9 @@ type ResultNode struct {
 func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNode, error) {
 	childNodeResults := make([]ResultNode, 0)
 	for _, childNode := range resultNode.node.ChildNodes {
-		if childNode.LinkField.LinkType == meta.LinkTypeOuter && childNode.LinkField.Type == meta.FieldTypeArray {
+		if childNode.plural && childNode.IsOfRegularType() {
 			k := resultNode.values[childNode.Meta.Key.Name]
-			if arr, e := childNode.ResolvePlural(ctx, k); e != nil {
+			if arr, e := childNode.ResolveRegularPlural(ctx, k); e != nil {
 				return nil, e
 			} else if arr != nil {
 				resultNode.values[childNode.LinkField.Name] = arr
@@ -25,8 +25,22 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			} else {
 				delete(resultNode.values, childNode.LinkField.Name)
 			}
-		} else if childNode.LinkField.LinkType == meta.LinkTypeOuter {
-			k := resultNode.values[childNode.Meta.Key.Name]
+		} else if childNode.plural && childNode.IsOfGenericType() {
+			pkValue := resultNode.values[childNode.Meta.Key.Name]
+			if arr, e := childNode.ResolveGenericPlural(ctx, pkValue, resultNode.node.Meta); e != nil {
+				return nil, e
+			} else if arr != nil {
+				resultNode.values[childNode.LinkField.Name] = arr
+				for _, m := range arr {
+					if !childNode.OnlyLink {
+						childNodeResults = append(childNodeResults, ResultNode{childNode, m.(map[string]interface{})})
+					}
+				}
+			} else {
+				delete(resultNode.values, childNode.LinkField.Name)
+			}
+		} else if childNode.LinkField.LinkType == meta.LinkTypeInner {
+			k := resultNode.values[childNode.LinkField.Name]
 			if i, e := childNode.Resolve(ctx, k); e != nil {
 				return nil, e
 			} else if i != nil {
@@ -37,7 +51,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			} else {
 				delete(resultNode.values, childNode.LinkField.Name)
 			}
-		} else if childNode.LinkField.LinkType == meta.LinkTypeInner {
+		}else if !childNode.plural && childNode.IsOfGenericType() {
 			k := resultNode.values[childNode.LinkField.Name]
 			if i, e := childNode.Resolve(ctx, k); e != nil {
 				return nil, e

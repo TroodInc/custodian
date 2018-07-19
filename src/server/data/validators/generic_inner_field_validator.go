@@ -16,13 +16,13 @@ func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Fie
 	if castValue, ok := value.(map[string]interface{}); !ok {
 		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldDescription.Name)
 	} else {
-		if objectName, err := validator.validateObjectName(castValue[types.GENERIC_INNER_LINK_OBJECT_KEY], fieldDescription); err != nil {
+		if objectName, err := validator.validateObjectName(castValue[types.GenericInnerLinkObjectKey], fieldDescription); err != nil {
 			return nil, err
 		} else {
 			if objectMeta, err := validator.validateObject(objectName, fieldDescription); err != nil {
 				return nil, err
 			} else {
-				if pkValue, err := validator.validateRecordPk(castValue[types.GENERIC_PK_KEY], fieldDescription); err != nil {
+				if pkValue, err := validator.validateRecordPk(castValue[types.GenericPkKey], fieldDescription); err != nil {
 					return nil, err
 				} else {
 					if err := validator.validateRecord(objectMeta, pkValue, fieldDescription); err != nil {

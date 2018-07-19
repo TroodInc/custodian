@@ -22,7 +22,7 @@ type DataManager interface {
 	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription) ([]map[string]interface{}, error)
 	GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}) ([]map[string]interface{}, error)
 	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) (map[string]interface{}, error)
-	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, key string, val interface{}) ([]map[string]interface{}, error)
+	GetAll(m *meta.Meta, fileds []*meta.FieldDescription,filters map[string]interface{}) ([]map[string]interface{}, error)
 	PrepareDeletes(n *DNode, keys []interface{}) (Operation, []interface{}, error)
 	PreparePuts(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
 	PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
@@ -390,14 +390,10 @@ type DNode struct {
 func (dn *DNode) fillOuterChildNodes() {
 	for _, f := range dn.Meta.Fields {
 		if f.LinkType == meta.LinkTypeOuter {
-			var plural = false
-			if f.Type == meta.FieldTypeArray {
-				plural = true
-			}
 			dn.ChildNodes[f.Name] = &DNode{KeyField: f.OuterLinkField,
 				Meta: f.LinkMeta,
 				ChildNodes: make(map[string]*DNode),
-				Plural: plural}
+				Plural: true}
 		}
 	}
 }
