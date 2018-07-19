@@ -83,12 +83,12 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("and having a record of object B containing generic field value with A object`s record")
-		bRecord, err := dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "pk": aRecord["id"]}}, auth.User{})
+		bRecord, err := dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{})
 		Expect(err).To(BeNil())
 		Expect(bRecord["id"]).To(Equal(float64(1)))
 		targetValue := bRecord["target"].(map[string]string)
 		Expect(targetValue["_object"]).To(Equal(aMetaObj.Name))
-		Expect(strconv.Atoi(targetValue["pk"])).To(Equal(int(aRecord["id"].(float64))))
+		Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(aRecord["id"].(float64))))
 	})
 
 	It("can update a record containing generic inner value", func() {
@@ -152,7 +152,7 @@ var _ = Describe("Data", func() {
 					Name:         "target",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{aMetaObj.Name},
+					LinkMetaList: []string{aMetaObj.Name, cMetaObj.Name},
 					Optional:     false,
 				},
 			},
@@ -167,7 +167,7 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("and having a record of object B containing generic field value with A object`s record")
-		bRecord, err := dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "pk": aRecord["id"]}}, auth.User{})
+		bRecord, err := dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{})
 		Expect(err).To(BeNil())
 
 		By("this record is updated with record of object C")
@@ -175,12 +175,12 @@ var _ = Describe("Data", func() {
 		cRecord, err := dataProcessor.Put(cMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err = dataProcessor.Update(bMetaObj.Name, strconv.Itoa(int(bRecord["id"].(float64))), map[string]interface{}{"target": map[string]interface{}{"_object": cMetaObj.Name, "pk": cRecord["id"]}}, auth.User{})
+		bRecord, err = dataProcessor.Update(bMetaObj.Name, strconv.Itoa(int(bRecord["id"].(float64))), map[string]interface{}{"target": map[string]interface{}{"_object": cMetaObj.Name, "id": cRecord["id"]}}, auth.User{})
 		Expect(err).To(BeNil())
 		Expect(bRecord["id"]).To(Equal(float64(1)))
 		targetValue := bRecord["target"].(map[string]string)
 		Expect(targetValue["_object"]).To(Equal(cMetaObj.Name))
-		Expect(strconv.Atoi(targetValue["pk"])).To(Equal(int(bRecord["id"].(float64))))
+		Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(bRecord["id"].(float64))))
 	})
 
 	Describe("Retrieving records with generic values", func() {
@@ -255,7 +255,7 @@ var _ = Describe("Data", func() {
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectB := func() {
-			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "pk": aRecord["id"]}}, auth.User{})
+			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -271,7 +271,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			targetValue := bRecord["target"].(map[string]string)
 			Expect(targetValue["_object"]).To(Equal("a"))
-			Expect(strconv.Atoi(targetValue["pk"])).To(Equal(int(aRecord["id"].(float64))))
+			Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(aRecord["id"].(float64))))
 		})
 
 		It("can retrieve record containing generic inner value as a full object", func() {
@@ -377,7 +377,7 @@ var _ = Describe("Data", func() {
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "pk": aRecord["id"]}}, auth.User{})
+			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -400,7 +400,7 @@ var _ = Describe("Data", func() {
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]string)
 			Expect(targetValue["_object"]).To(Equal("a"))
-			Expect(strconv.Atoi(targetValue["pk"])).To(Equal(int(aRecord["id"].(float64))))
+			Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(aRecord["id"].(float64))))
 
 		})
 

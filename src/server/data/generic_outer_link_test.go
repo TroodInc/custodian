@@ -12,7 +12,7 @@ import (
 	"server/data/types"
 )
 
-var _ = FDescribe("Data", func() {
+var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
@@ -131,7 +131,7 @@ var _ = FDescribe("Data", func() {
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "pk": aRecord["id"]}}, auth.User{})
+			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 

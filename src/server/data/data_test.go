@@ -195,13 +195,13 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			By("having a record of B object")
-			_, err = dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"id": "pk", "a": "PKVALUE"}, auth.User{})
+			_, err = dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"id": "id", "a": "PKVALUE"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			Context("query by PK returns correct result", func() {
 				dataProcessor.GetBulk(bMetaObj.Name, "eq(a,PKVALUE)", 1, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["id"]).To(Equal("pk"))
+				Expect(matchedRecords[0]["id"]).To(Equal("id"))
 			})
 
 		})

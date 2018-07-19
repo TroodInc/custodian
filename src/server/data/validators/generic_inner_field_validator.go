@@ -22,13 +22,13 @@ func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Fie
 			if objectMeta, err := validator.validateObject(objectName, fieldDescription); err != nil {
 				return nil, err
 			} else {
-				if pkValue, err := validator.validateRecordPk(castValue[types.GenericPkKey], fieldDescription); err != nil {
+				if pkValue, err := validator.validateRecordPk(castValue[objectMeta.Key.Name], fieldDescription); err != nil {
 					return nil, err
 				} else {
 					if err := validator.validateRecord(objectMeta, pkValue, fieldDescription); err != nil {
 						return nil, err
 					} else {
-						return &types.GenericInnerLink{ObjectName: objectMeta.Name, Pk: pkValue}, nil
+						return &types.GenericInnerLink{ObjectName: objectMeta.Name, Pk: pkValue, PkName:objectMeta.Key.Name}, nil
 					}
 				}
 			}

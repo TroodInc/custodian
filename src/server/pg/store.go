@@ -240,7 +240,7 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 			case data.DLink:
 				val.Id = rv
 			case *types.GenericInnerLink:
-				nodes[fieldName] = map[string]string{types.GenericPkKey: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
+				nodes[fieldName] = map[string]string{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
 			default:
 				nodes[fieldName] = rv
 			}

@@ -107,6 +107,9 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					//fill corresponding value
 					if meta.IsGenericFieldTypeColumn(columnName) {
 						castAssembledValue.ObjectName = value.String
+						if value.String != "" {
+							castAssembledValue.PkName = fieldDescription.LinkMetaList.GetByName(value.String).Key.Name
+						}
 					} else if meta.IsGenericFieldKeyColumn(columnName) {
 						castAssembledValue.Pk = value.String
 					}
