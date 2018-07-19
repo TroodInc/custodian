@@ -180,7 +180,7 @@ var notifierFactories = map[Protocol]noti.Factory{
 }
 
 type actions struct {
-	original  []action
+	Original  []action
 	notifiers map[Method][]noti.Notifier
 }
 
@@ -200,7 +200,7 @@ func newActions(array []action) (*actions, error) {
 		m := array[i].Method
 		notifiers[m] = append(notifiers[m], notifier)
 	}
-	return &actions{original: array, notifiers: notifiers}, nil
+	return &actions{Original: array, notifiers: notifiers}, nil
 }
 
 func (a *actions) StartNotification(method Method) chan *noti.Event {
@@ -208,10 +208,11 @@ func (a *actions) StartNotification(method Method) chan *noti.Event {
 }
 
 type action struct {
-	Method          Method   `json:"method"`
-	Protocol        Protocol `json:"protocol"`
-	Args            []string `json:"args,omitempty"`
-	ActiveIfNotRoot bool     `json:"activeIfNotRoot"`
+	Method          Method            `json:"method"`
+	Protocol        Protocol          `json:"protocol"`
+	Args            []string          `json:"args,omitempty"`
+	ActiveIfNotRoot bool              `json:"activeIfNotRoot"`
+	IncludeValues   map[string]string `json:"includeValues"`
 }
 
 //Object metadata description.
