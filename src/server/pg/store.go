@@ -86,14 +86,14 @@ func (selectInfo *SelectInfo) sql(sql *bytes.Buffer) error {
 	return parsedTemplSelect.Execute(sql, selectInfo)
 }
 
-func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filterKeys []interface{}) *SelectInfo {
+func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filterKeys []string) *SelectInfo {
 	sqlHelper := dml_info.SqlHelper{}
 	whereExpression := ""
 	for i, key := range filterKeys {
 		if i > 0 {
 			whereExpression += " AND "
 		}
-		whereExpression += sqlHelper.EscapeColumn(key.(string)) + "=$" + strconv.Itoa(i+1)
+		whereExpression += sqlHelper.EscapeColumn(key) + "=$" + strconv.Itoa(i+1)
 	}
 	return &SelectInfo{From: GetTableName(objectMeta), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
 }
@@ -250,42 +250,42 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 	}
 }
 
-func getColumnsToInsert(m map[string]interface{}) []string {
-	ks := make([]string, 0, len(m))
-	for k := range m {
-		switch m[k].(type) {
+func getColumnsToInsert(fieldNames []string, rawValues []interface{}) []string {
+	columns := make([]string, 0, 0)
+	for i, fieldName := range fieldNames {
+		switch rawValues[i].(type) {
 		case *types.GenericInnerLink:
-			ks = append(ks, meta.GetGenericFieldTypeColumnName(k))
-			ks = append(ks, meta.GetGenericFieldKeyColumnName(k))
+			columns = append(columns, meta.GetGenericFieldTypeColumnName(fieldName))
+			columns = append(columns, meta.GetGenericFieldKeyColumnName(fieldName))
 		default:
-			ks = append(ks, k)
+			columns = append(columns, fieldName)
 		}
 	}
-	return ks
+	return columns
 }
 
-func getValuesToInsert(rawValues map[string]interface{}, columns []string) ([]interface{}, error) {
+func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, expectedSetOfColumns []string) ([]interface{}, error) {
 	values := make([]interface{}, 0)
 	processedColumns := make([]string, 0)
-	for key, value := range rawValues {
-		switch castValue := value.(type) {
+	for _, fieldName := range fieldNames {
+		switch castValue := rawValues[fieldName].(type) {
 		case *types.GenericInnerLink:
 			values = append(values, castValue.ObjectName)
 			values = append(values, castValue.Pk)
-			processedColumns = append(processedColumns, meta.GetGenericFieldTypeColumnName(key))
-			processedColumns = append(processedColumns, meta.GetGenericFieldKeyColumnName(key))
+			processedColumns = append(processedColumns, meta.GetGenericFieldTypeColumnName(fieldName))
+			processedColumns = append(processedColumns, meta.GetGenericFieldKeyColumnName(fieldName))
 		case data.ALink:
 			values = append(values, castValue.Obj[castValue.Field.Meta.Key.Name])
-			processedColumns = append(processedColumns, key)
+			processedColumns = append(processedColumns, fieldName)
 		case data.DLink:
 			values = append(values, castValue.Id)
-			processedColumns = append(processedColumns, key)
+			processedColumns = append(processedColumns, fieldName)
 		default:
 			values = append(values, castValue)
-			processedColumns = append(processedColumns, key)
+			processedColumns = append(processedColumns, fieldName)
 		}
 	}
-	if !utils.Equal(columns, processedColumns, false) {
+	if !utils.Equal(expectedSetOfColumns, processedColumns, false) {
 		return nil, NewDMLError(ErrInvalidArgument, "FieldDescription '%s' not found. All objects must have the same set of fileds.")
 	}
 	return values, nil
@@ -400,8 +400,8 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, recordValues []map[
 		}
 		defer stmt.Close()
 
-		binds := make([]interface{}, 0)
 		for i := range recordValues {
+			binds := make([]interface{}, 0)
 			for j := range updateFields {
 				if v, ok := recordValues[i][updateFields[j]]; !ok {
 					return NewDMLError(ErrInvalidArgument, "Different set of fields. Object #%d. All objects must have the same set of fields.", i)
@@ -432,15 +432,18 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, recordValues []map[
 	}, nil
 }
 
-func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]interface{}) (data.Operation, error) {
-	if len(objs) == 0 {
+func (dataManager *DataManager) PreparePuts(m *meta.Meta, recordsValues []map[string]interface{}) (data.Operation, error) {
+	if len(recordsValues) == 0 {
 		return emptyOperation, nil
 	}
 
 	//fix the columns by the first object
 	fields := tableFields(m)
-	insertColumns := getColumnsToInsert(objs[0])
-	insertInfo := dml_info.NewInsertInfo(GetTableName(m), insertColumns, getFieldsColumnsNames(fields), len(objs))
+
+	insertFields, insertValuesPattern := utils.GetMapKeysValues(recordsValues[0])
+	insertColumns := getColumnsToInsert(insertFields, insertValuesPattern)
+
+	insertInfo := dml_info.NewInsertInfo(GetTableName(m), insertColumns, getFieldsColumnsNames(fields), len(recordsValues))
 	var insertDML bytes.Buffer
 	if err := parsedTemplInsert.Execute(&insertDML, insertInfo); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
@@ -448,9 +451,9 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 
 	return func(ctx data.OperationContext) error {
 		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
-		binds := make([]interface{}, 0, len(insertColumns)*len(objs))
-		for _, obj := range objs {
-			if values, err := getValuesToInsert(obj, insertColumns); err != nil {
+		binds := make([]interface{}, 0, len(insertColumns)*len(recordsValues))
+		for _, recordValues := range recordsValues {
+			if values, err := getValuesToInsert(insertFields, recordValues, insertColumns); err != nil {
 				return err
 			} else {
 				binds = append(binds, values...)
@@ -466,8 +469,8 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, objs []map[string]inte
 			return err
 		}
 
-		for i := 0; i < len(objs); i++ {
-			updateNodes(objs[i], dbObjs[i])
+		for i := 0; i < len(recordsValues); i++ {
+			updateNodes(recordsValues[i], dbObjs[i])
 		}
 		return nil
 	}, nil
