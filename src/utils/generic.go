@@ -39,9 +39,9 @@ func Equal(a, b []string, strictOrder bool) bool {
 	return true
 }
 
-func GetMapKeysValues(targetMap map[string]interface{}) ([]interface{}, []interface{}) {
+func GetMapKeysValues(targetMap map[string]interface{}) ([]string, []interface{}) {
 	values := make([]interface{}, 0)
-	keys := make([]interface{}, 0)
+	keys := make([]string, 0)
 	for key, value := range targetMap {
 		values = append(values, value)
 		keys = append(keys, key)
