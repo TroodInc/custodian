@@ -12,22 +12,22 @@ type ValidationService struct {
 }
 
 //TODO:this method needs deep refactoring
-func (validationService *ValidationService) Validate(t2 *Tuple2, mandatoryCheck bool) ([]Tuple2, error) {
+func (validationService *ValidationService) Validate(record *Record, mandatoryCheck bool) ([]Record, error) {
 	var err error
-	toCheck := make([]Tuple2, 0)
-	for k, _ := range t2.Second {
-		if f := t2.First.FindField(k); f == nil {
-			delete(t2.Second, k)
+	toCheck := make([]Record, 0)
+	for k, _ := range record.Data {
+		if f := record.Meta.FindField(k); f == nil {
+			delete(record.Data, k)
 		}
 	}
 
-	for i := 0; i < len(t2.First.Fields); i++ {
-		k := t2.First.Fields[i].Name
-		fieldDescription := &t2.First.Fields[i]
+	for i := 0; i < len(record.Meta.Fields); i++ {
+		k := record.Meta.Fields[i].Name
+		fieldDescription := &record.Meta.Fields[i]
 
-		value, valueIsSet := t2.Second[k]
+		value, valueIsSet := record.Data[k]
 		if mandatoryCheck && !valueIsSet && !fieldDescription.Optional {
-			return nil, errors.NewDataError(t2.First.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", k)
+			return nil, errors.NewDataError(record.Meta.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", k)
 		}
 		//skip validation if field is optional and value is null
 		//perform validation otherwise
@@ -40,36 +40,36 @@ func (validationService *ValidationService) Validate(t2 *Tuple2, mandatoryCheck 
 					var a = value.([]interface{})
 					for _, av := range a {
 						if m, ok := av.(map[string]interface{}); ok {
-							m[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, outer: true, Obj: t2.Second}
-							toCheck = append(toCheck, Tuple2{fieldDescription.LinkMeta, m})
+							m[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, outer: true, Obj: record.Data}
+							toCheck = append(toCheck, Record{fieldDescription.LinkMeta, m})
 						} else {
-							return nil, errors.NewDataError(t2.First.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", k)
+							return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", k)
 						}
 					}
-					delete(t2.Second, k)
+					delete(record.Data, k)
 				} else if fieldDescription.Type == meta.FieldTypeObject {
 					var of = value.(map[string]interface{})
 					if fieldDescription.LinkType == meta.LinkTypeOuter {
-						of[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, outer: true, Obj: t2.Second}
-						delete(t2.Second, k)
+						of[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, outer: true, Obj: record.Data}
+						delete(record.Data, k)
 					} else if fieldDescription.LinkType == meta.LinkTypeInner {
-						t2.Second[fieldDescription.Name] = ALink{Field: fieldDescription.LinkMeta.Key, outer: false, Obj: of}
+						record.Data[fieldDescription.Name] = ALink{Field: fieldDescription.LinkMeta.Key, outer: false, Obj: of}
 					} else {
-						return nil, errors.NewDataError(t2.First.Name, errors.ErrWrongFiledType, "Unknown link type %s", fieldDescription.LinkType)
+						return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Unknown link type %s", fieldDescription.LinkType)
 					}
-					toCheck = append(toCheck, Tuple2{fieldDescription.LinkMeta, of})
+					toCheck = append(toCheck, Record{fieldDescription.LinkMeta, of})
 				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == meta.LinkTypeInner {
-					t2.Second[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
+					record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
 				}
 			case fieldDescription.Type == meta.FieldTypeObject && fieldDescription.LinkType == meta.LinkTypeInner && fieldDescription.LinkMeta.Key.Type.AssertType(value):
-				t2.Second[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
+				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, outer: false, Id: value}
 			case fieldDescription.Type == meta.FieldTypeObject && fieldDescription.LinkType == meta.LinkTypeInner && AssertLink(value):
 			case fieldDescription.Type == meta.FieldTypeGeneric && fieldDescription.LinkType == meta.LinkTypeInner:
-				if t2.Second[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(validationService.metaStore.Get, validationService.processor.Get).Validate(fieldDescription, value); err != nil {
+				if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(validationService.metaStore.Get, validationService.processor.Get).Validate(fieldDescription, value); err != nil {
 					return nil, err
 				}
 			default:
-				return nil, errors.NewDataError(t2.First.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", k)
+				return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", k)
 			}
 
 		}

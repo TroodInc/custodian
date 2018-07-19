@@ -93,7 +93,7 @@ func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filte
 		if i > 0 {
 			whereExpression += " AND "
 		}
-		whereExpression += key.(string) + "=$" + strconv.Itoa(i+1)
+		whereExpression += sqlHelper.EscapeColumn(key.(string)) + "=$" + strconv.Itoa(i+1)
 	}
 	return &SelectInfo{From: GetTableName(objectMeta), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
 }
@@ -507,6 +507,7 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 		fields = tableFields(m)
 	}
 	filterKeys, filterValues := utils.GetMapKeysValues(filters)
+
 	selectInfo := NewSelectInfo(m, fields, filterKeys)
 	var q bytes.Buffer
 	if err := selectInfo.sql(&q); err != nil {

@@ -69,31 +69,39 @@ type DefExpr struct {
 type Method int
 
 const (
-	MethodRetrive Method = iota + 1
+	MethodRetrieve Method = iota + 1
 	MethodCreate
 	MethodRemove
 	MethodUpdate
 )
 
-func (m Method) String() (string, bool) {
+func (m Method) AsString() (string) {
 	switch m {
-	case MethodRetrive:
-		return "retrive", true
+	case MethodRetrieve:
+		return "retrieve"
 	case MethodCreate:
-		return "create", true
+		return "create"
 	case MethodRemove:
-		return "remove", true
+		return "remove"
 	case MethodUpdate:
-		return "update", true
+		return "update"
 	default:
-		return "", false
+		return ""
+	}
+}
+
+func (m Method) Validate() (string, bool) {
+	if methodAsString := m.AsString(); methodAsString == "" {
+		return methodAsString, false
+	} else {
+		return methodAsString, true
 	}
 }
 
 func AsMethod(s string) (Method, bool) {
 	switch s {
-	case "retrive":
-		return MethodRetrive, true
+	case "retrieve":
+		return MethodRetrieve, true
 	case "create":
 		return MethodCreate, true
 	case "remove":
@@ -119,7 +127,7 @@ func (mt *Method) UnmarshalJSON(b []byte) error {
 }
 
 func (mt Method) MarshalJSON() ([]byte, error) {
-	if s, ok := mt.String(); ok {
+	if s, ok := mt.Validate(); ok {
 		return json.Marshal(s)
 	} else {
 		return nil, NewMetaError("", "json_marshal", ErrJsonMarshal, "Incorrect method: %v", mt)
@@ -177,42 +185,6 @@ func (p *Protocol) UnmarshalJSON(b []byte) error {
 
 var notifierFactories = map[Protocol]noti.Factory{
 	REST: noti.NewRestNotifier,
-}
-
-type actions struct {
-	Original  []action
-	notifiers map[Method][]noti.Notifier
-}
-
-func newActions(array []action) (*actions, error) {
-	notifiers := make(map[Method][]noti.Notifier)
-	for i, _ := range array {
-		factory, ok := notifierFactories[array[i].Protocol]
-		if !ok {
-			ps, _ := array[i].Protocol.String()
-			return nil, NewMetaError("", "create_actions", ErrInternal, "Notifier factory not found for protocol: %s", ps)
-		}
-
-		notifier, err := factory(array[i].Args, array[i].ActiveIfNotRoot)
-		if err != nil {
-			return nil, err
-		}
-		m := array[i].Method
-		notifiers[m] = append(notifiers[m], notifier)
-	}
-	return &actions{Original: array, notifiers: notifiers}, nil
-}
-
-func (a *actions) StartNotification(method Method) chan *noti.Event {
-	return noti.Broadcast(a.notifiers[method])
-}
-
-type action struct {
-	Method          Method            `json:"method"`
-	Protocol        Protocol          `json:"protocol"`
-	Args            []string          `json:"args,omitempty"`
-	ActiveIfNotRoot bool              `json:"activeIfNotRoot"`
-	IncludeValues   map[string]string `json:"includeValues"`
 }
 
 //Object metadata description.

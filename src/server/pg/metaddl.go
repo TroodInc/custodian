@@ -540,7 +540,7 @@ type SliceCopyProcessor interface {
 
 // Calculates two differences, m1 / m2 and m2 / m1, m1 and m2 is treated as sets.
 // Id() is used as unique identifier in a set.
-// Second slice of m1 contains m1 / m2 difference, second slice of m2 contains m2 / m1 difference.
+// Data slice of m1 contains m1 / m2 difference, second slice of m2 contains m2 / m1 difference.
 func InverseIntersect(m1, m2 SliceCopyProcessor) {
 	var set = make(map[string]int)
 	for i := 0; i < m1.Len(); i++ {

@@ -742,4 +742,151 @@ var _ = Describe("Data", func() {
 			})
 		})
 	})
+
+	It("Can perform bulk update", func() {
+		By("Having Position object")
+
+		positionMetaDescription := meta.MetaDescription{
+			Name: "position",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name:     "id",
+					Type:     meta.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name: "name",
+					Type: meta.FieldTypeString,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&positionMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+
+		By("and Person object")
+
+		metaDescription := meta.MetaDescription{
+			Name: "person",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name:     "id",
+					Type:     meta.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "position",
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
+					LinkMeta: "position",
+				},
+				{
+					Name: "name",
+					Type: meta.FieldTypeString,
+				},
+			},
+		}
+		metaObj, err = metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+
+		By("and having one record of Position object")
+		positionRecord, err := dataProcessor.Put(positionMetaDescription.Name, map[string]interface{}{"name": "manager"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		By("and having two records of Person object")
+
+		records := make([]map[string]interface{}, 2)
+
+		records[0], err = dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "Ivan", "position": positionRecord["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		records[1], err = dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "Vasily", "position": positionRecord["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		updatedRecords := make([]map[string]interface{}, 0)
+
+		Context("person records are updated with new name value and new position`s name value as nested object", func() {
+			counter := 0
+			next := func() (map[string]interface{}, error) {
+				if counter < len(records) {
+					records[counter]["name"] = "Victor"
+					records[counter]["position"] = map[string]interface{}{"id": positionRecord["id"], "name": "sales manager"}
+					defer func() { counter += 1 }()
+					return records[counter], nil
+				}
+				return nil, nil
+			}
+
+			sink := func(record map[string]interface{}) error {
+				updatedRecords = append(updatedRecords, record)
+				return nil
+			}
+
+			err := dataProcessor.UpdateBulk(metaDescription.Name, next, sink, auth.User{})
+			Expect(err).To(BeNil())
+
+			Expect(updatedRecords[0]["name"]).To(Equal("Victor"))
+
+			positionRecord, _ = updatedRecords[0]["position"].(map[string]interface{})
+			Expect(positionRecord["name"]).To(Equal("sales manager"))
+
+		})
+
+	})
+
+	It("Can perform update", func() {
+		By("Having Position object")
+
+		positionMetaDescription := meta.MetaDescription{
+			Name: "position",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name:     "id",
+					Type:     meta.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name: "name",
+					Type: meta.FieldTypeString,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&positionMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+
+		By("and having one record of Position object")
+		recordData, err := dataProcessor.Put(positionMetaDescription.Name, map[string]interface{}{"name": "manager"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		keyValue, _ := recordData["id"].(float64)
+		Context("person records are updated with new name value and new position`s name value as nested object", func() {
+			recordData["name"] = "sales manager"
+			recordData, err := dataProcessor.Update(positionMetaDescription.Name, strconv.Itoa(int(keyValue)), recordData, auth.User{})
+			Expect(err).To(BeNil())
+
+			Expect(recordData["name"]).To(Equal("sales manager"))
+
+		})
+
+	})
 })

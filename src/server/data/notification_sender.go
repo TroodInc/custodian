@@ -6,33 +6,33 @@ import (
 	"server/auth"
 )
 
-const NOTIFICATION_CREATE = "create"
-const NOTIFICATION_UPDATE = "update"
-const NOTIFICATION_DELETE = "delete"
-
 type notificationSender struct {
-	method meta.Method
-	notifs map[string]chan *noti.Event
+	notificationChannels map[string]chan *noti.Event
 }
 
-func newNotificationSender(m meta.Method) *notificationSender {
-	return &notificationSender{method: m, notifs: make(map[string]chan *noti.Event)}
+func newNotificationSender() *notificationSender {
+	return &notificationSender{notificationChannels: make(map[string]chan *noti.Event)}
 }
 
-func (n *notificationSender) push(action string, meta *meta.Meta, recordData map[string]interface{}, user auth.User, isRoot bool) {
+func (n *notificationSender) push(recordStateNotification *RecordStateNotification, user auth.User) {
 
 	notificationData := make(map[string]interface{})
-	notificationData["action"] = action
-	notificationData["object"] = meta.MetaDescription.Name
-	notificationData["data"] = recordData
+	notificationData["action"] = recordStateNotification.method.AsString()
+	notificationData["object"] = recordStateNotification.objMeta.Name
+	notificationData["previous"] = recordStateNotification.previousState
+	notificationData["current"] = recordStateNotification.currentState
 	notificationData["user"] = user
 
-	notifchan, ok := n.notifs[meta.Name]
+	n.getNotificationChannel(recordStateNotification.objMeta, recordStateNotification.method) <- noti.NewObjectEvent(notificationData, recordStateNotification.isRoot)
+}
+
+func (n *notificationSender) getNotificationChannel(meta *meta.Meta, method meta.Method) chan *noti.Event {
+	notificationChannel, ok := n.notificationChannels[meta.Name]
 	if !ok {
-		notifchan = meta.Actions.StartNotification(n.method)
-		n.notifs[meta.Name] = notifchan
+		notificationChannel = meta.Actions.StartNotification(method)
+		n.notificationChannels[meta.Name] = notificationChannel
 	}
-	notifchan <- noti.NewObjectEvent(notificationData, isRoot)
+	return notificationChannel
 }
 
 func (n *notificationSender) complete(err error) {
@@ -44,13 +44,13 @@ func (n *notificationSender) complete(err error) {
 }
 
 func (n *notificationSender) close() {
-	for _, c := range n.notifs {
+	for _, c := range n.notificationChannels {
 		close(c)
 	}
 }
 
 func (n *notificationSender) failed(err error) {
-	for _, c := range n.notifs {
+	for _, c := range n.notificationChannels {
 		c <- noti.NewErrorEvent(err)
 		close(c)
 	}
