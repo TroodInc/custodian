@@ -315,9 +315,10 @@ func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBe
 		if currentFieldDescription.LinkType == LinkTypeInner && currentFieldDescription.Type == FieldTypeObject {
 			fieldIsBeingRemoved := true
 			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
-				if fieldDescriptionToBeUpdated.Name == fieldDescriptionToBeUpdated.Name &&
+				if fieldDescriptionToBeUpdated.Name == currentFieldDescription.Name &&
 					fieldDescriptionToBeUpdated.LinkType == LinkTypeInner &&
-					fieldDescriptionToBeUpdated.LinkMeta.Name == fieldDescriptionToBeUpdated.LinkMeta.Name {
+					fieldDescriptionToBeUpdated.Type == currentFieldDescription.Type &&
+					fieldDescriptionToBeUpdated.LinkMeta.Name == currentFieldDescription.LinkMeta.Name {
 					fieldIsBeingRemoved = false
 				}
 			}
