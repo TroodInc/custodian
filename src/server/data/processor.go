@@ -23,7 +23,7 @@ type DataManager interface {
 	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription) ([]map[string]interface{}, error)
 	GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}) ([]map[string]interface{}, error)
 	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) (map[string]interface{}, error)
-	GetAll(m *meta.Meta, fileds []*meta.FieldDescription,filters map[string]interface{}) ([]map[string]interface{}, error)
+	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}) ([]map[string]interface{}, error)
 	PrepareDeletes(n *DNode, keys []interface{}) (Operation, []interface{}, error)
 	PreparePuts(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
 	PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
@@ -109,37 +109,37 @@ func (processor *Processor) flatten(objectMeta *meta.Meta, recordValues map[stri
 	return tc, nil
 }
 
-type RecordsSet struct {
-	First  *meta.Meta
-	Second []map[string]interface{}
+type RecordSet struct {
+	Meta    *meta.Meta
+	DataSet []map[string]interface{}
 }
 
-func (processor *Processor) splitNestedRecordsByObjects(m *meta.Meta, objs []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*RecordsSet, error) {
-	var levelLader = [][]*RecordsSet{[]*RecordsSet{&RecordsSet{m, objs}}}
+func (processor *Processor) splitNestedRecordsByObjects(m *meta.Meta, objs []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*RecordSet, error) {
+	var levelLader = [][]*RecordSet{[]*RecordSet{&RecordSet{m, objs}}}
 
 	for curLevel := levelLader[0]; curLevel != nil; {
-		next := make(map[string]*RecordsSet)
+		next := make(map[string]*RecordSet)
 		for tail := curLevel; len(tail) > 0; tail = tail[1:] {
-			v, e := validatorFactory(tail[0].First.Name)
+			v, e := validatorFactory(tail[0].Meta.Name)
 			if e != nil {
 				return nil, e
 			}
-			for _, o := range tail[0].Second {
-				t, e := v(Record{tail[0].First, o})
+			for _, o := range tail[0].DataSet {
+				t, e := v(Record{tail[0].Meta, o})
 				if e != nil {
 					return nil, e
 				}
 				for _, t2 := range t {
 					if pt2a, ok := next[t2.Meta.Name]; ok {
-						pt2a.Second = append(pt2a.Second, t2.Data)
+						pt2a.DataSet = append(pt2a.DataSet, t2.Data)
 					} else {
-						next[t2.Meta.Name] = &RecordsSet{t2.Meta, []map[string]interface{}{t2.Data}}
+						next[t2.Meta.Name] = &RecordSet{t2.Meta, []map[string]interface{}{t2.Data}}
 					}
 				}
 			}
 		}
 		if len(next) > 0 {
-			nextLevel := make([]*RecordsSet, 0, len(next))
+			nextLevel := make([]*RecordSet, 0, len(next))
 			for _, pt2a := range next {
 				nextLevel = append(nextLevel, pt2a)
 			}
@@ -265,7 +265,7 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 				isRoot := levelIdx == 0
 				fmt.Println(isRoot)
 				for _, item := range level {
-					op, e := processor.dataManager.PreparePuts(item.First, item.Second)
+					op, e := processor.dataManager.PreparePuts(item.Meta, item.DataSet)
 					if e != nil {
 						return e
 					}
@@ -274,7 +274,7 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 						return e
 					}
 
-					for _, recordData := range item.Second {
+					for _, recordData := range item.DataSet {
 						collapseLinks(recordData)
 
 						//notificationSender.push(NOTIFICATION_CREATE, item.Meta, recordData, user, isRoot)
@@ -282,7 +282,7 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 				}
 			}
 			for _, roots := range levelLader[0] {
-				for _, root := range roots.Second {
+				for _, root := range roots.DataSet {
 					if e := sink(root); e != nil {
 						return e
 					}
@@ -675,15 +675,15 @@ func (processor *Processor) UpdateBulk(objectClass string, next func() (map[stri
 
 			for i, recordsSets := range recordsSetSplitByObject {
 				isRoot := i == 0
-				for _, recordsSet := range recordsSets {
+				for _, recordSet := range recordsSets {
 
-					op, err := processor.dataManager.PrepareUpdates(recordsSet.First, recordsSet.Second)
+					op, err := processor.dataManager.PrepareUpdates(recordSet.Meta, recordSet.DataSet)
 					if err != nil {
 						return err
 					}
 					// create notification, capture current record state and Add notification to notification pool
-					for _, record := range recordsSet.Second {
-						notification := NewRecordStateNotification(recordsSet.First, record[recordsSet.First.Key.Field.Name], isRoot, meta.MethodUpdate)
+					for _, record := range recordSet.DataSet {
+						notification := NewRecordStateNotification(recordSet.Meta, record[recordSet.Meta.Key.Field.Name], isRoot, meta.MethodUpdate)
 						notification.CapturePreviousState(processor)
 						notificationPool.Add(notification)
 					}
@@ -692,15 +692,15 @@ func (processor *Processor) UpdateBulk(objectClass string, next func() (map[stri
 					if e := executeContext.Execute([]Operation{op}); e != nil {
 						return e
 					}
-					// some magic to perform with recordsSet after previous operation execution =/
-					for _, recordData := range recordsSet.Second {
+					// some magic to perform with recordSet after previous operation execution =/
+					for _, recordData := range recordSet.DataSet {
 						collapseLinks(recordData)
 					}
 
 				}
 			}
 			for _, rootRecordsSet := range recordsSetSplitByObject[0] {
-				for _, rootRecord := range rootRecordsSet.Second {
+				for _, rootRecord := range rootRecordsSet.DataSet {
 					if err = sink(rootRecord); err != nil {
 						return err
 					}
