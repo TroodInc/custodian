@@ -589,7 +589,7 @@ func (ex *ExecuteContext) Close() error {
 	return ex.tx.Rollback()
 }
 
-func (dataManager *DataManager) ExecuteContext() (data.ExecuteContext, error) {
+func (dataManager *DataManager) NewExecuteContext() (data.ExecuteContext, error) {
 	tx, err := dataManager.db.Begin()
 	if err != nil {
 		return nil, NewDMLError(ErrTrxFailed, err.Error())
@@ -599,7 +599,7 @@ func (dataManager *DataManager) ExecuteContext() (data.ExecuteContext, error) {
 }
 
 func (dataManager *DataManager) Execute(ops []data.Operation) error {
-	ex, err := dataManager.ExecuteContext()
+	ex, err := dataManager.NewExecuteContext()
 	if err != nil {
 		return err
 	}

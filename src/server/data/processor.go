@@ -7,6 +7,8 @@ import (
 	"server/auth"
 	"server/data/errors"
 	"fmt"
+	. "server/data/record"
+	"server/data/notifications"
 )
 
 type objectClassValidator func(Record) ([]Record, error)
@@ -28,7 +30,7 @@ type DataManager interface {
 	PreparePuts(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
 	PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
 	Execute(operations []Operation) error
-	ExecuteContext() (ExecuteContext, error)
+	NewExecuteContext() (ExecuteContext, error)
 }
 
 type Processor struct {
@@ -39,11 +41,6 @@ type Processor struct {
 
 func NewProcessor(m *meta.MetaStore, d DataManager) (*Processor, error) {
 	return &Processor{metaStore: m, dataManager: d, vCache: make(map[string]objectClassValidator)}, nil
-}
-
-type Record struct {
-	Meta *meta.Meta
-	Data map[string]interface{}
 }
 
 type RecordUpdateTask struct {
@@ -109,31 +106,26 @@ func (processor *Processor) flatten(objectMeta *meta.Meta, recordValues map[stri
 	return tc, nil
 }
 
-type RecordSet struct {
-	Meta    *meta.Meta
-	DataSet []map[string]interface{}
-}
+func (processor *Processor) splitNestedRecordsByObjects(meta *meta.Meta, recordsData []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*RecordSet, error) {
+	var recordSetsSplitByLevels = [][]*RecordSet{{&RecordSet{meta, recordsData}}}
 
-func (processor *Processor) splitNestedRecordsByObjects(m *meta.Meta, objs []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*RecordSet, error) {
-	var levelLader = [][]*RecordSet{[]*RecordSet{&RecordSet{m, objs}}}
-
-	for curLevel := levelLader[0]; curLevel != nil; {
+	for currentLevel := recordSetsSplitByLevels[0]; currentLevel != nil; {
 		next := make(map[string]*RecordSet)
-		for tail := curLevel; len(tail) > 0; tail = tail[1:] {
-			v, e := validatorFactory(tail[0].Meta.Name)
-			if e != nil {
+		for tail := currentLevel; len(tail) > 0; tail = tail[1:] {
+			if validator, e := validatorFactory(tail[0].Meta.Name); e != nil {
 				return nil, e
-			}
-			for _, o := range tail[0].DataSet {
-				t, e := v(Record{tail[0].Meta, o})
-				if e != nil {
-					return nil, e
-				}
-				for _, t2 := range t {
-					if pt2a, ok := next[t2.Meta.Name]; ok {
-						pt2a.DataSet = append(pt2a.DataSet, t2.Data)
+			} else {
+				for _, recordData := range tail[0].DataSet {
+					if nestedRecords, e := validator(Record{tail[0].Meta, recordData}); e != nil {
+						return nil, e
 					} else {
-						next[t2.Meta.Name] = &RecordSet{t2.Meta, []map[string]interface{}{t2.Data}}
+						for _, record := range nestedRecords {
+							if recordSet, ok := next[record.Meta.Name]; ok {
+								recordSet.DataSet = append(recordSet.DataSet, record.Data)
+							} else {
+								next[record.Meta.Name] = &RecordSet{record.Meta, []map[string]interface{}{record.Data}}
+							}
+						}
 					}
 				}
 			}
@@ -143,13 +135,13 @@ func (processor *Processor) splitNestedRecordsByObjects(m *meta.Meta, objs []map
 			for _, pt2a := range next {
 				nextLevel = append(nextLevel, pt2a)
 			}
-			levelLader = append(levelLader, nextLevel)
-			curLevel = nextLevel
+			recordSetsSplitByLevels = append(recordSetsSplitByLevels, nextLevel)
+			currentLevel = nextLevel
 		} else {
-			curLevel = nil
+			currentLevel = nil
 		}
 	}
-	return levelLader, nil
+	return recordSetsSplitByLevels, nil
 }
 
 func collapseLinks(obj map[string]interface{}) {
@@ -213,10 +205,10 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}, 
 	}
 
 	//process notifications
-	notificationSender := newNotificationSender()
-	defer func() {
-		notificationSender.complete(err)
-	}()
+	//notificationSender := newNotificationSender()
+	//defer func() {
+	//	notificationSender.complete(err)
+	//}()
 	for i, _ := range tc {
 		collapseLinks(tc[i].Data)
 		//notificationSender.push(NOTIFICATION_CREATE, tc[i].Meta, tc[i].Data, user, i == 0)
@@ -234,17 +226,17 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 		return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
 	}
 
-	exCtx, e := processor.dataManager.ExecuteContext()
+	exCtx, e := processor.dataManager.NewExecuteContext()
 	if e != nil {
 		return e
 	}
 	defer exCtx.Close()
 
 	var buf = make([]map[string]interface{}, 0, 100)
-	notificationSender := newNotificationSender()
-	defer func() {
-		notificationSender.complete(response)
-	}()
+	//notificationSender := newNotificationSender()
+	//defer func() {
+	//	notificationSender.complete(response)
+	//}()
 	for {
 		for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
 			if e != nil {
@@ -350,7 +342,7 @@ func (processor *Processor) Get(objectClass, key string, depth int) (map[string]
 	}
 }
 
-func (processor *Processor) GetBulk(objectName, filter string, depth int, sink func(map[string]interface{}) error) error {
+func (processor *Processor) GetBulk(objectName string, filter string, depth int, sink func(map[string]interface{}) error) error {
 	if businessObject, ok, e := processor.metaStore.Get(objectName, true); e != nil {
 		return e
 	} else if !ok {
@@ -431,10 +423,10 @@ func (processor *Processor) Delete(objectClass, key string, user auth.User) (isD
 				}
 			}
 			//process notifications
-			notificationSender := newNotificationSender()
-			defer func() {
-				notificationSender.complete(err)
-			}()
+			//notificationSender := newNotificationSender()
+			//defer func() {
+			//	notificationSender.complete(err)
+			//}()
 			if op, keys, e := processor.dataManager.PrepareDeletes(root, []interface{}{pk}); e != nil {
 				return false, e
 			} else {
@@ -491,16 +483,16 @@ func (processor *Processor) DeleteBulk(objectClass string, next func() (map[stri
 			}
 		}
 
-		exCtx, e := processor.dataManager.ExecuteContext()
+		exCtx, e := processor.dataManager.NewExecuteContext()
 		if e != nil {
 			return e
 		}
 		defer exCtx.Close()
 		var buf = make([]interface{}, 0, 100)
-		notificationSender := newNotificationSender()
-		defer func() {
-			notificationSender.complete(err)
-		}()
+		//notificationSender := newNotificationSender()
+		//defer func() {
+		//	notificationSender.complete(err)
+		//}()
 		for {
 			for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
 				if e != nil {
@@ -633,92 +625,114 @@ func (processor *Processor) updateRecords(recordUpdateTasks []*RecordUpdateTask)
 	return records, nil
 }
 
-func (processor *Processor) UpdateBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
-	m, ok, err := processor.metaStore.Get(objectClass, true)
-	if err != nil {
+func (processor *Processor) UpdateBulk(objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
+	//get meta
+	objectMeta, ok, err := processor.metaStore.Get(objectName, true)
+	if err != nil || !ok {
+		if !ok {
+			return errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object '%s' not found", objectName)
+		}
 		return err
 	}
 
-	if !ok {
-		return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
-	}
-
-	executeContext, err := processor.dataManager.ExecuteContext()
+	//start transaction
+	executeContext, err := processor.dataManager.NewExecuteContext()
 	if err != nil {
 		return err
 	}
 	defer executeContext.Close()
 
-	var recordsDataChunk = make([]map[string]interface{}, 0, 100)
-	// notifications
-	notificationPool := NewRecordStateNotificationPool(processor)
-	defer func() {
-		notificationPool.CompleteSend(err)
-	}()
-	//
-	for {
-		// collect records to update
-		for recordData, err := next(); err != nil || (recordData != nil && len(recordsDataChunk) < 100); recordData, err = next() {
-			if err != nil {
-				return err
-			}
-			recordsDataChunk = append(recordsDataChunk, recordData)
-		}
+	// create notification pool
+	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	defer recordSetNotificationPool.CompleteSend(err)
 
-		if len(recordsDataChunk) > 0 {
-			recordsSetSplitByObject, err := processor.splitNestedRecordsByObjects(m, recordsDataChunk, func(mn string) (objectClassValidator, error) {
-				return processor.getValidator("upd:"+mn, updateValidator)
-			})
-			if err != nil {
-				return err
-			}
+	// collect records` data to update
+	recordDataSet, err := processor.consumeRecordDataSet(next)
+	if err != nil {
+		return err
+	}
 
-			for i, recordsSets := range recordsSetSplitByObject {
-				isRoot := i == 0
-				for _, recordSet := range recordsSets {
+	//assemble RecordSets
+	recordSetsSplitByObject, err := processor.splitNestedRecordsByObjects(objectMeta, recordDataSet, func(mn string) (objectClassValidator, error) { return processor.getValidator("upd:"+mn, updateValidator) })
+	if err != nil {
+		return err
+	}
 
-					op, err := processor.dataManager.PrepareUpdates(recordSet.Meta, recordSet.DataSet)
-					if err != nil {
-						return err
-					}
-					// create notification, capture current record state and Add notification to notification pool
-					for _, record := range recordSet.DataSet {
-						notification := NewRecordStateNotification(recordSet.Meta, record[recordSet.Meta.Key.Field.Name], isRoot, meta.MethodUpdate)
-						notification.CapturePreviousState(processor)
-						notificationPool.Add(notification)
-					}
-
-					// perform update
-					if e := executeContext.Execute([]Operation{op}); e != nil {
-						return e
-					}
-					// some magic to perform with recordSet after previous operation execution =/
-					for _, recordData := range recordSet.DataSet {
-						collapseLinks(recordData)
-					}
-
-				}
-			}
-			for _, rootRecordsSet := range recordsSetSplitByObject[0] {
-				for _, rootRecord := range rootRecordsSet.DataSet {
-					if err = sink(rootRecord); err != nil {
-						return err
-					}
-				}
-			}
-			//capture updated state of all records in the pool
-			notificationPool.CaptureCurrentState()
-			notificationPool.Push(user)
-		}
-
-		if len(recordsDataChunk) < 100 {
-			if err = executeContext.Complete(); err != nil {
-				return err
-			} else {
-				return nil
-			}
-		} else {
-			recordsDataChunk = recordsDataChunk[:0]
+	//perform update
+	for i, recordsSets := range recordSetsSplitByObject {
+		isRoot := i == 0
+		for _, recordSet := range recordsSets {
+			processor.processRecordSetUpdate(recordSet, executeContext, isRoot, recordSetNotificationPool)
 		}
 	}
+
+	// feed updated data to the sink
+	processor.feedRecordSets(recordSetsSplitByObject[0], sink)
+
+	// push notifications if needed
+	if recordSetNotificationPool.ShouldBeProcessed() {
+		//capture updated state of all records in the pool
+		recordSetNotificationPool.CaptureCurrentState()
+		recordSetNotificationPool.Push(user)
+	}
+
+	if err = executeContext.Complete(); err != nil {
+		return err
+	} else {
+		return nil
+	}
+
+}
+
+//consume all records from callback function
+func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string]interface{}, error)) ([]map[string]interface{}, error) {
+	var recordDataSet = make([]map[string]interface{}, 0)
+	// collect records to update
+	for recordData, err := nextCallback(); err != nil || (recordData != nil); recordData, err = nextCallback() {
+		if err != nil {
+			return nil, err
+		}
+		recordDataSet = append(recordDataSet, recordData)
+	}
+	return recordDataSet, nil
+}
+
+//feed recordSet`s data to the sink
+func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(map[string]interface{}) error) error {
+	for _, recordsSet := range recordSets {
+		for _, recordData := range recordsSet.DataSet {
+			if err := sink(recordData); err != nil {
+				return err
+			}
+		}
+	}
+	return nil
+}
+
+//process recordSet update
+func (processor *Processor) processRecordSetUpdate(recordSet *RecordSet, executeContext ExecuteContext, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) error {
+
+	// create notification, capture current recordData state and Add notification to notification pool
+	recordSetNotification := notifications.NewRecordSetStateNotification(recordSet, isRoot, meta.MethodUpdate, processor.GetBulk)
+	if recordSetNotification.ShouldBeProcessed() {
+		recordSetNotification.CapturePreviousState()
+		recordSetNotificationPool.Add(recordSetNotification)
+	}
+
+	//process record update
+	op, err := processor.dataManager.PrepareUpdates(recordSet.Meta, recordSet.DataSet)
+	if err != nil {
+		return err
+	}
+
+	// perform update
+	if e := executeContext.Execute([]Operation{op}); e != nil {
+		return e
+	}
+
+	// some magic to perform with recordSet after previous operation execution =/
+	for _, recordData := range recordSet.DataSet {
+		collapseLinks(recordData)
+	}
+	return nil
 }

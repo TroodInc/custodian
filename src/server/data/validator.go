@@ -4,6 +4,7 @@ import (
 	"server/meta"
 	"server/data/errors"
 	"server/data/validators"
+	. "server/data/record"
 )
 
 type ValidationService struct {

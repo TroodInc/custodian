@@ -5,15 +5,15 @@ import "server/auth"
 type RecordStateNotificationPool struct {
 	processor          *Processor
 	notifications      []*RecordStateNotification
-	notificationSender *notificationSender
+	//notificationSender *notificationSender
 }
 
-func (notificationPool *RecordStateNotificationPool) Add(notification *RecordStateNotification) {
-	notificationPool.notifications = append(notificationPool.notifications, notification)
-}
+//func (notificationPool *RecordStateNotificationPool) Add(notification *RecordSetNotification) {
+//	notificationPool.notifications = append(notificationPool.notifications, notification)
+//}
 
 func (notificationPool *RecordStateNotificationPool) CompleteSend(err error) {
-	notificationPool.notificationSender.complete(err)
+	//notificationPool.notificationSender.complete(err)
 }
 
 func (notificationPool *RecordStateNotificationPool) CaptureCurrentState() {
@@ -23,15 +23,15 @@ func (notificationPool *RecordStateNotificationPool) CaptureCurrentState() {
 }
 
 func (notificationPool *RecordStateNotificationPool) Push(user auth.User) {
-	for _, notification := range notificationPool.notifications {
-		notificationPool.notificationSender.push(notification, user)
-	}
+	//for _, notification := range notificationPool.notifications {
+	//	notificationPool.notificationSender.push(notification, user)
+	//}
 }
 
 func NewRecordStateNotificationPool(processor *Processor) *RecordStateNotificationPool {
 	return &RecordStateNotificationPool{
-		notifications:      make([]*RecordStateNotification, 0),
-		processor:          processor,
-		notificationSender: newNotificationSender(),
+		//notifications:      make([]*RecordStateNotification, 0),
+		//processor:          processor,
+		//notificationSender: newNotificationSender(),
 	}
 }
