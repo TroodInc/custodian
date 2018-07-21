@@ -48,29 +48,6 @@ type RecordUpdateTask struct {
 	ShouldReturn bool
 }
 
-type ALink struct {
-	Field *meta.FieldDescription
-	outer bool
-	Obj   map[string]interface{}
-}
-
-type DLink struct {
-	Field *meta.FieldDescription
-	outer bool
-	Id    interface{}
-}
-
-func AssertLink(i interface{}) bool {
-	switch i.(type) {
-	case DLink:
-		return true
-	case ALink:
-		return true
-	default:
-		return false
-	}
-}
-
 func (processor *Processor) getValidator(vk string, preValidator func(pt2 *Record) (*Record, bool, error)) (objectClassValidator, error) {
 	if v, ex := processor.vCache[vk]; ex {
 		return v, nil
@@ -144,32 +121,6 @@ func (processor *Processor) splitNestedRecordsByObjects(meta *meta.Meta, records
 	return recordSetsSplitByLevels, nil
 }
 
-func collapseLinks(obj map[string]interface{}) {
-	for k, v := range obj {
-		switch l := v.(type) {
-		case ALink:
-			if l.outer {
-				if l.Field.Type == meta.FieldTypeArray {
-					if a, prs := l.Obj[l.Field.Name]; !prs || a == nil {
-						l.Obj[l.Field.Name] = []interface{}{obj}
-					} else {
-						l.Obj[l.Field.Name] = append(a.([]interface{}), obj)
-					}
-				} else if l.Field.Type == meta.FieldTypeObject {
-					l.Obj[l.Field.Name] = obj
-				}
-				delete(obj, k)
-			} else {
-				obj[k] = l.Obj
-			}
-		case DLink:
-			if !l.outer {
-				obj[k] = l.Id
-			}
-		}
-	}
-}
-
 func putValidator(t *Record) (*Record, bool, error) {
 	t.Data["cas"] = 1.0
 	return t, true, nil
@@ -210,7 +161,8 @@ func (processor *Processor) Put(objectClass string, obj map[string]interface{}, 
 	//	notificationSender.complete(err)
 	//}()
 	for i, _ := range tc {
-		collapseLinks(tc[i].Data)
+		tc[i].CollapseLinks()
+		//collapseLinks(tc[i].Data)
 		//notificationSender.push(NOTIFICATION_CREATE, tc[i].Meta, tc[i].Data, user, i == 0)
 	}
 
@@ -266,11 +218,12 @@ func (processor *Processor) PutBulk(objectClass string, next func() (map[string]
 						return e
 					}
 
-					for _, recordData := range item.DataSet {
-						collapseLinks(recordData)
-
-						//notificationSender.push(NOTIFICATION_CREATE, item.Meta, recordData, user, isRoot)
-					}
+					//for _, recordData := range item.DataSet {
+					//	collapseLinks(recordData)
+					//
+					//	//notificationSender.push(NOTIFICATION_CREATE, item.Meta, recordData, user, isRoot)
+					//}
+					item.CollapseLinks()
 				}
 			}
 			for _, roots := range levelLader[0] {
@@ -580,49 +533,37 @@ func (processor *Processor) Update(objectName, key string, recordData map[string
 	records, err := processor.flatten(objectMeta, recordData, func(mn string) (objectClassValidator, error) {
 		return processor.getValidator("upd:"+mn, updateValidator)
 	})
-	// make list of RecordUpdateTasks
-	recordUpdateTasks := make([]*RecordUpdateTask, len(records))
-	for i, record := range records {
-		shouldReturn := true
-		if i > 0 {
-			shouldReturn = false
-		}
-		recordUpdateTasks[i] = &RecordUpdateTask{ShouldReturn: shouldReturn, Record: &record}
-	}
-	//perform update
-	updatedRecordsData, err := processor.updateRecords(recordUpdateTasks)
+
+	// create notification pool
+	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	defer recordSetNotificationPool.CompleteSend(err)
+
+	//start transaction
+	executeContext, err := processor.dataManager.NewExecuteContext()
 	if err != nil {
 		return nil, err
 	}
+	defer executeContext.Close()
 
-	return updatedRecordsData[0].Data, nil
-}
+	//perform update
+	var rootRecordData map[string]interface{}
+	for i, record := range records {
+		isRoot := i == 0
 
-// get list of RecordUpdateTasks, perform update and return list of records
-func (processor *Processor) updateRecords(recordUpdateTasks []*RecordUpdateTask) ([]*Record, error) {
-
-	var operations = make([]Operation, 0)
-
-	for _, recordUpdateTask := range recordUpdateTasks {
-		if operation, e := processor.dataManager.PrepareUpdates(recordUpdateTask.Record.Meta, []map[string]interface{}{recordUpdateTask.Record.Data}); e != nil {
-			return nil, e
+		if recordSet, err := processor.updateRecordSet(
+			&RecordSet{Meta: objectMeta, DataSet: []map[string]interface{}{record.Data}},
+			executeContext,
+			isRoot,
+			recordSetNotificationPool,
+		); err != nil {
+			return nil, err
 		} else {
-			operations = append(operations, operation)
+			if isRoot {
+				rootRecordData = recordSet.DataSet[0]
+			}
 		}
 	}
-	//
-	if e := processor.dataManager.Execute(operations); e != nil {
-		return nil, e
-	}
-
-	records := make([]*Record, 0)
-	for _, recordUpdateTask := range recordUpdateTasks {
-		collapseLinks(recordUpdateTask.Record.Data)
-		if recordUpdateTask.ShouldReturn {
-			records = append(records, recordUpdateTask.Record)
-		}
-	}
-	return records, nil
+	return rootRecordData, nil
 }
 
 func (processor *Processor) UpdateBulk(objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
@@ -662,7 +603,7 @@ func (processor *Processor) UpdateBulk(objectName string, next func() (map[strin
 	for i, recordsSets := range recordSetsSplitByObject {
 		isRoot := i == 0
 		for _, recordSet := range recordsSets {
-			processor.processRecordSetUpdate(recordSet, executeContext, isRoot, recordSetNotificationPool)
+			processor.updateRecordSet(recordSet, executeContext, isRoot, recordSetNotificationPool)
 		}
 	}
 
@@ -709,8 +650,8 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 	return nil
 }
 
-//process recordSet update
-func (processor *Processor) processRecordSetUpdate(recordSet *RecordSet, executeContext ExecuteContext, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) error {
+// get list of RecordUpdateTasks, perform update and return list of records
+func (processor *Processor) updateRecordSet(recordSet *RecordSet, executeContext ExecuteContext, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
 
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := notifications.NewRecordSetStateNotification(recordSet, isRoot, meta.MethodUpdate, processor.GetBulk)
@@ -719,20 +660,19 @@ func (processor *Processor) processRecordSetUpdate(recordSet *RecordSet, execute
 		recordSetNotificationPool.Add(recordSetNotification)
 	}
 
-	//process record update
-	op, err := processor.dataManager.PrepareUpdates(recordSet.Meta, recordSet.DataSet)
-	if err != nil {
-		return err
+	var operations = make([]Operation, 0)
+
+	if operation, e := processor.dataManager.PrepareUpdates(recordSet.Meta, recordSet.DataSet); e != nil {
+		return nil, e
+	} else {
+		operations = append(operations, operation)
+	}
+	//
+	if e := executeContext.Execute(operations); e != nil {
+		return nil, e
 	}
 
-	// perform update
-	if e := executeContext.Execute([]Operation{op}); e != nil {
-		return e
-	}
+	recordSet.CollapseLinks()
 
-	// some magic to perform with recordSet after previous operation execution =/
-	for _, recordData := range recordSet.DataSet {
-		collapseLinks(recordData)
-	}
-	return nil
+	return recordSet, nil
 }

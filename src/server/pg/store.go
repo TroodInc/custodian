@@ -235,9 +235,9 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 	for fieldName, rv := range dbObj {
 		if val, ok := nodes[fieldName]; ok {
 			switch val := val.(type) {
-			case data.ALink:
+			case types.ALink:
 				continue
-			case data.DLink:
+			case types.DLink:
 				val.Id = rv
 			case *types.GenericInnerLink:
 				nodes[fieldName] = map[string]string{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
@@ -274,10 +274,10 @@ func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, ex
 			values = append(values, castValue.Pk)
 			processedColumns = append(processedColumns, meta.GetGenericFieldTypeColumnName(fieldName))
 			processedColumns = append(processedColumns, meta.GetGenericFieldKeyColumnName(fieldName))
-		case data.ALink:
+		case types.ALink:
 			values = append(values, castValue.Obj[castValue.Field.Meta.Key.Name])
 			processedColumns = append(processedColumns, fieldName)
-		case data.DLink:
+		case types.DLink:
 			values = append(values, castValue.Id)
 			processedColumns = append(processedColumns, fieldName)
 		default:
@@ -296,12 +296,12 @@ func emptyOperation(ctx data.OperationContext) error {
 }
 
 func alinkVal(v interface{}) interface{} {
-	al := v.(data.ALink)
+	al := v.(types.ALink)
 	return al.Obj[al.Field.Meta.Key.Name]
 }
 
 func dlinkVal(v interface{}) interface{} {
-	return v.(data.DLink).Id
+	return v.(types.DLink).Id
 }
 
 func genericInnerLinkValue(value interface{}) interface{} {
@@ -358,12 +358,12 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, recordValues []map[
 
 		} else {
 			switch val.(type) {
-			case data.ALink:
+			case types.ALink:
 				currentColumnIndex++
 				updateFields = append(updateFields, fieldName)
 				updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))
 				vals = append(vals, alinkVal)
-			case data.DLink:
+			case types.DLink:
 				currentColumnIndex++
 				updateFields = append(updateFields, fieldName)
 				updateInfo.Values = append(updateInfo.Values, newBind(fieldName, currentColumnIndex))
