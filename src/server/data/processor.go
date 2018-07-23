@@ -487,6 +487,7 @@ func (processor *Processor) BulkUpdateRecords(objectName string, next func() (ma
 
 }
 
+//TODO: Refactor this method similarly to UpdateRecord, so notifications could be tested properly, it should affect PrepareDeletes method
 func (processor *Processor) DeleteRecord(objectName, key string, user auth.User) (isDeleted bool, err error) {
 	// get Meta
 	objectMeta, err := processor.getMeta(objectName)
@@ -571,6 +572,7 @@ func (processor *Processor) DeleteRecord(objectName, key string, user auth.User)
 	}
 }
 
+//TODO: Refactor this method similarly to BulkUpdateRecords, so notifications could be tested properly, it should affect PrepareDeletes method
 func (processor *Processor) BulkDeleteRecords(objectName string, next func() (map[string]interface{}, error), user auth.User) (err error) {
 	// get Meta
 	objectMeta, err := processor.getMeta(objectName)
