@@ -599,7 +599,7 @@ var _ = Describe("Data", func() {
 				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{})
 				Expect(err).To(BeNil())
 				Context("is being deleted", func() {
-					isDeleted, err := dataProcessor.Delete(metaDescription.Name, strconv.Itoa(int(record["from"].(float64))), auth.User{})
+					isDeleted, err := dataProcessor.DeleteRecord(metaDescription.Name, strconv.Itoa(int(record["from"].(float64))), auth.User{})
 					Expect(err).To(BeNil())
 					Expect(isDeleted).To(BeTrue())
 				})

@@ -229,154 +229,21 @@ func (dn *DNode) fillOuterChildNodes() {
 	}
 }
 
+func (dn *DNode) recursivelyFillOuterChildNodes() {
+	dn.fillOuterChildNodes()
+	for v := []map[string]*DNode{dn.ChildNodes}; len(v) > 0; v = v[1:] {
+		for _, n := range v[0] {
+			n.fillOuterChildNodes()
+			if len(n.ChildNodes) > 0 {
+				v = append(v, n.ChildNodes)
+			}
+		}
+	}
+}
+
 type tuple2d struct {
 	n    *DNode
 	keys []interface{}
-}
-
-func (processor *Processor) Delete(objectClass, key string, user auth.User) (isDeleted bool, err error) {
-	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
-		return false, e
-	} else if !ok {
-		return false, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
-	} else {
-		if pk, e := m.Key.ValueFromString(key); e != nil {
-			return false, e
-		} else {
-			root := &DNode{KeyField: m.Key, Meta: m, ChildNodes: make(map[string]*DNode), Plural: false}
-			root.fillOuterChildNodes()
-			for v := []map[string]*DNode{root.ChildNodes}; len(v) > 0; v = v[1:] {
-				for _, n := range v[0] {
-					n.fillOuterChildNodes()
-					if len(n.ChildNodes) > 0 {
-						v = append(v, n.ChildNodes)
-					}
-				}
-			}
-			//process notifications
-			//notificationSender := newNotificationSender()
-			//defer func() {
-			//	notificationSender.complete(err)
-			//}()
-			if op, keys, e := processor.dataManager.PrepareDeletes(root, []interface{}{pk}); e != nil {
-				return false, e
-			} else {
-				//process root records notificationSender
-				//notificationSender.push(NOTIFICATION_DELETE, root.Meta, map[string]interface{}{root.KeyField.Name: pk}, user, true)
-
-				ops := []Operation{op}
-				for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
-					for _, v := range t2d[0].n.ChildNodes {
-						if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
-							return false, e
-						} else {
-							ops = append(ops, op)
-							t2d = append(t2d, tuple2d{v, keys})
-
-							//process affected records notifications
-							//for _, primaryKeyValue := range t2d[0].keys {
-							//	//notificationSender.push(NOTIFICATION_DELETE, v.Meta, map[string]interface{}{v.KeyField.Name: primaryKeyValue}, user, false)
-							//}
-
-						}
-					}
-				}
-				for i := 0; i < len(ops)>>2; i++ {
-					ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
-				}
-				if e := processor.dataManager.Execute(ops); e != nil {
-					return false, e
-				} else {
-					return true, nil
-				}
-			}
-
-		}
-	}
-}
-
-func (processor *Processor) DeleteBulk(objectClass string, next func() (map[string]interface{}, error), user auth.User) (err error) {
-	if m, ok, e := processor.metaStore.Get(objectClass, true); e != nil {
-		return e
-	} else if !ok {
-		return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
-	} else {
-		ts := m.Key.Type.TypeAsserter()
-
-		root := &DNode{KeyField: m.Key, Meta: m, ChildNodes: make(map[string]*DNode), Plural: false}
-		root.fillOuterChildNodes()
-		for v := []map[string]*DNode{root.ChildNodes}; len(v) > 0; v = v[1:] {
-			for _, n := range v[0] {
-				n.fillOuterChildNodes()
-				if len(n.ChildNodes) > 0 {
-					v = append(v, n.ChildNodes)
-				}
-			}
-		}
-
-		exCtx, e := processor.dataManager.NewExecuteContext()
-		if e != nil {
-			return e
-		}
-		defer exCtx.Close()
-		var buf = make([]interface{}, 0, 100)
-		//notificationSender := newNotificationSender()
-		//defer func() {
-		//	notificationSender.complete(err)
-		//}()
-		for {
-			for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
-				if e != nil {
-					return e
-				}
-				k, ok := o[m.Key.Name]
-				if !ok || !ts(k) {
-					return errors.NewDataError(objectClass, errors.ErrKeyValueNotFound, "Key value not found or has a wrong type", objectClass)
-				}
-				buf = append(buf, k)
-			}
-
-			if len(buf) > 0 {
-				if op, keys, e := processor.dataManager.PrepareDeletes(root, buf); e != nil {
-					return e
-				} else {
-					ops := []Operation{op}
-					for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
-						for _, v := range t2d[0].n.ChildNodes {
-							if len(t2d[0].keys) > 0 {
-								if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
-									return e
-								} else {
-									//for _, primaryKeyValue := range t2d[0].keys {
-									//	notificationSender.push(NOTIFICATION_DELETE, v.Meta, map[string]interface{}{v.KeyField.Name: primaryKeyValue}, user, false)
-									//}
-
-									ops = append(ops, op)
-									t2d = append(t2d, tuple2d{v, keys})
-								}
-							}
-						}
-					}
-					for i := 0; i < len(ops)>>2; i++ {
-						ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
-					}
-					if e := processor.dataManager.Execute(ops); e != nil {
-						return e
-					}
-				}
-			}
-
-			if len(buf) < 100 {
-				if e := exCtx.Complete(); e != nil {
-					return e
-				} else {
-					return nil
-				}
-			} else {
-				buf = buf[:0]
-			}
-		}
-	}
 }
 
 func updateValidator(t *Record) (*Record, bool, error) {
@@ -406,7 +273,7 @@ func (processor *Processor) CreateRecord(objectClass string, obj map[string]inte
 
 	// create notification pool
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
-	defer recordSetNotificationPool.CompleteSend(err)
+	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//start transaction
 	executeContext, err := processor.dataManager.NewExecuteContext()
@@ -463,7 +330,7 @@ func (processor *Processor) BulkCreateRecords(objectClass string, next func() (m
 
 	// create notification pool
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
-	defer recordSetNotificationPool.CompleteSend(err)
+	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//start transaction
 	executeContext, e := processor.dataManager.NewExecuteContext()
@@ -473,7 +340,7 @@ func (processor *Processor) BulkCreateRecords(objectClass string, next func() (m
 	defer executeContext.Close()
 
 	// collect records` data to update
-	recordDataSet, err := processor.consumeRecordDataSet(next)
+	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, false)
 	if err != nil {
 		return err
 	}
@@ -536,7 +403,7 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 
 	// create notification pool
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
-	defer recordSetNotificationPool.CompleteSend(err)
+	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//start transaction
 	executeContext, err := processor.dataManager.NewExecuteContext()
@@ -572,12 +439,9 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 }
 
 func (processor *Processor) BulkUpdateRecords(objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
-	//get meta
-	objectMeta, ok, err := processor.metaStore.Get(objectName, true)
-	if err != nil || !ok {
-		if !ok {
-			return errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object '%s' not found", objectName)
-		}
+	// get Meta
+	objectMeta, err := processor.getMeta(objectName)
+	if err != nil {
 		return err
 	}
 
@@ -590,10 +454,10 @@ func (processor *Processor) BulkUpdateRecords(objectName string, next func() (ma
 
 	// create notification pool
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
-	defer recordSetNotificationPool.CompleteSend(err)
+	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
-	recordDataSet, err := processor.consumeRecordDataSet(next)
+	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, true)
 	if err != nil {
 		return err
 	}
@@ -630,14 +494,182 @@ func (processor *Processor) BulkUpdateRecords(objectName string, next func() (ma
 
 }
 
+func (processor *Processor) DeleteRecord(objectName, key string, user auth.User) (isDeleted bool, err error) {
+	// get Meta
+	objectMeta, err := processor.getMeta(objectName)
+	if err != nil {
+		return false, err
+	}
+
+	//get pk
+	var pk interface{}
+	pk, err = objectMeta.Key.ValueFromString(key)
+	if err != nil {
+		return false, err
+	}
+
+	//fill node
+	root := &DNode{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*DNode), Plural: false}
+	root.recursivelyFillOuterChildNodes()
+
+	// create notification pool
+	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	defer func() { recordSetNotificationPool.CompleteSend(err) }()
+
+	//start transaction
+	var executeContext ExecuteContext
+	executeContext, err = processor.dataManager.NewExecuteContext()
+	if err != nil {
+		return false, err
+	}
+	defer executeContext.Close()
+
+	//prepare operation
+	var op Operation
+	var keys []interface{}
+	op, keys, err = processor.dataManager.PrepareDeletes(root, []interface{}{pk})
+	if err != nil {
+		return false, err
+	}
+	//process root records notificationSender
+
+	// create notification, capture current recordData state and Add notification to notification pool
+	recordSetNotification := notifications.NewRecordSetStateNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: pk}}}, true, meta.MethodRemove, processor.GetBulk)
+	if recordSetNotification.ShouldBeProcessed() {
+		recordSetNotification.CapturePreviousState()
+		recordSetNotificationPool.Add(recordSetNotification)
+	}
+
+	ops := []Operation{op}
+	for t2d := []tuple2d{{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
+		for _, v := range t2d[0].n.ChildNodes {
+			if op, keys, err = processor.dataManager.PrepareDeletes(v, t2d[0].keys); err != nil {
+				return false, err
+			} else {
+				ops = append(ops, op)
+				t2d = append(t2d, tuple2d{v, keys})
+
+				//process affected records notifications
+				for _, primaryKeyValue := range t2d[0].keys {
+
+					// create notification, capture current recordData state and Add notification to notification pool
+					recordSetNotification := notifications.NewRecordSetStateNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: primaryKeyValue}}}, false, meta.MethodRemove, processor.GetBulk)
+					if recordSetNotification.ShouldBeProcessed() {
+						recordSetNotification.CapturePreviousState()
+						recordSetNotificationPool.Add(recordSetNotification)
+					}
+				}
+			}
+		}
+	}
+	for i := 0; i < len(ops)>>2; i++ {
+		ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
+	}
+	err = executeContext.Execute(ops)
+	if err != nil {
+		return false, err
+	}
+
+	//commit transaction
+	if err = executeContext.Complete(); err != nil {
+		return false, err
+	} else {
+		return true, nil
+	}
+}
+
+func (processor *Processor) BulkDeleteRecords(objectName string, next func() (map[string]interface{}, error), user auth.User) (err error) {
+	// get Meta
+	objectMeta, err := processor.getMeta(objectName)
+	if err != nil {
+		return err
+	}
+
+	//prepare node
+	root := &DNode{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*DNode), Plural: false}
+	root.recursivelyFillOuterChildNodes()
+
+	//start transaction
+	exCtx, e := processor.dataManager.NewExecuteContext()
+	if e != nil {
+		return e
+	}
+	defer exCtx.Close()
+
+	// create notification pool
+	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	defer func() { recordSetNotificationPool.CompleteSend(err) }()
+
+	// collect records` data to update
+	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, true)
+	if err != nil {
+		return err
+	}
+	keys := make([]interface{}, 0)
+	for _, recordData := range recordDataSet {
+		keys = append(keys, recordData[objectMeta.Key.Name])
+	}
+
+	if op, keys, e := processor.dataManager.PrepareDeletes(root, keys); e != nil {
+		return e
+	} else {
+
+		ops := []Operation{op}
+		for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
+
+			for _, v := range t2d[0].n.ChildNodes {
+				if len(t2d[0].keys) > 0 {
+					if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
+						return e
+					} else {
+						for _, primaryKeyValue := range t2d[0].keys {
+
+							// create notification, capture current recordData state and Add notification to notification pool
+							recordSetNotification := notifications.NewRecordSetStateNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{v.KeyField.Name: primaryKeyValue}}}, false, meta.MethodRemove, processor.GetBulk)
+							if recordSetNotification.ShouldBeProcessed() {
+								recordSetNotification.CapturePreviousState()
+								recordSetNotificationPool.Add(recordSetNotification)
+							}
+
+						}
+
+						ops = append(ops, op)
+						t2d = append(t2d, tuple2d{v, keys})
+					}
+				}
+			}
+		}
+		for i := 0; i < len(ops)>>2; i++ {
+			ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
+		}
+		if e := processor.dataManager.Execute(ops); e != nil {
+			return e
+		}
+	}
+
+	if e := exCtx.Complete(); e != nil {
+		return e
+	} else {
+		return nil
+	}
+
+}
+
 //consume all records from callback function
-func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string]interface{}, error)) ([]map[string]interface{}, error) {
+func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string]interface{}, error), objectMeta *meta.Meta, strictPkCheck bool) ([]map[string]interface{}, error) {
 	var recordDataSet = make([]map[string]interface{}, 0)
-	// collect records to update
+	// collect records
 	for recordData, err := nextCallback(); err != nil || (recordData != nil); recordData, err = nextCallback() {
 		if err != nil {
 			return nil, err
 		}
+		if strictPkCheck {
+			keyValue, ok := recordData[objectMeta.Key.Name]
+			if !ok || !objectMeta.Key.Type.TypeAsserter()(keyValue) {
+				return nil, errors.NewDataError(objectMeta.Name, errors.ErrKeyValueNotFound, "Key value not found or has a wrong type", objectMeta.Name)
+			}
+		}
+
 		recordDataSet = append(recordDataSet, recordData)
 	}
 	return recordDataSet, nil

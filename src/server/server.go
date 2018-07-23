@@ -289,7 +289,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		if ok, e := dataProcessor.Delete(p.ByName("name"), p.ByName("key"), user); e != nil {
+		if ok, e := dataProcessor.DeleteRecord(p.ByName("name"), p.ByName("key"), user); e != nil {
 			sink.pushError(e)
 		} else {
 			if ok {
@@ -303,7 +303,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
-		e := dataProcessor.DeleteBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		e := dataProcessor.BulkDeleteRecords(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
