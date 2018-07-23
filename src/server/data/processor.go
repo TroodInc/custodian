@@ -353,7 +353,6 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 				return err
 			}
 		}
-
 	}
 
 	// feed created data to the sink
@@ -422,6 +421,13 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 				rootRecordData = recordSet.DataSet[0]
 			}
 		}
+	}
+
+	// push notifications if needed
+	if recordSetNotificationPool.ShouldBeProcessed() {
+		//capture updated state of all records in the pool
+		recordSetNotificationPool.CaptureCurrentState()
+		recordSetNotificationPool.Push(user)
 	}
 
 	if err = executeContext.Complete(); err != nil {
@@ -564,6 +570,13 @@ func (processor *Processor) DeleteRecord(objectName, key string, user auth.User)
 		return false, err
 	}
 
+	// push notifications if needed
+	if recordSetNotificationPool.ShouldBeProcessed() {
+		//capture updated state of all records in the pool
+		recordSetNotificationPool.CaptureCurrentState()
+		recordSetNotificationPool.Push(user)
+	}
+
 	//commit transaction
 	if err = executeContext.Complete(); err != nil {
 		return false, err
@@ -585,9 +598,10 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 	root.recursivelyFillOuterChildNodes()
 
 	//start transaction
-	exCtx, e := processor.dataManager.NewExecuteContext()
-	if e != nil {
-		return e
+	var exCtx ExecuteContext
+	exCtx, err = processor.dataManager.NewExecuteContext()
+	if err != nil {
+		return err
 	}
 	defer exCtx.Close()
 
@@ -605,17 +619,17 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 		keys = append(keys, recordData[objectMeta.Key.Name])
 	}
 
-	if op, keys, e := processor.dataManager.PrepareDeletes(root, keys); e != nil {
-		return e
+	var op Operation
+	if op, keys, err = processor.dataManager.PrepareDeletes(root, keys); err != nil {
+		return err
 	} else {
-
 		ops := []Operation{op}
 		for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 
 			for _, v := range t2d[0].n.ChildNodes {
 				if len(t2d[0].keys) > 0 {
-					if op, keys, e := processor.dataManager.PrepareDeletes(v, t2d[0].keys); e != nil {
-						return e
+					if op, keys, err = processor.dataManager.PrepareDeletes(v, t2d[0].keys); err != nil {
+						return err
 					} else {
 						for _, primaryKeyValue := range t2d[0].keys {
 
@@ -637,13 +651,20 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 		for i := 0; i < len(ops)>>2; i++ {
 			ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
 		}
-		if e := processor.dataManager.Execute(ops); e != nil {
-			return e
+		if err = processor.dataManager.Execute(ops); err != nil {
+			return err
 		}
 	}
 
-	if e := exCtx.Complete(); e != nil {
-		return e
+	// push notifications if needed
+	if recordSetNotificationPool.ShouldBeProcessed() {
+		//capture updated state of all records in the pool
+		recordSetNotificationPool.CaptureCurrentState()
+		recordSetNotificationPool.Push(user)
+	}
+
+	if err = exCtx.Complete(); err != nil {
+		return err
 	} else {
 		return nil
 	}

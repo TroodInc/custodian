@@ -12,3 +12,12 @@ func (recordSet *RecordSet) CollapseLinks() {
 		collapseLinks(recordData)
 	}
 }
+
+func (recordSet *RecordSet) GetRecordData(id interface{}) map[string]interface{} {
+	for _, recordData := range recordSet.DataSet {
+		if recordData[recordSet.Meta.Key.Name] == id {
+			return recordData
+		}
+	}
+	return nil
+}

@@ -14,25 +14,21 @@ func newNotificationSender() *notificationSender {
 	return &notificationSender{notificationChannels: make(map[string]chan *noti.Event)}
 }
 
-func (notificationSender *notificationSender) push(recordStateNotification *RecordSetNotification, user auth.User) {
-	notificationChannel := notificationSender.getNotificationChannel(recordStateNotification.meta, recordStateNotification.method)
-	for i := range recordStateNotification.previousState.DataSet {
-		notificationData := make(map[string]interface{})
-		notificationData["action"] = recordStateNotification.method.AsString()
-		notificationData["object"] = recordStateNotification.meta.Name
-		notificationData["previous"] = recordStateNotification.previousState.DataSet[i]
-		notificationData["current"] = recordStateNotification.currentState.DataSet[i]
-		notificationData["user"] = user
-
-		notificationChannel <- noti.NewObjectEvent(notificationData, recordStateNotification.isRoot)
+func (notificationSender *notificationSender) push(recordSetNotification *RecordSetNotification, user auth.User) {
+	for actionIndex, action := range recordSetNotification.recordSet.Meta.Actions.Original {
+		notificationChannel := notificationSender.getNotificationChannel(recordSetNotification.recordSet.Meta, recordSetNotification.method, &action)
+		for _, notificationObject := range recordSetNotification.BuildNotificationsData(actionIndex, user) {
+			notificationChannel <- noti.NewObjectEvent(notificationObject, recordSetNotification.isRoot)
+		}
 	}
 }
 
-func (notificationSender *notificationSender) getNotificationChannel(meta *meta.Meta, method meta.Method) chan *noti.Event {
-	notificationChannel, ok := notificationSender.notificationChannels[meta.Name]
+func (notificationSender *notificationSender) getNotificationChannel(meta *meta.Meta, method meta.Method, action *meta.Action) chan *noti.Event {
+	key := meta.Name + method.AsString()
+	notificationChannel, ok := notificationSender.notificationChannels[key]
 	if !ok {
-		notificationChannel = meta.Actions.StartNotification(method)
-		notificationSender.notificationChannels[meta.Name] = notificationChannel
+		notificationChannel = meta.Actions.NewNotificationChannel(method, action)
+		notificationSender.notificationChannels[key] = notificationChannel
 	}
 	return notificationChannel
 }

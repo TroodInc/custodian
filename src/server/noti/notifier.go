@@ -32,8 +32,8 @@ type Event struct {
 	err    error
 }
 
-func NewObjectEvent(obj map[string]interface{}, isRoot bool) *Event {
-	return &Event{obj: obj, isRoot: isRoot}
+func NewObjectEvent(notificationObject map[string]interface{}, isRoot bool) *Event {
+	return &Event{obj: notificationObject, isRoot: isRoot}
 }
 
 func NewErrorEvent(err error) *Event {
@@ -46,25 +46,19 @@ type Notifier interface {
 
 type Factory func(args []string, activeIfNotRoot bool) (Notifier, error)
 
-func fan_out(in chan *Event, outs []chan *Event) {
+func fan_out(in chan *Event, out chan *Event) {
 	defer func() {
-		for i, _ := range outs {
-			close(outs[i])
-		}
+		close(out)
 	}()
 	for obj := range in {
-		for i, _ := range outs {
-			outs[i] <- obj
-		}
+		out <- obj
 	}
 }
 
-func Broadcast(notifiers []Notifier) chan *Event {
+func Broadcast(notifier Notifier) chan *Event {
 	in := make(chan *Event, 100)
-	outs := make([]chan *Event, 0, len(notifiers))
-	for i, _ := range notifiers {
-		outs = append(outs, notifiers[i].NewNotification())
-	}
-	go fan_out(in, outs)
+	out := make(chan *Event, 0)
+	out = notifier.NewNotification()
+	go fan_out(in, out)
 	return in
 }

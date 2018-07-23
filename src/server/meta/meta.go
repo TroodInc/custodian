@@ -213,7 +213,7 @@ type MetaDescription struct {
 	Name    string   `json:"name"`
 	Key     string   `json:"key"`
 	Fields  []Field  `json:"fields"`
-	Actions []action `json:"actions,omitempty"`
+	Actions []Action `json:"actions,omitempty"`
 	Cas     bool     `json:"cas"`
 }
 

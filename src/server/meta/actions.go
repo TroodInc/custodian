@@ -1,14 +1,18 @@
 package meta
 
-import "server/noti"
+import (
+	"server/noti"
+	"encoding/json"
+	"crypto/md5"
+)
 
 type actions struct {
-	Original  []action
-	Notifiers map[Method][]noti.Notifier
+	Original  []Action
+	Notifiers map[Method]map[string]noti.Notifier
 }
 
-func newActions(array []action) (*actions, error) {
-	notifiers := make(map[Method][]noti.Notifier)
+func newActions(array []Action) (*actions, error) {
+	notifiers := make(map[Method]map[string]noti.Notifier, 0)
 	for i, _ := range array {
 		factory, ok := notifierFactories[array[i].Protocol]
 		if !ok {
@@ -20,21 +24,30 @@ func newActions(array []action) (*actions, error) {
 		if err != nil {
 			return nil, err
 		}
-		m := array[i].Method
-		notifiers[m] = append(notifiers[m], notifier)
+		if _, ok := notifiers[array[i].Method]; !ok {
+			notifiers[array[i].Method] = make(map[string]noti.Notifier, 0)
+		}
+		notifiers[array[i].Method][array[i].GetUid()] = notifier
 	}
 	return &actions{Original: array, Notifiers: notifiers}, nil
 }
 
-func (a *actions) StartNotification(method Method) chan *noti.Event {
-	return noti.Broadcast(a.Notifiers[method])
+func (a *actions) NewNotificationChannel(method Method, action *Action) chan *noti.Event {
+	return noti.Broadcast(a.Notifiers[method][action.GetUid()])
 }
 
-
-type action struct {
+type Action struct {
 	Method          Method            `json:"method"`
 	Protocol        Protocol          `json:"protocol"`
 	Args            []string          `json:"args,omitempty"`
 	ActiveIfNotRoot bool              `json:"activeIfNotRoot"`
 	IncludeValues   map[string]string `json:"includeValues"`
+}
+
+func (action *Action) GetUid() string {
+	arrBytes := []byte{}
+	jsonBytes, _ := json.Marshal(action)
+	arrBytes = append(arrBytes, jsonBytes...)
+	bytesResult := md5.Sum(arrBytes)
+	return string(bytesResult[:])
 }
