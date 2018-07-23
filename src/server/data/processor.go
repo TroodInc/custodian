@@ -261,14 +261,11 @@ func (processor *Processor) getMeta(objectName string) (*meta.Meta, error) {
 	return objectMeta, nil
 }
 
-func (processor *Processor) CreateRecord(objectClass string, obj map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
-	objectMeta, ok, e := processor.metaStore.Get(objectClass, true)
-	if e != nil || !ok {
-		if e != nil {
-			return nil, e
-		} else {
-			return nil, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
-		}
+func (processor *Processor) CreateRecord(objectName string, obj map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
+	// get Meta
+	objectMeta, err := processor.getMeta(objectName)
+	if err != nil {
+		return nil, err
 	}
 
 	// create notification pool
@@ -317,15 +314,11 @@ func (processor *Processor) CreateRecord(objectClass string, obj map[string]inte
 	}
 }
 
-func (processor *Processor) BulkCreateRecords(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
-	//get meta
-	objectMeta, ok, e := processor.metaStore.Get(objectClass, true)
-	if e != nil || !ok {
-		if e != nil {
-			return e
-		} else {
-			return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
-		}
+func (processor *Processor) BulkCreateRecords(objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
+	// get Meta
+	objectMeta, err := processor.getMeta(objectName)
+	if err != nil {
+		return err
 	}
 
 	// create notification pool
@@ -525,9 +518,9 @@ func (processor *Processor) DeleteRecord(objectName, key string, user auth.User)
 	defer executeContext.Close()
 
 	//prepare operation
-	var op Operation
+	var operation Operation
 	var keys []interface{}
-	op, keys, err = processor.dataManager.PrepareDeletes(root, []interface{}{pk})
+	operation, keys, err = processor.dataManager.PrepareDeletes(root, []interface{}{pk})
 	if err != nil {
 		return false, err
 	}
@@ -540,14 +533,14 @@ func (processor *Processor) DeleteRecord(objectName, key string, user auth.User)
 		recordSetNotificationPool.Add(recordSetNotification)
 	}
 
-	ops := []Operation{op}
+	operations := []Operation{operation}
 	for t2d := []tuple2d{{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
-		for _, v := range t2d[0].n.ChildNodes {
-			if op, keys, err = processor.dataManager.PrepareDeletes(v, t2d[0].keys); err != nil {
+		for _, childNode := range t2d[0].n.ChildNodes {
+			if operation, keys, err = processor.dataManager.PrepareDeletes(childNode, t2d[0].keys); err != nil {
 				return false, err
 			} else {
-				ops = append(ops, op)
-				t2d = append(t2d, tuple2d{v, keys})
+				operations = append(operations, operation)
+				t2d = append(t2d, tuple2d{childNode, keys})
 
 				//process affected records notifications
 				for _, primaryKeyValue := range t2d[0].keys {
@@ -562,10 +555,10 @@ func (processor *Processor) DeleteRecord(objectName, key string, user auth.User)
 			}
 		}
 	}
-	for i := 0; i < len(ops)>>2; i++ {
-		ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
+	for i := 0; i < len(operations)>>2; i++ {
+		operations[i], operations[len(operations)-1] = operations[len(operations)-1], operations[i]
 	}
-	err = executeContext.Execute(ops)
+	err = executeContext.Execute(operations)
 	if err != nil {
 		return false, err
 	}
@@ -687,7 +680,7 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 	return nil
 }
 
-// get list of RecordUpdateTasks, perform update and return list of records
+// perform update and return list of records
 func (processor *Processor) updateRecordSet(recordSet *RecordSet, executeContext ExecuteContext, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
 
 	// create notification, capture current recordData state and Add notification to notification pool
@@ -714,7 +707,7 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, executeContext
 	return recordSet, nil
 }
 
-// get list of RecordUpdateTasks, perform create and return list of records
+// perform create and return list of records
 func (processor *Processor) createRecordSet(recordSet *RecordSet, executeContext ExecuteContext, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
 
 	// create notification, capture current recordData state and Add notification to notification pool
