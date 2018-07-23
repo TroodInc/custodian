@@ -57,11 +57,15 @@ func (notification *RecordSetNotification) CaptureCurrentState() {
 }
 
 func (notification *RecordSetNotification) captureState(state *record.RecordSet) {
-	recordsSink := func(recordData map[string]interface{}) error {
-		state.DataSet = append(state.DataSet, recordData)
-		return nil
+	if notification.method == meta.MethodUpdate || notification.method == meta.MethodRemove {
+		recordsSink := func(recordData map[string]interface{}) error {
+			state.DataSet = append(state.DataSet, recordData)
+			return nil
+		}
+		notification.getRecords(notification.meta.Name, notification.recordsFilter, 1, recordsSink)
+	} else {
+		state.DataSet = nil
 	}
-	notification.getRecords(notification.meta.Name, notification.recordsFilter, 1, recordsSink)
 }
 
 func (notification *RecordSetNotification) ShouldBeProcessed() bool {

@@ -79,11 +79,11 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("having a record of object A")
-		aRecord, err := dataProcessor.Put(aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
 		By("and having a record of object B containing generic field value with A object`s record")
-		bRecord, err := dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{})
 		Expect(err).To(BeNil())
 		Expect(bRecord["id"]).To(Equal(float64(1)))
 		targetValue := bRecord["target"].(map[string]string)
@@ -163,19 +163,19 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("having a record of object A")
-		aRecord, err := dataProcessor.Put(aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
 		By("and having a record of object B containing generic field value with A object`s record")
-		bRecord, err := dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{})
 		Expect(err).To(BeNil())
 
 		By("this record is updated with record of object C")
 
-		cRecord, err := dataProcessor.Put(cMetaObj.Name, map[string]interface{}{}, auth.User{})
+		cRecord, err := dataProcessor.CreateRecord(cMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err = dataProcessor.Update(bMetaObj.Name, strconv.Itoa(int(bRecord["id"].(float64))), map[string]interface{}{"target": map[string]interface{}{"_object": cMetaObj.Name, "id": cRecord["id"]}}, auth.User{})
+		bRecord, err = dataProcessor.UpdateRecord(bMetaObj.Name, strconv.Itoa(int(bRecord["id"].(float64))), map[string]interface{}{"target": map[string]interface{}{"_object": cMetaObj.Name, "id": cRecord["id"]}}, auth.User{})
 		Expect(err).To(BeNil())
 		Expect(bRecord["id"]).To(Equal(float64(1)))
 		targetValue := bRecord["target"].(map[string]string)
@@ -250,12 +250,12 @@ var _ = Describe("Data", func() {
 		}
 
 		havingARecordOfObjectA := func() {
-			aRecord, err = dataProcessor.Put("a", map[string]interface{}{"name": "A record"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord("a", map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectB := func() {
-			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -296,7 +296,7 @@ var _ = Describe("Data", func() {
 			Describe("And having object B", havingObjectBWithGenericLinkToA)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 
-			bRecord, err = dataProcessor.Put("b", map[string]interface{}{}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
 			bRecord, err = dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 3)
@@ -372,12 +372,12 @@ var _ = Describe("Data", func() {
 		}
 
 		havingARecordOfObjectA := func() {
-			aRecord, err = dataProcessor.Put("a", map[string]interface{}{"name": "A record"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord("a", map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.Put("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 

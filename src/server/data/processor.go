@@ -6,7 +6,6 @@ import (
 	"strings"
 	"server/auth"
 	"server/data/errors"
-	"fmt"
 	. "server/data/record"
 	"server/data/notifications"
 )
@@ -124,127 +123,6 @@ func (processor *Processor) splitNestedRecordsByObjects(meta *meta.Meta, records
 func putValidator(t *Record) (*Record, bool, error) {
 	t.Data["cas"] = 1.0
 	return t, true, nil
-}
-
-func (processor *Processor) Put(objectClass string, obj map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
-	m, ok, e := processor.metaStore.Get(objectClass, true)
-	if e != nil {
-		return nil, e
-	}
-	if !ok {
-		return nil, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
-	}
-
-	tc, e := processor.flatten(m, obj, func(mn string) (objectClassValidator, error) {
-		return processor.getValidator("put:"+mn, putValidator)
-	})
-	if e != nil {
-		return nil, e
-	}
-
-	var ops = make([]Operation, 0)
-	for _, t := range tc {
-		if op, e := processor.dataManager.PreparePuts(t.Meta, []map[string]interface{}{t.Data}); e != nil {
-			return nil, e
-		} else {
-			ops = append(ops, op)
-		}
-	}
-
-	if e := processor.dataManager.Execute(ops); e != nil {
-		return nil, e
-	}
-
-	//process notifications
-	//notificationSender := newNotificationSender()
-	//defer func() {
-	//	notificationSender.complete(err)
-	//}()
-	for i, _ := range tc {
-		tc[i].CollapseLinks()
-		//collapseLinks(tc[i].Data)
-		//notificationSender.push(NOTIFICATION_CREATE, tc[i].Meta, tc[i].Data, user, i == 0)
-	}
-
-	return obj, nil
-}
-
-func (processor *Processor) PutBulk(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (response error) {
-	m, ok, e := processor.metaStore.Get(objectClass, true)
-	if e != nil {
-		return e
-	}
-	if !ok {
-		return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
-	}
-
-	exCtx, e := processor.dataManager.NewExecuteContext()
-	if e != nil {
-		return e
-	}
-	defer exCtx.Close()
-
-	var buf = make([]map[string]interface{}, 0, 100)
-	//notificationSender := newNotificationSender()
-	//defer func() {
-	//	notificationSender.complete(response)
-	//}()
-	for {
-		for o, e := next(); e != nil || (o != nil && len(buf) < 100); o, e = next() {
-			if e != nil {
-				return e
-			}
-			buf = append(buf, o)
-		}
-
-		if len(buf) > 0 {
-			levelLader, e := processor.splitNestedRecordsByObjects(m, buf, func(mn string) (objectClassValidator, error) {
-				return processor.getValidator("put:"+mn, putValidator)
-			})
-			if e != nil {
-				return e
-			}
-
-			for levelIdx, level := range levelLader {
-				isRoot := levelIdx == 0
-				fmt.Println(isRoot)
-				for _, item := range level {
-					op, e := processor.dataManager.PreparePuts(item.Meta, item.DataSet)
-					if e != nil {
-						return e
-					}
-
-					if e := exCtx.Execute([]Operation{op}); e != nil {
-						return e
-					}
-
-					//for _, recordData := range item.DataSet {
-					//	collapseLinks(recordData)
-					//
-					//	//notificationSender.push(NOTIFICATION_CREATE, item.Meta, recordData, user, isRoot)
-					//}
-					item.CollapseLinks()
-				}
-			}
-			for _, roots := range levelLader[0] {
-				for _, root := range roots.DataSet {
-					if e := sink(root); e != nil {
-						return e
-					}
-				}
-			}
-		}
-
-		if len(buf) < 100 {
-			if e := exCtx.Complete(); e != nil {
-				return e
-			} else {
-				return nil
-			}
-		} else {
-			buf = buf[:0]
-		}
-	}
 }
 
 type SearchContext struct {
@@ -516,7 +394,129 @@ func (processor *Processor) getMeta(objectName string) (*meta.Meta, error) {
 	return objectMeta, nil
 }
 
-func (processor *Processor) Update(objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecordData map[string]interface{}, err error) {
+func (processor *Processor) CreateRecord(objectClass string, obj map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
+	objectMeta, ok, e := processor.metaStore.Get(objectClass, true)
+	if e != nil || !ok {
+		if e != nil {
+			return nil, e
+		} else {
+			return nil, errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		}
+	}
+
+	// create notification pool
+	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	defer recordSetNotificationPool.CompleteSend(err)
+
+	//start transaction
+	executeContext, err := processor.dataManager.NewExecuteContext()
+	if err != nil {
+		return nil, err
+	}
+	defer executeContext.Close()
+
+	// assemble records
+	records, e := processor.flatten(objectMeta, obj, func(mn string) (objectClassValidator, error) {
+		return processor.getValidator("put:"+mn, putValidator)
+	})
+	if e != nil {
+		return nil, e
+	}
+
+	// create records
+	for i, record := range records {
+		if _, err := processor.createRecordSet(
+			&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
+			executeContext,
+			i == 0,
+			recordSetNotificationPool,
+		); err != nil {
+			return nil, err
+		}
+	}
+
+	// push notifications if needed
+	if recordSetNotificationPool.ShouldBeProcessed() {
+		//capture updated state of all records in the pool
+		recordSetNotificationPool.CaptureCurrentState()
+		recordSetNotificationPool.Push(user)
+	}
+
+	//commit transaction
+	if err = executeContext.Complete(); err != nil {
+		return nil, err
+	} else {
+		return obj, nil
+	}
+}
+
+func (processor *Processor) BulkCreateRecords(objectClass string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
+	//get meta
+	objectMeta, ok, e := processor.metaStore.Get(objectClass, true)
+	if e != nil || !ok {
+		if e != nil {
+			return e
+		} else {
+			return errors.NewDataError(objectClass, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectClass)
+		}
+	}
+
+	// create notification pool
+	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	defer recordSetNotificationPool.CompleteSend(err)
+
+	//start transaction
+	executeContext, e := processor.dataManager.NewExecuteContext()
+	if e != nil {
+		return e
+	}
+	defer executeContext.Close()
+
+	// collect records` data to update
+	recordDataSet, err := processor.consumeRecordDataSet(next)
+	if err != nil {
+		return err
+	}
+
+	//assemble RecordSets
+	recordSetsSplitByObject, e := processor.splitNestedRecordsByObjects(objectMeta, recordDataSet, func(mn string) (objectClassValidator, error) {
+		return processor.getValidator("put:"+mn, putValidator)
+	})
+	if e != nil {
+		return e
+	}
+
+	for i, recordSets := range recordSetsSplitByObject {
+		isRoot := i == 0
+		for _, recordSet := range recordSets {
+			if _, err := processor.createRecordSet(recordSet, executeContext, isRoot, recordSetNotificationPool); err != nil {
+				return err
+			}
+		}
+
+	}
+
+	// feed created data to the sink
+	if err = processor.feedRecordSets(recordSetsSplitByObject[0], sink); err != nil {
+		return err
+	}
+
+	// push notifications if needed
+	if recordSetNotificationPool.ShouldBeProcessed() {
+		//capture updated state of all records in the pool
+		recordSetNotificationPool.CaptureCurrentState()
+		recordSetNotificationPool.Push(user)
+	}
+
+	//commit transaction
+	if e := executeContext.Complete(); e != nil {
+		return e
+	} else {
+		return nil
+	}
+}
+
+func (processor *Processor) UpdateRecord(objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecordData map[string]interface{}, err error) {
 	// get Meta
 	objectMeta, err := processor.getMeta(objectName)
 	if err != nil {
@@ -563,10 +563,15 @@ func (processor *Processor) Update(objectName, key string, recordData map[string
 			}
 		}
 	}
-	return rootRecordData, nil
+
+	if err = executeContext.Complete(); err != nil {
+		return nil, err
+	} else {
+		return rootRecordData, nil
+	}
 }
 
-func (processor *Processor) UpdateBulk(objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
+func (processor *Processor) BulkUpdateRecords(objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
 	//get meta
 	objectMeta, ok, err := processor.metaStore.Get(objectName, true)
 	if err != nil || !ok {
@@ -663,6 +668,33 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, executeContext
 	var operations = make([]Operation, 0)
 
 	if operation, e := processor.dataManager.PrepareUpdates(recordSet.Meta, recordSet.DataSet); e != nil {
+		return nil, e
+	} else {
+		operations = append(operations, operation)
+	}
+	//
+	if e := executeContext.Execute(operations); e != nil {
+		return nil, e
+	}
+
+	recordSet.CollapseLinks()
+
+	return recordSet, nil
+}
+
+// get list of RecordUpdateTasks, perform create and return list of records
+func (processor *Processor) createRecordSet(recordSet *RecordSet, executeContext ExecuteContext, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
+
+	// create notification, capture current recordData state and Add notification to notification pool
+	recordSetNotification := notifications.NewRecordSetStateNotification(recordSet, isRoot, meta.MethodCreate, processor.GetBulk)
+	if recordSetNotification.ShouldBeProcessed() {
+		recordSetNotification.CapturePreviousState()
+		recordSetNotificationPool.Add(recordSetNotification)
+	}
+
+	var operations = make([]Operation, 0)
+
+	if operation, e := processor.dataManager.PreparePuts(recordSet.Meta, recordSet.DataSet); e != nil {
 		return nil, e
 	} else {
 		operations = append(operations, operation)

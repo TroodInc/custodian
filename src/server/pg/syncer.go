@@ -81,7 +81,7 @@ func (syncer *Syncer) RemoveObj(name string, force bool) error {
 	return nil
 }
 
-//Update an existing business object
+//UpdateRecord an existing business object
 func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta) error {
 	if err := syncer.ensureTransactionBegun(); err != nil {
 		return err

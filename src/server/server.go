@@ -230,7 +230,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 	//Records operations
 	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		if recordData, err := dataProcessor.Put(p.ByName("name"), src.Value, user); err != nil {
+		if recordData, err := dataProcessor.CreateRecord(p.ByName("name"), src.Value, user); err != nil {
 			sink.pushError(err)
 		} else {
 			sink.pushGeneric(recordData)
@@ -240,7 +240,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
-		e := dataProcessor.PutBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		e := dataProcessor.BulkCreateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
@@ -319,7 +319,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		if o, e := dataProcessor.Update(p.ByName("name"), p.ByName("key"), src.Value, user); e != nil {
+		if o, e := dataProcessor.UpdateRecord(p.ByName("name"), p.ByName("key"), src.Value, user); e != nil {
 			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
@@ -337,7 +337,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
-		e := dataProcessor.UpdateBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		e := dataProcessor.BulkUpdateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
