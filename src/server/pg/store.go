@@ -318,7 +318,7 @@ func increaseCasVal(v interface{}) interface{} {
 	return cas + 1
 }
 
-func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, recordValues []map[string]interface{}) (data.Operation, error) {
+func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (data.Operation, error) {
 	if len(recordValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -432,7 +432,7 @@ func (dataManager *DataManager) PrepareUpdates(m *meta.Meta, recordValues []map[
 	}, nil
 }
 
-func (dataManager *DataManager) PreparePuts(m *meta.Meta, recordsValues []map[string]interface{}) (data.Operation, error) {
+func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (data.Operation, error) {
 	if len(recordsValues) == 0 {
 		return emptyOperation, nil
 	}

@@ -28,8 +28,8 @@ type DataManager interface {
 	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, tx *sql.Tx) (map[string]interface{}, error)
 	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, tx *sql.Tx) ([]map[string]interface{}, error)
 	PrepareDeletes(n *DNode, keys []interface{}, tx *sql.Tx) (Operation, []interface{}, error)
-	PreparePuts(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
-	PrepareUpdates(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
+	PrepareCreateOperation(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
+	PrepareUpdateOperation(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
 	NewExecuteContext() (ExecuteContext, error)
 }
 
@@ -749,7 +749,7 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 	}
 
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, meta.MethodUpdate, processor.GetBulk)
+	recordSetNotification := notifications.NewRecordSetNotification(recordSet.Clone(), isRoot, meta.MethodUpdate, processor.GetBulk)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -757,7 +757,7 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 
 	var operations = make([]Operation, 0)
 
-	if operation, e := processor.dataManager.PrepareUpdates(recordSet.Meta, recordSet.DataSet); e != nil {
+	if operation, e := processor.dataManager.PrepareUpdateOperation(recordSet.Meta, recordSet.DataSet); e != nil {
 		return nil, e
 	} else {
 		operations = append(operations, operation)
@@ -780,7 +780,7 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 	}
 
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, meta.MethodCreate, processor.GetBulk)
+	recordSetNotification := notifications.NewRecordSetNotification(recordSet.Clone(), isRoot, meta.MethodCreate, processor.GetBulk)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -788,7 +788,7 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 
 	var operations = make([]Operation, 0)
 
-	if operation, e := processor.dataManager.PreparePuts(recordSet.Meta, recordSet.DataSet); e != nil {
+	if operation, e := processor.dataManager.PrepareCreateOperation(recordSet.Meta, recordSet.DataSet); e != nil {
 		return nil, e
 	} else {
 		operations = append(operations, operation)

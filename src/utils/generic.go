@@ -48,3 +48,11 @@ func GetMapKeysValues(targetMap map[string]interface{}) ([]string, []interface{}
 	}
 	return keys, values
 }
+
+func CloneMap(sourceMap map[string]interface{}) map[string]interface{} {
+	newMap := make(map[string]interface{}, len(sourceMap))
+	for key, value := range sourceMap {
+		newMap[key] = value
+	}
+	return newMap
+}
