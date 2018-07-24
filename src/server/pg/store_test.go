@@ -61,7 +61,7 @@ var _ = Describe("Store", func() {
 		recordData := map[string]interface{}{
 			"name": "Sergey",
 		}
-		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, user)
+		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, user, true)
 		Expect(record).To(HaveKey("gender"))
 	})
 })

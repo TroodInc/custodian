@@ -133,9 +133,9 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 				}
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
-				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj,true)
+				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
 				Expect(err).To(BeNil())
-				metaObj, _, err := metaStore.Get(metaDescription.Name,true)
+				metaObj, _, err := metaStore.Get(metaDescription.Name, true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(2))
@@ -226,7 +226,7 @@ var _ = Describe("PG MetaStore test", func() {
 			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
+				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", record["date"].(string))
 				Expect(matched).To(BeTrue())
@@ -264,7 +264,7 @@ var _ = Describe("PG MetaStore test", func() {
 			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
+				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+\\+[0-9]{2}:[0-9]{2}$", record["time"].(string))
 				Expect(matched).To(BeTrue())
@@ -302,7 +302,7 @@ var _ = Describe("PG MetaStore test", func() {
 			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
+				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+\\+[0-9]{2}:[0-9]{2}$", record["created"].(string))
 				Expect(matched).To(BeTrue())
@@ -332,7 +332,7 @@ var _ = Describe("PG MetaStore test", func() {
 			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				_, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
+				_, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(recordCreateError).To(BeNil())
 				Context("Mandatory field added", func() {
 					updatedMetaDescription := meta.MetaDescription{
@@ -395,9 +395,8 @@ var _ = Describe("PG MetaStore test", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{}, true)
 			Expect(err).To(BeNil())
-
 
 			record, err := dataProcessor.Get(metaObj.Name, "1", 1)
 			Expect(err).To(BeNil())

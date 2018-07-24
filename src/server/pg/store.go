@@ -598,20 +598,6 @@ func (dataManager *DataManager) NewExecuteContext() (data.ExecuteContext, error)
 	return &ExecuteContext{tx: &Tx{tx}}, nil
 }
 
-func (dataManager *DataManager) Execute(ops []data.Operation) error {
-	ex, err := dataManager.NewExecuteContext()
-	if err != nil {
-		return err
-	}
-	defer ex.Close()
-
-	if err := ex.Execute(ops); err != nil {
-		return err
-	}
-
-	return ex.Complete()
-}
-
 func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)

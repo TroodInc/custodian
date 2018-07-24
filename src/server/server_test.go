@@ -118,9 +118,9 @@ var _ = Describe("Server", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 
-			firstRecord, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{})
+			firstRecord, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{}, true)
 			Expect(err).To(BeNil())
-			dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{})
+			dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{}, true)
 
 			Context("and DELETE request performed by URL with specified record ID", func() {
 
@@ -179,10 +179,10 @@ var _ = Describe("Server", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 
-			record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
+			record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "SomeName"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 			//create another record to ensure only specified record is affected by update
-			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "SomeName"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			Context("and PUT request performed by URL with specified record ID with wrong id specified in body", func() {

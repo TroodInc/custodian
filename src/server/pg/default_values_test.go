@@ -46,7 +46,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a number field to the object")
@@ -106,7 +106,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a number field to the object")
@@ -166,7 +166,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a boolean field to the object")
@@ -226,7 +226,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a string field to the object")
@@ -286,7 +286,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a date field to the object")
@@ -346,7 +346,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a datetime field to the object")
@@ -406,7 +406,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a time field to the object")

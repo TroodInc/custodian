@@ -230,7 +230,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 	//Records operations
 	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		if recordData, err := dataProcessor.CreateRecord(p.ByName("name"), src.Value, user); err != nil {
+		if recordData, err := dataProcessor.CreateRecord(p.ByName("name"), src.Value, user, true); err != nil {
 			sink.pushError(err)
 		} else {
 			sink.pushGeneric(recordData)
@@ -248,7 +248,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
+		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user, true)
 		if e != nil {
 			sink.pushError(e)
 		}
@@ -289,7 +289,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		if ok, e := dataProcessor.DeleteRecord(p.ByName("name"), p.ByName("key"), user); e != nil {
+		if ok, e := dataProcessor.DeleteRecord(p.ByName("name"), p.ByName("key"), user, true); e != nil {
 			sink.pushError(e)
 		} else {
 			if ok {
@@ -311,7 +311,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		}, user)
+		}, user, true)
 		if e != nil {
 			sink.pushError(e)
 		}
@@ -319,7 +319,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		if o, e := dataProcessor.UpdateRecord(p.ByName("name"), p.ByName("key"), src.Value, user); e != nil {
+		if o, e := dataProcessor.UpdateRecord(p.ByName("name"), p.ByName("key"), src.Value, user, true); e != nil {
 			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
@@ -345,7 +345,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
+		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user, true)
 		if e != nil {
 			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})

@@ -82,7 +82,7 @@ var _ = Describe("Data", func() {
 						"name": "newLead",
 					}
 					user := auth.User{}
-					record, err := dataProcessor.CreateRecord(leadMetaDescription.Name, leadData, user)
+					record, err := dataProcessor.CreateRecord(leadMetaDescription.Name, leadData, user, true)
 					Expect(err).To(BeNil())
 					Expect(record).To(HaveKey("decline_reason"))
 				})
@@ -117,8 +117,8 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			Context("and two records with dates that differ by a week", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"date": "2018-05-29"}, auth.User{})
-				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"date": "2018-05-22"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"date": "2018-05-29"}, auth.User{}, true)
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"date": "2018-05-22"}, auth.User{}, true)
 				matchedRecords := []map[string]interface{}{}
 				Expect(err).To(BeNil())
 				callbackFunction := func(obj map[string]interface{}) error {
@@ -156,10 +156,10 @@ var _ = Describe("Data", func() {
 
 			By("having two records of this object")
 
-			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"id": "PKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"id": "PKVALUE"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
-			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"id": "ANOTHERPKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"id": "ANOTHERPKVALUE"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			matchedRecords := []map[string]interface{}{}
@@ -195,7 +195,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			By("having a record of B object")
-			_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"id": "id", "a": "PKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"id": "id", "a": "PKVALUE"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			Context("query by PK returns correct result", func() {
@@ -234,9 +234,9 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			Context("and two records with 'created' values that differ by a week", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created": "2018-05-29T15:29:58.627755+05:00"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created": "2018-05-29T15:29:58.627755+05:00"}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created": "2018-05-22T15:29:58.627755+05:00"}, auth.User{})
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created": "2018-05-22T15:29:58.627755+05:00"}, auth.User{}, true)
 				matchedRecords := []map[string]interface{}{}
 				callbackFunction := func(obj map[string]interface{}) error {
 					matchedRecords = append(matchedRecords, obj)
@@ -277,8 +277,8 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("and two records with 'created_time' values that differ by several hours", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "14:00:00 +05:00"}, auth.User{})
-				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "09:00:00 +05:00"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "14:00:00 +05:00"}, auth.User{}, true)
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "09:00:00 +05:00"}, auth.User{}, true)
 				matchedRecords := []map[string]interface{}{}
 				Expect(err).To(BeNil())
 				callbackFunction := func(obj map[string]interface{}) error {
@@ -322,11 +322,11 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("and two records of this object", func() {
-				recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{})
+				recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				recordTwo, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
+				recordTwo, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{}, true)
 
 				matchedRecords := []map[string]interface{}{}
 				callbackFunction := func(obj map[string]interface{}) error {
@@ -372,7 +372,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("DataManager creates record without any values", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Expect(record["id"]).To(BeEquivalentTo(1))
 			})
@@ -399,9 +399,9 @@ var _ = Describe("Data", func() {
 			metaObj, _ := metaStore.NewMeta(&metaDescription)
 			metaStore.Create(metaObj)
 
-			recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{})
+			recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{}, true)
 			Expect(err).To(BeNil())
-			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			matchedRecords := []map[string]interface{}{}
@@ -442,7 +442,7 @@ var _ = Describe("Data", func() {
 			metaObj, _ := metaStore.NewMeta(&metaDescription)
 			metaStore.Create(metaObj)
 
-			recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": nil}, auth.User{})
+			recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": nil}, auth.User{}, true)
 			Expect(err).To(BeNil())
 			Expect(recordOne["name"]).To(BeNil())
 		})
@@ -476,11 +476,11 @@ var _ = Describe("Data", func() {
 			Context("and three records of this object", func() {
 
 				By("two matching records")
-				firstPersonRecord, _ := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Person"}, auth.User{})
-				secondPersonRecord, _ := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Another person"}, auth.User{})
+				firstPersonRecord, _ := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Person"}, auth.User{}, true)
+				secondPersonRecord, _ := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Another person"}, auth.User{}, true)
 
 				By("and one mismatching record")
-				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Other dog"}, auth.User{})
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Other dog"}, auth.User{}, true)
 
 				matchedRecords := []map[string]interface{}{}
 				callbackFunction := func(obj map[string]interface{}) error {
@@ -524,7 +524,7 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 			Context("and record has values containing reserved word", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"order": "order"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"order": "order"}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Expect(record["id"]).To(Equal(float64(1)))
 
@@ -560,10 +560,10 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 			Context("and record of this object", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"select": "some value"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"select": "some value"}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Context("is being updated with values containing reserved word", func() {
-					record, err := dataProcessor.UpdateRecord(metaDescription.Name, strconv.Itoa(int(record["order"].(float64))), map[string]interface{}{"select": "select"}, auth.User{})
+					record, err := dataProcessor.UpdateRecord(metaDescription.Name, strconv.Itoa(int(record["order"].(float64))), map[string]interface{}{"select": "select"}, auth.User{}, true)
 					Expect(err).To(BeNil())
 					Expect(record["select"]).To(Equal("select"))
 				})
@@ -596,10 +596,10 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 			Context("and record of this object", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Context("is being deleted", func() {
-					isDeleted, err := dataProcessor.DeleteRecord(metaDescription.Name, strconv.Itoa(int(record["from"].(float64))), auth.User{})
+					isDeleted, err := dataProcessor.DeleteRecord(metaDescription.Name, strconv.Itoa(int(record["from"].(float64))), auth.User{}, true)
 					Expect(err).To(BeNil())
 					Expect(isDeleted).To(BeTrue())
 				})
@@ -632,7 +632,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("record can contain numeric value for string field", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": 202}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": 202}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Expect(record["name"]).To(Equal("202"))
 			})
@@ -717,11 +717,11 @@ var _ = Describe("Data", func() {
 			//
 
 			Context("record can contain numeric value for string field", func() {
-				record, err := dataProcessor.CreateRecord(orderMetaObj.Name, map[string]interface{}{}, auth.User{})
+				record, err := dataProcessor.CreateRecord(orderMetaObj.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				record, err = dataProcessor.CreateRecord(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{})
+				record, err = dataProcessor.CreateRecord(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				record, err = dataProcessor.CreateRecord(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{})
+				record, err = dataProcessor.CreateRecord(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{}, true)
 				Expect(err).To(BeNil())
 
 				matchedRecords := []map[string]interface{}{}
@@ -803,17 +803,17 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("and having one record of Position object")
-		positionRecord, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": "manager"}, auth.User{})
+		positionRecord, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": "manager"}, auth.User{}, true)
 		Expect(err).To(BeNil())
 
 		By("and having two records of Person object")
 
 		records := make([]map[string]interface{}, 2)
 
-		records[0], err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Ivan", "position": positionRecord["id"]}, auth.User{})
+		records[0], err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Ivan", "position": positionRecord["id"]}, auth.User{}, true)
 		Expect(err).To(BeNil())
 
-		records[1], err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Vasily", "position": positionRecord["id"]}, auth.User{})
+		records[1], err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Vasily", "position": positionRecord["id"]}, auth.User{}, true)
 		Expect(err).To(BeNil())
 
 		updatedRecords := make([]map[string]interface{}, 0)
@@ -835,7 +835,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			err := dataProcessor.BulkUpdateRecords(metaDescription.Name, next, sink, auth.User{})
+			err := dataProcessor.BulkUpdateRecords(metaDescription.Name, next, sink, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			Expect(updatedRecords[0]["name"]).To(Equal("Victor"))
@@ -875,13 +875,13 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("and having one record of Position object")
-		recordData, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": "manager"}, auth.User{})
+		recordData, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": "manager"}, auth.User{}, true)
 		Expect(err).To(BeNil())
 
 		keyValue, _ := recordData["id"].(float64)
 		Context("person records are updated with new name value and new position`s name value as nested object", func() {
 			recordData["name"] = "sales manager"
-			recordData, err := dataProcessor.UpdateRecord(positionMetaDescription.Name, strconv.Itoa(int(keyValue)), recordData, auth.User{})
+			recordData, err := dataProcessor.UpdateRecord(positionMetaDescription.Name, strconv.Itoa(int(keyValue)), recordData, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			Expect(recordData["name"]).To(Equal("sales manager"))
