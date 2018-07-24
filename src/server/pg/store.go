@@ -172,8 +172,8 @@ type StmtPreparer interface {
 	Prepare(string) (*sql.Stmt, error)
 }
 
-func NewStmt(sp StmtPreparer, q string) (*Stmt, error) {
-	statement, err := sp.Prepare(q)
+func NewStmt(tx *sql.Tx, q string) (*Stmt, error) {
+	statement, err := tx.Prepare(q)
 	if err != nil {
 		logger.Error("Prepare statement error: %s %s", q, err.Error())
 		return nil, NewDMLError(ErrDMLFailed, err.Error())
@@ -182,8 +182,8 @@ func NewStmt(sp StmtPreparer, q string) (*Stmt, error) {
 	return &Stmt{statement}, nil
 }
 
-func (dataManager *DataManager) Prepare(q string) (*Stmt, error) {
-	return NewStmt(dataManager.db, q)
+func (dataManager *DataManager) Prepare(q string, tx *sql.Tx) (*Stmt, error) {
+	return NewStmt(tx, q)
 }
 
 type Tx struct {
@@ -450,7 +450,7 @@ func (dataManager *DataManager) PreparePuts(m *meta.Meta, recordsValues []map[st
 	}
 
 	return func(ctx data.OperationContext) error {
-		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
+		//prepare binds only on executing step otherwise the foregin key may be absent (Tx sequence)
 		binds := make([]interface{}, 0, len(insertColumns)*len(recordsValues))
 		for _, recordValues := range recordsValues {
 			if values, err := getValuesToInsert(insertFields, recordValues, insertColumns); err != nil {
@@ -487,8 +487,8 @@ func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 	return columns
 }
 
-func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}) (map[string]interface{}, error) {
-	objs, err := dataManager.GetAll(m, fields, map[string]interface{}{key: val})
+func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, tx *sql.Tx) (map[string]interface{}, error) {
+	objs, err := dataManager.GetAll(m, fields, map[string]interface{}{key: val}, tx)
 	if err != nil {
 		return nil, err
 	}
@@ -505,7 +505,7 @@ func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescriptio
 	return objs[0], nil
 }
 
-func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, tx *sql.Tx) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}
@@ -517,7 +517,7 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	stmt, err := dataManager.Prepare(q.String())
+	stmt, err := dataManager.Prepare(q.String(), tx)
 	if err != nil {
 		return nil, err
 	}
@@ -525,14 +525,14 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}) (data.Operation, []interface{}, error) {
-	return dataManager.PrepareDeletes(n, []interface{}{key})
+func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}, tx *Tx) (data.Operation, []interface{}, error) {
+	return dataManager.PrepareDeletes(n, []interface{}{key}, tx.Tx)
 }
 
-func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}) (data.Operation, []interface{}, error) {
+func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}, tx *sql.Tx) (data.Operation, []interface{}, error) {
 	var pks []interface{}
 	if n.KeyField.Name != n.Meta.Key.Name {
-		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys)
+		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys, tx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -563,42 +563,16 @@ func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}
 	}, pks, nil
 }
 
-type ExecuteContext struct {
-	tx *Tx
-}
-
-func (ex *ExecuteContext) Execute(ops []data.Operation) error {
-	ctx := &pgOpCtx{tx: ex.tx}
-	for _, op := range ops {
-		if err := op(ctx); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
-func (ex *ExecuteContext) Complete() error {
-	if err := ex.tx.Commit(); err != nil {
-		return NewDMLError(ErrCommitFailed, err.Error())
-	}
-	return nil
-}
-
-func (ex *ExecuteContext) Close() error {
-	return ex.tx.Rollback()
-}
-
 func (dataManager *DataManager) NewExecuteContext() (data.ExecuteContext, error) {
 	tx, err := dataManager.db.Begin()
 	if err != nil {
 		return nil, NewDMLError(ErrTrxFailed, err.Error())
 	}
 
-	return &ExecuteContext{tx: &Tx{tx}}, nil
+	return &ExecuteContext{Tx: &Tx{tx}}, nil
 }
 
-func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, tx *sql.Tx) ([]map[string]interface{}, error) {
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
 	sqlQuery, err := translator.query(tableAlias, dataNode)
@@ -621,7 +595,7 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	statement, err := dataManager.Prepare(queryString.String())
+	statement, err := dataManager.Prepare(queryString.String(), tx)
 	if err != nil {
 		return nil, err
 	}
@@ -630,7 +604,7 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	return statement.ParsedQuery(sqlQuery.Binds, fields)
 }
 
-func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, tx *sql.Tx) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}
@@ -645,7 +619,7 @@ func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescript
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	stmt, err := dataManager.Prepare(q.String())
+	stmt, err := dataManager.Prepare(q.String(), tx)
 	if err != nil {
 		return nil, err
 	}

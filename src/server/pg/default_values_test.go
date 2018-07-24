@@ -79,7 +79,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["ordering"]).To(Equal(float64(10)))
 			})
@@ -139,7 +139,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["ordering"]).To(Equal(float64(10.98)))
 			})
@@ -199,7 +199,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["is_active"]).To(BeTrue())
 			})
@@ -259,7 +259,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["name"]).To(Equal("Not specified"))
 			})
@@ -319,7 +319,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["date"]).To(Equal("2018-05-22"))
 			})
@@ -379,7 +379,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["datetime"]).To(Equal("2018-05-29T15:29:58.627755+05:00"))
 			})
@@ -439,7 +439,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 
 				Expect(matchedRecords[0]["time"]).To(Equal("15:29:58+07:00"))

@@ -267,7 +267,7 @@ var _ = Describe("Data", func() {
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
 
-			bRecord, err := dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 1)
+			bRecord, err := dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 1, true)
 			Expect(err).To(BeNil())
 			targetValue := bRecord["target"].(map[string]string)
 			Expect(targetValue["_object"]).To(Equal("a"))
@@ -282,7 +282,7 @@ var _ = Describe("Data", func() {
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
 
-			bRecord, err = dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 3)
+			bRecord, err = dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 3, true)
 			Expect(err).To(BeNil())
 			targetValue := bRecord["target"].(map[string]interface{})
 			Expect(targetValue["_object"]).To(Equal("a"))
@@ -299,7 +299,7 @@ var _ = Describe("Data", func() {
 			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
-			bRecord, err = dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 3)
+			bRecord, err = dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 3, true)
 			Expect(err).To(BeNil())
 			Expect(bRecord["target"]).To(BeNil())
 		})
@@ -395,7 +395,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", 1, callbackFunction)
+			err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", 1, callbackFunction, true)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]string)
@@ -418,7 +418,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", 2, callbackFunction)
+			err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", 2, callbackFunction, true)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]interface{})

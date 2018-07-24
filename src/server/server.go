@@ -259,7 +259,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 		if i, e := strconv.Atoi(q.Get("depth")); e == nil {
 			depth = i
 		}
-		if o, e := dataProcessor.Get(p.ByName("name"), p.ByName("key"), depth); e != nil {
+		if o, e := dataProcessor.Get(p.ByName("name"), p.ByName("key"), depth, true); e != nil {
 			sink.pushError(e)
 		} else {
 			if o == nil {
@@ -280,7 +280,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			if i, e := strconv.Atoi(url.QueryEscape(pq.Get("depth"))); e == nil {
 				depth = i
 			}
-			e := dataProcessor.GetBulk(p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+			e := dataProcessor.GetBulk(p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, true)
 			if e != nil {
 				sink.pushError(e)
 			}

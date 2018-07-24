@@ -9,7 +9,7 @@ import (
 
 type GenericInnerFieldValidator struct {
 	metaGetCallback func(name string, handleTransaction bool) (*meta.Meta, bool, error)
-	recordGetCallback func(objectClass, key string, depth int) (map[string]interface{}, error)
+	recordGetCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)
 }
 
 func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.FieldDescription, value interface{}) (*types.GenericInnerLink, error) {
@@ -28,7 +28,7 @@ func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Fie
 					if err := validator.validateRecord(objectMeta, pkValue, fieldDescription); err != nil {
 						return nil, err
 					} else {
-						return &types.GenericInnerLink{ObjectName: objectMeta.Name, Pk: pkValue, PkName:objectMeta.Key.Name}, nil
+						return &types.GenericInnerLink{ObjectName: objectMeta.Name, Pk: pkValue, PkName: objectMeta.Key.Name}, nil
 					}
 				}
 			}
@@ -68,13 +68,13 @@ func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{
 }
 
 func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Meta, pkValue string, fieldDescription *meta.FieldDescription) (error) {
-	if _, err := validator.recordGetCallback(objectMeta.Name, pkValue, 1); err != nil {
+	if _, err := validator.recordGetCallback(objectMeta.Name, pkValue, 1, false); err != nil {
 		return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Record of object '%s' with PK '%s' referenced in '%s'`s value does not exist", objectMeta.Name, pkValue, fieldDescription.Name)
 	} else {
 		return nil
 	}
 }
 
-func NewGenericInnerFieldValidator(metaGetCallback func(name string, handleTransaction bool) (*meta.Meta, bool, error), recordGetCallback func(objectClass, key string, depth int) (map[string]interface{}, error)) *GenericInnerFieldValidator {
+func NewGenericInnerFieldValidator(metaGetCallback func(name string, handleTransaction bool) (*meta.Meta, bool, error), recordGetCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) *GenericInnerFieldValidator {
 	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback}
 }

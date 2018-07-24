@@ -143,7 +143,7 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err = dataProcessor.Get("a", strconv.Itoa(int(aRecord["id"].(float64))), 1)
+			aRecord, err = dataProcessor.Get("a", strconv.Itoa(int(aRecord["id"].(float64))), 1, true)
 			Expect(err).To(BeNil())
 			bSet := aRecord["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
@@ -158,7 +158,7 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err = dataProcessor.Get("a", strconv.Itoa(int(aRecord["id"].(float64))), 3)
+			aRecord, err = dataProcessor.Get("a", strconv.Itoa(int(aRecord["id"].(float64))), 3, true)
 			Expect(err).To(BeNil())
 			bSet := aRecord["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))

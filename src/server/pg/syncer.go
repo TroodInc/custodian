@@ -13,7 +13,7 @@ type Syncer struct {
 }
 
 /*
-Example of the tx info:
+Example of the Tx info:
     - user=%s password=%s dbname=%s sslmode=disable
     - user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full
 */

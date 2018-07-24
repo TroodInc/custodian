@@ -126,7 +126,7 @@ var _ = Describe("Data", func() {
 					return nil
 				}
 				Context("query by date returns correct result", func() {
-					dataProcessor.GetBulk(metaObj.Name, "gt(date,2018-05-23)", 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, "gt(date,2018-05-23)", 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0]["id"]).To(Equal(record["id"]))
 				})
@@ -199,7 +199,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			Context("query by PK returns correct result", func() {
-				dataProcessor.GetBulk(bMetaObj.Name, "eq(a,PKVALUE)", 1, callbackFunction)
+				dataProcessor.GetBulk(bMetaObj.Name, "eq(a,PKVALUE)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["id"]).To(Equal("id"))
 			})
@@ -243,7 +243,7 @@ var _ = Describe("Data", func() {
 					return nil
 				}
 				Context("query by 'created' field returns correct result", func() {
-					dataProcessor.GetBulk(metaObj.Name, "gt(created,2018-05-23)", 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, "gt(created,2018-05-23)", 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0]["id"]).To(Equal(record["id"]))
 				})
@@ -287,7 +287,7 @@ var _ = Describe("Data", func() {
 				}
 				Context("query by 'created' field returns correct result", func() {
 					//query by value greater than 10:00:00 +05:00
-					dataProcessor.GetBulk(metaObj.Name, "gt(created_time,10%3A00%3A00%20%2B05%3A00)", 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, "gt(created_time,10%3A00%3A00%20%2B05%3A00)", 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0]["id"]).To(Equal(record["id"]))
 				})
@@ -336,7 +336,7 @@ var _ = Describe("Data", func() {
 
 				Context("query by date returns correct result", func() {
 					query := fmt.Sprintf("in(id,(%d,%d))", int(recordOne["id"].(float64)), int(recordTwo["id"].(float64)))
-					dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(2))
 					Expect(matchedRecords[0]["id"]).To(Equal(recordOne["id"]))
 					Expect(matchedRecords[1]["id"]).To(Equal(recordTwo["id"]))
@@ -411,7 +411,7 @@ var _ = Describe("Data", func() {
 			}
 			Context("DataManager queries record with 'in' expression by single value", func() {
 				query := fmt.Sprintf("in(id,(%d))", int(recordOne["id"].(float64)))
-				dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 			})
 		})
@@ -488,7 +488,7 @@ var _ = Describe("Data", func() {
 					return nil
 				}
 				Context("query by date returns correct result", func() {
-					dataProcessor.GetBulk(metaObj.Name, "like(name,*Person*)", 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, "like(name,*Person*)", 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(2))
 					Expect(matchedRecords[0]["id"]).To(Equal(firstPersonRecord["id"]))
 					Expect(matchedRecords[1]["id"]).To(Equal(secondPersonRecord["id"]))
@@ -729,7 +729,7 @@ var _ = Describe("Data", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(orderMetaObj.Name, "", 1, callbackFunction)
+				dataProcessor.GetBulk(orderMetaObj.Name, "", 1, callbackFunction, true)
 
 				Expect(matchedRecords).To(HaveLen(1))
 				payments, ok := matchedRecords[0]["payments"].([]interface{})
