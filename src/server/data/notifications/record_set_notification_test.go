@@ -64,7 +64,7 @@ var _ = Describe("Data", func() {
 				Actions: []meta.Action{
 					{
 						Method:          meta.MethodCreate,
-						Protocol:        meta.REST,
+						Protocol:        meta.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]string{"last_name": "a_last_name"},
@@ -224,6 +224,32 @@ var _ = Describe("Data", func() {
 			//only last_name specified for update, thus first_name should not be included in notification message
 			Expect(recordSetNotification.CurrentState[0].DataSet).To(HaveLen(1))
 			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(0))
+		})
+
+		It("forms correct notification message on record removal", func() {
+			havingObjectA()
+			havingARecord()
+
+			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Ivanova"}}}
+
+			dataProcessor.BeginTransaction()
+			defer dataProcessor.CommitTransaction()
+
+			//make recordSetNotification
+			recordSetNotification := NewRecordSetNotification(
+				recordSet.Clone(),
+				true,
+				meta.MethodCreate,
+				dataProcessor.GetBulk,
+			)
+
+			recordSetNotification.CapturePreviousState()
+			dataProcessor.DeleteRecord(aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{}, false)
+			recordSetNotification.CaptureCurrentState()
+			notificationsData := recordSetNotification.BuildNotificationsData(0, auth.User{})
+			Expect(notificationsData).To(HaveLen(1))
+			Expect(notificationsData[0]).To(HaveKey("previous"))
+			Expect(notificationsData[0]).To(HaveKey("current"))
 		})
 	})
 })

@@ -161,6 +161,7 @@ func asProtocol(name string) (Protocol, bool) {
 
 var (
 	REST = protocol_iota("REST")
+	TEST = protocol_iota("TEST")
 )
 
 func (p *Protocol) MarshalJSON() ([]byte, error) {
@@ -185,6 +186,7 @@ func (p *Protocol) UnmarshalJSON(b []byte) error {
 
 var notifierFactories = map[Protocol]noti.Factory{
 	REST: noti.NewRestNotifier,
+	TEST: noti.NewTestNotifier,
 }
 
 //Object metadata description.
