@@ -82,11 +82,14 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 			return str, nil
 		}
 	case FieldTypeNumber:
-		if flt, ok := v.(float64); !ok {
+		switch value := v.(type){
+		case float64:
+			return strconv.FormatFloat(value, 'f', -1, 64), nil
+		case string:
+			return value, nil
+		default:
 			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
 				"Wrong input value type '%s'. For Field '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
-		} else {
-			return strconv.FormatFloat(flt, 'f', -1, 64), nil
 		}
 	case FieldTypeBool:
 		if b, ok := v.(bool); !ok {

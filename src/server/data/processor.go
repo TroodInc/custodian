@@ -570,7 +570,7 @@ func (processor *Processor) DeleteRecord(objectName, key string, user auth.User,
 	//process root records notificationSender
 
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: pk}}}, true, meta.MethodRemove, processor.GetBulk)
+	recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: pk}}}, true, meta.MethodRemove, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -589,7 +589,7 @@ func (processor *Processor) DeleteRecord(objectName, key string, user auth.User,
 				for _, primaryKeyValue := range t2d[0].keys {
 
 					// create notification, capture current recordData state and Add notification to notification pool
-					recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: primaryKeyValue}}}, false, meta.MethodRemove, processor.GetBulk)
+					recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: primaryKeyValue}}}, false, meta.MethodRemove, processor.GetBulk, processor.Get)
 					if recordSetNotification.ShouldBeProcessed() {
 						recordSetNotification.CapturePreviousState()
 						recordSetNotificationPool.Add(recordSetNotification)
@@ -671,7 +671,7 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 						for _, primaryKeyValue := range t2d[0].keys {
 
 							// create notification, capture current recordData state and Add notification to notification pool
-							recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{v.KeyField.Name: primaryKeyValue}}}, false, meta.MethodRemove, processor.GetBulk)
+							recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{v.KeyField.Name: primaryKeyValue}}}, false, meta.MethodRemove, processor.GetBulk, processor.Get)
 							if recordSetNotification.ShouldBeProcessed() {
 								recordSetNotification.CapturePreviousState()
 								recordSetNotificationPool.Add(recordSetNotification)
@@ -749,7 +749,7 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 	}
 
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(recordSet.Clone(), isRoot, meta.MethodUpdate, processor.GetBulk)
+	recordSetNotification := notifications.NewRecordSetNotification(recordSet.Clone(), isRoot, meta.MethodUpdate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -780,7 +780,7 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 	}
 
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(recordSet.Clone(), isRoot, meta.MethodCreate, processor.GetBulk)
+	recordSetNotification := notifications.NewRecordSetNotification(recordSet.Clone(), isRoot, meta.MethodCreate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
