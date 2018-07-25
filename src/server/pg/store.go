@@ -450,7 +450,7 @@ func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValu
 	}
 
 	return func(ctx data.OperationContext) error {
-		//prepare binds only on executing step otherwise the foregin key may be absent (Tx sequence)
+		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
 		binds := make([]interface{}, 0, len(insertColumns)*len(recordsValues))
 		for _, recordValues := range recordsValues {
 			if values, err := getValuesToInsert(insertFields, recordValues, insertColumns); err != nil {

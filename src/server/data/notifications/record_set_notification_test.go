@@ -217,7 +217,7 @@ var _ = Describe("Data", func() {
 				dataProcessor.GetBulk,
 			)
 
-			dataProcessor.DeleteRecord(aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{}, true)
+			dataProcessor.DeleteRecord(aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{}, false)
 
 			recordSetNotification.CaptureCurrentState()
 
