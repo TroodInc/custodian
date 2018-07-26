@@ -7,6 +7,7 @@ import (
 	"utils"
 	"server/auth"
 	"strings"
+	"fmt"
 )
 
 type RecordSetNotification struct {
@@ -120,19 +121,33 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 	}
 
 	//include values listed in IncludeValues
-	for fieldPath, alias := range action.IncludeValues {
-		stateObject[alias] = getKeyValue(record.Record{Data: recordData, Meta: notification.recordSet.Meta}, strings.Split(fieldPath, "."), notification.getRecordCallback)
-		//remove key if alias is not equal to actual fieldPath and stateObject already
-		// contains value under the fieldPath key, that is fieldPath key should be replaced with alias
-		if _, ok := stateObject[fieldPath]; ok && fieldPath != alias {
-			delete(stateObject, fieldPath)
+	for alias, getterConfig := range action.IncludeValues {
+		stateObject[alias] = getValue(record.Record{Data: recordData, Meta: notification.recordSet.Meta}, getterConfig, notification.getRecordCallback)
+		//remove key if alias is not equal to actual getterConfig and stateObject already
+		// contains value under the getterConfig key, that is getterConfig key should be replaced with alias
+
+		//remove duplicated values 
+		if getterString, ok := getterConfig.(string); ok {
+			if _, ok := stateObject[getterString]; ok && getterConfig != alias {
+				delete(stateObject, getterString)
+			}
 		}
 	}
 	return stateObject
 }
 
+func getValue(targetRecord record.Record, getterConfig interface{}, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
+	switch getterValue := getterConfig.(type) {
+	case map[string]interface{}:
+		fmt.Println("sdf")
+	case string:
+		return getSimpleValue(targetRecord, strings.Split(getterValue, "."), getRecordCallback)
+	}
+	return ""
+}
+
 //get key value traversing down if needed
-func getKeyValue(targetRecord record.Record, keyParts []string, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
+func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
 	if len(keyParts) == 1 {
 		return targetRecord.Data[keyParts[0]]
 	} else {
@@ -141,7 +156,7 @@ func getKeyValue(targetRecord record.Record, keyParts []string, getRecordCallbac
 		if targetRecord.Data[keyPart] != nil {
 			keyValue, _ := nestedObjectMeta.Key.ValueAsString(targetRecord.Data[keyPart])
 			nestedRecordData, _ := getRecordCallback(targetRecord.Meta.Name, keyValue, 1, false)
-			return getKeyValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, keyParts[1:], getRecordCallback)
+			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, keyParts[1:], getRecordCallback)
 		} else {
 			return nil
 		}

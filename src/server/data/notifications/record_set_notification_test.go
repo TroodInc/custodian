@@ -77,7 +77,7 @@ var _ = Describe("Data", func() {
 						Protocol:        meta.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
-						IncludeValues:   map[string]string{"last_name": "a_last_name", "b.id": "b_id"},
+						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", "b_id": "b.id"},
 					},
 				},
 			}

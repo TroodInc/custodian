@@ -37,11 +37,11 @@ func (a *actions) NewNotificationChannel(method Method, action *Action) chan *no
 }
 
 type Action struct {
-	Method          Method            `json:"method"`
-	Protocol        Protocol          `json:"protocol"`
-	Args            []string          `json:"args,omitempty"`
-	ActiveIfNotRoot bool              `json:"activeIfNotRoot"`
-	IncludeValues   map[string]string `json:"includeValues"`
+	Method          Method                 `json:"method"`
+	Protocol        Protocol               `json:"protocol"`
+	Args            []string               `json:"args,omitempty"`
+	ActiveIfNotRoot bool                   `json:"activeIfNotRoot"`
+	IncludeValues   map[string]interface{} `json:"includeValues"`
 }
 
 func (action *Action) GetUid() string {
