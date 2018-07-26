@@ -7,7 +7,7 @@ import (
 	"utils"
 	"server/auth"
 	"strings"
-	"fmt"
+	"server/data/types"
 )
 
 type RecordSetNotification struct {
@@ -126,7 +126,7 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 		//remove key if alias is not equal to actual getterConfig and stateObject already
 		// contains value under the getterConfig key, that is getterConfig key should be replaced with alias
 
-		//remove duplicated values 
+		//remove duplicated values
 		if getterString, ok := getterConfig.(string); ok {
 			if _, ok := stateObject[getterString]; ok && getterConfig != alias {
 				delete(stateObject, getterString)
@@ -139,7 +139,7 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 func getValue(targetRecord record.Record, getterConfig interface{}, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
 	switch getterValue := getterConfig.(type) {
 	case map[string]interface{}:
-		fmt.Println("sdf")
+		return getGenericValue(targetRecord, getterValue, getRecordCallback)
 	case string:
 		return getSimpleValue(targetRecord, strings.Split(getterValue, "."), getRecordCallback)
 	}
@@ -161,4 +161,21 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCall
 			return nil
 		}
 	}
+}
+
+//get key value traversing down if needed
+func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
+	genericFieldName := getterConfig["field"].(string)
+	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), getRecordCallback, ).(map[string]string)
+	for _, objectCase := range getterConfig["cases"].([]map[string]string) {
+
+		if genericFieldValue[types.GenericInnerLinkObjectKey] == objectCase["object"] {
+			nestedObjectMeta := targetRecord.Meta.FindField(genericFieldName).LinkMetaList.GetByName(objectCase["object"])
+			nedtedObjectPk, _ := nestedObjectMeta.Key.ValueAsString(genericFieldValue[nestedObjectMeta.Key.Name])
+			nestedRecordData, _ := getRecordCallback(genericFieldValue[types.GenericInnerLinkObjectKey], nedtedObjectPk, 1, false)
+			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, strings.Split(objectCase["value"], "."), getRecordCallback)
+		}
+	}
+	return nil
+
 }
