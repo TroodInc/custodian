@@ -77,7 +77,7 @@ var _ = Describe("Data", func() {
 						Protocol:        meta.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
-						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", "b_id": "b.id"},
+						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", "b": "b.id"},
 					},
 				},
 			}
@@ -195,7 +195,7 @@ var _ = Describe("Data", func() {
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				recordSet.Clone(),
+				&recordSet,
 				true,
 				meta.MethodCreate,
 				dataProcessor.GetBulk,
@@ -223,7 +223,7 @@ var _ = Describe("Data", func() {
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				recordSet.Clone(),
+				&recordSet,
 				true,
 				meta.MethodCreate,
 				dataProcessor.GetBulk,
@@ -244,7 +244,7 @@ var _ = Describe("Data", func() {
 
 			//only last_name specified for update, thus first_name should not be included in notification message
 			Expect(recordSetNotification.CurrentState[0].DataSet).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(3))
+			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(4))
 			Expect(recordSetNotification.CurrentState[0].DataSet[0]["a_last_name"].(string)).To(Equal("Ivanova"))
 		})
 
@@ -261,7 +261,7 @@ var _ = Describe("Data", func() {
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				recordSet.Clone(),
+				&recordSet,
 				true,
 				meta.MethodCreate,
 				dataProcessor.GetBulk,
@@ -290,7 +290,7 @@ var _ = Describe("Data", func() {
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				recordSet.Clone(),
+				&recordSet,
 				true,
 				meta.MethodCreate,
 				dataProcessor.GetBulk,

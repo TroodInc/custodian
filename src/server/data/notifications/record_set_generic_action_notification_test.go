@@ -71,8 +71,8 @@ var _ = Describe("Data", func() {
 						ActiveIfNotRoot: true,
 						IncludeValues: map[string]interface{}{"target_value": map[string]interface{}{
 							"field": "target_object",
-							"cases": []map[string]string{
-								{
+							"cases": []interface{}{
+								map[string]interface{}{
 									"object": "b",
 									"value":  "first_name",
 								},
@@ -181,7 +181,7 @@ var _ = Describe("Data", func() {
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				recordSet.Clone(),
+				&recordSet,
 				true,
 				meta.MethodCreate,
 				dataProcessor.GetBulk,

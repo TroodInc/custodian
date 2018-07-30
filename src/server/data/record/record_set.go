@@ -2,7 +2,7 @@ package record
 
 import (
 	"server/meta"
-	"utils"
+	//"utils"
 )
 
 type RecordSet struct {
@@ -26,9 +26,10 @@ func (recordSet *RecordSet) GetRecordData(id interface{}) map[string]interface{}
 }
 
 func (recordSet *RecordSet) Clone() *RecordSet {
-	clonedRecordSet := RecordSet{Meta: recordSet.Meta, DataSet: make([]map[string]interface{}, len(recordSet.DataSet))}
-	for i, data := range recordSet.DataSet {
-		clonedRecordSet.DataSet[i] = utils.CloneMap(data)
-	}
-	return &clonedRecordSet
+	//clonedRecordSet := RecordSet{Meta: recordSet.Meta, DataSet: make([]map[string]interface{}, len(recordSet.DataSet))}
+	//for i, data := range recordSet.DataSet {
+	//	clonedRecordSet.DataSet[i] = utils.CloneMap(data)
+	//}
+	//return &clonedRecordSet
+	return recordSet
 }
