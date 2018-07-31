@@ -46,7 +46,7 @@ func (metaList *MetaList) RemoveByName(metaName string) {
 	metaList.metas = append(metaList.metas[:indexOfTargetMeta], metaList.metas[indexOfTargetMeta+1:]...)
 }
 
-//returns diff between two lists of meta
+//returns A-side diff between two lists of meta
 func (metaList *MetaList) GetDiff(metas []*Meta) []*Meta {
 	diff := make([]*Meta, 0)
 	for _, aMeta := range metaList.metas {

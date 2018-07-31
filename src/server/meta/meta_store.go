@@ -372,20 +372,31 @@ func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, m
 func (metaStore *MetaStore) processGenericInnerLinkAddition(previousMeta *Meta, currentMeta *Meta) {
 	for _, field := range currentMeta.Fields {
 		if field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner {
-			shouldAddOuterLink := true
+			shouldProcessOuterLinks := true
+			var excludedMetas []*Meta
+			var includedMetas []*Meta
 
 			if previousMeta != nil {
 				previousStateField := previousMeta.FindField(field.Name)
 				if previousStateField != nil {
 					//if field has already been added
 					if previousStateField.LinkType == field.LinkType && previousStateField.Type == field.Type {
-						shouldAddOuterLink = false
+						shouldProcessOuterLinks = false
+						if excludedMetas = previousStateField.LinkMetaList.GetDiff(field.LinkMetaList.metas); len(excludedMetas) > 0 {
+							shouldProcessOuterLinks = true
+						}
+						if includedMetas = field.LinkMetaList.GetDiff(previousStateField.LinkMetaList.metas); len(includedMetas) > 0 {
+							shouldProcessOuterLinks = true
+						}
 					}
 				}
+			} else {
+				includedMetas = field.LinkMetaList.metas
 			}
 
-			if shouldAddOuterLink {
-				for _, linkMeta := range field.LinkMetaList.metas {
+			if shouldProcessOuterLinks {
+				//add reverse outer
+				for _, linkMeta := range includedMetas {
 					fieldName := currentMeta.Name + "__set"
 					if linkMeta.FindField(fieldName) != nil {
 						continue
@@ -410,6 +421,19 @@ func (metaStore *MetaStore) processGenericInnerLinkAddition(previousMeta *Meta, 
 							OuterLinkField: &field,},
 					)
 					metaStore.Update(linkMeta.Name, linkMeta, false)
+				}
+
+				//remove reverse outer
+				for _, excludedMeta := range excludedMetas {
+					for i, excludedField := range excludedMeta.Fields {
+						if excludedField.Type == FieldTypeGeneric && excludedField.LinkType == LinkTypeOuter {
+							if excludedField.OuterLinkField.Name == field.Name && excludedField.LinkMeta.Name == field.Meta.Name {
+								excludedMeta.Fields = append(excludedMeta.Fields[:i], excludedMeta.Fields[i+1:]...)
+								excludedMeta.MetaDescription.Fields = append(excludedMeta.MetaDescription.Fields[:i], excludedMeta.MetaDescription.Fields[i+1:]...)
+								metaStore.Update(excludedMeta.Name, excludedMeta, false)
+							}
+						}
+					}
 				}
 			}
 		}
