@@ -282,4 +282,62 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 		Expect(cMetaObj.Fields[1].LinkMetaList.GetAll()).To(HaveLen(1))
 	})
+
+	It("can create object with inner generic field", func() {
+		By("having two objects: A and B")
+		aMetaDescription := meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(aMetaObj)
+		Expect(err).To(BeNil())
+
+		By("and object C, containing generic inner field")
+
+		cMetaDescription := meta.MetaDescription{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{aMetaObj.Name},
+					Optional:     false,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&cMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+
+		// check meta fields
+		aMeta, _, err := metaStore.Get(aMetaDescription.Name, true)
+		Expect(err).To(BeNil())
+		Expect(aMeta.Fields).To(HaveLen(2))
+		Expect(aMeta.Fields[1].Name).To(Equal("c__set"))
+		Expect(aMeta.Fields[1].LinkType).To(Equal(meta.LinkTypeOuter))
+		Expect(aMeta.Fields[1].Type).To(Equal(meta.FieldTypeGeneric))
+	})
 })

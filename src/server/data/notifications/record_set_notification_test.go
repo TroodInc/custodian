@@ -10,7 +10,6 @@ import (
 	"server/data/record"
 	. "server/data/notifications"
 	"server/auth"
-	//"strconv"
 	"strconv"
 )
 
@@ -296,8 +295,8 @@ var _ = Describe("Data", func() {
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
-
 			recordSetNotification.CapturePreviousState()
+
 			dataProcessor.DeleteRecord(aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{}, false)
 			recordSetNotification.CaptureCurrentState()
 			notificationsData := recordSetNotification.BuildNotificationsData(0, auth.User{})

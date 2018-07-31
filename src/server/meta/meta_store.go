@@ -90,6 +90,10 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 
 	if e := metaStore.syncer.CreateObj(m); e == nil {
 		if e := metaStore.drv.Create(*m.MetaDescription); e == nil {
+
+			//add corresponding outer generic fields
+			metaStore.processGenericInnerLinkAddition(nil, m)
+
 			metaStore.commitTransaction()
 			return nil
 		} else {
@@ -99,6 +103,54 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 		}
 	} else {
 		return e
+	}
+}
+
+// Updates an existing object metadata.
+func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTransaction bool) (bool, error) {
+	if handleTransaction {
+		//begin transaction
+		metaStore.beginTransaction()
+		defer metaStore.rollbackTransaction()
+	}
+
+	if currentBusinessObj, ok, err := metaStore.Get(name, false); err == nil {
+
+		// remove possible outer links before main update processing
+		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
+		metaStore.processGenericInnerLinksRemoval(currentBusinessObj, newBusinessObj)
+
+		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
+
+		if e != nil || !ok {
+			return ok, e
+		}
+
+		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
+			//add corresponding outer generic fields
+			metaStore.processGenericInnerLinkAddition(currentBusinessObj, newBusinessObj)
+
+			if handleTransaction {
+				metaStore.commitTransaction()
+			}
+			return true, nil
+		} else {
+			//rollback to the previous version
+			rollbackError := metaStore.syncer.UpdateObjTo(currentBusinessObj)
+			if rollbackError != nil {
+				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
+				return false, updateError
+
+			}
+			_, rollbackError = metaStore.drv.Update(name, *currentBusinessObj.MetaDescription)
+			if rollbackError != nil {
+				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
+				return false, updateError
+			}
+			return false, updateError
+		}
+	} else {
+		return ok, err
 	}
 }
 
@@ -262,52 +314,6 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
 	}
 }
 
-// Updates an existing object metadata.
-func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTransaction bool) (bool, error) {
-	if handleTransaction {
-		//begin transaction
-		metaStore.beginTransaction()
-		defer metaStore.rollbackTransaction()
-	}
-
-	if currentBusinessObj, ok, err := metaStore.Get(name, false); err == nil {
-		// remove possible outer links before main update processing
-		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
-		metaStore.processGenericInnerLinksRemoval(currentBusinessObj, newBusinessObj)
-
-		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
-
-		if e != nil || !ok {
-			return ok, e
-		}
-
-		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
-		//behaviour should be fixed
-		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
-			if handleTransaction {
-				metaStore.commitTransaction()
-			}
-			return true, nil
-		} else {
-			//rollback to the previous version
-			rollbackError := metaStore.syncer.UpdateObjTo(currentBusinessObj)
-			if rollbackError != nil {
-				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
-				return false, updateError
-
-			}
-			_, rollbackError = metaStore.drv.Update(name, *currentBusinessObj.MetaDescription)
-			if rollbackError != nil {
-				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
-				return false, updateError
-			}
-			return false, updateError
-		}
-	} else {
-		return ok, err
-	}
-}
-
 // compare current object`s version to the version is being updated and remove outer links
 // if any inner link is being removed
 func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) {
@@ -357,6 +363,54 @@ func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, m
 			//process generic outer link removal for each linked meta
 			if fieldIsBeingRemoved {
 				metaStore.removeRelatedToInnerGenericOuterLinks(currentMeta, currentFieldDescription, currentFieldDescription.LinkMetaList.GetAll())
+			}
+		}
+	}
+}
+
+//add corresponding reverse outer generic field if field is added
+func (metaStore *MetaStore) processGenericInnerLinkAddition(previousMeta *Meta, currentMeta *Meta) {
+	for _, field := range currentMeta.Fields {
+		if field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner {
+			shouldAddOuterLink := true
+
+			if previousMeta != nil {
+				previousStateField := previousMeta.FindField(field.Name)
+				if previousStateField != nil {
+					//if field has already been added
+					if previousStateField.LinkType == field.LinkType && previousStateField.Type == field.Type {
+						shouldAddOuterLink = false
+					}
+				}
+			}
+
+			if shouldAddOuterLink {
+				for _, linkMeta := range field.LinkMetaList.metas {
+					fieldName := currentMeta.Name + "__set"
+					if linkMeta.FindField(fieldName) != nil {
+						continue
+					}
+					outerField := Field{
+						Name:           fieldName,
+						Type:           FieldTypeGeneric,
+						LinkType:       LinkTypeOuter,
+						LinkMeta:       currentMeta.Name,
+						OuterLinkField: field.Name,
+						Optional:       true,
+					}
+					linkMeta.MetaDescription.Fields = append(
+						linkMeta.MetaDescription.Fields,
+						outerField,
+					)
+					linkMeta.Fields = append(linkMeta.Fields,
+						FieldDescription{
+							Field:          &outerField,
+							Meta:           linkMeta,
+							LinkMeta:       currentMeta,
+							OuterLinkField: &field,},
+					)
+					metaStore.Update(linkMeta.Name, linkMeta, false)
+				}
 			}
 		}
 	}
