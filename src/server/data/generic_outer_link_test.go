@@ -121,7 +121,7 @@ var _ = Describe("Data", func() {
 			}
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 			Expect(err).To(BeNil())
 		}
 

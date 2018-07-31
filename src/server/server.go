@@ -217,7 +217,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			js.pushError(err)
 			return
 		}
-		if _, err := metaStore.Update(p.ByName("name"), metaObj, true); err == nil {
+		if _, err := metaStore.Update(p.ByName("name"), metaObj, true, true); err == nil {
 			js.pushEmpty()
 		} else {
 			js.pushError(err)

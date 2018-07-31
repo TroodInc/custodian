@@ -107,7 +107,7 @@ func (metaStore *MetaStore) Create(m *Meta) error {
 }
 
 // Updates an existing object metadata.
-func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTransaction bool) (bool, error) {
+func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTransaction bool, keepOuter bool) (bool, error) {
 	if handleTransaction {
 		//begin transaction
 		metaStore.beginTransaction()
@@ -115,8 +115,11 @@ func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTran
 	}
 
 	if currentBusinessObj, ok, err := metaStore.Get(name, false); err == nil {
-
+		if keepOuter {
+			metaStore.processGenericOuterLinkKeeping(currentBusinessObj, newBusinessObj)
+		}
 		// remove possible outer links before main update processing
+
 		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
 		metaStore.processGenericInnerLinksRemoval(currentBusinessObj, newBusinessObj)
 
@@ -205,7 +208,7 @@ func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFi
 			//omit outer field and update related object
 			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
 			relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
-			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
+			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false, true)
 		}
 	}
 }
@@ -230,7 +233,7 @@ func (metaStore *MetaStore) removeRelatedToInnerGenericOuterLinks(targetMeta *Me
 				//omit outer field and update related object
 				relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
 				relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
-				metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
+				metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false, false)
 			}
 		}
 	}
@@ -263,7 +266,7 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 			if objectNeedsUpdate {
 				objectMeta.Fields = objectMetaFieldDescriptions
 				objectMeta.MetaDescription.Fields = objectMetaFields
-				metaStore.Update(objectMeta.Name, objectMeta, false)
+				metaStore.Update(objectMeta.Name, objectMeta, false, true)
 			}
 		}
 	}
@@ -308,7 +311,7 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
 			if objectNeedsUpdate {
 				objectMeta.Fields = objectMetaFieldDescriptions
 				objectMeta.MetaDescription.Fields = objectMetaFields
-				metaStore.Update(objectMeta.Name, objectMeta, false)
+				metaStore.Update(objectMeta.Name, objectMeta, false, true)
 			}
 		}
 	}
@@ -368,6 +371,30 @@ func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, m
 	}
 }
 
+//track outer link removal and return it if corresponding inner generic field was not removed
+//do nothing if field is being renamed
+func (metaStore *MetaStore) processGenericOuterLinkKeeping(previousMeta *Meta, currentMeta *Meta) {
+	for _, previousMetaField := range previousMeta.Fields {
+		if previousMetaField.Type == FieldTypeGeneric && previousMetaField.LinkType == LinkTypeOuter {
+			if currentMeta.FindField(previousMetaField.Name) == nil {
+				if _, _, err := metaStore.Get(previousMetaField.LinkMeta.Name, false); err == nil {
+					fieldIsBeingRenamed := false
+					for _, currentMetaField := range currentMeta.Fields {
+						if currentMetaField.Type == FieldTypeGeneric && currentMetaField.LinkType == LinkTypeOuter {
+							if currentMetaField.LinkMeta.Name == previousMetaField.LinkMeta.Name {
+								fieldIsBeingRenamed = true
+							}
+						}
+					}
+					if !fieldIsBeingRenamed {
+						currentMeta.AddField(previousMetaField)
+					}
+				}
+			}
+		}
+	}
+}
+
 //add corresponding reverse outer generic field if field is added
 func (metaStore *MetaStore) processGenericInnerLinkAddition(previousMeta *Meta, currentMeta *Meta) {
 	for _, field := range currentMeta.Fields {
@@ -420,7 +447,7 @@ func (metaStore *MetaStore) processGenericInnerLinkAddition(previousMeta *Meta, 
 							LinkMeta:       currentMeta,
 							OuterLinkField: &field,},
 					)
-					metaStore.Update(linkMeta.Name, linkMeta, false)
+					metaStore.Update(linkMeta.Name, linkMeta, false, true)
 				}
 
 				//remove reverse outer
@@ -430,7 +457,7 @@ func (metaStore *MetaStore) processGenericInnerLinkAddition(previousMeta *Meta, 
 							if excludedField.OuterLinkField.Name == field.Name && excludedField.LinkMeta.Name == field.Meta.Name {
 								excludedMeta.Fields = append(excludedMeta.Fields[:i], excludedMeta.Fields[i+1:]...)
 								excludedMeta.MetaDescription.Fields = append(excludedMeta.MetaDescription.Fields[:i], excludedMeta.MetaDescription.Fields[i+1:]...)
-								metaStore.Update(excludedMeta.Name, excludedMeta, false)
+								metaStore.Update(excludedMeta.Name, excludedMeta, false, true)
 							}
 						}
 					}

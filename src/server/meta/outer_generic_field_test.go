@@ -112,7 +112,7 @@ var _ = Describe("Outer generic field", func() {
 		}
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		// check meta fields
@@ -298,7 +298,7 @@ var _ = Describe("Outer generic field", func() {
 		}
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true)
+		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		By("and outer generic field removed from object A")
@@ -318,7 +318,7 @@ var _ = Describe("Outer generic field", func() {
 		}
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true)
+		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 	})
@@ -395,7 +395,7 @@ var _ = Describe("Outer generic field", func() {
 		}
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		//
@@ -417,7 +417,7 @@ var _ = Describe("Outer generic field", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true)
+		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		By("outer link should be removed from object A")
@@ -501,7 +501,7 @@ var _ = Describe("Outer generic field", func() {
 		}
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		//
@@ -517,6 +517,82 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 		Expect(aMetaObj.Fields).To(HaveLen(1))
 		Expect(aMetaObj.Fields[0].Name).To(Equal("id"))
+
+	})
+
+	It("does not remove outer field for object if it was not specified in object's description", func() {
+		By("having object A")
+		aMetaDescription := meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(aMetaObj)
+		Expect(err).To(BeNil())
+
+		By("and object B, containing generic inner field")
+		bMetaDescription := meta.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{aMetaObj.Name},
+					Optional:     false,
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(bMetaObj)
+		Expect(err).To(BeNil())
+
+		By("and object A has been updated with data, which does not have outer generic field")
+		aMetaDescription = meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
+		Expect(err).To(BeNil())
+		//
+
+		aMetaObj, _, err = metaStore.Get(aMetaDescription.Name, true)
+		Expect(err).To(BeNil())
+
+		Expect(aMetaObj.Fields).To(HaveLen(2))
 
 	})
 })

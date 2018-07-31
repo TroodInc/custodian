@@ -713,7 +713,7 @@ var _ = Describe("Data", func() {
 			}
 			orderMetaObj, err = metaStore.NewMeta(&orderMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(orderMetaObj.Name, orderMetaObj, true)
+			metaStore.Update(orderMetaObj.Name, orderMetaObj, true, true)
 			//
 
 			Context("record can contain numeric value for string field", func() {

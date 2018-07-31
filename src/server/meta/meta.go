@@ -206,6 +206,12 @@ func (m *Meta) FindField(name string) *FieldDescription {
 	return nil
 }
 
+func (m *Meta) AddField(fieldDescription FieldDescription) *FieldDescription {
+	m.Fields = append(m.Fields, fieldDescription)
+	m.MetaDescription.Fields = append(m.MetaDescription.Fields, *fieldDescription.Field)
+	return nil
+}
+
 func (m Meta) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.MetaDescription)
 }
