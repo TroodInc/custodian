@@ -416,6 +416,8 @@ func (metaStore *MetaStore) processGenericInnerLinkAddition(previousMeta *Meta, 
 							shouldProcessOuterLinks = true
 						}
 					}
+				} else {
+					includedMetas = field.LinkMetaList.metas
 				}
 			} else {
 				includedMetas = field.LinkMetaList.metas
