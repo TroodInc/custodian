@@ -319,15 +319,30 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		if o, e := dataProcessor.UpdateRecord(p.ByName("name"), p.ByName("key"), src.Value, user, true); e != nil {
+		objectName := p.ByName("name")
+		recordPkValue := p.ByName("key")
+		if recordData, e := dataProcessor.UpdateRecord(objectName, recordPkValue, src.Value, user, true); e != nil {
 			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
 				sink.pushError(e)
 			}
 		} else {
-			if o != nil {
-				sink.pushGeneric(o)
+			if recordData != nil {
+				var depth = 1
+				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+					depth = i
+				}
+				if depth > 1 {
+					if recordData, err := dataProcessor.Get(objectName, recordPkValue, depth, true); err != nil {
+						sink.pushError(err)
+					} else {
+						sink.pushGeneric(recordData)
+					}
+				} else {
+					sink.pushGeneric(recordData)
+				}
+
 			} else {
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
 			}

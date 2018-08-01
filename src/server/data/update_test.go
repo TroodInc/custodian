@@ -8,7 +8,6 @@ import (
 	"server/data"
 	"server/auth"
 	"strconv"
-	"fmt"
 	"utils"
 )
 
@@ -28,9 +27,9 @@ var _ = Describe("Data", func() {
 		metaStore.Flush()
 	})
 
-
 	It("Can update records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
+
 			metaDescription := meta.MetaDescription{
 				Name: "order",
 				Key:  "order",
@@ -54,11 +53,12 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
+
 			Context("and record of this object", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"select": "some value"}, auth.User{}, true)
+				record, err := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"select": "some value"}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Context("is being updated with values containing reserved word", func() {
-					record, err := dataProcessor.UpdateRecord(metaDescription.Name, strconv.Itoa(int(record["order"].(float64))), map[string]interface{}{"select": "select"}, auth.User{}, true)
+					record, err := dataProcessor.UpdateRecord(metaObj.Name, strconv.Itoa(int(record["order"].(float64))), map[string]interface{}{"select": "select"}, auth.User{}, true)
 					Expect(err).To(BeNil())
 					Expect(record["select"]).To(Equal("select"))
 				})
