@@ -152,10 +152,21 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCall
 		return targetRecord.Data[keyParts[0]]
 	} else {
 		keyPart := keyParts[0]
+		rawKeyValue := targetRecord.Data[keyPart]
+		nestedObjectField := targetRecord.Meta.FindField(keyPart)
+
+		//case of retrieving value or PK of generic field
+		if nestedObjectField.Type == meta.FieldTypeGeneric && len(keyParts) == 2 {
+			if genericFieldValue, ok := rawKeyValue.(map[string]string); ok {
+				return genericFieldValue[keyParts[1]]
+			}
+		}
+
+		//nested linked record case
 		nestedObjectMeta := targetRecord.Meta.FindField(keyPart).LinkMeta
 		if targetRecord.Data[keyPart] != nil {
-			keyValue, _ := nestedObjectMeta.Key.ValueAsString(targetRecord.Data[keyPart])
-			nestedRecordData, _ := getRecordCallback(targetRecord.Meta.Name, keyValue, 1, false)
+			keyValue, _ := nestedObjectMeta.Key.ValueAsString(rawKeyValue)
+			nestedRecordData, _ := getRecordCallback(nestedObjectMeta.Name, keyValue, 1, false)
 			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, keyParts[1:], getRecordCallback)
 		} else {
 			return nil
