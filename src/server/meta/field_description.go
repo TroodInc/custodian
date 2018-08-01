@@ -67,6 +67,9 @@ func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 		}
 	case FieldTypeArray:
 		return strconv.Atoi(v)
+	case FieldTypeGeneric:
+		//	case of querying by object
+		return v, nil
 	default:
 		return nil, NewMetaError(field.Meta.Name, "pk_from_string_conversion", ErrInternal, "Unsupported conversion from 'string' for the Field type '%s'", field.Type)
 	}
@@ -82,7 +85,7 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 			return str, nil
 		}
 	case FieldTypeNumber:
-		switch value := v.(type){
+		switch value := v.(type) {
 		case float64:
 			return strconv.FormatFloat(value, 'f', -1, 64), nil
 		case string:

@@ -263,6 +263,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			i++
 		}
 
+		//fieldPathParts[len(fieldPathParts)-1] != types.GenericInnerLinkObjectKey
 		if i != len(fieldPathParts)-1 {
 			linkedMeta := ctx.getMetaToJoin(field, fieldPathParts[i:])
 			if linkedMeta != nil {
@@ -301,9 +302,16 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 				return nil, NewRqlError(ErrRQLWrongFieldName, "FieldDescription path '%s' in 'eq' rql function is incorrect", fieldPath)
 			}
 		} else {
+			var fieldName string
+			if field.Type == meta.FieldTypeGeneric {
+				fieldName = meta.GetGenericFieldTypeColumnName(field.Name)
+			} else {
+				fieldName = field.Name
+			}
+
 			expression.WriteString(alias)
 			expression.WriteRune('.')
-			expression.WriteString(field.Name)
+			expression.WriteString(fieldName)
 			expression.WriteRune(' ')
 			op, err := sqlOperator(field, args[1:])
 			if err != nil {

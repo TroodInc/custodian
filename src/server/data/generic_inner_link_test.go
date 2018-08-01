@@ -426,5 +426,32 @@ var _ = Describe("Data", func() {
 			Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
 			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"].(string)))
 		})
+
+		It("can query records by generic_field's type", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having a record of object A", havingARecordOfObjectA)
+
+			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+
+			_, err = dataProcessor.CreateRecord("b", map[string]interface{}{}, auth.User{}, true)
+			Expect(err).To(BeNil())
+
+			matchedRecords := []map[string]interface{}{}
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+
+			err := dataProcessor.GetBulk("b", "eq(target._object,a)", 2, callbackFunction, true)
+			Expect(err).To(BeNil())
+			Expect(matchedRecords).To(HaveLen(1))
+			targetValue := matchedRecords[0]["target"].(map[string]interface{})
+			Expect(targetValue["_object"].(string)).To(Equal("a"))
+			Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
+			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"].(string)))
+		})
 	})
+
 })
