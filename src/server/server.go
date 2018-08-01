@@ -224,12 +224,12 @@ func (cs *CustodianServer) Setup() *http.Server {
 		}
 	}))
 
-	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
-
 	//Records operations
 	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		if recordData, err := dataProcessor.CreateRecord(p.ByName("name"), src.Value, user, true); err != nil {
 			sink.pushError(err)
 		} else {
@@ -240,6 +240,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		e := dataProcessor.BulkCreateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
@@ -255,6 +258,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		var depth = 2
 		if i, e := strconv.Atoi(q.Get("depth")); e == nil {
 			depth = i
@@ -271,6 +277,8 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/data/bulk/:name", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 		defer sink.Complete()
 		pq := make(url.Values)
 		if e := softParseQuery(pq, q.RawQuery); e != nil {
@@ -288,6 +296,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		user := r.Context().Value("auth_user").(auth.User)
 		if ok, e := dataProcessor.DeleteRecord(p.ByName("name"), p.ByName("key"), user, true); e != nil {
 			sink.pushError(e)
@@ -301,6 +312,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}, true))
 
 	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
 		e := dataProcessor.BulkDeleteRecords(p.ByName("name"), func() (map[string]interface{}, error) {
@@ -318,6 +332,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")
 		recordPkValue := p.ByName("key")
@@ -350,6 +367,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}, false))
 
 	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
 		e := dataProcessor.BulkUpdateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
