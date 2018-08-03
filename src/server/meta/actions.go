@@ -4,6 +4,7 @@ import (
 	"server/noti"
 	"encoding/json"
 	"crypto/md5"
+	"fmt"
 )
 
 type actions struct {
@@ -46,7 +47,7 @@ type Action struct {
 
 func (action *Action) GetUid() string {
 	arrBytes := []byte{}
-	jsonBytes, _ := json.Marshal(action)
+	jsonBytes, _ := json.Marshal([]interface{}{action.Method, action.Protocol, action.Args})
 	arrBytes = append(arrBytes, jsonBytes...)
 	bytesResult := md5.Sum(arrBytes)
 	return string(bytesResult[:])
