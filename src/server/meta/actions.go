@@ -4,7 +4,6 @@ import (
 	"server/noti"
 	"encoding/json"
 	"crypto/md5"
-	"fmt"
 )
 
 type actions struct {
