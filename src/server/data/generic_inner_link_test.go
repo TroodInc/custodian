@@ -249,6 +249,38 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 		}
 
+		havingObjectCWithGenericLinkToB := func() {
+
+			By("C contains generic inner field")
+
+			cMetaDescription := meta.MetaDescription{
+				Name: "c",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:         "target",
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []string{"b"},
+						Optional:     true,
+					},
+				},
+			}
+			cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(cMetaObj)
+			Expect(err).To(BeNil())
+		}
+
 		havingARecordOfObjectA := func() {
 			aRecord, err = dataProcessor.CreateRecord("a", map[string]interface{}{"name": "A record"}, auth.User{}, true)
 			Expect(err).To(BeNil())
@@ -290,8 +322,31 @@ var _ = Describe("Data", func() {
 			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"]))
 		})
 
-		It("can retrieve record containing null generic inner value", func() {
+		It("can retrieve record containing nested generic relations", func() {
 
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B with generic link to A", havingObjectBWithGenericLinkToA)
+			Describe("And having object C with generic link to B", havingObjectCWithGenericLinkToB)
+
+			Describe("And having a record of object A", havingARecordOfObjectA)
+
+			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{
+				"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]},
+			}, auth.User{}, true)
+			Expect(err).To(BeNil())
+
+			cRecord, err := dataProcessor.CreateRecord("c", map[string]interface{}{
+				"target": map[string]interface{}{"_object": "b", "id": bRecord["id"]},
+			}, auth.User{}, true)
+			Expect(err).To(BeNil())
+
+			bRecord, err = dataProcessor.Get("c", strconv.Itoa(int(cRecord["id"].(float64))), 3, true)
+			Expect(err).To(BeNil())
+			Expect(bRecord["target"].(map[string]interface{})["_object"].(string)).To(Equal("b"))
+			Expect(bRecord["target"].(map[string]interface{})["target"].(map[string]interface{})["name"].(string)).To(Equal("A record"))
+		})
+
+		It("can retrieve record containing null generic inner value", func() {
 			Describe("Having object A", havingObjectA)
 			Describe("And having object B", havingObjectBWithGenericLinkToA)
 			Describe("And having a record of object A", havingARecordOfObjectA)

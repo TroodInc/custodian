@@ -170,20 +170,13 @@ func (processor *Processor) Get(objectClass, key string, depth int, handleTransa
 			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
 			root.RecursivelyFillChildNodes(ctx.depthLimit)
 
-			if o, e := root.Resolve(ctx, pk); e != nil {
+			if recordData, e := root.Resolve(ctx, pk); e != nil {
 				return nil, e
-			} else if o == nil {
+			} else if recordData == nil {
 				return nil, nil
 			} else {
-				recordValues := o.(map[string]interface{})
-				for resultNodes := []ResultNode{{root, recordValues}}; len(resultNodes) > 0; resultNodes = resultNodes[1:] {
-					if childResultNodes, e := resultNodes[0].getFilledChildNodes(ctx); e != nil {
-						return nil, e
-					} else {
-						resultNodes = append(resultNodes, childResultNodes...)
-					}
-				}
-				return recordValues, nil
+				recordData := recordData.(map[string]interface{})
+				return root.FillRecordValues(recordData, ctx), nil
 			}
 		}
 	}
@@ -233,7 +226,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, depth int,
 			return e
 		}
 		for _, record := range records {
-			root.FillRecordValues(&record, searchContext)
+			record = root.FillRecordValues(record, searchContext)
 			sink(record)
 		}
 		return nil
