@@ -572,6 +572,13 @@ func (processor *Processor) DeleteRecord(objectName, key string, user auth.User,
 	operations := []Operation{operation}
 	for t2d := []tuple2d{{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 		for _, childNode := range t2d[0].n.ChildNodes {
+
+			//TODO: workaround should be fixed asap
+			if childNode.KeyField.Type == meta.FieldTypeGeneric {
+				continue
+			}
+			//
+
 			if operation, keys, err = processor.dataManager.PrepareDeletes(childNode, t2d[0].keys, processor.ExecuteContext.GetTransaction()); err != nil {
 				return false, err
 			} else {
