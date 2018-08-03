@@ -240,13 +240,37 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int) {
 			}
 		}
 	}
+
 }
 
-func (node *Node) FillRecordValues(record *map[string]interface{}, searchContext SearchContext) {
-	for nodeResults := []ResultNode{{node, *record}}; len(nodeResults) > 0; nodeResults = nodeResults[1:] {
+func (node *Node) FillRecordValues(record map[string]interface{}, searchContext SearchContext) map[string]interface{} {
+	nodeCopy := node
+	//node may mutate during resolving of generic fields, thus local copy of node is required
+	for nodeResults := []ResultNode{{nodeCopy, record}}; len(nodeResults) > 0; nodeResults = nodeResults[1:] {
 		childNodesResults, _ := nodeResults[0].getFilledChildNodes(searchContext)
 		nodeResults = append(nodeResults, childNodesResults...)
 	}
+	return transformValues(record)
+}
+
+//traverse values and prepare them for output
+func transformValues(values map[string]interface{}) map[string]interface{} {
+	for key, value := range values {
+		switch  castValue := value.(type) {
+		case map[string]interface{}:
+			values[key] = transformValues(castValue)
+		case []interface{}:
+			for i := range castValue {
+				switch castValueItem := castValue[i].(type) {
+				case map[string]interface{}:
+					castValue[i] = transformValues(castValueItem)
+				}
+			}
+		case types.GenericInnerLink:
+			values[key] = castValue.AsMap()
+		}
+	}
+	return values
 }
 
 func (node *Node) IsOfGenericType() bool {
