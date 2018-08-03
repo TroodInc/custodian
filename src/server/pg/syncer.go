@@ -13,7 +13,7 @@ type Syncer struct {
 }
 
 /*
-Example of the tx info:
+Example of the Tx info:
     - user=%s password=%s dbname=%s sslmode=disable
     - user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full
 */
@@ -42,7 +42,8 @@ func (syncer *Syncer) CreateObj(m *meta.Meta) error {
 	}
 	var md *MetaDDL
 	var e error
-	if md, e = MetaDDLFromMeta(m); e != nil {
+	metaDdlFactory := MetaDdlFactory{}
+	if md, e = metaDdlFactory.Factory(m); e != nil {
 		return e
 	}
 	var ds DDLStmts
@@ -80,17 +81,20 @@ func (syncer *Syncer) RemoveObj(name string, force bool) error {
 	return nil
 }
 
-//Update an existing business object
+//UpdateRecord an existing business object
 func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta) error {
 	if err := syncer.ensureTransactionBegun(); err != nil {
 		return err
 	}
 	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
 	var err error
-	if currentBusinessObjMeta, err = MetaDDLFromMeta(currentBusinessObj); err != nil {
+
+	metaDdlFactory := MetaDdlFactory{}
+	if currentBusinessObjMeta, err = metaDdlFactory.Factory(currentBusinessObj); err != nil {
 		return err
 	}
-	if newBusinessObjMeta, err = MetaDDLFromMeta(newBusinessObject); err != nil {
+
+	if newBusinessObjMeta, err = metaDdlFactory.Factory(newBusinessObject); err != nil {
 		return err
 	}
 	var metaDdlDiff *MetaDDLDiff
@@ -112,7 +116,8 @@ func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta
 
 //Calculates the difference between the given and the existing business object in the database
 func (syncer *Syncer) diffScripts(metaObj *meta.Meta) (DDLStmts, error) {
-	newMetaDdl, e := MetaDDLFromMeta(metaObj)
+	metaDdlFactory := MetaDdlFactory{}
+	newMetaDdl, e := metaDdlFactory.Factory(metaObj)
 	if e != nil {
 		return nil, e
 	}

@@ -236,7 +236,7 @@ func newFieldSeq(f *meta.FieldDescription, args []interface{}) (*Seq, error) {
 			return nil, err
 		}
 	} else {
-		return &Seq{Name: tblName(f.Meta) + "_" + f.Name + "_seq"}, nil
+		return &Seq{Name: GetTableName(f.Meta) + "_" + f.Name + "_seq"}, nil
 	}
 }
 
@@ -494,7 +494,7 @@ func (s *Seq) dropScript() (*DDLStmt, error) {
 	return &DDLStmt{Name: fmt.Sprintf("drop_seq#%s", s.Name), Code: buffer.String()}, nil
 }
 
-//Creates a full DDL to create a table and foreign keys refer to it
+//Creates a full DDL to create a table and foreign getColumnsToInsert refer to it
 func (md *MetaDDL) CreateScript() (DDLStmts, error) {
 	var stmts = DDLStmts{}
 	for i, _ := range md.Seqs {
@@ -512,7 +512,7 @@ func (md *MetaDDL) CreateScript() (DDLStmts, error) {
 	return stmts, nil
 }
 
-//Creates a full DDL to remove a table and foreign keys refer to it
+//Creates a full DDL to remove a table and foreign getColumnsToInsert refer to it
 func (md *MetaDDL) DropScript(force bool) (DDLStmts, error) {
 	var stmts = DDLStmts{}
 	if s, e := md.dropTableScript(force); e != nil {
@@ -540,7 +540,7 @@ type SliceCopyProcessor interface {
 
 // Calculates two differences, m1 / m2 and m2 / m1, m1 and m2 is treated as sets.
 // Id() is used as unique identifier in a set.
-// Second slice of m1 contains m1 / m2 difference, second slice of m2 contains m2 / m1 difference.
+// Data slice of m1 contains m1 / m2 difference, second slice of m2 contains m2 / m1 difference.
 func InverseIntersect(m1, m2 SliceCopyProcessor) {
 	var set = make(map[string]int)
 	for i := 0; i < m1.Len(); i++ {
@@ -700,55 +700,10 @@ func (m *MetaDDLDiff) Script() (DDLStmts, error) {
 
 const TableNamePrefix = "o_"
 
-func tblName(m *meta.Meta) string {
+func GetTableName(m *meta.Meta) string {
 	name := bytes.NewBufferString(TableNamePrefix)
 	name.WriteString(m.Name)
 	return name.String()
-}
-
-func MetaDDLFromMeta(m *meta.Meta) (*MetaDDL, error) {
-	var metaDdl = &MetaDDL{Table: tblName(m), Pk: m.Key.Name}
-	metaDdl.Columns = make([]Column, 0, len(m.Fields))
-	metaDdl.IFKs = make([]IFK, 0, len(m.Fields)>>1)
-	metaDdl.OFKs = make([]OFK, 0, len(m.Fields)>>1)
-	metaDdl.Seqs = make([]Seq, 0)
-	for i, _ := range m.Fields {
-		f := &m.Fields[i]
-		c := Column{}
-		c.Name = f.Name
-		c.Optional = f.Optional
-		c.Unique = false
-		colDef, err := newColDefVal(f)
-		if err != nil {
-			return nil, err
-		}
-		if c.Defval, err = colDef.ddlVal(); err != nil {
-			return nil, err
-		}
-		if ds, ok := colDef.(*ColDefValSeq); ok {
-			metaDdl.Seqs = append(metaDdl.Seqs, *ds.seq)
-		}
-
-		if f.IsSimple() {
-			var ok bool
-			if c.Typ, ok = fieldTypeToColumnType(f.Type); !ok {
-				return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(f.Type)}
-			}
-			metaDdl.Columns = append(metaDdl.Columns, c)
-		} else if f.Type == meta.FieldTypeObject && f.LinkType == meta.LinkTypeInner {
-			var ok bool
-			if c.Typ, ok = fieldTypeToColumnType(f.LinkMeta.Key.Type); !ok {
-				return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(f.LinkMeta.Key.Type)}
-			}
-			metaDdl.Columns = append(metaDdl.Columns, c)
-			metaDdl.IFKs = append(metaDdl.IFKs, IFK{FromColumn: f.Name, ToTable: tblName(f.LinkMeta), ToColumn: f.LinkMeta.Key.Name})
-		} else if f.LinkType == meta.LinkTypeOuter {
-			metaDdl.OFKs = append(metaDdl.OFKs, OFK{FromTable: tblName(f.LinkMeta), FromColumn: f.OuterLinkField.Name, ToTable: tblName(m), ToColumn: m.Key.Name})
-		} else {
-			return nil, &DDLError{table: metaDdl.Table, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(f.LinkType), string(f.LinkType))}
-		}
-	}
-	return metaDdl, nil
 }
 
 var seqNameParseRe = regexp.MustCompile("nextval\\('(.*)'::regclass\\)")

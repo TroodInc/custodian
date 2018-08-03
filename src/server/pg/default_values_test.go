@@ -46,7 +46,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a number field to the object")
@@ -70,7 +70,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -79,7 +79,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["ordering"]).To(Equal(float64(10)))
 			})
@@ -106,7 +106,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a number field to the object")
@@ -130,7 +130,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true,true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -139,7 +139,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["ordering"]).To(Equal(float64(10.98)))
 			})
@@ -166,7 +166,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a boolean field to the object")
@@ -190,7 +190,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true,true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -199,7 +199,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["is_active"]).To(BeTrue())
 			})
@@ -226,7 +226,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a string field to the object")
@@ -250,7 +250,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true,true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -259,7 +259,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["name"]).To(Equal("Not specified"))
 			})
@@ -286,7 +286,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a date field to the object")
@@ -310,7 +310,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true,true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -319,7 +319,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["date"]).To(Equal("2018-05-22"))
 			})
@@ -346,7 +346,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a datetime field to the object")
@@ -370,7 +370,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true,true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -379,7 +379,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["datetime"]).To(Equal("2018-05-29T15:29:58.627755+05:00"))
 			})
@@ -406,7 +406,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.Put(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			By("adding a time field to the object")
@@ -430,7 +430,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true,true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -439,7 +439,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 
 				Expect(matchedRecords[0]["time"]).To(Equal("15:29:58+07:00"))

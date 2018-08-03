@@ -10,6 +10,7 @@ type FieldDescription struct {
 	Meta           *Meta
 	LinkMeta       *Meta
 	OuterLinkField *FieldDescription
+	LinkMetaList   *MetaList
 }
 
 func (f *FieldDescription) Default() Def {
@@ -66,6 +67,9 @@ func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 		}
 	case FieldTypeArray:
 		return strconv.Atoi(v)
+	case FieldTypeGeneric:
+		//	case of querying by object
+		return v, nil
 	default:
 		return nil, NewMetaError(field.Meta.Name, "pk_from_string_conversion", ErrInternal, "Unsupported conversion from 'string' for the Field type '%s'", field.Type)
 	}
@@ -81,11 +85,14 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 			return str, nil
 		}
 	case FieldTypeNumber:
-		if flt, ok := v.(float64); !ok {
+		switch value := v.(type) {
+		case float64:
+			return strconv.FormatFloat(value, 'f', -1, 64), nil
+		case string:
+			return value, nil
+		default:
 			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
 				"Wrong input value type '%s'. For Field '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
-		} else {
-			return strconv.FormatFloat(flt, 'f', -1, 64), nil
 		}
 	case FieldTypeBool:
 		if b, ok := v.(bool); !ok {

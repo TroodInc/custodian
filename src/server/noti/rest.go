@@ -171,7 +171,7 @@ func (rn *restNotifier) handle(event *Event, body *jsonBodyStream) error {
 		body.Failed(event.err)
 		return event.err
 	}
-	if rn.activeIfNotRoot || event.isRoot {
+	if rn.activeIfNotRoot || event.isRoot  {
 		return body.PourOff(event.obj)
 	}
 	return nil

@@ -2,10 +2,8 @@ package meta
 
 import (
 	"encoding/json"
-	"logger"
 	"server/noti"
-	"io"
-	"sync"
+	"utils"
 )
 
 type LinkType int
@@ -71,31 +69,39 @@ type DefExpr struct {
 type Method int
 
 const (
-	MethodRetrive Method = iota + 1
+	MethodRetrieve Method = iota + 1
 	MethodCreate
 	MethodRemove
 	MethodUpdate
 )
 
-func (m Method) String() (string, bool) {
+func (m Method) AsString() (string) {
 	switch m {
-	case MethodRetrive:
-		return "retrive", true
+	case MethodRetrieve:
+		return "retrieve"
 	case MethodCreate:
-		return "create", true
+		return "create"
 	case MethodRemove:
-		return "remove", true
+		return "remove"
 	case MethodUpdate:
-		return "update", true
+		return "update"
 	default:
-		return "", false
+		return ""
+	}
+}
+
+func (m Method) Validate() (string, bool) {
+	if methodAsString := m.AsString(); methodAsString == "" {
+		return methodAsString, false
+	} else {
+		return methodAsString, true
 	}
 }
 
 func AsMethod(s string) (Method, bool) {
 	switch s {
-	case "retrive":
-		return MethodRetrive, true
+	case "retrieve":
+		return MethodRetrieve, true
 	case "create":
 		return MethodCreate, true
 	case "remove":
@@ -121,7 +127,7 @@ func (mt *Method) UnmarshalJSON(b []byte) error {
 }
 
 func (mt Method) MarshalJSON() ([]byte, error) {
-	if s, ok := mt.String(); ok {
+	if s, ok := mt.Validate(); ok {
 		return json.Marshal(s)
 	} else {
 		return nil, NewMetaError("", "json_marshal", ErrJsonMarshal, "Incorrect method: %v", mt)
@@ -155,6 +161,7 @@ func asProtocol(name string) (Protocol, bool) {
 
 var (
 	REST = protocol_iota("REST")
+	TEST = protocol_iota("TEST")
 )
 
 func (p *Protocol) MarshalJSON() ([]byte, error) {
@@ -179,41 +186,7 @@ func (p *Protocol) UnmarshalJSON(b []byte) error {
 
 var notifierFactories = map[Protocol]noti.Factory{
 	REST: noti.NewRestNotifier,
-}
-
-type actions struct {
-	original  []action
-	notifiers map[Method][]noti.Notifier
-}
-
-func newActions(array []action) (*actions, error) {
-	notifiers := make(map[Method][]noti.Notifier)
-	for i, _ := range array {
-		factory, ok := notifierFactories[array[i].Protocol]
-		if !ok {
-			ps, _ := array[i].Protocol.String()
-			return nil, NewMetaError("", "create_actions", ErrInternal, "Notifier factory not found for protocol: %s", ps)
-		}
-
-		notifier, err := factory(array[i].Args, array[i].ActiveIfNotRoot)
-		if err != nil {
-			return nil, err
-		}
-		m := array[i].Method
-		notifiers[m] = append(notifiers[m], notifier)
-	}
-	return &actions{original: array, notifiers: notifiers}, nil
-}
-
-func (a *actions) StartNotification(method Method) chan *noti.Event {
-	return noti.Broadcast(a.notifiers[method])
-}
-
-type action struct {
-	Method          Method   `json:"method"`
-	Protocol        Protocol `json:"protocol"`
-	Args            []string `json:"args,omitempty"`
-	ActiveIfNotRoot bool     `json:"activeIfNotRoot"`
+	TEST: noti.NewTestNotifier,
 }
 
 //Object metadata description.
@@ -233,6 +206,12 @@ func (m *Meta) FindField(name string) *FieldDescription {
 	return nil
 }
 
+func (m *Meta) AddField(fieldDescription FieldDescription) *FieldDescription {
+	m.Fields = append(m.Fields, fieldDescription)
+	m.MetaDescription.Fields = append(m.MetaDescription.Fields, *fieldDescription.Field)
+	return nil
+}
+
 func (m Meta) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.MetaDescription)
 }
@@ -242,368 +221,16 @@ type MetaDescription struct {
 	Name    string   `json:"name"`
 	Key     string   `json:"key"`
 	Fields  []Field  `json:"fields"`
-	Actions []action `json:"actions,omitempty"`
+	Actions []Action `json:"actions,omitempty"`
 	Cas     bool     `json:"cas"`
 }
 
-/*
-   Metadata store of objects persisted in DB.
-*/
-type MetaStore struct {
-	drv         MetaDriver
-	cache       map[string]*Meta
-	cacheMutex  sync.RWMutex
-	syncer      MetaDbSyncer
-	syncerMutex sync.RWMutex
-}
-
-func (metaStore *MetaStore) UnmarshalJSON(r io.ReadCloser) (*Meta, error) {
-	var metaObj MetaDescription
-	if e := json.NewDecoder(r).Decode(&metaObj); e != nil {
-		return nil, NewMetaError("", "unmarshal", ErrNotValid, e.Error())
-	}
-	return metaStore.NewMeta(&metaObj)
-}
-
-func (metaStore *MetaStore) unmarshalMeta(b []byte) (*Meta, error) {
-	var m MetaDescription
-	if e := json.Unmarshal(b, &m); e != nil {
-		return nil, e
-	}
-	return metaStore.NewMeta(&m)
-}
-
 func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
-	return (f.IsSimple() && f.Type == m.Key.Type) || (f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner)
-}
-
-func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
-	if ok, err := (&ValidationService{}).Validate(metaObj); !ok {
-		return nil, err
-	}
-	createdMeta := &Meta{MetaDescription: metaObj}
-	notResolved := []*Meta{createdMeta}
-	shadowCache := map[string]*Meta{metaObj.Name: createdMeta}
-	for ; len(notResolved) > 0; notResolved = notResolved[1:] {
-		bm := notResolved[0]
-		fieldsLen := len(bm.MetaDescription.Fields)
-		bm.Fields = make([]FieldDescription, fieldsLen, fieldsLen)
-		for i := 0; i < fieldsLen; i++ {
-			bm.Fields[i].Meta = bm
-			field := &bm.MetaDescription.Fields[i]
-			bm.Fields[i].Field = field
-			if field.LinkMeta != "" {
-				var ok bool
-				if bm.Fields[i].LinkMeta, ok = shadowCache[field.LinkMeta]; ok {
-					continue
-				}
-
-				linkedMeta, _, err := metaStore.drv.Get(field.LinkMeta)
-				if err != nil {
-					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "FieldDescription '%s' has iccorect link MetaDescription: %s", field.Name, err.Error())
-				}
-				bm.Fields[i].LinkMeta = &Meta{MetaDescription: linkedMeta}
-				shadowCache[field.LinkMeta] = bm.Fields[i].LinkMeta
-				notResolved = append(notResolved, bm.Fields[i].LinkMeta)
-			}
-		}
-
-		if a, err := newActions(bm.MetaDescription.Actions); err == nil {
-			bm.Actions = a
-		} else {
-			return nil, err
-		}
-
-		if bm.Key = bm.FindField(bm.MetaDescription.Key); bm.Key == nil {
-			return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Meta '%s' is inccorrect. The specified key '%s' Field not found", bm.MetaDescription.Name, bm.MetaDescription.Key)
-		} else if !bm.Key.IsSimple() {
-			return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Meta '%s' is inccorrect. The key Field '%s' is not simple", bm.MetaDescription.Name, bm.MetaDescription.Key)
-		}
-
-		if bm.Cas {
-			if cas := bm.FindField("cas"); cas != nil {
-				if cas.Type != FieldTypeNumber {
-					return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "The filed 'cas' specified in the MetaDescription '%s' as CAS must be type of 'number'", bm.MetaDescription.Cas, bm.MetaDescription.Name)
-				}
-			} else {
-				return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Meta '%s' has CAS defined but the filed 'cas' it refers to is absent", bm.MetaDescription.Name, bm.MetaDescription.Cas)
-			}
-		}
-	}
-
-	for _, bm := range shadowCache {
-		//processing outer links
-		fieldsLen := len(bm.MetaDescription.Fields)
-		for i := 0; i < fieldsLen; i++ {
-			f := &bm.Fields[i]
-			if f.LinkType != LinkTypeOuter {
-				continue
-			}
-			if f.OuterLinkField = f.LinkMeta.FindField(f.Field.OuterLinkField); f.OuterLinkField == nil {
-				return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Filed '%s' has incorrect outer link. Meta '%s' doesn't have a Field '%s'", f.Name, f.LinkMeta.Name, f.Field.OuterLinkField)
-			} else if !f.OuterLinkField.canBeLinkTo(f.Meta) {
-				return nil, NewMetaError(metaObj.Name, "new_meta", ErrNotValid, "Filed '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", f.Name, f.OuterLinkField.Name, f.OuterLinkField.Meta.Name, f.Meta.Name)
-			}
-		}
-	}
-
-	for k, bm := range shadowCache {
-		metaStore.cache[k] = bm
-	}
-
-	return createdMeta, nil
-}
-
-func NewStore(md MetaDriver, mds MetaDbSyncer) *MetaStore {
-	return &MetaStore{drv: md, syncer: mds, cache: make(map[string]*Meta)}
-}
-
-/*
-   Retrives the list of metadata objects from the underlying store.
-*/
-func (metaStore *MetaStore) List() (*[]*MetaDescription, bool, error) {
-	metaStore.syncerMutex.RLock()
-	defer metaStore.syncerMutex.RUnlock()
-	metaList, isFound, err := metaStore.drv.List()
-
-	if err != nil {
-		return &[]*MetaDescription{}, isFound, err
-	}
-
-	return metaList, isFound, nil
-}
-
-/*
-   Retrives object metadata from the underlying store.
-*/
-func (metaStore *MetaStore) Get(name string, handleTransaction bool) (*Meta, bool, error) {
-	if handleTransaction {
-		metaStore.beginTransaction()
-		defer metaStore.rollbackTransaction()
-	}
-	//retrieve business object metadata from the storage
-	metaData, isFound, err := metaStore.drv.Get(name)
-
-	if err != nil {
-		return nil, isFound, err
-	}
-	//assemble the new business object with the given metadata
-	businessObject, err := metaStore.NewMeta(metaData)
-	if err != nil {
-		return nil, isFound, err
-	}
-	//validate the newly created business object against existing one in the database
-	ok, err := metaStore.syncer.ValidateObj(businessObject)
-	if ok {
-		return businessObject, isFound, nil
-	}
-
-	return nil, false, err
-}
-
-// Creates a new object type described by passed metadata.
-func (metaStore *MetaStore) Create(m *Meta) error {
-	//begin transaction
-	metaStore.beginTransaction()
-	defer metaStore.rollbackTransaction()
-
-	if e := metaStore.syncer.CreateObj(m); e == nil {
-		if e := metaStore.drv.Create(*m.MetaDescription); e == nil {
-			metaStore.commitTransaction()
-			return nil
-		} else {
-			var e2 = metaStore.syncer.RemoveObj(m.Name, false)
-			logger.Error("Error while compenstaion of object '%s' metadata creation: %v", m.Name, e2)
-			return e
-		}
-	} else {
-		return e
-	}
-}
-
-// Deletes an existing object metadata from the store.
-func (metaStore *MetaStore) Remove(name string, force bool, handleTransaction bool) (bool, error) {
-	if handleTransaction {
-		//begin transaction
-		metaStore.beginTransaction()
-		defer metaStore.rollbackTransaction()
-	}
-	meta, _, err := metaStore.Get(name, false)
-	if err != nil {
-		return false, err
-	}
-	//remove related links from the database
-
-	metaStore.removeRelatedOuterLinks(meta)
-	metaStore.removeRelatedInnerLinks(meta)
-
-	//remove object from the database
-	if e := metaStore.syncer.RemoveObj(name, force); e == nil {
-		//remove object`s description *.json file
-		ok, err := metaStore.drv.Remove(name)
-		if err == nil && handleTransaction {
-			metaStore.commitTransaction()
-		}
-		return ok, err
-	} else {
-		return false, e
-	}
-}
-
-//Remove all outer fields linking to given Meta
-func (metaStore *MetaStore) removeRelatedOuterLinks(targetMeta *Meta) {
-	for _, field := range targetMeta.Fields {
-		if field.Type == FieldTypeObject && field.LinkType == LinkTypeInner {
-			metaStore.removeRelatedOuterLink(targetMeta, field)
-		}
-	}
-}
-
-//Remove outer field from related object if it links to the given field
-func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFieldDescription FieldDescription) {
-	relatedObjectMeta := innerLinkFieldDescription.LinkMeta
-	for i, relatedObjectField := range relatedObjectMeta.Fields {
-		if relatedObjectField.LinkType == LinkTypeOuter &&
-			relatedObjectField.LinkMeta.Name == targetMeta.Name &&
-			relatedObjectField.OuterLinkField.Field.Name == innerLinkFieldDescription.Field.Name {
-			//omit outer field and update related object
-			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
-			relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
-			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
-		}
-	}
-}
-
-//Remove inner fields linking to given Meta
-func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
-	metaDescriptionList, _, _ := metaStore.List()
-	for _, objectMetaDescription := range *metaDescriptionList {
-
-		if targetMeta.Name != objectMetaDescription.Name {
-			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
-			objectMetaFields := make([]Field, 0)
-			objectMetaFieldDescriptions := make([]FieldDescription, 0)
-
-			for i, fieldDescription := range objectMeta.Fields {
-				if fieldDescription.LinkType != LinkTypeInner || fieldDescription.LinkMeta.Name != targetMeta.Name {
-					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
-					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
-				}
-			}
-			// it means that related object should be updated
-			if len(objectMetaFieldDescriptions) != len(objectMeta.Fields) {
-				objectMeta.Fields = objectMetaFieldDescriptions
-				objectMeta.MetaDescription.Fields = objectMetaFields
-				metaStore.Update(objectMeta.Name, objectMeta, false)
-			}
-		}
-	}
-}
-
-// Updates an existing object metadata.
-func (metaStore *MetaStore) Update(name string, newBusinessObj *Meta, handleTransaction bool) (bool, error) {
-	if handleTransaction {
-		//begin transaction
-		metaStore.beginTransaction()
-		defer metaStore.rollbackTransaction()
-	}
-
-	if currentBusinessObj, ok, err := metaStore.Get(name, false); err == nil {
-		// remove possible outer links before main update processing
-		metaStore.processInnerLinksRemoval(currentBusinessObj, newBusinessObj)
-		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
-
-		if e != nil || !ok {
-			return ok, e
-		}
-
-		//TODO: This logic tells NOTHING about error if it was successfully rolled back. This
-		//behaviour should be fixed
-		if updateError := metaStore.syncer.UpdateObj(currentBusinessObj, newBusinessObj); updateError == nil {
-			if handleTransaction {
-				metaStore.commitTransaction()
-			}
-			return true, nil
-		} else {
-			//rollback to the previous version
-			rollbackError := metaStore.syncer.UpdateObjTo(currentBusinessObj)
-			if rollbackError != nil {
-				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
-				return false, updateError
-
-			}
-			_, rollbackError = metaStore.drv.Update(name, *currentBusinessObj.MetaDescription)
-			if rollbackError != nil {
-				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
-				return false, updateError
-			}
-			return false, updateError
-		}
-	} else {
-		return ok, err
-	}
-}
-
-// compare current object`s version to the version is being updated and remove outer links
-// if any inner link is being removed
-func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) {
-	for _, currentFieldDescription := range currentMeta.Fields {
-		if currentFieldDescription.LinkType == LinkTypeInner {
-			fieldIsBeingRemoved := true
-			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
-				if fieldDescriptionToBeUpdated.Name == fieldDescriptionToBeUpdated.Name &&
-					fieldDescriptionToBeUpdated.LinkType == LinkTypeInner &&
-					fieldDescriptionToBeUpdated.LinkMeta.Name == fieldDescriptionToBeUpdated.LinkMeta.Name {
-					fieldIsBeingRemoved = false
-				}
-			}
-			if fieldIsBeingRemoved {
-				metaStore.removeRelatedOuterLink(currentMeta, currentFieldDescription)
-			}
-		}
-	}
-}
-
-// Updates an existing object metadata.
-func (metaStore *MetaStore) Flush() error {
-	metaStore.beginTransaction()
-	defer metaStore.rollbackTransaction()
-	metaList, _, err := metaStore.List()
-	if err != nil {
-		return err
-	}
-	for _, meta := range *metaList {
-		if _, err := metaStore.Remove(meta.Name, true, false); err != nil {
-			return err
-		}
-	}
-	metaStore.commitTransaction()
-	return nil
-}
-
-func (metaStore *MetaStore) beginTransaction() (error) {
-	if err := metaStore.syncer.BeginTransaction(); err != nil {
-		return err
-	}
-	if err := metaStore.drv.BeginTransaction(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (metaStore *MetaStore) commitTransaction() (error) {
-	if err := metaStore.syncer.CommitTransaction(); err != nil {
-		return err
-	}
-	if err := metaStore.drv.CommitTransaction(); err != nil {
-		return err
-	}
-	return nil
-}
-
-func (metaStore *MetaStore) rollbackTransaction() {
-	metaStore.syncer.RollbackTransaction()
-	metaStore.drv.RollbackTransaction()
+	isSimpleFieldWithSameTypeAsPk := f.IsSimple() && f.Type == m.Key.Type
+	isInnerLinkToMeta := f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner
+	isGenericInnerLinkToMeta := f.Type == FieldTypeGeneric && f.LinkType == LinkTypeInner && utils.Contains(f.Field.LinkMetaList, m.Name)
+	canBeLinkTo := isSimpleFieldWithSameTypeAsPk || isInnerLinkToMeta || isGenericInnerLinkToMeta
+	return canBeLinkTo
 }
 
 /*

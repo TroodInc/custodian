@@ -7,7 +7,6 @@ import (
 	"server/pg"
 	"server/data"
 	"server/auth"
-	"strconv"
 	"fmt"
 	"utils"
 )
@@ -82,7 +81,7 @@ var _ = Describe("Data", func() {
 						"name": "newLead",
 					}
 					user := auth.User{}
-					record, err := dataProcessor.Put(leadMetaDescription.Name, leadData, user)
+					record, err := dataProcessor.CreateRecord(leadMetaDescription.Name, leadData, user, true)
 					Expect(err).To(BeNil())
 					Expect(record).To(HaveKey("decline_reason"))
 				})
@@ -117,8 +116,8 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			Context("and two records with dates that differ by a week", func() {
-				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"date": "2018-05-29"}, auth.User{})
-				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"date": "2018-05-22"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"date": "2018-05-29"}, auth.User{}, true)
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"date": "2018-05-22"}, auth.User{}, true)
 				matchedRecords := []map[string]interface{}{}
 				Expect(err).To(BeNil())
 				callbackFunction := func(obj map[string]interface{}) error {
@@ -126,7 +125,7 @@ var _ = Describe("Data", func() {
 					return nil
 				}
 				Context("query by date returns correct result", func() {
-					dataProcessor.GetBulk(metaObj.Name, "gt(date,2018-05-23)", 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, "gt(date,2018-05-23)", 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0]["id"]).To(Equal(record["id"]))
 				})
@@ -156,10 +155,10 @@ var _ = Describe("Data", func() {
 
 			By("having two records of this object")
 
-			_, err = dataProcessor.Put(metaDescription.Name, map[string]interface{}{"id": "PKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"id": "PKVALUE"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
-			_, err = dataProcessor.Put(metaDescription.Name, map[string]interface{}{"id": "ANOTHERPKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"id": "ANOTHERPKVALUE"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			matchedRecords := []map[string]interface{}{}
@@ -195,13 +194,13 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			By("having a record of B object")
-			_, err = dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"id": "pk", "a": "PKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"id": "id", "a": "PKVALUE"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			Context("query by PK returns correct result", func() {
-				dataProcessor.GetBulk(bMetaObj.Name, "eq(a,PKVALUE)", 1, callbackFunction)
+				dataProcessor.GetBulk(bMetaObj.Name, "eq(a,PKVALUE)", 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["id"]).To(Equal("pk"))
+				Expect(matchedRecords[0]["id"]).To(Equal("id"))
 			})
 
 		})
@@ -234,16 +233,16 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			Context("and two records with 'created' values that differ by a week", func() {
-				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"created": "2018-05-29T15:29:58.627755+05:00"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created": "2018-05-29T15:29:58.627755+05:00"}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"created": "2018-05-22T15:29:58.627755+05:00"}, auth.User{})
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created": "2018-05-22T15:29:58.627755+05:00"}, auth.User{}, true)
 				matchedRecords := []map[string]interface{}{}
 				callbackFunction := func(obj map[string]interface{}) error {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
 				Context("query by 'created' field returns correct result", func() {
-					dataProcessor.GetBulk(metaObj.Name, "gt(created,2018-05-23)", 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, "gt(created,2018-05-23)", 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0]["id"]).To(Equal(record["id"]))
 				})
@@ -277,8 +276,8 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("and two records with 'created_time' values that differ by several hours", func() {
-				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"created_time": "14:00:00 +05:00"}, auth.User{})
-				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"created_time": "09:00:00 +05:00"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "14:00:00 +05:00"}, auth.User{}, true)
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "09:00:00 +05:00"}, auth.User{}, true)
 				matchedRecords := []map[string]interface{}{}
 				Expect(err).To(BeNil())
 				callbackFunction := func(obj map[string]interface{}) error {
@@ -287,7 +286,7 @@ var _ = Describe("Data", func() {
 				}
 				Context("query by 'created' field returns correct result", func() {
 					//query by value greater than 10:00:00 +05:00
-					dataProcessor.GetBulk(metaObj.Name, "gt(created_time,10%3A00%3A00%20%2B05%3A00)", 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, "gt(created_time,10%3A00%3A00%20%2B05%3A00)", 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0]["id"]).To(Equal(record["id"]))
 				})
@@ -322,11 +321,11 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("and two records of this object", func() {
-				recordOne, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{})
+				recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				recordTwo, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
+				recordTwo, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{}, true)
 
 				matchedRecords := []map[string]interface{}{}
 				callbackFunction := func(obj map[string]interface{}) error {
@@ -336,7 +335,7 @@ var _ = Describe("Data", func() {
 
 				Context("query by date returns correct result", func() {
 					query := fmt.Sprintf("in(id,(%d,%d))", int(recordOne["id"].(float64)), int(recordTwo["id"].(float64)))
-					dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(2))
 					Expect(matchedRecords[0]["id"]).To(Equal(recordOne["id"]))
 					Expect(matchedRecords[1]["id"]).To(Equal(recordTwo["id"]))
@@ -372,7 +371,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("DataManager creates record without any values", func() {
-				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Expect(record["id"]).To(BeEquivalentTo(1))
 			})
@@ -399,9 +398,9 @@ var _ = Describe("Data", func() {
 			metaObj, _ := metaStore.NewMeta(&metaDescription)
 			metaStore.Create(metaObj)
 
-			recordOne, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{})
+			recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order1"}, auth.User{}, true)
 			Expect(err).To(BeNil())
-			_, err = dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{}, true)
 			Expect(err).To(BeNil())
 
 			matchedRecords := []map[string]interface{}{}
@@ -411,7 +410,7 @@ var _ = Describe("Data", func() {
 			}
 			Context("DataManager queries record with 'in' expression by single value", func() {
 				query := fmt.Sprintf("in(id,(%d))", int(recordOne["id"].(float64)))
-				dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction)
+				dataProcessor.GetBulk(metaObj.Name, query, 1, callbackFunction, true)
 				Expect(matchedRecords).To(HaveLen(1))
 			})
 		})
@@ -442,7 +441,7 @@ var _ = Describe("Data", func() {
 			metaObj, _ := metaStore.NewMeta(&metaDescription)
 			metaStore.Create(metaObj)
 
-			recordOne, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": nil}, auth.User{})
+			recordOne, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": nil}, auth.User{}, true)
 			Expect(err).To(BeNil())
 			Expect(recordOne["name"]).To(BeNil())
 		})
@@ -476,11 +475,11 @@ var _ = Describe("Data", func() {
 			Context("and three records of this object", func() {
 
 				By("two matching records")
-				firstPersonRecord, _ := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "Some Person"}, auth.User{})
-				secondPersonRecord, _ := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "Some Another person"}, auth.User{})
+				firstPersonRecord, _ := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Person"}, auth.User{}, true)
+				secondPersonRecord, _ := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Another person"}, auth.User{}, true)
 
 				By("and one mismatching record")
-				dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": "Some Other dog"}, auth.User{})
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Some Other dog"}, auth.User{}, true)
 
 				matchedRecords := []map[string]interface{}{}
 				callbackFunction := func(obj map[string]interface{}) error {
@@ -488,7 +487,7 @@ var _ = Describe("Data", func() {
 					return nil
 				}
 				Context("query by date returns correct result", func() {
-					dataProcessor.GetBulk(metaObj.Name, "like(name,*Person*)", 1, callbackFunction)
+					dataProcessor.GetBulk(metaObj.Name, "like(name,*Person*)", 1, callbackFunction, true)
 					Expect(matchedRecords).To(HaveLen(2))
 					Expect(matchedRecords[0]["id"]).To(Equal(firstPersonRecord["id"]))
 					Expect(matchedRecords[1]["id"]).To(Equal(secondPersonRecord["id"]))
@@ -524,7 +523,7 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 			Context("and record has values containing reserved word", func() {
-				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"order": "order"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"order": "order"}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Expect(record["id"]).To(Equal(float64(1)))
 
@@ -532,153 +531,6 @@ var _ = Describe("Data", func() {
 
 		})
 
-	})
-
-	It("Can update records containing reserved words", func() {
-		Context("having an object named by reserved word and containing field named by reserved word", func() {
-			metaDescription := meta.MetaDescription{
-				Name: "order",
-				Key:  "order",
-				Cas:  false,
-				Fields: []meta.Field{
-					{
-						Name:     "order",
-						Type:     meta.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name: "select",
-						Type: meta.FieldTypeString,
-					},
-				},
-			}
-			metaObj, err := metaStore.NewMeta(&metaDescription)
-			Expect(err).To(BeNil())
-			err = metaStore.Create(metaObj)
-			Expect(err).To(BeNil())
-			Context("and record of this object", func() {
-				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"select": "some value"}, auth.User{})
-				Expect(err).To(BeNil())
-				Context("is being updated with values containing reserved word", func() {
-					record, err := dataProcessor.Update(metaDescription.Name, strconv.Itoa(int(record["order"].(float64))), map[string]interface{}{"select": "select"}, auth.User{})
-					Expect(err).To(BeNil())
-					Expect(record["select"]).To(Equal("select"))
-				})
-
-			})
-
-		})
-
-	})
-
-	It("Can update records containing foreign keys", func() {
-		Context("having an object B with foreign key to object A", func() {
-			aMetaDescription := meta.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []meta.Field{
-					{
-						Name:     "id",
-						Type:     meta.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-				},
-			}
-			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-			Expect(err).To(BeNil())
-			err = metaStore.Create(aMetaObj)
-			Expect(err).To(BeNil())
-
-			bMetaDescription := meta.MetaDescription{
-				Name: "b",
-				Key:  "id",
-				Cas:  false,
-				Fields: []meta.Field{
-					{
-						Name:     "id",
-						Type:     meta.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:     "a",
-						Type:     meta.FieldTypeObject,
-						LinkType: meta.LinkTypeInner,
-						Optional: false,
-						LinkMeta: "a",
-					},
-				},
-			}
-			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
-			Expect(err).To(BeNil())
-			err = metaStore.Create(bMetaObj)
-			Expect(err).To(BeNil())
-
-			Context("and record of B object with referenced A record created", func() {
-				aRecord, err := dataProcessor.Put(aMetaObj.Name, map[string]interface{}{}, auth.User{})
-				Expect(err).To(BeNil())
-
-				bRecord, err := dataProcessor.Put(bMetaObj.Name, map[string]interface{}{"a": aRecord["id"]}, auth.User{})
-				bRecordId, _ := bRecord["id"].(float64)
-				Expect(err).To(BeNil())
-
-				Context("B record is being updated with another A record", func() {
-
-					anotherARecord, err := dataProcessor.Put(aMetaObj.Name, map[string]interface{}{}, auth.User{})
-					Expect(err).To(BeNil())
-
-					bRecord, err := dataProcessor.Update(bMetaObj.Name, strconv.Itoa(int(bRecordId)), map[string]interface{}{"a": anotherARecord["id"]}, auth.User{})
-					Expect(err).To(BeNil())
-
-					Expect(bRecord["a"]).To(Equal(anotherARecord["id"]))
-				})
-
-			})
-
-		})
-
-	})
-
-	It("Can delete records containing reserved words", func() {
-		Context("having an object named by reserved word and containing field named by reserved word", func() {
-			metaDescription := meta.MetaDescription{
-				Name: "order",
-				Key:  "from",
-				Cas:  false,
-				Fields: []meta.Field{
-					{
-						Name:     "from",
-						Type:     meta.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-				},
-			}
-			metaObj, err := metaStore.NewMeta(&metaDescription)
-			Expect(err).To(BeNil())
-			err = metaStore.Create(metaObj)
-			Expect(err).To(BeNil())
-			Context("and record of this object", func() {
-				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{}, auth.User{})
-				Expect(err).To(BeNil())
-				Context("is being deleted", func() {
-					isDeleted, err := dataProcessor.Delete(metaDescription.Name, strconv.Itoa(int(record["from"].(float64))), auth.User{})
-					Expect(err).To(BeNil())
-					Expect(isDeleted).To(BeTrue())
-				})
-			})
-		})
 	})
 
 	It("Can insert numeric value into string field", func() {
@@ -706,7 +558,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("record can contain numeric value for string field", func() {
-				record, err := dataProcessor.Put(metaDescription.Name, map[string]interface{}{"name": 202}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": 202}, auth.User{}, true)
 				Expect(err).To(BeNil())
 				Expect(record["name"]).To(Equal("202"))
 			})
@@ -787,15 +639,15 @@ var _ = Describe("Data", func() {
 			}
 			orderMetaObj, err = metaStore.NewMeta(&orderMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(orderMetaObj.Name, orderMetaObj, true)
+			metaStore.Update(orderMetaObj.Name, orderMetaObj, true, true)
 			//
 
 			Context("record can contain numeric value for string field", func() {
-				record, err := dataProcessor.Put(orderMetaObj.Name, map[string]interface{}{}, auth.User{})
+				record, err := dataProcessor.CreateRecord(orderMetaObj.Name, map[string]interface{}{}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				record, err = dataProcessor.Put(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{})
+				record, err = dataProcessor.CreateRecord(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{}, true)
 				Expect(err).To(BeNil())
-				record, err = dataProcessor.Put(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{})
+				record, err = dataProcessor.CreateRecord(paymentMetaObj.Name, map[string]interface{}{"order_id": record["id"]}, auth.User{}, true)
 				Expect(err).To(BeNil())
 
 				matchedRecords := []map[string]interface{}{}
@@ -803,7 +655,7 @@ var _ = Describe("Data", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(orderMetaObj.Name, "", 1, callbackFunction)
+				dataProcessor.GetBulk(orderMetaObj.Name, "", 1, callbackFunction, true)
 
 				Expect(matchedRecords).To(HaveLen(1))
 				payments, ok := matchedRecords[0]["payments"].([]interface{})

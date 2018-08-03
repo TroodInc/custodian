@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"logger"
 	"server/data"
+	"server/data/errors"
 	"server/meta"
 	"server/pg"
 	"server/auth"
@@ -217,20 +218,20 @@ func (cs *CustodianServer) Setup() *http.Server {
 			js.pushError(err)
 			return
 		}
-		if _, err := metaStore.Update(p.ByName("name"), metaObj, true); err == nil {
+		if _, err := metaStore.Update(p.ByName("name"), metaObj, true, true); err == nil {
 			js.pushEmpty()
 		} else {
 			js.pushError(err)
 		}
 	}))
 
-	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
-
 	//Records operations
 	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		if recordData, err := dataProcessor.Put(p.ByName("name"), src.Value, user); err != nil {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
+		if recordData, err := dataProcessor.CreateRecord(p.ByName("name"), src.Value, user, true); err != nil {
 			sink.pushError(err)
 		} else {
 			sink.pushGeneric(recordData)
@@ -240,7 +241,10 @@ func (cs *CustodianServer) Setup() *http.Server {
 	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
-		e := dataProcessor.PutBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
+		e := dataProcessor.BulkCreateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
@@ -248,18 +252,21 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
+		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user, true)
 		if e != nil {
 			sink.pushError(e)
 		}
 	}))
 
 	app.router.GET(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		var depth = 2
 		if i, e := strconv.Atoi(q.Get("depth")); e == nil {
 			depth = i
 		}
-		if o, e := dataProcessor.Get(p.ByName("name"), p.ByName("key"), depth); e != nil {
+		if o, e := dataProcessor.Get(p.ByName("name"), p.ByName("key"), depth, true); e != nil {
 			sink.pushError(e)
 		} else {
 			if o == nil {
@@ -271,6 +278,8 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/data/bulk/:name", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 		defer sink.Complete()
 		pq := make(url.Values)
 		if e := softParseQuery(pq, q.RawQuery); e != nil {
@@ -280,7 +289,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			if i, e := strconv.Atoi(url.QueryEscape(pq.Get("depth"))); e == nil {
 				depth = i
 			}
-			e := dataProcessor.GetBulk(p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+			e := dataProcessor.GetBulk(p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, true)
 			if e != nil {
 				sink.pushError(e)
 			}
@@ -288,8 +297,11 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		user := r.Context().Value("auth_user").(auth.User)
-		if ok, e := dataProcessor.Delete(p.ByName("name"), p.ByName("key"), user); e != nil {
+		if ok, e := dataProcessor.DeleteRecord(p.ByName("name"), p.ByName("key"), user, true); e != nil {
 			sink.pushError(e)
 		} else {
 			if ok {
@@ -301,9 +313,12 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}, true))
 
 	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
-		e := dataProcessor.DeleteBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		e := dataProcessor.BulkDeleteRecords(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
@@ -311,23 +326,41 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		}, user)
+		}, user, true)
 		if e != nil {
 			sink.pushError(e)
 		}
 	}))
 
 	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		user := r.Context().Value("auth_user").(auth.User)
-		if o, e := dataProcessor.Update(p.ByName("name"), p.ByName("key"), src.Value, user); e != nil {
-			if dt, ok := e.(*data.DataError); ok && dt.Code == data.ErrCasFailed {
+		objectName := p.ByName("name")
+		recordPkValue := p.ByName("key")
+		if recordData, e := dataProcessor.UpdateRecord(objectName, recordPkValue, src.Value, user, true); e != nil {
+			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
 				sink.pushError(e)
 			}
 		} else {
-			if o != nil {
-				sink.pushGeneric(o)
+			if recordData != nil {
+				var depth = 1
+				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+					depth = i
+				}
+				if depth > 1 {
+					if recordData, err := dataProcessor.Get(objectName, recordPkValue, depth, true); err != nil {
+						sink.pushError(err)
+					} else {
+						sink.pushGeneric(recordData)
+					}
+				} else {
+					sink.pushGeneric(recordData)
+				}
+
 			} else {
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
 			}
@@ -335,9 +368,12 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}, false))
 
 	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 		defer sink.Complete()
 		user := request.Context().Value("auth_user").(auth.User)
-		e := dataProcessor.UpdateBulk(p.ByName("name"), func() (map[string]interface{}, error) {
+		e := dataProcessor.BulkUpdateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
 			if obj, eof, e := stream.Next(); e != nil {
 				return nil, e
 			} else if eof {
@@ -345,9 +381,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				return obj, nil
 			}
-		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
+		}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user, true)
 		if e != nil {
-			if dt, ok := e.(*data.DataError); ok && dt.Code == data.ErrCasFailed {
+			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 			} else {
 				sink.pushError(e)

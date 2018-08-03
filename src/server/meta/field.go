@@ -16,6 +16,7 @@ const (
 	FieldTypeDateTime
 	FieldTypeDate
 	FieldTypeTime
+	FieldTypeGeneric
 )
 
 func AsFieldType(s string) (FieldType, bool) {
@@ -30,6 +31,8 @@ func AsFieldType(s string) (FieldType, bool) {
 		return FieldTypeArray, true
 	case "object":
 		return FieldTypeObject, true
+	case "generic":
+		return FieldTypeGeneric, true
 	case "datetime":
 		return FieldTypeDateTime, true
 	case "date":
@@ -59,6 +62,8 @@ func (fieldType FieldType) String() (string, bool) {
 		return "date", true
 	case FieldTypeTime:
 		return "time", true
+	case FieldTypeGeneric:
+		return "generic", true
 	default:
 		return "", false
 	}
@@ -144,7 +149,8 @@ func (fieldType FieldType) MarshalJSON() ([]byte, error) {
 type Field struct {
 	Name           string      `json:"name"`
 	Type           FieldType   `json:"type"`
-	LinkMeta       string      `json:"linkMeta,omitempty"` //only for array and objects
+	LinkMeta       string      `json:"linkMeta,omitempty"`     //only for array and objects
+	LinkMetaList   []string    `json:"linkMetaList,omitempty"` //only for array and objects
 	LinkType       LinkType    `json:"linkType,omitempty"`
 	OuterLinkField string      `json:"outerLinkField,omitempty"`
 	Optional       bool        `json:"optional"`
@@ -152,5 +158,5 @@ type Field struct {
 }
 
 func (f *Field) IsSimple() bool {
-	return f.Type != FieldTypeObject && f.Type != FieldTypeArray
+	return f.Type != FieldTypeObject && f.Type != FieldTypeArray && f.Type != FieldTypeGeneric
 }
