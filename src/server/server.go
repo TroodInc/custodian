@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 	"context"
+	"github.com/getsentry/raven-go"
 )
 
 //Server errors description
@@ -389,6 +390,17 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}
 		}
 	}))
+
+	app.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
+		user := r.Context().Value("auth_user").(auth.User)
+		raven.SetUserContext(&raven.User{ID: strconv.Itoa(user.Id), Username: user.Login})
+		raven.SetHttpContext(raven.NewHttp(r))
+		if err, ok := err.(error); ok {
+			raven.CaptureErrorAndWait(err, nil)
+			raven.ClearContext()
+		}
+
+	}
 
 	cs.s = &http.Server{
 		Addr:           cs.addr + ":" + cs.port,

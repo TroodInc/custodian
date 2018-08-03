@@ -9,6 +9,7 @@ import (
 type AppConfig struct {
 	UrlPrefix           string
 	DbConnectionOptions string
+	SentryDsn           string
 }
 
 func getRealWorkingDirectory() string {
@@ -42,10 +43,18 @@ func GetConfig() *AppConfig {
 
 	godotenv.Load(getRealWorkingDirectory() + "/.env")
 
-	var appConfig = AppConfig{"/custodian", "host=localhost port=5432 dbname=custodian sslmode=disable"}
+	var appConfig = AppConfig{
+		"/custodian",
+		"host=localhost port=5432 dbname=custodian sslmode=disable",
+		"",
+	}
 
 	if urlPrefix := os.Getenv("URL_PREFIX"); len(urlPrefix) > 0 {
 		appConfig.UrlPrefix = urlPrefix
+	}
+
+	if sentryDsn := os.Getenv("SENTRY_DSN"); len(sentryDsn) > 0 {
+		appConfig.SentryDsn = sentryDsn
 	}
 
 	if dbConnectionOptions := os.Getenv("DB_CONNECTION_OPTIONS"); len(dbConnectionOptions) > 0 {

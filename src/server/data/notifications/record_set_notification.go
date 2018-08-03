@@ -51,8 +51,8 @@ func (notification *RecordSetNotification) BuildNotificationsData(actionIndex in
 		notificationData := make(map[string]interface{})
 		notificationData["action"] = notification.method.AsString()
 		notificationData["object"] = notification.recordSet.Meta.Name
-		notificationData["previous"] = notification.PreviousState[actionIndex].DataSet[i]
-		notificationData["current"] = notification.CurrentState[actionIndex].DataSet[i]
+		notificationData["previous"] = adaptRecordData(notification.PreviousState[actionIndex].DataSet[i])
+		notificationData["current"] = adaptRecordData(notification.CurrentState[actionIndex].DataSet[i])
 		notificationData["user"] = user
 		notifications = append(notifications, notificationData)
 	}
@@ -189,4 +189,17 @@ func getGenericValue(targetRecord record.Record, getterConfig map[string]interfa
 	}
 	return nil
 
+}
+
+func adaptRecordData(recordData map[string]interface{}) map[string]interface{} {
+	adaptedRecordData := map[string]interface{}{}
+	for key, value := range recordData {
+		switch castValue := value.(type) {
+		case types.DLink:
+			adaptedRecordData[key] = castValue.Id
+		default:
+			adaptedRecordData[key] = castValue
+		}
+	}
+	return adaptedRecordData
 }
