@@ -176,8 +176,7 @@ func (processor *Processor) Get(objectClass, key string, depth int, handleTransa
 				return nil, nil
 			} else {
 				recordData := recordData.(map[string]interface{})
-				root.FillRecordValues(&recordData, ctx)
-				return recordData, nil
+				return root.FillRecordValues(recordData, ctx), nil
 			}
 		}
 	}
@@ -227,7 +226,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, depth int,
 			return e
 		}
 		for _, record := range records {
-			root.FillRecordValues(&record, searchContext)
+			record = root.FillRecordValues(record, searchContext)
 			sink(record)
 		}
 		return nil

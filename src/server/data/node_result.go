@@ -35,7 +35,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			} else if arr != nil {
 				resultNode.values[childNode.LinkField.Name] = arr
 				for _, m := range arr {
-					if !childNode.OnlyLink {
+					if childNode.Depth < ctx.depthLimit {
 						childNodeResults = append(childNodeResults, ResultNode{childNode, m.(map[string]interface{})})
 					}
 				}
@@ -64,7 +64,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 				return nil, e
 			} else if resolvedValue != nil {
 				resultNode.values[childNode.LinkField.Name] = resolvedValue
-				if childNode.Depth < ctx.depthLimit {
+				if childNode.Depth <= ctx.depthLimit {
 					//dynamically fill child nodes, because child node can be determined only with generic field data
 					// values
 
