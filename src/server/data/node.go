@@ -243,7 +243,9 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int) {
 }
 
 func (node *Node) FillRecordValues(record *map[string]interface{}, searchContext SearchContext) {
-	for nodeResults := []ResultNode{{node, *record}}; len(nodeResults) > 0; nodeResults = nodeResults[1:] {
+	nodeCopy:= node
+	//node may mutate during resolving of generic fields, thus local copy of node is required
+	for nodeResults := []ResultNode{{nodeCopy, *record}}; len(nodeResults) > 0; nodeResults = nodeResults[1:] {
 		childNodesResults, _ := nodeResults[0].getFilledChildNodes(searchContext)
 		nodeResults = append(nodeResults, childNodesResults...)
 	}
