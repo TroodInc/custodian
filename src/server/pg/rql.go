@@ -337,7 +337,7 @@ func (ctx *context) getMetaToJoin(fieldDescription *meta.FieldDescription, query
 	if fieldDescription.Type == meta.FieldTypeGeneric {
 		return fieldDescription.LinkMetaList.GetByName(queryPath[0])
 	} else {
-		return fieldDescription.Meta
+		return fieldDescription.LinkMeta
 	}
 }
 
