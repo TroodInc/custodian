@@ -103,7 +103,8 @@ func (fm *FileMetaDriver) Get(name string) (*MetaDescription, bool, error) {
 	var meta = MetaDescription{}
 	if err := json.NewDecoder(bufio.NewReader(f)).Decode(&meta); err != nil {
 		logger.Error("Can't parse file '%s' of  MetaDescription '%s': %s", metaFile, name, err.Error())
-		return nil, true, NewMetaError(name, "meta_file_get", ErrInternal, "Can't parse MetaDescription '%s'", name)
+		return fm.Get(name)
+		//return nil, true, NewMetaError(name, "meta_file_get", ErrInternal, "Can't parse MetaDescription '%s'", name)
 	}
 
 	return &meta, true, nil

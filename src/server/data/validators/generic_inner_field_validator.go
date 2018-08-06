@@ -68,7 +68,7 @@ func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{
 }
 
 func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Meta, pkValue string, fieldDescription *meta.FieldDescription) (error) {
-	if _, err := validator.recordGetCallback(objectMeta.Name, pkValue, 1, false); err != nil {
+	if recordData, err := validator.recordGetCallback(objectMeta.Name, pkValue, 1, false); err != nil || recordData == nil {
 		return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Record of object '%s' with PK '%s' referenced in '%s'`s value does not exist", objectMeta.Name, pkValue, fieldDescription.Name)
 	} else {
 		return nil
