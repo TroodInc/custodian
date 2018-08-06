@@ -90,6 +90,63 @@ var _ = Describe("Data", func() {
 		Expect(targetValue["_object"]).To(Equal(aMetaObj.Name))
 		Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(aRecord["id"].(float64))))
 	})
+	It("cant create a record containing generic inner value with pk referencing not existing record", func() {
+		By("having two objects: A and B")
+		aMetaDescription := meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(aMetaObj)
+		Expect(err).To(BeNil())
+
+		By("B contains generic inner field")
+
+		bMetaDescription := meta.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{aMetaObj.Name},
+					Optional:     false,
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(bMetaObj)
+		Expect(err).To(BeNil())
+
+		By("having a record of object B containing generic field value with A object`s record")
+		_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": 9999}}, auth.User{}, true)
+		Expect(err).To(Not(BeNil()))
+		Expect(err.Error()).To(ContainSubstring("value does not exist"))
+
+	})
 
 	It("can update a record containing generic inner value", func() {
 		By("having three objects: A, B and C")
