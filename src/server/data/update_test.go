@@ -215,4 +215,47 @@ var _ = Describe("Data", func() {
 		})
 
 	})
+
+	It("Can update record with null value", func() {
+		By("Having A object")
+
+		positionMetaDescription := meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name:     "id",
+					Type:     meta.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     meta.FieldTypeString,
+					Optional: true,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&positionMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+
+		By("and having one record of A object")
+		recordData, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": ""}, auth.User{}, true)
+		Expect(err).To(BeNil())
+
+		keyValue, _ := recordData["id"].(float64)
+		Context("person records are updated with new name value and new position`s name value as nested object", func() {
+			recordData["name"] = nil
+			recordData, err := dataProcessor.UpdateRecord(positionMetaDescription.Name, strconv.Itoa(int(keyValue)), recordData, auth.User{}, true)
+			Expect(err).To(BeNil())
+
+			Expect(recordData["name"]).To(BeNil())
+		})
+
+	})
 })

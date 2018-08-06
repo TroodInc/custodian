@@ -407,13 +407,17 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 					return NewDMLError(ErrInvalidArgument, "Different set of fields. Object #%d. All objects must have the same set of fields.", i)
 				} else {
 					value := vals[j](v)
-					switch castValue := value.(type) {
-					case []string:
-						for _, value := range castValue {
-							binds = append(binds, value)
+					if value == nil {
+						binds = append(binds, value)
+					} else {
+						switch castValue := value.(type) {
+						case []string:
+							for _, value := range castValue {
+								binds = append(binds, value)
+							}
+						case interface{}:
+							binds = append(binds, castValue)
 						}
-					case interface{}:
-						binds = append(binds, castValue)
 					}
 				}
 			}
