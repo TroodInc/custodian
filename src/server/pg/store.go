@@ -598,7 +598,6 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	if err := si.sql(&queryString); err != nil {
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
-
 	statement, err := dataManager.Prepare(queryString.String(), tx)
 	if err != nil {
 		return nil, err

@@ -421,10 +421,10 @@ var _ = Describe("Data", func() {
 
 		var aRecord map[string]interface{}
 		var bRecord map[string]interface{}
+		var cRecord map[string]interface{}
 		var err error
 
 		havingObjectA := func() {
-			By("having two objects: A and B")
 			aMetaDescription := meta.MetaDescription{
 				Name: "a",
 				Key:  "id",
@@ -451,7 +451,29 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 		}
 
-		havingObjectBWithGenericLinkToA := func() {
+		havingObjectC := func() {
+			cMetaDescription := meta.MetaDescription{
+				Name: "c",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name: "id",
+						Type: meta.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+				},
+			}
+			cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(cMetaObj)
+			Expect(err).To(BeNil())
+		}
+
+		havingObjectBWithGenericLinkToAAndC := func() {
 
 			By("B contains generic inner field")
 
@@ -472,7 +494,7 @@ var _ = Describe("Data", func() {
 						Name:         "target",
 						Type:         meta.FieldTypeGeneric,
 						LinkType:     meta.LinkTypeInner,
-						LinkMetaList: []string{"a"},
+						LinkMetaList: []string{"a", "c"},
 						Optional:     true,
 					},
 				},
@@ -488,18 +510,31 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 		}
 
+		havingARecordOfObjectC := func() {
+			cRecord, err = dataProcessor.CreateRecord("c", map[string]interface{}{"name": "C record"}, auth.User{}, true)
+			Expect(err).To(BeNil())
+		}
+
 		havingARecordOfObjectBContainingRecordOfObjectA := func() {
 			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{}, true)
+			Expect(err).To(BeNil())
+		}
+
+		havingARecordOfObjectBContainingRecordOfObjectC := func() {
+			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{"target": map[string]interface{}{"_object": "c", "id": cRecord["id"]}}, auth.User{}, true)
 			Expect(err).To(BeNil())
 		}
 
 		It("can retrieve record with generic field as key by querying by A record`s field", func() {
 
 			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("Having object C", havingObjectC)
+			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
 			Describe("And having a record of object A", havingARecordOfObjectA)
+			Describe("And having a record of object C", havingARecordOfObjectC)
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+			Describe("and having a record of object B containing null generic field value ", havingARecordOfObjectBContainingRecordOfObjectC)
 
 			matchedRecords := []map[string]interface{}{}
 			callbackFunction := func(obj map[string]interface{}) error {
@@ -519,7 +554,8 @@ var _ = Describe("Data", func() {
 		It("can retrieve record with generic field as full object by querying by A record`s field", func() {
 
 			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("Having object C", havingObjectC)
+			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
@@ -542,7 +578,8 @@ var _ = Describe("Data", func() {
 		It("can query records by generic_field's type", func() {
 
 			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("Having object C", havingObjectC)
+			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)

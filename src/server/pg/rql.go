@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+	"server/data/types"
 )
 
 //https://doc.apsstandard.org/2.1/spec/rql/
@@ -259,7 +260,14 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 		// do it only if the current iteration is not that last, because the target field for the query can have the
 		// "LinkMeta"
 		if field.Type == meta.FieldTypeGeneric {
-			//skip next iteration, because next fieldPathPart is an identifier of Meta
+			//apply filtering by generic fields _object value and skip the next iteration
+			if fieldPathParts[i+1] != types.GenericInnerLinkObjectKey {
+				expression.WriteString(alias)
+				expression.WriteRune('.')
+				expression.WriteString(meta.GetGenericFieldTypeColumnName(field.Name))
+				expression.WriteString(fmt.Sprintf("='%s'", fieldPathParts[i+1]))
+				expression.WriteString(" AND ")
+			}
 			i++
 		}
 
