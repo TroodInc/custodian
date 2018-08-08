@@ -157,7 +157,7 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCall
 
 		//case of retrieving value or PK of generic field
 		if nestedObjectField.Type == meta.FieldTypeGeneric && len(keyParts) == 2 {
-			if genericFieldValue, ok := rawKeyValue.(map[string]string); ok {
+			if genericFieldValue, ok := rawKeyValue.(map[string]interface{}); ok {
 				return genericFieldValue[keyParts[1]]
 			}
 		}
