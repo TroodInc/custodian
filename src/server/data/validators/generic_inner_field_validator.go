@@ -4,7 +4,6 @@ import (
 	"server/meta"
 	"server/data/types"
 	"server/data/errors"
-	"strconv"
 )
 
 type GenericInnerFieldValidator struct {
@@ -28,7 +27,7 @@ func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Fie
 					if err := validator.validateRecord(objectMeta, pkValue, fieldDescription); err != nil {
 						return nil, err
 					} else {
-						return &types.GenericInnerLink{ObjectName: objectMeta.Name, Pk: pkValue, PkName: objectMeta.Key.Name}, nil
+						return &types.GenericInnerLink{ObjectName: objectMeta.Name, Pk: pkValue, PkName: objectMeta.Key.Name, FieldDescription:objectMeta.Key}, nil
 					}
 				}
 			}
@@ -52,26 +51,28 @@ func (validator *GenericInnerFieldValidator) validateObject(objectName string, f
 	}
 }
 
-func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{}, fieldDescription *meta.FieldDescription) (string, error) {
-	var validatedPkValue string
+func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{}, fieldDescription *meta.FieldDescription) (interface{}, error) {
+	var validatedPkValue interface{}
 	switch castPkValue := pkValue.(type) {
-	case float64:
-		validatedPkValue = strconv.Itoa(int(castPkValue))
-	case int:
-		validatedPkValue = strconv.Itoa(castPkValue)
-	case string:
+	case float64, string:
 		validatedPkValue = castPkValue
+	case int:
+		validatedPkValue = float64(castPkValue)
 	default:
 		return "", errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "PK value referenced in '%s'`s has wrong type", fieldDescription.Name)
 	}
 	return validatedPkValue, nil
 }
 
-func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Meta, pkValue string, fieldDescription *meta.FieldDescription) (error) {
-	if recordData, err := validator.recordGetCallback(objectMeta.Name, pkValue, 1, false); err != nil || recordData == nil {
-		return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Record of object '%s' with PK '%s' referenced in '%s'`s value does not exist", objectMeta.Name, pkValue, fieldDescription.Name)
+func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Meta, pkValue interface{}, fieldDescription *meta.FieldDescription) (error) {
+	if pkValueAsString, err := objectMeta.Key.ValueAsString(pkValue); err != nil {
+		return err
 	} else {
-		return nil
+		if recordData, err := validator.recordGetCallback(objectMeta.Name, pkValueAsString, 1, false); err != nil || recordData == nil {
+			return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Record of object '%s' with PK '%s' referenced in '%s'`s value does not exist", objectMeta.Name, pkValue, fieldDescription.Name)
+		} else {
+			return nil
+		}
 	}
 }
 

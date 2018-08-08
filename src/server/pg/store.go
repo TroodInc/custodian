@@ -240,7 +240,7 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 			case types.DLink:
 				val.Id = rv
 			case *types.GenericInnerLink:
-				nodes[fieldName] = map[string]string{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
+				nodes[fieldName] = map[string]interface{}{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
 			default:
 				nodes[fieldName] = rv
 			}
@@ -306,7 +306,8 @@ func dlinkVal(v interface{}) interface{} {
 
 func genericInnerLinkValue(value interface{}) interface{} {
 	castValue := value.(*types.GenericInnerLink)
-	return []string{castValue.ObjectName, castValue.Pk}
+	pkValueAsString, _ := castValue.FieldDescription.ValueAsString(castValue.Pk)
+	return []string{castValue.ObjectName, pkValueAsString}
 }
 
 func identityVal(v interface{}) interface{} {

@@ -82,7 +82,11 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 			return nil, err
 		} else {
 			if node.IsOfGenericType() {
-				return map[string]string{types.GenericInnerLinkObjectKey: objectMeta.Name, objectMeta.Key.Name: keyStr}, nil
+				if pkValue, err := objectMeta.Key.ValueFromString(keyStr); err != nil {
+					return nil, err
+				} else {
+					return map[string]interface{}{types.GenericInnerLinkObjectKey: objectMeta.Name, objectMeta.Key.Name: pkValue}, nil
+				}
 			} else {
 				return keyStr, nil
 			}
