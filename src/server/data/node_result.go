@@ -57,7 +57,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 		} else if !childNode.plural && childNode.IsOfGenericType() {
 			k := resultNode.values[childNode.LinkField.Name]
 			//skip resolving if generic field value is nil
-			if k == nil {
+			if k == nil || k.(types.GenericInnerLink).ObjectName == "" {
 				continue
 			}
 			if resolvedValue, e := childNode.Resolve(ctx, k); e != nil {

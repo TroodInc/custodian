@@ -415,6 +415,7 @@ var _ = Describe("Data", func() {
 
 			bRecord, err = dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 3, true)
 			Expect(err).To(BeNil())
+			Expect(bRecord).To(HaveKey("target"))
 			Expect(bRecord["target"]).To(BeNil())
 		})
 	})

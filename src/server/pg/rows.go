@@ -97,7 +97,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					value := values[j].(*sql.NullString)
 					assembledValue, ok := result[i][fieldDescription.Name]
 					var castAssembledValue types.GenericInnerLink
-					if !ok {
+					if !ok || assembledValue == nil {
 						// create new otherwise
 						castAssembledValue = types.GenericInnerLink{}
 					} else {
@@ -118,6 +118,8 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					//include value if it contains not null data
 					if castAssembledValue.Pk != nil || castAssembledValue.ObjectName != "" {
 						result[i][fieldDescription.Name] = castAssembledValue
+					} else {
+						result[i][fieldDescription.Name] = nil
 					}
 
 				} else {
