@@ -111,9 +111,14 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 							castAssembledValue.PkName = fieldDescription.LinkMetaList.GetByName(value.String).Key.Name
 						}
 					} else if meta.IsGenericFieldKeyColumn(columnName) {
-						castAssembledValue.Pk = value.String
+						if value.String != "" {
+							castAssembledValue.Pk, _ = fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName).Key.ValueFromString(value.String)
+						}
 					}
-					result[i][fieldDescription.Name] = castAssembledValue
+					//include value if it contains not null data
+					if castAssembledValue.Pk != nil || castAssembledValue.ObjectName != "" {
+						result[i][fieldDescription.Name] = castAssembledValue
+					}
 
 				} else {
 					switch t := values[j].(type) {

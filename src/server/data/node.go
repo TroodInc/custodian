@@ -35,6 +35,13 @@ func (node *Node) keyAsString(recordValues map[string]interface{}, objectMeta *m
 	return str, err
 }
 
+func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMeta *meta.Meta) (interface{}, error) {
+	v := recordValues[objectMeta.Key.Name]
+	valueAsString, _ := objectMeta.Key.ValueAsString(v)
+	castValue, err := objectMeta.Key.ValueFromString(valueAsString)
+	return castValue, err
+}
+
 func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, error) {
 	return sc.dm.GetRql(node, rqlNode, nil, sc.Tx)
 }
@@ -81,14 +88,15 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 		if keyStr, err := node.keyAsString(obj, objectMeta); err != nil {
 			return nil, err
 		} else {
-			if node.IsOfGenericType() {
-				if pkValue, err := objectMeta.Key.ValueFromString(keyStr); err != nil {
-					return nil, err
-				} else {
-					return map[string]interface{}{types.GenericInnerLinkObjectKey: objectMeta.Name, objectMeta.Key.Name: pkValue}, nil
-				}
+			if pkValue, err := objectMeta.Key.ValueFromString(keyStr); err != nil {
+				return nil, err
 			} else {
-				return keyStr, nil
+				if node.IsOfGenericType() {
+					return map[string]interface{}{types.GenericInnerLinkObjectKey: objectMeta.Name, objectMeta.Key.Name: pkValue}, nil
+				} else {
+					return pkValue, nil
+				}
+
 			}
 		}
 	}
@@ -106,10 +114,10 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 		result := make([]interface{}, len(records), len(records))
 		if node.OnlyLink {
 			for i, record := range records {
-				if keyStr, err := node.keyAsString(record, node.Meta); err != nil {
+				if keyValue, err := node.keyAsNativeType(record, node.Meta); err != nil {
 					return nil, err
 				} else {
-					result[i] = keyStr
+					result[i] = keyValue
 				}
 			}
 		} else {
@@ -137,11 +145,11 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 		result := make([]interface{}, len(records), len(records))
 		if node.OnlyLink {
 			for i, obj := range records {
-				keyStr, err := node.keyAsString(obj, node.Meta)
+				keyValue, err := node.keyAsNativeType(obj, node.Meta)
 				if err != nil {
 					return nil, err
 				}
-				result[i] = keyStr
+				result[i] = keyValue
 			}
 		} else {
 			for i, obj := range records {

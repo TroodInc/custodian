@@ -147,10 +147,10 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			bSet := aRecord["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
-			Expect(bSet).To(Equal([]interface{}{strconv.Itoa(int(bRecord["id"].(float64)))}))
+			Expect(bSet).To(Equal([]interface{}{bRecord["id"].(float64)}))
 		})
 
-		It("can retrieve record with outer generic field as key", func() {
+		It("can retrieve record with outer generic field as object", func() {
 
 			Describe("Having object A", havingObjectA)
 			Describe("And having object B", havingObjectBWithGenericLinkToA)

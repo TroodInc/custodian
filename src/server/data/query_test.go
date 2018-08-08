@@ -466,10 +466,9 @@ var _ = Describe("Data", func() {
 				payments, ok := matchedRecords[0]["payments"].([]interface{})
 				Expect(ok).To(BeTrue())
 				Expect(payments).To(HaveLen(2))
-				paymentId, ok := payments[0].(string)
+				paymentId, ok := payments[0].(float64)
 				Expect(ok).To(BeTrue())
-				Expect(paymentId).To(Equal("1"))
-
+				Expect(paymentId).To(Equal(float64(1)))
 			})
 		})
 	})
