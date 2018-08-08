@@ -177,13 +177,13 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCall
 //get key value traversing down if needed
 func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
 	genericFieldName := getterConfig["field"].(string)
-	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), getRecordCallback, ).(map[string]string)
+	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), getRecordCallback, ).(map[string]interface{})
 	for _, objectCase := range getterConfig["cases"].([]interface{}) {
 		castObjectCase := objectCase.(map[string]interface{})
 		if genericFieldValue[types.GenericInnerLinkObjectKey] == castObjectCase["object"] {
 			nestedObjectMeta := targetRecord.Meta.FindField(genericFieldName).LinkMetaList.GetByName(castObjectCase["object"].(string))
 			nestedObjectPk, _ := nestedObjectMeta.Key.ValueAsString(genericFieldValue[nestedObjectMeta.Key.Name])
-			nestedRecordData, _ := getRecordCallback(genericFieldValue[types.GenericInnerLinkObjectKey], nestedObjectPk, 1, false)
+			nestedRecordData, _ := getRecordCallback(genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, 1, false)
 			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, strings.Split(castObjectCase["value"].(string), "."), getRecordCallback)
 		}
 	}

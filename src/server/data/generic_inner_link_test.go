@@ -86,9 +86,9 @@ var _ = Describe("Data", func() {
 		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{}, true)
 		Expect(err).To(BeNil())
 		Expect(bRecord["id"]).To(Equal(float64(1)))
-		targetValue := bRecord["target"].(map[string]string)
+		targetValue := bRecord["target"].(map[string]interface{})
 		Expect(targetValue["_object"]).To(Equal(aMetaObj.Name))
-		Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(aRecord["id"].(float64))))
+		Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
 	})
 	It("cant create a record containing generic inner value with pk referencing not existing record", func() {
 		By("having two objects: A and B")
@@ -235,12 +235,12 @@ var _ = Describe("Data", func() {
 		bRecord, err = dataProcessor.UpdateRecord(bMetaObj.Name, strconv.Itoa(int(bRecord["id"].(float64))), map[string]interface{}{"target": map[string]interface{}{"_object": cMetaObj.Name, "id": cRecord["id"]}}, auth.User{}, true)
 		Expect(err).To(BeNil())
 		Expect(bRecord["id"]).To(Equal(float64(1)))
-		targetValue := bRecord["target"].(map[string]string)
+		targetValue := bRecord["target"].(map[string]interface{})
 		Expect(targetValue["_object"]).To(Equal(cMetaObj.Name))
-		Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(bRecord["id"].(float64))))
+		Expect(targetValue["id"]).To(Equal(bRecord["id"].(float64)))
 	})
 
-	Describe("Retrieving records with generic values", func() {
+	Describe("Retrieving records with generic values and casts PK value into its object PK type", func() {
 
 		var aRecord map[string]interface{}
 		var bRecord map[string]interface{}
@@ -358,9 +358,11 @@ var _ = Describe("Data", func() {
 
 			bRecord, err := dataProcessor.Get("b", strconv.Itoa(int(bRecord["id"].(float64))), 1, true)
 			Expect(err).To(BeNil())
-			targetValue := bRecord["target"].(map[string]string)
+			targetValue := bRecord["target"].(map[string]interface{})
 			Expect(targetValue["_object"]).To(Equal("a"))
-			Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(aRecord["id"].(float64))))
+			value, ok := targetValue["id"].(float64)
+			Expect(ok).To(BeTrue())
+			Expect(value).To(Equal(aRecord["id"].(float64)))
 		})
 
 		It("can retrieve record containing generic inner value as a full object", func() {
@@ -545,9 +547,9 @@ var _ = Describe("Data", func() {
 			err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", 1, callbackFunction, true)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
-			targetValue := matchedRecords[0]["target"].(map[string]string)
+			targetValue := matchedRecords[0]["target"].(map[string]interface{})
 			Expect(targetValue["_object"]).To(Equal("a"))
-			Expect(strconv.Atoi(targetValue["id"])).To(Equal(int(aRecord["id"].(float64))))
+			Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
 
 		})
 
