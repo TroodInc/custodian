@@ -51,8 +51,6 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 				if !childNode.OnlyLink {
 					childNodeResults = append(childNodeResults, ResultNode{childNode, i.(map[string]interface{})})
 				}
-			} else {
-				delete(resultNode.values, childNode.LinkField.Name)
 			}
 		} else if !childNode.plural && childNode.IsOfGenericType() {
 			k := resultNode.values[childNode.LinkField.Name]
