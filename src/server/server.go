@@ -339,6 +339,8 @@ func (cs *CustodianServer) Setup() *http.Server {
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")
 		recordPkValue := p.ByName("key")
+		//TODO: building record data respecting "depth" argument should be implemented inside dataProcessor
+		//also "FillRecordValues" also should be moved from Node struct
 		if recordData, e := dataProcessor.UpdateRecord(objectName, recordPkValue, src.Value, user, true); e != nil {
 			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
@@ -351,12 +353,8 @@ func (cs *CustodianServer) Setup() *http.Server {
 				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
 					depth = i
 				}
-				if depth > 1 {
-					if recordData, err := dataProcessor.Get(objectName, recordPkValue, depth, true); err != nil {
-						sink.pushError(err)
-					} else {
-						sink.pushGeneric(recordData)
-					}
+				if recordData, err := dataProcessor.Get(objectName, recordPkValue, depth, true); err != nil {
+					sink.pushError(err)
 				} else {
 					sink.pushGeneric(recordData)
 				}

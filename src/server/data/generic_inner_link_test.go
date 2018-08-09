@@ -9,6 +9,7 @@ import (
 	"utils"
 	"server/auth"
 	"strconv"
+	"server/data/types"
 )
 
 var _ = Describe("Data", func() {
@@ -238,6 +239,98 @@ var _ = Describe("Data", func() {
 		targetValue := bRecord["target"].(map[string]interface{})
 		Expect(targetValue["_object"]).To(Equal(cMetaObj.Name))
 		Expect(targetValue["id"]).To(Equal(bRecord["id"].(float64)))
+	})
+
+	PIt("can update a record containing generic inner value without affecting value itself and it outputs generic value right", func() {
+		By("having three objects: A, B and C")
+		aMetaDescription := meta.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(aMetaObj)
+		Expect(err).To(BeNil())
+
+		cMetaDescription := meta.MetaDescription{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(cMetaObj)
+		Expect(err).To(BeNil())
+
+		By("B contains generic inner field")
+
+		bMetaDescription := meta.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{aMetaObj.Name, cMetaObj.Name},
+					Optional:     false,
+				},
+				{
+					Name:     "name",
+					Type:     meta.FieldTypeString,
+					Optional: false,
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(bMetaObj)
+		Expect(err).To(BeNil())
+
+		By("having a record of object A")
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{}, auth.User{}, true)
+		Expect(err).To(BeNil())
+
+		By("and having a record of object B containing generic field value with A object`s record")
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "record B", "target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{}, true)
+		Expect(err).To(BeNil())
+
+		By("this record is updated with new value for regular field")
+
+		bRecord, err = dataProcessor.UpdateRecord(bMetaObj.Name, strconv.Itoa(int(bRecord["id"].(float64))), map[string]interface{}{"name": "Some other record B name"}, auth.User{}, true)
+		Expect(err).To(BeNil())
+		Expect(bRecord["target"]).To(HaveKey(types.GenericInnerLinkObjectKey))
+
 	})
 
 	Describe("Retrieving records with generic values and casts PK value into its object PK type", func() {
