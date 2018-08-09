@@ -25,7 +25,7 @@ func (notificationSender *notificationSender) push(recordSetNotification *Record
 	}
 }
 
-func (notificationSender *notificationSender) getNotificationChannel(meta *meta.Meta, method meta.Method, action *meta.Action) chan *noti.Event {
+func (notificationSender *notificationSender) getNotificationChannel(meta *object.Meta, method object.Method, action *object.Action) chan *noti.Event {
 	key := meta.Name + method.AsString()
 	notificationChannel, ok := notificationSender.notificationChannels[key]
 	if !ok {

@@ -14,7 +14,7 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -30,14 +30,14 @@ var _ = Describe("Data", func() {
 	It("Can update records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
 
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "order",
 				Key:  "order",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "order",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -45,7 +45,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name: "select",
-						Type: meta.FieldTypeString,
+						Type: object.FieldTypeString,
 					},
 				},
 			}
@@ -72,14 +72,14 @@ var _ = Describe("Data", func() {
 	It("Can perform bulk update", func() {
 		By("Having Position object")
 
-		positionMetaDescription := meta.MetaDescription{
+		positionMetaDescription := object.MetaDescription{
 			Name: "position",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -87,7 +87,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name: "name",
-					Type: meta.FieldTypeString,
+					Type: object.FieldTypeString,
 				},
 			},
 		}
@@ -98,14 +98,14 @@ var _ = Describe("Data", func() {
 
 		By("and Person object")
 
-		metaDescription := meta.MetaDescription{
+		metaDescription := object.MetaDescription{
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -113,13 +113,13 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "position",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
+					Type:     object.FieldTypeObject,
+					LinkType: object.LinkTypeInner,
 					LinkMeta: "position",
 				},
 				{
 					Name: "name",
-					Type: meta.FieldTypeString,
+					Type: object.FieldTypeString,
 				},
 			},
 		}
@@ -176,14 +176,14 @@ var _ = Describe("Data", func() {
 	It("Can perform update", func() {
 		By("Having Position object")
 
-		positionMetaDescription := meta.MetaDescription{
+		positionMetaDescription := object.MetaDescription{
 			Name: "position",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -191,7 +191,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name: "name",
-					Type: meta.FieldTypeString,
+					Type: object.FieldTypeString,
 				},
 			},
 		}
@@ -219,14 +219,14 @@ var _ = Describe("Data", func() {
 	It("Can update record with null value", func() {
 		By("Having A object")
 
-		positionMetaDescription := meta.MetaDescription{
+		positionMetaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -234,7 +234,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     meta.FieldTypeString,
+					Type:     object.FieldTypeString,
 					Optional: true,
 				},
 			},

@@ -1,4 +1,4 @@
-package meta_test
+package meta
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -7,7 +7,7 @@ import (
 )
 
 var _ = Describe("File Meta driver", func() {
-	fileMetaDriver := meta.NewFileMetaDriver("./")
+	fileMetaDriver := object.NewFileMetaDriver("./")
 
 	flushMeta := func() {
 		metaList, _, _ := fileMetaDriver.List()
@@ -24,14 +24,14 @@ var _ = Describe("File Meta driver", func() {
 
 	It("can restore objects on rollback", func() {
 		Context("having an object", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -56,14 +56,14 @@ var _ = Describe("File Meta driver", func() {
 
 	It("removes objects which were created during transaction on rollback", func() {
 		Context("having an object", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -75,14 +75,14 @@ var _ = Describe("File Meta driver", func() {
 			Context("and another object is created within new transaction", func() {
 				fileMetaDriver.BeginTransaction()
 
-				metaDescription := meta.MetaDescription{
+				metaDescription := object.MetaDescription{
 					Name: "b",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []object.Field{
 						{
 							Name:     "id",
-							Type:     meta.FieldTypeNumber,
+							Type:     object.FieldTypeNumber,
 							Optional: false,
 						},
 					},

@@ -6,7 +6,7 @@ import (
 )
 
 type Record struct {
-	Meta *meta.Meta
+	Meta *object.Meta
 	Data map[string]interface{}
 }
 
@@ -19,13 +19,13 @@ func collapseLinks(obj map[string]interface{}) {
 		switch l := v.(type) {
 		case types.ALink:
 			if l.IsOuter {
-				if l.Field.Type == meta.FieldTypeArray {
+				if l.Field.Type == object.FieldTypeArray {
 					if a, prs := l.Obj[l.Field.Name]; !prs || a == nil {
 						l.Obj[l.Field.Name] = []interface{}{obj}
 					} else {
 						l.Obj[l.Field.Name] = append(a.([]interface{}), obj)
 					}
-				} else if l.Field.Type == meta.FieldTypeObject {
+				} else if l.Field.Type == object.FieldTypeObject {
 					l.Obj[l.Field.Name] = obj
 				}
 				delete(obj, k)

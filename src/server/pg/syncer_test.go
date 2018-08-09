@@ -12,7 +12,7 @@ import (
 var _ = Describe("Store", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	BeforeEach(func() {
 		metaStore.Flush()
@@ -25,21 +25,21 @@ var _ = Describe("Store", func() {
 	It("Changes field`s 'optional' attribute from 'false' to 'true' with corresponding database column altering", func() {
 		Describe("Having an object with required field", func() {
 			//create meta
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -51,21 +51,21 @@ var _ = Describe("Store", func() {
 			Expect(err).To(BeNil())
 
 			Describe("this field is specified as optional and object is updated", func() {
-				metaDescription = meta.MetaDescription{
+				metaDescription = object.MetaDescription{
 					Name: "person",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []object.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: object.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
 							Optional: true,
 						}, {
 							Name:     "name",
-							Type:     meta.FieldTypeString,
+							Type:     object.FieldTypeString,
 							Optional: true,
 						},
 					},
@@ -95,21 +95,21 @@ var _ = Describe("Store", func() {
 	It("Changes field`s 'optional' attribute from 'true' to 'false' with corresponding database column altering", func() {
 		Describe("Having an object with required field", func() {
 			//create meta
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -120,21 +120,21 @@ var _ = Describe("Store", func() {
 			Expect(err).To(BeNil())
 
 			Describe("this field is specified as optional and object is updated", func() {
-				metaDescription = meta.MetaDescription{
+				metaDescription = object.MetaDescription{
 					Name: "person",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []object.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: object.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
 							Optional: true,
 						}, {
 							Name:     "name",
-							Type:     meta.FieldTypeString,
+							Type:     object.FieldTypeString,
 							Optional: false,
 						},
 					},

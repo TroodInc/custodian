@@ -23,7 +23,7 @@ var _ = Describe("Server", func() {
 	var recorder *httptest.ResponseRecorder
 
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -98,14 +98,14 @@ var _ = Describe("Server", func() {
 
 	It("can remove record with given id", func() {
 		Context("having two records of given object", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",

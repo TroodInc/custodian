@@ -15,7 +15,7 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -35,14 +35,14 @@ var _ = Describe("Data", func() {
 		var err error
 
 		havingObjectA := func() {
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -50,7 +50,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -62,14 +62,14 @@ var _ = Describe("Data", func() {
 		}
 
 		havingObjectBWithGenericLinkToA := func() {
-			bMetaDescription := meta.MetaDescription{
+			bMetaDescription := object.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -77,8 +77,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target",
-						Type:         meta.FieldTypeGeneric,
-						LinkType:     meta.LinkTypeInner,
+						Type:         object.FieldTypeGeneric,
+						LinkType:     object.LinkTypeInner,
 						LinkMetaList: []string{"a"},
 						Optional:     true,
 					},
@@ -91,14 +91,14 @@ var _ = Describe("Data", func() {
 		}
 
 		havingObjectAWithGenericOuterLinkToB := func() {
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -106,13 +106,13 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					},
 					{
 						Name:           "b_set",
-						Type:           meta.FieldTypeGeneric,
-						LinkType:       meta.LinkTypeOuter,
+						Type:           object.FieldTypeGeneric,
+						LinkType:       object.LinkTypeOuter,
 						LinkMeta:       "b",
 						OuterLinkField: "target",
 						Optional:       true,

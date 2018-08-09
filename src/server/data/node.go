@@ -16,26 +16,26 @@ const (
 
 type Node struct {
 	//LinkField is a field which links to the target object
-	LinkField *meta.FieldDescription
+	LinkField *object.FieldDescription
 	//KeyField is a field of the target object which LinkField is linking to
-	KeyField   *meta.FieldDescription
-	Meta       *meta.Meta
+	KeyField   *object.FieldDescription
+	Meta       *object.Meta
 	ChildNodes map[string]*Node
 	Depth      int
 	OnlyLink   bool
 	plural     bool
 	Parent     *Node
-	MetaList   *meta.MetaList
+	MetaList   *object.MetaList
 	Type       NodeType
 }
 
-func (node *Node) keyAsString(recordValues map[string]interface{}, objectMeta *meta.Meta) (string, error) {
+func (node *Node) keyAsString(recordValues map[string]interface{}, objectMeta *object.Meta) (string, error) {
 	v := recordValues[objectMeta.Key.Name]
 	str, err := objectMeta.Key.ValueAsString(v)
 	return str, err
 }
 
-func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMeta *meta.Meta) (interface{}, error) {
+func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMeta *object.Meta) (interface{}, error) {
 	v := recordValues[objectMeta.Key.Name]
 	valueAsString, _ := objectMeta.Key.ValueAsString(v)
 	castValue, err := objectMeta.Key.ValueFromString(valueAsString)
@@ -47,8 +47,8 @@ func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode)
 }
 
 func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
-	var fields []*meta.FieldDescription = nil
-	var objectMeta *meta.Meta
+	var fields []*object.FieldDescription = nil
+	var objectMeta *object.Meta
 	var pkValue interface{}
 
 	switch {
@@ -70,7 +70,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 	}
 
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{objectMeta.Key}
+		fields = []*object.FieldDescription{objectMeta.Key}
 	}
 
 	obj, err := sc.dm.Get(objectMeta, fields, objectMeta.Key.Name, pkValue, sc.Tx)
@@ -104,9 +104,9 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 
 func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]interface{}, error) {
 	logger.Debug("Resolving plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
-	var fields []*meta.FieldDescription = nil
+	var fields []*object.FieldDescription = nil
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{node.Meta.Key}
+		fields = []*object.FieldDescription{node.Meta.Key}
 	}
 	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{node.KeyField.Name: key}, sc.Tx); err != nil {
 		return nil, err
@@ -130,15 +130,15 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 }
 
 //Resolve records referenced by generic outer field
-func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, objectMeta *meta.Meta) ([]interface{}, error) {
+func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, objectMeta *object.Meta) ([]interface{}, error) {
 	logger.Debug("Resolving generic plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
-	var fields []*meta.FieldDescription = nil
+	var fields []*object.FieldDescription = nil
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{node.Meta.Key}
+		fields = []*object.FieldDescription{node.Meta.Key}
 	}
 	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{
-		meta.GetGenericFieldKeyColumnName(node.KeyField.Name):  key,
-		meta.GetGenericFieldTypeColumnName(node.KeyField.Name): objectMeta.Name,
+		object.GetGenericFieldKeyColumnName(node.KeyField.Name):  key,
+		object.GetGenericFieldTypeColumnName(node.KeyField.Name): objectMeta.Name,
 	}, sc.Tx); err != nil {
 		return nil, err
 	} else {
@@ -172,7 +172,7 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 				branches = make(map[string]*Node)
 			}
 
-			if fieldDescription.Type == meta.FieldTypeObject && fieldDescription.LinkType == meta.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, &fieldDescription)) {
+			if fieldDescription.Type == object.FieldTypeObject && fieldDescription.LinkType == object.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, &fieldDescription)) {
 				node.ChildNodes[fieldDescription.Name] = &Node{
 					LinkField:  &node.Meta.Fields[i],
 					KeyField:   fieldDescription.LinkMeta.Key,
@@ -184,7 +184,7 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 					Parent:     node,
 					Type:       NodeTypeRegular,
 				}
-			} else if fieldDescription.Type == meta.FieldTypeArray && fieldDescription.LinkType == meta.LinkTypeOuter {
+			} else if fieldDescription.Type == object.FieldTypeArray && fieldDescription.LinkType == object.LinkTypeOuter {
 
 				node.ChildNodes[fieldDescription.Name] = &Node{
 					LinkField:  &node.Meta.Fields[i],
@@ -197,8 +197,8 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 					Parent:     node,
 					Type:       NodeTypeRegular,
 				}
-			} else if fieldDescription.Type == meta.FieldTypeGeneric {
-				if fieldDescription.LinkType == meta.LinkTypeInner {
+			} else if fieldDescription.Type == object.FieldTypeGeneric {
+				if fieldDescription.LinkType == object.LinkTypeInner {
 					node.ChildNodes[fieldDescription.Name] = &Node{
 						LinkField:  &node.Meta.Fields[i],
 						KeyField:   nil,
@@ -211,7 +211,7 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 						MetaList:   fieldDescription.LinkMetaList,
 						Type:       NodeTypeGeneric,
 					}
-				} else if fieldDescription.LinkType == meta.LinkTypeOuter {
+				} else if fieldDescription.LinkType == object.LinkTypeOuter {
 					node.ChildNodes[fieldDescription.Name] = &Node{
 						LinkField:  &node.Meta.Fields[i],
 						KeyField:   fieldDescription.OuterLinkField,

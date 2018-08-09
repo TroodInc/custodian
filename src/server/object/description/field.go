@@ -1,4 +1,4 @@
-package meta
+package description
 
 import (
 	"encoding/json"
@@ -133,7 +133,7 @@ func (fieldType *FieldType) UnmarshalJSON(b []byte) error {
 		*fieldType = assumedFieldType
 		return nil
 	} else {
-		return NewMetaError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect Field type: %str", str)
+		return NewMetaDescriptionError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect Field type: %str", str)
 	}
 }
 
@@ -141,7 +141,57 @@ func (fieldType FieldType) MarshalJSON() ([]byte, error) {
 	if s, ok := fieldType.String(); ok {
 		return json.Marshal(s)
 	} else {
-		return nil, NewMetaError("", "json_marshal", ErrJsonMarshal, "Incorrect filed type: %v", fieldType)
+		return nil, NewMetaDescriptionError("", "json_marshal", ErrJsonMarshal, "Incorrect filed type: %v", fieldType)
+	}
+}
+
+type LinkType int
+
+const (
+	LinkTypeOuter LinkType = iota + 1 //Child refers to the parent
+	LinkTypeInner                     //Parent refres to the Child
+)
+
+func (lt LinkType) String() (string, bool) {
+	switch lt {
+	case LinkTypeOuter:
+		return "outer", true
+	case LinkTypeInner:
+		return "inner", true
+	default:
+		return "", false
+	}
+}
+
+func AsLinkType(s string) (LinkType, bool) {
+	switch s {
+	case "outer":
+		return LinkTypeOuter, true
+	case "inner":
+		return LinkTypeInner, true
+	default:
+		return 0, false
+	}
+}
+
+func (lt *LinkType) UnmarshalJSON(b []byte) error {
+	var s string
+	if e := json.Unmarshal(b, &s); e != nil {
+		return e
+	}
+	if l, ok := AsLinkType(s); ok {
+		*lt = l
+		return nil
+	} else {
+		return NewMetaDescriptionError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect link type: %s", s)
+	}
+}
+
+func (lt LinkType) MarshalJSON() ([]byte, error) {
+	if s, ok := lt.String(); ok {
+		return json.Marshal(s)
+	} else {
+		return nil, NewMetaDescriptionError("", "json_marshal", ErrJsonMarshal, "Incorrect link type: %v", lt)
 	}
 }
 

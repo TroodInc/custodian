@@ -23,7 +23,7 @@ var _ = Describe("Server", func() {
 	var recorder *httptest.ResponseRecorder
 
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -38,15 +38,15 @@ var _ = Describe("Server", func() {
 		metaStore.Flush()
 	})
 
-	factoryObjectA := func() *meta.Meta {
-		metaDescription := meta.MetaDescription{
+	factoryObjectA := func() *object.Meta {
+		metaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -54,7 +54,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     meta.FieldTypeString,
+					Type:     object.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -69,15 +69,15 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectB := func() *meta.Meta {
-		metaDescription := meta.MetaDescription{
+	factoryObjectB := func() *object.Meta {
+		metaDescription := object.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -85,7 +85,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     meta.FieldTypeString,
+					Type:     object.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -93,8 +93,8 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
+					Type:     object.FieldTypeObject,
+					LinkType: object.LinkTypeInner,
 					LinkMeta: "a",
 				},
 			},

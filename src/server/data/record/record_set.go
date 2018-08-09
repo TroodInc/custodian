@@ -6,7 +6,7 @@ import (
 )
 
 type RecordSet struct {
-	Meta    *meta.Meta
+	Meta    *object.Meta
 	DataSet []map[string]interface{}
 }
 

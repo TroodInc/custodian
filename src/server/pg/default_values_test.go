@@ -14,7 +14,7 @@ import (
 var _ = Describe("PG MetaStore test", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -28,14 +28,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can modify object adding number field with static default integer value", func() {
 		Context("having an object with number field", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -50,19 +50,19 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			By("adding a number field to the object")
-			metaDescription = meta.MetaDescription{
+			metaDescription = object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "ordering",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Def:      10,
 						Optional: false,
 					},
@@ -88,14 +88,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can modify object adding number field with static default float value", func() {
 		Context("having an object with number field", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -110,19 +110,19 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			By("adding a number field to the object")
-			metaDescription = meta.MetaDescription{
+			metaDescription = object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "ordering",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Def:      10.98,
 						Optional: false,
 					},
@@ -148,14 +148,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can modify object adding boolean field with static default boolean value", func() {
 		Context("having an object with bool field", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -170,19 +170,19 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			By("adding a boolean field to the object")
-			metaDescription = meta.MetaDescription{
+			metaDescription = object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "is_active",
-						Type:     meta.FieldTypeBool,
+						Type:     object.FieldTypeBool,
 						Def:      true,
 						Optional: false,
 					},
@@ -208,14 +208,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can modify object adding string field with static default string value", func() {
 		Context("having an object with string field", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -230,19 +230,19 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			By("adding a string field to the object")
-			metaDescription = meta.MetaDescription{
+			metaDescription = object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Def:      "Not specified",
 						Optional: false,
 					},
@@ -268,14 +268,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can modify object by adding date field with static default string value", func() {
 		Context("having an object with string field", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -290,19 +290,19 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			By("adding a date field to the object")
-			metaDescription = meta.MetaDescription{
+			metaDescription = object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "date",
-						Type:     meta.FieldTypeDate,
+						Type:     object.FieldTypeDate,
 						Def:      "2018-05-22",
 						Optional: false,
 					},
@@ -328,14 +328,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can modify object by adding datetime field with static default string value", func() {
 		Context("having an object with string field", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -350,19 +350,19 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			By("adding a datetime field to the object")
-			metaDescription = meta.MetaDescription{
+			metaDescription = object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "datetime",
-						Type:     meta.FieldTypeDateTime,
+						Type:     object.FieldTypeDateTime,
 						Def:      "2018-05-29T15:29:58.627755+05:00",
 						Optional: false,
 					},
@@ -388,14 +388,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can modify object by adding time field with static default string value", func() {
 		Context("having an object with string field", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -410,19 +410,19 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			By("adding a time field to the object")
-			metaDescription = meta.MetaDescription{
+			metaDescription = object.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "time",
-						Type:     meta.FieldTypeTime,
+						Type:     object.FieldTypeTime,
 						Def:      "15:29:58+07:00",
 						Optional: false,
 					},

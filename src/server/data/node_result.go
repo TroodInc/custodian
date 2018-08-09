@@ -42,7 +42,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			} else {
 				delete(resultNode.values, childNode.LinkField.Name)
 			}
-		} else if childNode.LinkField.LinkType == meta.LinkTypeInner && !childNode.IsOfGenericType() {
+		} else if childNode.LinkField.LinkType == object.LinkTypeInner && !childNode.IsOfGenericType() {
 			k := resultNode.values[childNode.LinkField.Name]
 			if i, e := childNode.Resolve(ctx, k); e != nil {
 				return nil, e

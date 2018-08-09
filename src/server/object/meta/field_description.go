@@ -3,6 +3,7 @@ package meta
 import (
 	"strconv"
 	"reflect"
+	. "server/meta/description"
 )
 
 type FieldDescription struct {

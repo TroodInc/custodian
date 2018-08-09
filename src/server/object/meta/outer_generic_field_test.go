@@ -1,4 +1,4 @@
-package meta_test
+package meta
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -11,7 +11,7 @@ import (
 var _ = Describe("Outer generic field", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	BeforeEach(func() {
 		metaStore.Flush()
@@ -23,14 +23,14 @@ var _ = Describe("Outer generic field", func() {
 
 	It("can create object with outer generic field", func() {
 		By("having two objects: A and B")
-		aMetaDescription := meta.MetaDescription{
+		aMetaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -42,14 +42,14 @@ var _ = Describe("Outer generic field", func() {
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaDescription := meta.MetaDescription{
+		bMetaDescription := object.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -62,22 +62,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and object C, containing generic inner field")
-		cMetaDescription := meta.MetaDescription{
+		cMetaDescription := object.MetaDescription{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
+					Type:         object.FieldTypeGeneric,
+					LinkType:     object.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name, bMetaObj.Name},
 					Optional:     false,
 				},
@@ -89,22 +89,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription = meta.MetaDescription{
+		aMetaDescription = object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:           "c_set",
-					Type:           meta.FieldTypeGeneric,
-					LinkType:       meta.LinkTypeOuter,
+					Type:           object.FieldTypeGeneric,
+					LinkType:       object.LinkTypeOuter,
 					LinkMeta:       "c",
 					OuterLinkField: "target",
 				},
@@ -126,22 +126,22 @@ var _ = Describe("Outer generic field", func() {
 	It("Detects non-existing linked meta", func() {
 		By("having an object A, referencing non-existing object B")
 
-		cMetaDescription := meta.MetaDescription{
+		cMetaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:           "target",
-					Type:           meta.FieldTypeGeneric,
-					LinkType:       meta.LinkTypeOuter,
+					Type:           object.FieldTypeGeneric,
+					LinkType:       object.LinkTypeOuter,
 					LinkMeta:       "b",
 					OuterLinkField: "some_field",
 				},
@@ -154,14 +154,14 @@ var _ = Describe("Outer generic field", func() {
 
 	It("Fails if OuterLinkField not specified", func() {
 		By("having object A")
-		aMetaDescription := meta.MetaDescription{
+		aMetaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -174,22 +174,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and object B, containing generic inner field")
-		cMetaDescription := meta.MetaDescription{
+		cMetaDescription := object.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
+					Type:         object.FieldTypeGeneric,
+					LinkType:     object.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     false,
 				},
@@ -201,22 +201,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription = meta.MetaDescription{
+		aMetaDescription = object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:     "b_set",
-					Type:     meta.FieldTypeGeneric,
-					LinkType: meta.LinkTypeOuter,
+					Type:     object.FieldTypeGeneric,
+					LinkType: object.LinkTypeOuter,
 					LinkMeta: "b",
 				},
 			},
@@ -228,14 +228,14 @@ var _ = Describe("Outer generic field", func() {
 
 	It("can remove generic field from object", func() {
 		By("having object A")
-		aMetaDescription := meta.MetaDescription{
+		aMetaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -248,22 +248,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and object B, containing generic inner field")
-		bMetaDescription := meta.MetaDescription{
+		bMetaDescription := object.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
+					Type:         object.FieldTypeGeneric,
+					LinkType:     object.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     false,
 				},
@@ -275,22 +275,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription = meta.MetaDescription{
+		aMetaDescription = object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:           "b_set",
-					Type:           meta.FieldTypeGeneric,
-					LinkType:       meta.LinkTypeOuter,
+					Type:           object.FieldTypeGeneric,
+					LinkType:       object.LinkTypeOuter,
 					LinkMeta:       "b",
 					OuterLinkField: "target",
 				},
@@ -302,14 +302,14 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field removed from object A")
-		aMetaDescription = meta.MetaDescription{
+		aMetaDescription = object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -325,14 +325,14 @@ var _ = Describe("Outer generic field", func() {
 
 	It("removes outer field if corresponding inner field is removed", func() {
 		By("having object A")
-		aMetaDescription := meta.MetaDescription{
+		aMetaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -345,22 +345,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and object B, containing generic inner field")
-		cMetaDescription := meta.MetaDescription{
+		cMetaDescription := object.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
+					Type:         object.FieldTypeGeneric,
+					LinkType:     object.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     false,
 				},
@@ -372,22 +372,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription = meta.MetaDescription{
+		aMetaDescription = object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:           "b_set",
-					Type:           meta.FieldTypeGeneric,
-					LinkType:       meta.LinkTypeOuter,
+					Type:           object.FieldTypeGeneric,
+					LinkType:       object.LinkTypeOuter,
 					LinkMeta:       "b",
 					OuterLinkField: "target",
 				},
@@ -401,14 +401,14 @@ var _ = Describe("Outer generic field", func() {
 		//
 
 		By("and inner generic field removed from object B")
-		bMetaDescription := meta.MetaDescription{
+		bMetaDescription := object.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -431,14 +431,14 @@ var _ = Describe("Outer generic field", func() {
 
 	It("removes outer field if object containing corresponding inner field is removed", func() {
 		By("having object A")
-		aMetaDescription := meta.MetaDescription{
+		aMetaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -451,22 +451,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and object B, containing generic inner field")
-		bMetaDescription := meta.MetaDescription{
+		bMetaDescription := object.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
+					Type:         object.FieldTypeGeneric,
+					LinkType:     object.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     false,
 				},
@@ -478,22 +478,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription = meta.MetaDescription{
+		aMetaDescription = object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:           "b_set",
-					Type:           meta.FieldTypeGeneric,
-					LinkType:       meta.LinkTypeOuter,
+					Type:           object.FieldTypeGeneric,
+					LinkType:       object.LinkTypeOuter,
 					LinkMeta:       "b",
 					OuterLinkField: "target",
 				},
@@ -522,14 +522,14 @@ var _ = Describe("Outer generic field", func() {
 
 	It("does not remove outer field for object if it was not specified in object's description", func() {
 		By("having object A")
-		aMetaDescription := meta.MetaDescription{
+		aMetaDescription := object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -542,22 +542,22 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and object B, containing generic inner field")
-		bMetaDescription := meta.MetaDescription{
+		bMetaDescription := object.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
+					Type:         object.FieldTypeGeneric,
+					LinkType:     object.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     false,
 				},
@@ -569,14 +569,14 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and object A has been updated with data, which does not have outer generic field")
-		aMetaDescription = meta.MetaDescription{
+		aMetaDescription = object.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},

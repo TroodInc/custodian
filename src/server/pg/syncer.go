@@ -5,11 +5,11 @@ import (
 	"fmt"
 	"logger"
 	"server/meta"
+	"server/transactions"
 )
 
 type Syncer struct {
 	db *sql.DB
-	tx *sql.Tx
 }
 
 /*
@@ -25,7 +25,7 @@ func NewSyncer(dbInfo string) (*Syncer, error) {
 	if err := db.Ping(); err != nil {
 		return nil, err
 	}
-	return &Syncer{db: db, tx: nil}, nil
+	return &Syncer{db: db}, nil
 }
 
 func (syncer *Syncer) Close() error {
@@ -36,8 +36,9 @@ func (syncer *Syncer) NewDataManager() (*DataManager, error) {
 	return NewDataManager(syncer.db)
 }
 
-func (syncer *Syncer) CreateObj(m *meta.Meta) error {
-	if err := syncer.ensureTransactionBegun(); err != nil {
+func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, m *object.Meta) error {
+	tx := transaction.(*Tx)
+	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return err
 	}
 	var md *MetaDDL
@@ -52,20 +53,21 @@ func (syncer *Syncer) CreateObj(m *meta.Meta) error {
 	}
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
-		if _, e := syncer.tx.Exec(st.Code); e != nil {
+		if _, e := tx.Exec(st.Code); e != nil {
 			return &DDLError{table: m.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
 		}
 	}
 	return nil
 }
 
-func (syncer *Syncer) RemoveObj(name string, force bool) error {
-	if err := syncer.ensureTransactionBegun(); err != nil {
+func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name string, force bool) error {
+	tx := transaction.(*Tx)
+	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return err
 	}
 	var metaDdlFromDb *MetaDDL
 	var e error
-	if metaDdlFromDb, e = MetaDDLFromDB(syncer.tx, name); e != nil {
+	if metaDdlFromDb, e = MetaDDLFromDB(tx.Tx, name); e != nil {
 		return e
 	}
 	var ds DDLStmts
@@ -74,7 +76,7 @@ func (syncer *Syncer) RemoveObj(name string, force bool) error {
 	}
 	for _, st := range ds {
 		logger.Debug("Removing object from DB: %syncer\n", st.Code)
-		if _, e := syncer.tx.Exec(st.Code); e != nil {
+		if _, e := tx.Exec(st.Code); e != nil {
 			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
 		}
 	}
@@ -82,8 +84,9 @@ func (syncer *Syncer) RemoveObj(name string, force bool) error {
 }
 
 //UpdateRecord an existing business object
-func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta) error {
-	if err := syncer.ensureTransactionBegun(); err != nil {
+func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentBusinessObj *object.Meta, newBusinessObject *object.Meta) error {
+	tx := transaction.(*Tx)
+	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return err
 	}
 	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
@@ -107,7 +110,7 @@ func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta
 	}
 	for _, ddlStatement := range ddlStatements {
 		logger.Debug("Updating object in DB: %syncer\n", ddlStatement.Code)
-		if _, e := syncer.tx.Exec(ddlStatement.Code); e != nil {
+		if _, e := tx.Exec(ddlStatement.Code); e != nil {
 			return &DDLError{table: currentBusinessObj.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", ddlStatement.Name, e.Error())}
 		}
 	}
@@ -115,14 +118,15 @@ func (syncer *Syncer) UpdateObj(currentBusinessObj, newBusinessObject *meta.Meta
 }
 
 //Calculates the difference between the given and the existing business object in the database
-func (syncer *Syncer) diffScripts(metaObj *meta.Meta) (DDLStmts, error) {
+func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaObj *object.Meta) (DDLStmts, error) {
+	tx := transaction.(*Tx)
 	metaDdlFactory := MetaDdlFactory{}
 	newMetaDdl, e := metaDdlFactory.Factory(metaObj)
 	if e != nil {
 		return nil, e
 	}
 
-	if metaDdlFromDB, err := MetaDDLFromDB(syncer.tx, metaObj.Name); err == nil {
+	if metaDdlFromDB, err := MetaDDLFromDB(tx.Tx, metaObj.Name); err == nil {
 		diff, err := metaDdlFromDB.Diff(newMetaDdl)
 		if err != nil {
 			return nil, err
@@ -136,17 +140,18 @@ func (syncer *Syncer) diffScripts(metaObj *meta.Meta) (DDLStmts, error) {
 
 }
 
-func (syncer *Syncer) UpdateObjTo(businessObject *meta.Meta) error {
-	if err := syncer.ensureTransactionBegun(); err != nil {
+func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, businessObject *object.Meta) error {
+	tx := transaction.(*Tx)
+	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return err
 	}
-	ddlStatements, e := syncer.diffScripts(businessObject)
+	ddlStatements, e := syncer.diffScripts(tx, businessObject)
 	if e != nil {
 		return e
 	}
 	for _, st := range ddlStatements {
 		logger.Debug("Updating object in DB: %syncer\n", st.Code)
-		if _, e := syncer.tx.Exec(st.Code); e != nil {
+		if _, e := tx.Exec(st.Code); e != nil {
 			return &DDLError{table: businessObject.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
 		}
 	}
@@ -155,40 +160,44 @@ func (syncer *Syncer) UpdateObjTo(businessObject *meta.Meta) error {
 
 //Check if the given business object equals to the corresponding one stored in the database.
 //The validation fails if the given business object is different
-func (syncer *Syncer) ValidateObj(businessObject *meta.Meta) (bool, error) {
-	if err := syncer.ensureTransactionBegun(); err != nil {
+func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, businessObject *object.Meta) (bool, error) {
+	tx := transaction.(*Tx)
+	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return false, err
 	}
-	ddlStatements, e := syncer.diffScripts(businessObject)
+	ddlStatements, e := syncer.diffScripts(tx, businessObject)
 	if e != nil {
 		return false, e
 	} else {
 		if len(ddlStatements) == 0 {
 			return true, nil
 		} else {
-			return false, &meta.ValidationError{Message: "Inconsistent object state found."}
+			return false, &object.ValidationError{Message: "Inconsistent object state found."}
 		}
 	}
 	return len(ddlStatements) == 0, nil
 }
 
 //transaction related methods
-func (syncer *Syncer) BeginTransaction() (error) {
+func (syncer *Syncer) BeginTransaction() (transactions.DbTransaction, error) {
 	tx, err := syncer.db.Begin()
-	syncer.tx = tx
+	return &Tx{Tx: tx}, err
+}
+
+func (syncer *Syncer) CommitTransaction(transaction transactions.DbTransaction) (error) {
+	tx := transaction.(*Tx)
+	return tx.Commit()
+}
+
+func (syncer *Syncer) RollbackTransaction(transaction transactions.DbTransaction) (error) {
+	tx := transaction.(*Tx)
+	err := tx.Rollback()
 	return err
 }
 
-func (syncer *Syncer) CommitTransaction() (error) {
-	return syncer.tx.Commit()
-}
-
-func (syncer *Syncer) RollbackTransaction() (error) {
-	return syncer.tx.Rollback()
-}
-
-func (syncer *Syncer) ensureTransactionBegun() (error) {
-	if syncer.tx == nil {
+func (syncer *Syncer) ensureTransactionBegun(transaction transactions.DbTransaction) (error) {
+	tx := transaction.(*Tx)
+	if tx == nil {
 		return &TransactionNotBegunError{}
 	}
 	return nil

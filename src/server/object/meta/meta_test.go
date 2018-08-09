@@ -1,4 +1,4 @@
-package meta_test
+package meta
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -12,7 +12,7 @@ import (
 var _ = Describe("The PG MetaStore", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	BeforeEach(func() {
 		metaStore.Flush()
@@ -24,25 +24,25 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("can flush all objects", func() {
 		Context("once object is created", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					}, {
 						Name:     "gender",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -61,14 +61,14 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("can remove object without leaving orphan outer links", func() {
 		Context("having two objects with mutual links", func() {
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -81,14 +81,14 @@ var _ = Describe("The PG MetaStore", func() {
 			err = metaStore.Create(aMeta)
 			Expect(err).To(BeNil())
 
-			bMetaDescription := meta.MetaDescription{
+			bMetaDescription := object.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -96,9 +96,9 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:     "a_fk",
-						Type:     meta.FieldTypeObject,
+						Type:     object.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: object.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
@@ -108,14 +108,14 @@ var _ = Describe("The PG MetaStore", func() {
 			err = metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
-			aMetaDescription = meta.MetaDescription{
+			aMetaDescription = object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -123,9 +123,9 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:           "b_set",
-						Type:           meta.FieldTypeObject,
+						Type:           object.FieldTypeObject,
 						Optional:       true,
-						LinkType:       meta.LinkTypeOuter,
+						LinkType:       object.LinkTypeOuter,
 						LinkMeta:       "b",
 						OuterLinkField: "a_fk",
 					},
@@ -149,14 +149,14 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("can remove object without leaving orphan inner links", func() {
 		Context("having two objects with mutual links", func() {
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -168,14 +168,14 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
-			bMetaDescription := meta.MetaDescription{
+			bMetaDescription := object.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -183,9 +183,9 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:     "a_fk",
-						Type:     meta.FieldTypeObject,
+						Type:     object.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: object.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
@@ -209,14 +209,14 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("can remove object`s inner link field without leaving orphan outer links", func() {
 		Context("having objects A and B with mutual links", func() {
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -228,14 +228,14 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
-			bMetaDescription := meta.MetaDescription{
+			bMetaDescription := object.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -243,9 +243,9 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:     "a_fk",
-						Type:     meta.FieldTypeObject,
+						Type:     object.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: object.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
@@ -255,14 +255,14 @@ var _ = Describe("The PG MetaStore", func() {
 			metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
-			aMetaDescription = meta.MetaDescription{
+			aMetaDescription = object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -270,9 +270,9 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:           "b_set",
-						Type:           meta.FieldTypeObject,
+						Type:           object.FieldTypeObject,
 						Optional:       true,
-						LinkType:       meta.LinkTypeOuter,
+						LinkType:       object.LinkTypeOuter,
 						LinkMeta:       "b",
 						OuterLinkField: "a_fk",
 					},
@@ -283,14 +283,14 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			Context("and inner link field was removed from object B", func() {
-				bMetaDescription := meta.MetaDescription{
+				bMetaDescription := object.MetaDescription{
 					Name: "b",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []object.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: object.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -314,24 +314,24 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("checks object for fields with duplicated names when creating object", func() {
 		Context("having an object description with duplicated field names", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -346,20 +346,20 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("can change field type of existing object", func() {
 		By("having an existing object with string field")
-		metaDescription := meta.MetaDescription{
+		metaDescription := object.MetaDescription{
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				}, {
 					Name:     "name",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: false,
 				},
 			},
@@ -370,20 +370,20 @@ var _ = Describe("The PG MetaStore", func() {
 		Expect(err).To(BeNil())
 
 		Context("when object is updated with modified field`s type", func() {
-			metaDescription = meta.MetaDescription{
+			metaDescription = object.MetaDescription{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					},
 				},

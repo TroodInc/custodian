@@ -11,7 +11,7 @@ type Rows struct {
 	*sql.Rows
 }
 
-func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription, ) ([]interface{}, error) {
+func (rows *Rows) getDefaultValues(fields []*object.FieldDescription, ) ([]interface{}, error) {
 	values := make([]interface{}, 0)
 	for _, field := range fields {
 		if newValue, err := newFieldValue(field, field.Optional); err != nil {
@@ -27,7 +27,7 @@ func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription, ) ([]interfa
 	return values, nil
 }
 
-func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
+func (rows *Rows) Parse(fields []*object.FieldDescription) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, NewDMLError(ErrDMLFailed, err.Error())
@@ -35,10 +35,10 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 
 	result := make([]map[string]interface{}, 0)
 	i := 0
-	fieldByColumnName := func(columnName string) *meta.FieldDescription {
+	fieldByColumnName := func(columnName string) *object.FieldDescription {
 		fieldName := columnName
-		if meta.IsGenericFieldColumn(columnName) {
-			fieldName = meta.ReverseGenericFieldName(fieldName)
+		if object.IsGenericFieldColumn(columnName) {
+			fieldName = object.ReverseGenericFieldName(fieldName)
 		}
 
 		for _, field := range fields {
@@ -58,7 +58,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 			}
 			result = append(result, make(map[string]interface{}))
 			for j, columnName := range cols {
-				if fieldByColumnName(columnName).Type == meta.FieldTypeDate {
+				if fieldByColumnName(columnName).Type == object.FieldTypeDate {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -69,7 +69,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = string([]rune(*value)[0:10])
 					}
-				} else if fieldByColumnName(columnName).Type == meta.FieldTypeTime {
+				} else if fieldByColumnName(columnName).Type == object.FieldTypeTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -80,7 +80,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = string([]rune(*value)[11:])
 					}
-				} else if fieldByColumnName(columnName).Type == meta.FieldTypeDateTime {
+				} else if fieldByColumnName(columnName).Type == object.FieldTypeDateTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -91,7 +91,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = *value
 					}
-				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == meta.FieldTypeGeneric {
+				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == object.FieldTypeGeneric {
 
 					//
 					value := values[j].(*sql.NullString)
@@ -105,12 +105,12 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 						castAssembledValue = assembledValue.(types.GenericInnerLink)
 					}
 					//fill corresponding value
-					if meta.IsGenericFieldTypeColumn(columnName) {
+					if object.IsGenericFieldTypeColumn(columnName) {
 						castAssembledValue.ObjectName = value.String
 						if value.String != "" {
 							castAssembledValue.PkName = fieldDescription.LinkMetaList.GetByName(value.String).Key.Name
 						}
-					} else if meta.IsGenericFieldKeyColumn(columnName) {
+					} else if object.IsGenericFieldKeyColumn(columnName) {
 						if value.String != "" {
 							castAssembledValue.Pk, _ = fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName).Key.ValueFromString(value.String)
 						}

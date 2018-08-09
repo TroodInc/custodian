@@ -86,7 +86,7 @@ func (selectInfo *SelectInfo) sql(sql *bytes.Buffer) error {
 	return parsedTemplSelect.Execute(sql, selectInfo)
 }
 
-func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filterKeys []string) *SelectInfo {
+func NewSelectInfo(objectMeta *object.Meta, fields []*object.FieldDescription, filterKeys []string) *SelectInfo {
 	sqlHelper := dml_info.SqlHelper{}
 	whereExpression := ""
 	for i, key := range filterKeys {
@@ -98,24 +98,24 @@ func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filte
 	return &SelectInfo{From: GetTableName(objectMeta), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
 }
 
-func tableFields(m *meta.Meta) []*meta.FieldDescription {
-	fields := make([]*meta.FieldDescription, 0)
+func tableFields(m *object.Meta) []*object.FieldDescription {
+	fields := make([]*object.FieldDescription, 0)
 	l := len(m.Fields)
 	for i := 0; i < l; i++ {
-		if m.Fields[i].LinkType != meta.LinkTypeOuter {
+		if m.Fields[i].LinkType != object.LinkTypeOuter {
 			fields = append(fields, &m.Fields[i])
 		}
 	}
 	return fields
 }
 
-func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
+func getFieldsColumnsNames(fields []*object.FieldDescription) []string {
 	names := make([]string, 0)
 	for _, field := range fields {
 		switch field.Type {
-		case meta.FieldTypeGeneric:
-			names = append(names, meta.GetGenericFieldTypeColumnName(field.Name))
-			names = append(names, meta.GetGenericFieldKeyColumnName(field.Name))
+		case object.FieldTypeGeneric:
+			names = append(names, object.GetGenericFieldTypeColumnName(field.Name))
+			names = append(names, object.GetGenericFieldKeyColumnName(field.Name))
 		default:
 			names = append(names, field.Name)
 		}
@@ -123,34 +123,34 @@ func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
 	return names
 }
 
-func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, error) {
+func newFieldValue(f *object.FieldDescription, isOptional bool) (interface{}, error) {
 	switch f.Type {
-	case meta.FieldTypeString, meta.FieldTypeDate, meta.FieldTypeDateTime, meta.FieldTypeTime:
+	case object.FieldTypeString, object.FieldTypeDate, object.FieldTypeDateTime, object.FieldTypeTime:
 		if isOptional {
 			return new(sql.NullString), nil
 		} else {
 			return new(string), nil
 		}
-	case meta.FieldTypeNumber:
+	case object.FieldTypeNumber:
 		if isOptional {
 			return new(sql.NullFloat64), nil
 		} else {
 			return new(float64), nil
 		}
-	case meta.FieldTypeBool:
+	case object.FieldTypeBool:
 		if isOptional {
 			return new(sql.NullBool), nil
 		} else {
 			return new(bool), nil
 		}
-	case meta.FieldTypeObject, meta.FieldTypeArray:
-		if f.LinkType == meta.LinkTypeInner {
+	case object.FieldTypeObject, object.FieldTypeArray:
+		if f.LinkType == object.LinkTypeInner {
 			return newFieldValue(f.LinkMeta.Key, f.Optional)
 		} else {
 			return newFieldValue(f.OuterLinkField, f.Optional)
 		}
-	case meta.FieldTypeGeneric:
-		if f.LinkType == meta.LinkTypeInner {
+	case object.FieldTypeGeneric:
+		if f.LinkType == object.LinkTypeInner {
 			return []interface{}{new(sql.NullString), new(sql.NullString)}, nil
 		} else {
 			return newFieldValue(f.OuterLinkField, f.Optional)
@@ -194,7 +194,7 @@ func (tx *Tx) Prepare(q string) (*Stmt, error) {
 	return NewStmt(tx.Tx, q)
 }
 
-func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
+func (s *Stmt) ParsedQuery(binds []interface{}, fields []*object.FieldDescription) ([]map[string]interface{}, error) {
 	rows, err := s.Query(binds)
 	if err != nil {
 		logger.Error("Query statement error: %s", err.Error())
@@ -204,7 +204,7 @@ func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription)
 	return rows.Parse(fields)
 }
 
-func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*meta.FieldDescription) (map[string]interface{}, error) {
+func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*object.FieldDescription) (map[string]interface{}, error) {
 	objs, err := s.ParsedQuery(binds, fields)
 	if err != nil {
 		return nil, err
@@ -255,8 +255,8 @@ func getColumnsToInsert(fieldNames []string, rawValues []interface{}) []string {
 	for i, fieldName := range fieldNames {
 		switch rawValues[i].(type) {
 		case *types.GenericInnerLink:
-			columns = append(columns, meta.GetGenericFieldTypeColumnName(fieldName))
-			columns = append(columns, meta.GetGenericFieldKeyColumnName(fieldName))
+			columns = append(columns, object.GetGenericFieldTypeColumnName(fieldName))
+			columns = append(columns, object.GetGenericFieldKeyColumnName(fieldName))
 		default:
 			columns = append(columns, fieldName)
 		}
@@ -272,8 +272,8 @@ func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, ex
 		case *types.GenericInnerLink:
 			values = append(values, castValue.ObjectName)
 			values = append(values, castValue.Pk)
-			processedColumns = append(processedColumns, meta.GetGenericFieldTypeColumnName(fieldName))
-			processedColumns = append(processedColumns, meta.GetGenericFieldKeyColumnName(fieldName))
+			processedColumns = append(processedColumns, object.GetGenericFieldTypeColumnName(fieldName))
+			processedColumns = append(processedColumns, object.GetGenericFieldKeyColumnName(fieldName))
 		case types.ALink:
 			values = append(values, castValue.Obj[castValue.Field.Meta.Key.Name])
 			processedColumns = append(processedColumns, fieldName)
@@ -319,7 +319,7 @@ func increaseCasVal(v interface{}) interface{} {
 	return cas + 1
 }
 
-func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (data.Operation, error) {
+func (dataManager *DataManager) PrepareUpdateOperation(m *object.Meta, recordValues []map[string]interface{}) (data.Operation, error) {
 	if len(recordValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -372,10 +372,10 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 			case *types.GenericInnerLink:
 
 				currentColumnIndex++
-				updateInfo.Values = append(updateInfo.Values, newBind(meta.GetGenericFieldTypeColumnName(fieldName), currentColumnIndex))
+				updateInfo.Values = append(updateInfo.Values, newBind(object.GetGenericFieldTypeColumnName(fieldName), currentColumnIndex))
 
 				currentColumnIndex++
-				updateInfo.Values = append(updateInfo.Values, newBind(meta.GetGenericFieldKeyColumnName(fieldName), currentColumnIndex))
+				updateInfo.Values = append(updateInfo.Values, newBind(object.GetGenericFieldKeyColumnName(fieldName), currentColumnIndex))
 
 				updateFields = append(updateFields, fieldName)
 
@@ -437,7 +437,7 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 	}, nil
 }
 
-func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (data.Operation, error) {
+func (dataManager *DataManager) PrepareCreateOperation(m *object.Meta, recordsValues []map[string]interface{}) (data.Operation, error) {
 	if len(recordsValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -481,7 +481,7 @@ func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValu
 	}, nil
 }
 
-func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
+func fieldsToCols(fields []*object.FieldDescription, alias string) []string {
 	columns := getFieldsColumnsNames(fields)
 	if alias != "" {
 		alias = alias + "."
@@ -492,7 +492,7 @@ func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 	return columns
 }
 
-func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, tx *sql.Tx) (map[string]interface{}, error) {
+func (dataManager *DataManager) Get(m *object.Meta, fields []*object.FieldDescription, key string, val interface{}, tx *sql.Tx) (map[string]interface{}, error) {
 	objs, err := dataManager.GetAll(m, fields, map[string]interface{}{key: val}, tx)
 	if err != nil {
 		return nil, err
@@ -510,7 +510,7 @@ func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescriptio
 	return objs[0], nil
 }
 
-func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, tx *sql.Tx) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetAll(m *object.Meta, fields []*object.FieldDescription, filters map[string]interface{}, tx *sql.Tx) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}
@@ -537,7 +537,7 @@ func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}, tx
 func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}, tx *sql.Tx) (data.Operation, []interface{}, error) {
 	var pks []interface{}
 	if n.KeyField.Name != n.Meta.Key.Name {
-		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys, tx)
+		objs, err := dataManager.GetIn(n.Meta, []*object.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys, tx)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -577,7 +577,7 @@ func (dataManager *DataManager) NewExecuteContext() (data.ExecuteContext, error)
 	return &ExecuteContext{Tx: &Tx{tx}}, nil
 }
 
-func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, tx *sql.Tx) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*object.FieldDescription, tx *sql.Tx) ([]map[string]interface{}, error) {
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
 	sqlQuery, err := translator.query(tableAlias, dataNode)
@@ -608,7 +608,7 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	return statement.ParsedQuery(sqlQuery.Binds, fields)
 }
 
-func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, tx *sql.Tx) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetIn(m *object.Meta, fields []*object.FieldDescription, key string, in []interface{}, tx *sql.Tx) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}

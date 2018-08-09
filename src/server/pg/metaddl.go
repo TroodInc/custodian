@@ -60,19 +60,19 @@ func (ct ColumnType) DdlType() (string, error) {
 	}
 }
 
-func fieldTypeToColumnType(ft meta.FieldType) (ColumnType, bool) {
+func fieldTypeToColumnType(ft object.FieldType) (ColumnType, bool) {
 	switch ft {
-	case meta.FieldTypeString:
+	case object.FieldTypeString:
 		return ColumnTypeText, true
-	case meta.FieldTypeNumber:
+	case object.FieldTypeNumber:
 		return ColumnTypeNumeric, true
-	case meta.FieldTypeBool:
+	case object.FieldTypeBool:
 		return ColumnTypeBool, true
-	case meta.FieldTypeDateTime:
+	case object.FieldTypeDateTime:
 		return ColumnTypeDateTime, true
-	case meta.FieldTypeDate:
+	case object.FieldTypeDate:
 		return ColumnTypeDate, true
-	case meta.FieldTypeTime:
+	case object.FieldTypeTime:
 		return ColumnTypeTime, true
 	default:
 		return 0, false
@@ -188,7 +188,7 @@ func (c *ColDefValSeq) ddlVal() (string, error) {
 }
 
 type ColDefValFunc struct {
-	*meta.DefExpr
+	*object.DefExpr
 }
 
 func (dFunc *ColDefValFunc) ddlVal() (string, error) {
@@ -228,7 +228,7 @@ func valToDdl(v interface{}) (string, error) {
 	}
 }
 
-func newFieldSeq(f *meta.FieldDescription, args []interface{}) (*Seq, error) {
+func newFieldSeq(f *object.FieldDescription, args []interface{}) (*Seq, error) {
 	if len(args) > 0 {
 		if name, err := valToDdl(args[0]); err == nil {
 			return &Seq{Name: name}, nil
@@ -240,7 +240,7 @@ func newFieldSeq(f *meta.FieldDescription, args []interface{}) (*Seq, error) {
 	}
 }
 
-func defaultNextval(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultNextval(f *object.FieldDescription, args []interface{}) (ColDefVal, error) {
 	if s, err := newFieldSeq(f, args); err == nil {
 		return &ColDefValSeq{s}, nil
 	} else {
@@ -248,37 +248,37 @@ func defaultNextval(f *meta.FieldDescription, args []interface{}) (ColDefVal, er
 	}
 }
 
-func defaultCurrentDate(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultCurrentDate(f *object.FieldDescription, args []interface{}) (ColDefVal, error) {
 	return &ColDefDate{}, nil
 }
 
-func defaultCurrentTimestamp(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultCurrentTimestamp(f *object.FieldDescription, args []interface{}) (ColDefVal, error) {
 	return &ColDefTimestamp{}, nil
 }
 
-func defaultNow(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultNow(f *object.FieldDescription, args []interface{}) (ColDefVal, error) {
 	return &ColDefNow{}, nil
 }
 
-var defaultFuncs = map[string]func(f *meta.FieldDescription, args []interface{}) (ColDefVal, error){
+var defaultFuncs = map[string]func(f *object.FieldDescription, args []interface{}) (ColDefVal, error){
 	"nextval":           defaultNextval,
 	"current_date":      defaultCurrentDate,
 	"current_timestamp": defaultCurrentTimestamp,
 	"now":               defaultNow,
 }
 
-func newColDefVal(f *meta.FieldDescription) (ColDefVal, error) {
+func newColDefVal(f *object.FieldDescription) (ColDefVal, error) {
 	if def := f.Default(); def != nil {
 		switch v := def.(type) {
-		case meta.DefConstStr:
+		case object.DefConstStr:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstFloat:
+		case object.DefConstFloat:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstInt:
+		case object.DefConstInt:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstBool:
+		case object.DefConstBool:
 			return newColDefValSimple(v.Value)
-		case meta.DefExpr:
+		case object.DefExpr:
 			if fn, ok := defaultFuncs[strings.ToLower(v.Func)]; ok {
 				return fn(f, v.Args)
 			} else {
@@ -700,7 +700,7 @@ func (m *MetaDDLDiff) Script() (DDLStmts, error) {
 
 const TableNamePrefix = "o_"
 
-func GetTableName(m *meta.Meta) string {
+func GetTableName(m *object.Meta) string {
 	name := bytes.NewBufferString(TableNamePrefix)
 	name.WriteString(m.Name)
 	return name.String()

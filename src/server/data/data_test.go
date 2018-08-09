@@ -13,7 +13,7 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -28,14 +28,14 @@ var _ = Describe("Data", func() {
 
 	It("can create a record containing null value of foreign key field", func() {
 		Context("having Reason object", func() {
-			reasonMetaDescription := meta.MetaDescription{
+			reasonMetaDescription := object.MetaDescription{
 				Name: "reason",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -46,14 +46,14 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			Context("and Lead object referencing Reason object", func() {
-				leadMetaDescription := meta.MetaDescription{
+				leadMetaDescription := object.MetaDescription{
 					Name: "lead",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []object.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: object.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -61,13 +61,13 @@ var _ = Describe("Data", func() {
 						},
 						{
 							Name: "name",
-							Type: meta.FieldTypeString,
+							Type: object.FieldTypeString,
 						},
 						{
 							Name:     "decline_reason",
-							Type:     meta.FieldTypeObject,
+							Type:     object.FieldTypeObject,
 							Optional: true,
-							LinkType: meta.LinkTypeInner,
+							LinkType: object.LinkTypeInner,
 							LinkMeta: "reason",
 						},
 					},
@@ -90,14 +90,14 @@ var _ = Describe("Data", func() {
 
 	It("can create record without specifying any value", func() {
 		Context("having an object with optional fields", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -105,7 +105,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -123,14 +123,14 @@ var _ = Describe("Data", func() {
 
 	It("can create record with null value for optional field", func() {
 		Context("having an object", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -138,7 +138,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -154,14 +154,14 @@ var _ = Describe("Data", func() {
 
 	It("Can create records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -169,7 +169,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name: "order",
-						Type: meta.FieldTypeString,
+						Type: object.FieldTypeString,
 					},
 				},
 			}
@@ -190,14 +190,14 @@ var _ = Describe("Data", func() {
 
 	It("Can insert numeric value into string field", func() {
 		Context("having an object with string field", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := object.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -205,7 +205,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name: "name",
-						Type: meta.FieldTypeString,
+						Type: object.FieldTypeString,
 					},
 				},
 			}

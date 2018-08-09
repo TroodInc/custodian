@@ -12,7 +12,7 @@ import (
 var _ = Describe("Node", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	BeforeEach(func() {
 		metaStore.Flush()
@@ -25,14 +25,14 @@ var _ = Describe("Node", func() {
 	It("can fill child nodes with circular dependency", func() {
 
 		Describe("Having three objects with mediated circular dependency", func() {
-			objectA := meta.MetaDescription{
+			objectA := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeString,
+						Type: object.FieldTypeString,
 					},
 				},
 			}
@@ -41,20 +41,20 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectAMeta)
 			Expect(err).To(BeNil())
 
-			objectB := meta.MetaDescription{
+			objectB := object.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeString,
+						Type: object.FieldTypeString,
 					},
 					{
 						Name:     "a",
-						Type:     meta.FieldTypeObject,
+						Type:     object.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: object.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
@@ -64,20 +64,20 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectBMeta)
 			Expect(err).To(BeNil())
 
-			objectC := meta.MetaDescription{
+			objectC := object.MetaDescription{
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeString,
+						Type: object.FieldTypeString,
 					},
 					{
 						Name:     "b",
-						Type:     meta.FieldTypeObject,
+						Type:     object.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: object.LinkTypeInner,
 						LinkMeta: "b",
 					},
 				},
@@ -87,20 +87,20 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectCMeta)
 			Expect(err).To(BeNil())
 
-			objectA = meta.MetaDescription{
+			objectA = object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeString,
+						Type: object.FieldTypeString,
 					},
 					{
 						Name:     "c",
-						Type:     meta.FieldTypeObject,
+						Type:     object.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: object.LinkTypeInner,
 						LinkMeta: "c",
 					},
 				},

@@ -3,13 +3,13 @@ package types
 import "server/meta"
 
 type ALink struct {
-	Field   *meta.FieldDescription
+	Field   *object.FieldDescription
 	IsOuter bool
 	Obj     map[string]interface{}
 }
 
 type DLink struct {
-	Field   *meta.FieldDescription
+	Field   *object.FieldDescription
 	IsOuter bool
 	Id      interface{}
 }

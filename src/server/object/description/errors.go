@@ -1,22 +1,22 @@
-package meta
+package description
 
 import (
-	"encoding/json"
 	"fmt"
+	"encoding/json"
 )
 
-type metaError struct {
+type metaDescriptionError struct {
 	code string
 	msg  string
 	meta string
 	op   string
 }
 
-func (e *metaError) Error() string {
+func (e *metaDescriptionError) Error() string {
 	return fmt.Sprintf("Meta error:  MetaDescription = '%s', operation = '%s', code='%s'  msg = '%s'", e.meta, e.op, e.code, e.msg)
 }
 
-func (e *metaError) Json() []byte {
+func (e *metaDescriptionError) Json() []byte {
 	j, _ := json.Marshal(map[string]string{
 		"MetaDescription": e.meta,
 		"op":              e.op,
@@ -26,8 +26,8 @@ func (e *metaError) Json() []byte {
 	return j
 }
 
-func NewMetaError(meta string, op string, code string, msg string, a ...interface{}) *metaError {
-	return &metaError{meta: meta, op: op, code: code, msg: fmt.Sprintf(msg, a...)}
+func NewMetaDescriptionError(meta string, op string, code string, msg string, a ...interface{}) *metaDescriptionError {
+	return &metaDescriptionError{meta: meta, op: op, code: code, msg: fmt.Sprintf(msg, a...)}
 }
 
 const (
@@ -38,11 +38,3 @@ const (
 	ErrJsonUnmarshal = "json_unmarshal"
 	ErrJsonMarshal   = "json_marshal"
 )
-
-type TransactionError struct {
-	msg string
-}
-
-func (e *TransactionError) Error() string {
-	return fmt.Sprintf("Transaction error: %s", e.msg)
-}

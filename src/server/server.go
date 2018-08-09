@@ -164,12 +164,15 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 	//Meta routes
 	syncer, err := pg.NewSyncer(cs.db)
+	dataManager, _ := syncer.NewDataManager()
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
 	if err != nil {
 		logger.Error("Failed to create syncer: %s", err.Error())
 		panic(err)
 	}
 
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 	//object operations
 	app.router.GET(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
 		if metaList, _, err := metaStore.List(); err == nil {
@@ -180,61 +183,77 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if metaObj, _, e := metaStore.Get(p.ByName("name"), true); e == nil {
-			js.push(map[string]interface{}{"status": "OK", "data": metaObj})
+		if globalTransaction, err := metaStore.BeginTransaction(); err != nil {
+			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
-			js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
+			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), ); e == nil {
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
+			} else {
+				js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
+			}
 		}
 	}))
 
 	app.router.PUT(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
-		metaObj, err := metaStore.UnmarshalJSON(r)
-		if err != nil {
-			js.pushError(err)
-			return
-		}
-		if e := metaStore.Create(metaObj); e == nil {
-			js.push(map[string]string{"status": "OK"})
+		if globalTransaction, err := metaStore.BeginTransaction(); err != nil {
+			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
-			js.pushError(e)
+			metaObj, err := metaStore.UnmarshalJSON(r)
+			if err != nil {
+				js.pushError(err)
+				return
+			}
+			if e := metaStore.Create(globalTransaction, metaObj); e == nil {
+				js.push(map[string]string{"status": "OK"})
+			} else {
+				js.pushError(e)
+			}
 		}
 	}))
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if ok, e := metaStore.Remove(p.ByName("name"), false, true); ok {
-			js.pushEmpty()
+		if globalTransaction, err := metaStore.BeginTransaction(); err != nil {
+			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
-			if e != nil {
-				js.pushError(e)
+			if ok, e := metaStore.Remove(globalTransaction, p.ByName("name"), false); ok {
+				js.pushEmpty()
 			} else {
-				js.pushError(&ServerError{status: http.StatusNotFound, code: ErrNotFound})
+				if e != nil {
+					js.pushError(e)
+				} else {
+					js.pushError(&ServerError{status: http.StatusNotFound, code: ErrNotFound})
+				}
 			}
 		}
 	}))
 	app.router.POST(cs.root+"/meta/:name", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		//TODO: meta object gets stored in MetaStore cache while unmarshalling, so it would be available even if it was not
-		// actually stored in the Custodian
-		metaObj, err := metaStore.UnmarshalJSON(r)
-		if err != nil {
-			js.pushError(err)
-			return
-		}
-		if _, err := metaStore.Update(p.ByName("name"), metaObj, true, true); err == nil {
-			js.pushEmpty()
+		if globalTransaction, err := metaStore.BeginTransaction(); err != nil {
+			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
-			js.pushError(err)
+			metaObj, err := metaStore.UnmarshalJSON(r)
+			if err != nil {
+				js.pushError(err)
+				return
+			}
+			if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
+				js.pushEmpty()
+			} else {
+				js.pushError(err)
+			}
 		}
 	}))
 
 	//Records operations
 	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-		dataManager, _ := syncer.NewDataManager()
-		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 
-		if recordData, err := dataProcessor.CreateRecord(p.ByName("name"), src.Value, user, true); err != nil {
+		if globalTransaction, err := metaStore.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			sink.pushGeneric(recordData)
+			if recordData, err := dataProcessor.CreateRecord(p.ByName("name"), src.Value, user, true); err != nil {
+				sink.pushError(err)
+			} else {
+				sink.pushGeneric(recordData)
+			}
 		}
 	}, false))
 

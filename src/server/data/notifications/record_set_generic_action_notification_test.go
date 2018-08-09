@@ -17,7 +17,7 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -33,23 +33,23 @@ var _ = Describe("Data", func() {
 	Describe("RecordSetNotification state capturing", func() {
 
 		var err error
-		var aMetaObj *meta.Meta
-		var bMetaObj *meta.Meta
-		var cMetaObj *meta.Meta
+		var aMetaObj *object.Meta
+		var bMetaObj *object.Meta
+		var cMetaObj *object.Meta
 		var aRecordData map[string]interface{}
 		var bRecordData map[string]interface{}
 		var cRecordData map[string]interface{}
 
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := object.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -57,16 +57,16 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target_object",
-						LinkType:     meta.LinkTypeInner,
-						Type:         meta.FieldTypeGeneric,
+						LinkType:     object.LinkTypeInner,
+						Type:         object.FieldTypeGeneric,
 						LinkMetaList: []string{"b", "c"},
 						Optional:     true,
 					},
 				},
-				Actions: []meta.Action{
+				Actions: []object.Action{
 					{
-						Method:          meta.MethodCreate,
-						Protocol:        meta.TEST,
+						Method:          object.MethodCreate,
+						Protocol:        object.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues: map[string]interface{}{"target_value": map[string]interface{}{
@@ -89,14 +89,14 @@ var _ = Describe("Data", func() {
 
 		havingObjectB := func() {
 			By("Having object B which")
-			bMetaDescription := meta.MetaDescription{
+			bMetaDescription := object.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -104,7 +104,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "first_name",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -117,14 +117,14 @@ var _ = Describe("Data", func() {
 
 		havingObjectC := func() {
 			By("Having object C")
-			cMetaDescription := meta.MetaDescription{
+			cMetaDescription := object.MetaDescription{
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -183,7 +183,7 @@ var _ = Describe("Data", func() {
 			recordSetNotification := NewRecordSetNotification(
 				&recordSet,
 				true,
-				meta.MethodCreate,
+				object.MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)

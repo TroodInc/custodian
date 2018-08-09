@@ -9,7 +9,7 @@ const (
 type GenericInnerLink struct {
 	ObjectName       string
 	Pk               interface{}
-	FieldDescription *meta.FieldDescription
+	FieldDescription *object.FieldDescription
 	PkName           string
 }
 
