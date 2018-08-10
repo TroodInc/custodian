@@ -44,6 +44,11 @@ func (validationService *ValidationService) Validate(record *Record, mandatoryCh
 						if m, ok := av.(map[string]interface{}); ok {
 							m[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, IsOuter: true, Obj: record.Data}
 							toCheck = append(toCheck, Record{fieldDescription.LinkMeta, m})
+						} else if pkValue, ok := av.(interface{}); ok {
+							toCheck = append(toCheck, Record{fieldDescription.LinkMeta, map[string]interface{}{
+								fieldDescription.OuterLinkField.Name: record.Pk(),
+								fieldDescription.LinkMeta.Key.Name:   pkValue,
+							}})
 						} else {
 							return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", k)
 						}
