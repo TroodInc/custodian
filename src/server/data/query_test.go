@@ -9,6 +9,7 @@ import (
 	"server/auth"
 	"fmt"
 	"utils"
+	"strconv"
 )
 
 var _ = Describe("Data", func() {
@@ -554,6 +555,80 @@ var _ = Describe("Data", func() {
 				Expect(matchedRecords[0]["id"]).To(Equal(bRecordOne["id"]))
 			})
 
+		})
+	})
+
+	It("can retrieve records with null inner link value", func() {
+		Context("having an object A", func() {
+			aMetaDescription := meta.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "name",
+						Type:     meta.FieldTypeString,
+						Optional: false,
+					},
+				},
+			}
+			aMetaObj, _ := metaStore.NewMeta(&aMetaDescription)
+			metaStore.Create(aMetaObj)
+
+			bMetaDescription := meta.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []meta.Field{
+					{
+						Name:     "id",
+						Type:     meta.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "a",
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
+						LinkMeta: "a",
+						Optional: true,
+					},
+				},
+			}
+			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(bMetaObj)
+			Expect(err).To(BeNil())
+
+			By("having a record of object B with null a value")
+
+			bRecordOne, err := dataProcessor.CreateRecord(bMetaDescription.Name, map[string]interface{}{"name": "B record"}, auth.User{}, true)
+			Expect(err).To(BeNil())
+
+			matchedRecords := []map[string]interface{}{}
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+
+			Context("query by a`s attribute returns correct result", func() {
+				query := fmt.Sprintf("eq(id,%s)", strconv.Itoa(int(bRecordOne["id"].(float64))))
+				err = dataProcessor.GetBulk(bMetaObj.Name, query, 1, callbackFunction, true)
+				Expect(err).To(BeNil())
+				Expect(matchedRecords).To(HaveLen(1))
+				Expect(matchedRecords[0]).To(HaveKey("a"))
+				Expect(matchedRecords[0]["a"]).To(BeNil())
+			})
 		})
 	})
 

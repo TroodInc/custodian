@@ -361,6 +361,9 @@ func (processor *Processor) UpdateRecord(transaction transactions.DbTransaction,
 	records, err := processor.flatten(objectMeta, recordData, func(mn string) (objectClassValidator, error) {
 		return processor.getValidator("upd:"+mn, updateValidator)
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	// create notification pool
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
@@ -372,7 +375,7 @@ func (processor *Processor) UpdateRecord(transaction transactions.DbTransaction,
 		isRoot := i == 0
 
 		if recordSet, err := processor.updateRecordSet(
-			&RecordSet{Meta: objectMeta, DataSet: []map[string]interface{}{record.Data}},
+			&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
 			isRoot,
 			recordSetNotificationPool,
 		); err != nil {

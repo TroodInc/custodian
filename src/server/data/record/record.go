@@ -40,3 +40,7 @@ func collapseLinks(obj map[string]interface{}) {
 		}
 	}
 }
+
+func (record *Record) Pk() interface{} {
+	return record.Data[record.Meta.Key.Name]
+}
