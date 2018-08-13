@@ -1,5 +1,9 @@
 package meta
 
+import (
+	. "server/object/description"
+)
+
 type MetaFactory struct {
 	builtMetas     map[string]*Meta
 	metaDriver     MetaDriver

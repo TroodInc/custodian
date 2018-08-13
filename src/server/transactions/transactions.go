@@ -1,5 +1,7 @@
 package transactions
 
+import "server/object/description"
+
 type State int
 
 const (
@@ -11,6 +13,7 @@ const (
 type MetaDescriptionTransaction interface {
 	AddCreatedMetaName(metaName string)
 	CreatedMetaNameList() []string
+	InitialMetaList() []*description.MetaDescription
 	SetState(state State)
 	State() State
 }
@@ -19,6 +22,6 @@ type DbTransaction interface {
 }
 
 type GlobalTransaction struct {
-	MetaDescriptionTransaction *MetaDescriptionTransaction
-	DbTransaction              *DbTransaction
+	MetaDescriptionTransaction MetaDescriptionTransaction
+	DbTransaction              DbTransaction
 }

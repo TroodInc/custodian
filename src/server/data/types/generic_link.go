@@ -1,6 +1,6 @@
 package types
 
-import "server/meta"
+import "server/object/meta"
 
 const (
 	GenericInnerLinkObjectKey = "_object"
@@ -9,7 +9,7 @@ const (
 type GenericInnerLink struct {
 	ObjectName       string
 	Pk               interface{}
-	FieldDescription *object.FieldDescription
+	FieldDescription *meta.FieldDescription
 	PkName           string
 }
 

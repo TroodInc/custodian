@@ -4,7 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"logger"
-	"server/meta"
+	"server/object/meta"
 	"server/transactions"
 )
 
@@ -36,7 +36,7 @@ func (syncer *Syncer) NewDataManager() (*DataManager, error) {
 	return NewDataManager(syncer.db)
 }
 
-func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, m *object.Meta) error {
+func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, m *meta.Meta) error {
 	tx := transaction.(*Tx)
 	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return err
@@ -84,7 +84,7 @@ func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name str
 }
 
 //UpdateRecord an existing business object
-func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentBusinessObj *object.Meta, newBusinessObject *object.Meta) error {
+func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentBusinessObj *meta.Meta, newBusinessObject *meta.Meta) error {
 	tx := transaction.(*Tx)
 	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return err
@@ -118,7 +118,7 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentB
 }
 
 //Calculates the difference between the given and the existing business object in the database
-func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaObj *object.Meta) (DDLStmts, error) {
+func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaObj *meta.Meta) (DDLStmts, error) {
 	tx := transaction.(*Tx)
 	metaDdlFactory := MetaDdlFactory{}
 	newMetaDdl, e := metaDdlFactory.Factory(metaObj)
@@ -140,7 +140,7 @@ func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaOb
 
 }
 
-func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, businessObject *object.Meta) error {
+func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, businessObject *meta.Meta) error {
 	tx := transaction.(*Tx)
 	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return err
@@ -160,7 +160,7 @@ func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, busine
 
 //Check if the given business object equals to the corresponding one stored in the database.
 //The validation fails if the given business object is different
-func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, businessObject *object.Meta) (bool, error) {
+func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, businessObject *meta.Meta) (bool, error) {
 	tx := transaction.(*Tx)
 	if err := syncer.ensureTransactionBegun(tx); err != nil {
 		return false, err
@@ -172,7 +172,7 @@ func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, busine
 		if len(ddlStatements) == 0 {
 			return true, nil
 		} else {
-			return false, &object.ValidationError{Message: "Inconsistent object state found."}
+			return false, &meta.ValidationError{Message: "Inconsistent object state found."}
 		}
 	}
 	return len(ddlStatements) == 0, nil

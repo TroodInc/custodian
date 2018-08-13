@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"logger"
 	"server/data"
-	"server/meta"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strconv"
 	"strings"
 	"text/template"
 	"server/data/types"
+	"server/object/meta"
+	"server/object/description"
 )
 
 //https://doc.apsstandard.org/2.1/spec/rql/
@@ -167,7 +168,7 @@ func (ctx *context) argsToOpExpr(args []interface{}, sep string) (expr, error) {
 	}, nil
 }
 
-func argToFieldVal(arg interface{}, field *object.FieldDescription) (interface{}, error) {
+func argToFieldVal(arg interface{}, field *meta.FieldDescription) (interface{}, error) {
 	switch value := arg.(type) {
 	case *rqlParser.RqlNode:
 		vf, ok := valueFuncs[strings.ToUpper(value.Op)]
@@ -229,7 +230,7 @@ func not(ctx *context, args []interface{}) (expr, error) {
 	}, nil
 }
 
-type sqlOp func(*object.FieldDescription, []interface{}) (string, error)
+type sqlOp func(*meta.FieldDescription, []interface{}) (string, error)
 
 //Assemble SQL for the given expression
 func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (expr, error) {
@@ -259,12 +260,12 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 		// process related object`s table join
 		// do it only if the current iteration is not that last, because the target field for the query can have the
 		// "LinkMeta"
-		if field.Type == object.FieldTypeGeneric {
+		if field.Type == description.FieldTypeGeneric {
 			//apply filtering by generic fields _object value and skip the next iteration
 			if fieldPathParts[i+1] != types.GenericInnerLinkObjectKey {
 				expression.WriteString(alias)
 				expression.WriteRune('.')
-				expression.WriteString(object.GetGenericFieldTypeColumnName(field.Name))
+				expression.WriteString(meta.GetGenericFieldTypeColumnName(field.Name))
 				expression.WriteString(fmt.Sprintf("='%s'", fieldPathParts[i+1]))
 				expression.WriteString(" AND ")
 			}
@@ -282,10 +283,10 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 					exists.RCol = linkedMeta.Key.Name
 				} else {
 
-					if field.Type == object.FieldTypeGeneric {
+					if field.Type == description.FieldTypeGeneric {
 						//cast object PK to string, because join is performed by generic __id field, which has string type
 						exists.FK = linkedMeta.Key.Name + "::text"
-						exists.RCol = object.GetGenericFieldKeyColumnName(field.Name)
+						exists.RCol = meta.GetGenericFieldKeyColumnName(field.Name)
 					} else {
 						exists.RCol = field.Name
 						exists.FK = linkedMeta.Key.Name
@@ -311,8 +312,8 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			}
 		} else {
 			var fieldName string
-			if field.Type == object.FieldTypeGeneric {
-				fieldName = object.GetGenericFieldTypeColumnName(field.Name)
+			if field.Type == description.FieldTypeGeneric {
+				fieldName = meta.GetGenericFieldTypeColumnName(field.Name)
 			} else {
 				fieldName = field.Name
 			}
@@ -341,15 +342,15 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 //get meta to join based on fieldDescription and query path
 //eg: queryPath is "target.a.name" and field is generic, then A meta should be returned
 //regular field case is straightforward
-func (ctx *context) getMetaToJoin(fieldDescription *object.FieldDescription, queryPath []string) *object.Meta {
-	if fieldDescription.Type == object.FieldTypeGeneric {
+func (ctx *context) getMetaToJoin(fieldDescription *meta.FieldDescription, queryPath []string) *meta.Meta {
+	if fieldDescription.Type == description.FieldTypeGeneric {
 		return fieldDescription.LinkMetaList.GetByName(queryPath[0])
 	} else {
 		return fieldDescription.LinkMeta
 	}
 }
 
-func (ctx *context) sqlOpIN(field *object.FieldDescription, args []interface{}) (string, error) {
+func (ctx *context) sqlOpIN(field *meta.FieldDescription, args []interface{}) (string, error) {
 	expression := bytes.NewBufferString("IN (")
 	if valuesNode, ok := args[0].(*rqlParser.RqlNode); ok {
 		//case of list of values
@@ -375,7 +376,7 @@ func (ctx *context) sqlOpIN(field *object.FieldDescription, args []interface{}) 
 	return expression.String(), nil
 }
 
-func (ctx *context) sqlOpEQ(field *object.FieldDescription, vals []interface{}) (string, error) {
+func (ctx *context) sqlOpEQ(field *meta.FieldDescription, vals []interface{}) (string, error) {
 	value, err := argToFieldVal(vals[0], field)
 	if err != nil {
 		return "", err
@@ -392,7 +393,7 @@ func (ctx *context) sqlOpEQ(field *object.FieldDescription, vals []interface{}) 
 	return p.String(), nil
 }
 
-func (ctx *context) sqlOpNE(f *object.FieldDescription, vals []interface{}) (string, error) {
+func (ctx *context) sqlOpNE(f *meta.FieldDescription, vals []interface{}) (string, error) {
 	v, err := argToFieldVal(vals[0], f)
 	if err != nil {
 		return "", err
@@ -410,7 +411,7 @@ func (ctx *context) sqlOpNE(f *object.FieldDescription, vals []interface{}) (str
 }
 
 func (ctx *context) sqlOpSimple(op string) sqlOp {
-	return func(f *object.FieldDescription, vals []interface{}) (string, error) {
+	return func(f *meta.FieldDescription, vals []interface{}) (string, error) {
 		v, err := argToFieldVal(vals[0], f)
 		if err != nil {
 			return "", err

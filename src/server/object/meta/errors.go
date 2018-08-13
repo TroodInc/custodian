@@ -29,12 +29,3 @@ func (e *metaError) Json() []byte {
 func NewMetaError(meta string, op string, code string, msg string, a ...interface{}) *metaError {
 	return &metaError{meta: meta, op: op, code: code, msg: fmt.Sprintf(msg, a...)}
 }
-
-const (
-	ErrDuplicated    = "duplicated"
-	ErrNotFound      = "not_found"
-	ErrNotValid      = "not_valid"
-	ErrInternal      = "internal"
-	ErrJsonUnmarshal = "json_unmarshal"
-	ErrJsonMarshal   = "json_marshal"
-)

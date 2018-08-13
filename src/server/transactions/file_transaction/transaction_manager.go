@@ -2,7 +2,7 @@ package file_transaction
 
 import (
 	. "server/transactions"
-	"server/meta/description"
+	"server/object/description"
 )
 
 type FileMetaDescriptionTransactionManager struct {
@@ -17,7 +17,7 @@ func (fm *FileMetaDescriptionTransactionManager) BeginTransaction(metaList []*de
 
 func (fm *FileMetaDescriptionTransactionManager) CommitTransaction(transaction MetaDescriptionTransaction) (error) {
 	if transaction.State() == Pending {
-		transaction.State() = Committed
+		transaction.SetState(Committed)
 		return nil
 	} else {
 		return &TransactionError{"Meta driver is not in pending state"}
@@ -25,7 +25,7 @@ func (fm *FileMetaDescriptionTransactionManager) CommitTransaction(transaction M
 
 }
 
-func (fm *FileMetaDescriptionTransactionManager) RollbackTransaction(transaction *FileMetaDescriptionTransaction) (error) {
+func (fm *FileMetaDescriptionTransactionManager) RollbackTransaction(transaction MetaDescriptionTransaction) (error) {
 	if transaction.State() != Pending {
 		return &TransactionError{"Meta driver is not in pending state"}
 	}

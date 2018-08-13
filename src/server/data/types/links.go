@@ -1,15 +1,15 @@
 package types
 
-import "server/meta"
+import "server/object/meta"
 
 type ALink struct {
-	Field   *object.FieldDescription
+	Field   *meta.FieldDescription
 	IsOuter bool
 	Obj     map[string]interface{}
 }
 
 type DLink struct {
-	Field   *object.FieldDescription
+	Field   *meta.FieldDescription
 	IsOuter bool
 	Id      interface{}
 }

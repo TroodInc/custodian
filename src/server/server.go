@@ -6,7 +6,7 @@ import (
 	"logger"
 	"server/data"
 	"server/data/errors"
-	"server/meta"
+	"server/object/meta"
 	"server/pg"
 	"server/auth"
 	"github.com/julienschmidt/httprouter"
@@ -20,6 +20,10 @@ import (
 	"time"
 	"context"
 	"github.com/getsentry/raven-go"
+	"server/transactions"
+	"server/transactions/file_transaction"
+	pg_transactions "server/pg/transactions"
+	"server/object/description"
 )
 
 //Server errors description
@@ -165,8 +169,13 @@ func (cs *CustodianServer) Setup() *http.Server {
 	//Meta routes
 	syncer, err := pg.NewSyncer(cs.db)
 	dataManager, _ := syncer.NewDataManager()
-	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+
+	//transaction managers
+	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
 	if err != nil {
 		logger.Error("Failed to create syncer: %s", err.Error())
@@ -183,7 +192,8 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		if globalTransaction, err := metaStore.BeginTransaction(); err != nil {
+		//there is no need to retrieve list of objects when not modifying them
+		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
 			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
 			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), ); e == nil {
@@ -195,7 +205,8 @@ func (cs *CustodianServer) Setup() *http.Server {
 	}))
 
 	app.router.PUT(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
-		if globalTransaction, err := metaStore.BeginTransaction(); err != nil {
+		metaDescriptionList, _, _ := metaStore.List()
+		if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
 			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
 			metaObj, err := metaStore.UnmarshalJSON(r)

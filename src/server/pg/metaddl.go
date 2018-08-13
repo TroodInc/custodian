@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	//	"git.reaxoft.loc/infomir/custodian/logger"
-	"server/meta"
+	"server/object/meta"
 	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
+	"server/object/description"
 )
 
 //DDL statament description
@@ -60,19 +60,19 @@ func (ct ColumnType) DdlType() (string, error) {
 	}
 }
 
-func fieldTypeToColumnType(ft object.FieldType) (ColumnType, bool) {
+func fieldTypeToColumnType(ft description.FieldType) (ColumnType, bool) {
 	switch ft {
-	case object.FieldTypeString:
+	case description.FieldTypeString:
 		return ColumnTypeText, true
-	case object.FieldTypeNumber:
+	case description.FieldTypeNumber:
 		return ColumnTypeNumeric, true
-	case object.FieldTypeBool:
+	case description.FieldTypeBool:
 		return ColumnTypeBool, true
-	case object.FieldTypeDateTime:
+	case description.FieldTypeDateTime:
 		return ColumnTypeDateTime, true
-	case object.FieldTypeDate:
+	case description.FieldTypeDate:
 		return ColumnTypeDate, true
-	case object.FieldTypeTime:
+	case description.FieldTypeTime:
 		return ColumnTypeTime, true
 	default:
 		return 0, false
@@ -188,7 +188,7 @@ func (c *ColDefValSeq) ddlVal() (string, error) {
 }
 
 type ColDefValFunc struct {
-	*object.DefExpr
+	*meta.DefExpr
 }
 
 func (dFunc *ColDefValFunc) ddlVal() (string, error) {
@@ -228,7 +228,7 @@ func valToDdl(v interface{}) (string, error) {
 	}
 }
 
-func newFieldSeq(f *object.FieldDescription, args []interface{}) (*Seq, error) {
+func newFieldSeq(f *meta.FieldDescription, args []interface{}) (*Seq, error) {
 	if len(args) > 0 {
 		if name, err := valToDdl(args[0]); err == nil {
 			return &Seq{Name: name}, nil
@@ -240,7 +240,7 @@ func newFieldSeq(f *object.FieldDescription, args []interface{}) (*Seq, error) {
 	}
 }
 
-func defaultNextval(f *object.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultNextval(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
 	if s, err := newFieldSeq(f, args); err == nil {
 		return &ColDefValSeq{s}, nil
 	} else {
@@ -248,37 +248,37 @@ func defaultNextval(f *object.FieldDescription, args []interface{}) (ColDefVal, 
 	}
 }
 
-func defaultCurrentDate(f *object.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultCurrentDate(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
 	return &ColDefDate{}, nil
 }
 
-func defaultCurrentTimestamp(f *object.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultCurrentTimestamp(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
 	return &ColDefTimestamp{}, nil
 }
 
-func defaultNow(f *object.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultNow(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
 	return &ColDefNow{}, nil
 }
 
-var defaultFuncs = map[string]func(f *object.FieldDescription, args []interface{}) (ColDefVal, error){
+var defaultFuncs = map[string]func(f *meta.FieldDescription, args []interface{}) (ColDefVal, error){
 	"nextval":           defaultNextval,
 	"current_date":      defaultCurrentDate,
 	"current_timestamp": defaultCurrentTimestamp,
 	"now":               defaultNow,
 }
 
-func newColDefVal(f *object.FieldDescription) (ColDefVal, error) {
+func newColDefVal(f *meta.FieldDescription) (ColDefVal, error) {
 	if def := f.Default(); def != nil {
 		switch v := def.(type) {
-		case object.DefConstStr:
+		case meta.DefConstStr:
 			return newColDefValSimple(v.Value)
-		case object.DefConstFloat:
+		case meta.DefConstFloat:
 			return newColDefValSimple(v.Value)
-		case object.DefConstInt:
+		case meta.DefConstInt:
 			return newColDefValSimple(v.Value)
-		case object.DefConstBool:
+		case meta.DefConstBool:
 			return newColDefValSimple(v.Value)
-		case object.DefExpr:
+		case meta.DefExpr:
 			if fn, ok := defaultFuncs[strings.ToLower(v.Func)]; ok {
 				return fn(f, v.Args)
 			} else {
@@ -700,7 +700,7 @@ func (m *MetaDDLDiff) Script() (DDLStmts, error) {
 
 const TableNamePrefix = "o_"
 
-func GetTableName(m *object.Meta) string {
+func GetTableName(m *meta.Meta) string {
 	name := bytes.NewBufferString(TableNamePrefix)
 	name.WriteString(m.Name)
 	return name.String()

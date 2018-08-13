@@ -1,12 +1,17 @@
 package transactions
 
-import "server/meta"
+import "server/object/description"
 
-type DbTransactionManager interface{}
+type DbTransactionManager interface {
+	BeginTransaction() (DbTransaction, error)
+	CommitTransaction(DbTransaction) (error)
+	RollbackTransaction(DbTransaction) (error)
+}
 
 type MetaDescriptionTransactionManager interface {
-	BeginTransaction(metaList []*object.MetaDescription) (MetaDescriptionTransaction, error)
-	CommitTransaction(transaction MetaDescriptionTransaction) (error)
+	BeginTransaction(metaList []*description.MetaDescription) (MetaDescriptionTransaction, error)
+	CommitTransaction(MetaDescriptionTransaction) (error)
+	RollbackTransaction(MetaDescriptionTransaction) (error)
 }
 
 type GlobalTransactionManager struct {
@@ -14,7 +19,7 @@ type GlobalTransactionManager struct {
 	dbTransactionManager              DbTransactionManager
 }
 
-func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*object.MetaDescription) (*GlobalTransaction, error) {
+func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*description.MetaDescription) (*GlobalTransaction, error) {
 	dbTransaction, err := g.dbTransactionManager.BeginTransaction()
 	if err != nil {
 		return nil, err
@@ -23,22 +28,22 @@ func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*objec
 	if err != nil {
 		return nil, err
 	}
-	return &GlobalTransaction{DbTransaction: &dbTransaction, MetaDescriptionTransaction: &metaDescriptionTransaction}, nil
+	return &GlobalTransaction{DbTransaction: dbTransaction, MetaDescriptionTransaction: &metaDescriptionTransaction}, nil
 }
 
 func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransaction) (error) {
-	if err := metaStore.syncer.CommitTransaction(transaction.DbTransaction); err != nil {
+	if err := g.dbTransactionManager.CommitTransaction(transaction.DbTransaction); err != nil {
 		return err
 	}
-	if err := metaStore.drv.CommitTransaction(transaction.MetaDescriptionTransaction); err != nil {
+	if err := g.metaDescriptionTransactionManager.CommitTransaction(transaction.MetaDescriptionTransaction); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (g *GlobalTransactionManager) RollbackTransaction(transaction *GlobalTransaction) {
-	metaStore.syncer.RollbackTransaction(transaction.DbTransaction)
-	metaStore.drv.RollbackTransaction(transaction.MetaDescriptionTransaction)
+	g.dbTransactionManager.RollbackTransaction(transaction.DbTransaction)
+	g.metaDescriptionTransactionManager.RollbackTransaction(transaction.MetaDescriptionTransaction)
 }
 
 func NewGlobalTransactionManager(metaDescriptionTransactionManager MetaDescriptionTransactionManager,

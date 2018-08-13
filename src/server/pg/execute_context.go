@@ -2,7 +2,6 @@ package pg
 
 import (
 	"server/data"
-	"database/sql"
 )
 
 type ExecuteContext struct {
@@ -29,8 +28,4 @@ func (ex *ExecuteContext) Complete() error {
 
 func (ex *ExecuteContext) Close() error {
 	return ex.Tx.Rollback()
-}
-
-func (ex *ExecuteContext) GetTransaction() *sql.Tx {
-	return ex.Tx.Tx
 }

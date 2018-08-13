@@ -2,7 +2,7 @@ package meta
 
 import (
 	"server/noti"
-	. "server/meta/description"
+	. "server/object/description"
 )
 
 type ActionSet struct {

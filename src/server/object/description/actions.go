@@ -1,11 +1,9 @@
 package description
 
 import (
-	"server/noti"
 	"encoding/json"
 	"crypto/md5"
 )
-
 
 type Action struct {
 	Method          Method                 `json:"method"`

@@ -3,15 +3,16 @@ package pg
 import (
 	"database/sql"
 	"reflect"
-	"server/meta"
+	"server/object/meta"
 	"server/data/types"
+	"server/object/description"
 )
 
 type Rows struct {
 	*sql.Rows
 }
 
-func (rows *Rows) getDefaultValues(fields []*object.FieldDescription, ) ([]interface{}, error) {
+func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription, ) ([]interface{}, error) {
 	values := make([]interface{}, 0)
 	for _, field := range fields {
 		if newValue, err := newFieldValue(field, field.Optional); err != nil {
@@ -27,7 +28,7 @@ func (rows *Rows) getDefaultValues(fields []*object.FieldDescription, ) ([]inter
 	return values, nil
 }
 
-func (rows *Rows) Parse(fields []*object.FieldDescription) ([]map[string]interface{}, error) {
+func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, NewDMLError(ErrDMLFailed, err.Error())
@@ -35,10 +36,10 @@ func (rows *Rows) Parse(fields []*object.FieldDescription) ([]map[string]interfa
 
 	result := make([]map[string]interface{}, 0)
 	i := 0
-	fieldByColumnName := func(columnName string) *object.FieldDescription {
+	fieldByColumnName := func(columnName string) *meta.FieldDescription {
 		fieldName := columnName
-		if object.IsGenericFieldColumn(columnName) {
-			fieldName = object.ReverseGenericFieldName(fieldName)
+		if meta.IsGenericFieldColumn(columnName) {
+			fieldName = meta.ReverseGenericFieldName(fieldName)
 		}
 
 		for _, field := range fields {
@@ -58,7 +59,7 @@ func (rows *Rows) Parse(fields []*object.FieldDescription) ([]map[string]interfa
 			}
 			result = append(result, make(map[string]interface{}))
 			for j, columnName := range cols {
-				if fieldByColumnName(columnName).Type == object.FieldTypeDate {
+				if fieldByColumnName(columnName).Type == description.FieldTypeDate {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -69,7 +70,7 @@ func (rows *Rows) Parse(fields []*object.FieldDescription) ([]map[string]interfa
 					case *string:
 						result[i][columnName] = string([]rune(*value)[0:10])
 					}
-				} else if fieldByColumnName(columnName).Type == object.FieldTypeTime {
+				} else if fieldByColumnName(columnName).Type == description.FieldTypeTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -80,7 +81,7 @@ func (rows *Rows) Parse(fields []*object.FieldDescription) ([]map[string]interfa
 					case *string:
 						result[i][columnName] = string([]rune(*value)[11:])
 					}
-				} else if fieldByColumnName(columnName).Type == object.FieldTypeDateTime {
+				} else if fieldByColumnName(columnName).Type == description.FieldTypeDateTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -91,7 +92,7 @@ func (rows *Rows) Parse(fields []*object.FieldDescription) ([]map[string]interfa
 					case *string:
 						result[i][columnName] = *value
 					}
-				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == object.FieldTypeGeneric {
+				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == description.FieldTypeGeneric {
 
 					//
 					value := values[j].(*sql.NullString)
@@ -105,12 +106,12 @@ func (rows *Rows) Parse(fields []*object.FieldDescription) ([]map[string]interfa
 						castAssembledValue = assembledValue.(types.GenericInnerLink)
 					}
 					//fill corresponding value
-					if object.IsGenericFieldTypeColumn(columnName) {
+					if meta.IsGenericFieldTypeColumn(columnName) {
 						castAssembledValue.ObjectName = value.String
 						if value.String != "" {
 							castAssembledValue.PkName = fieldDescription.LinkMetaList.GetByName(value.String).Key.Name
 						}
-					} else if object.IsGenericFieldKeyColumn(columnName) {
+					} else if meta.IsGenericFieldKeyColumn(columnName) {
 						if value.String != "" {
 							castAssembledValue.Pk, _ = fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName).Key.ValueFromString(value.String)
 						}

@@ -1,12 +1,13 @@
 package record
 
 import (
-	"server/meta"
+	"server/object/meta"
 	"server/data/types"
+	"server/object/description"
 )
 
 type Record struct {
-	Meta *object.Meta
+	Meta *meta.Meta
 	Data map[string]interface{}
 }
 
@@ -19,13 +20,13 @@ func collapseLinks(obj map[string]interface{}) {
 		switch l := v.(type) {
 		case types.ALink:
 			if l.IsOuter {
-				if l.Field.Type == object.FieldTypeArray {
+				if l.Field.Type == description.FieldTypeArray {
 					if a, prs := l.Obj[l.Field.Name]; !prs || a == nil {
 						l.Obj[l.Field.Name] = []interface{}{obj}
 					} else {
 						l.Obj[l.Field.Name] = append(a.([]interface{}), obj)
 					}
-				} else if l.Field.Type == object.FieldTypeObject {
+				} else if l.Field.Type == description.FieldTypeObject {
 					l.Obj[l.Field.Name] = obj
 				}
 				delete(obj, k)

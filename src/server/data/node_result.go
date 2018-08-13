@@ -1,8 +1,8 @@
 package data
 
 import (
-	"server/meta"
 	"server/data/types"
+	"server/object/description"
 )
 
 type ResultNode struct {
@@ -42,7 +42,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			} else {
 				delete(resultNode.values, childNode.LinkField.Name)
 			}
-		} else if childNode.LinkField.LinkType == object.LinkTypeInner && !childNode.IsOfGenericType() {
+		} else if childNode.LinkField.LinkType == description.LinkTypeInner && !childNode.IsOfGenericType() {
 			k := resultNode.values[childNode.LinkField.Name]
 			if i, e := childNode.Resolve(ctx, k); e != nil {
 				return nil, e

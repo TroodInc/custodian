@@ -4,7 +4,8 @@ import (
 	"encoding/json"
 	"server/noti"
 	"utils"
-	. "server/meta/description"
+	. "server/object/description"
+	"server/transactions"
 )
 
 type Def interface{}
@@ -16,7 +17,6 @@ type DefExpr struct {
 	Func string
 	Args []interface{}
 }
-
 
 var notifierFactories = map[Protocol]noti.Factory{
 	REST: noti.NewRestNotifier,
@@ -65,21 +65,18 @@ func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
 type MetaDriver interface {
 	List() (*[]*MetaDescription, bool, error)
 	Get(name string) (*MetaDescription, bool, error)
-	Create(fileTransaction *FileTransaction, m MetaDescription) error
+	Create(fileTransaction transactions.MetaDescriptionTransaction, m MetaDescription) error
 	Remove(name string) (bool, error)
 	Update(name string, m MetaDescription) (bool, error)
-	BeginTransaction() (*FileTransaction, error)
-	CommitTransaction(transaction *FileTransaction) (error)
-	RollbackTransaction(transaction *FileTransaction) (error)
 }
 
 type MetaDbSyncer interface {
-	CreateObj(DbTransaction, *Meta) error
-	RemoveObj(DbTransaction, string, bool) error
-	UpdateObj(DbTransaction, *Meta, *Meta) error
-	UpdateObjTo(DbTransaction, *Meta) error
-	ValidateObj(DbTransaction, *Meta) (bool, error)
-	BeginTransaction() (DbTransaction, error)
-	CommitTransaction(DbTransaction) (error)
-	RollbackTransaction(DbTransaction) (error)
+	CreateObj(transactions.DbTransaction, *Meta) error
+	RemoveObj(transactions.DbTransaction, string, bool) error
+	UpdateObj(transactions.DbTransaction, *Meta, *Meta) error
+	UpdateObjTo(transactions.DbTransaction, *Meta) error
+	ValidateObj(transactions.DbTransaction, *Meta) (bool, error)
+	BeginTransaction() (transactions.DbTransaction, error)
+	CommitTransaction(transactions.DbTransaction) (error)
+	RollbackTransaction(transactions.DbTransaction) (error)
 }

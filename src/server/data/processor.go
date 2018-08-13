@@ -1,7 +1,7 @@
 package data
 
 import (
-	"server/meta"
+	"server/object/meta"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strings"
 	"server/auth"
@@ -9,6 +9,8 @@ import (
 	. "server/data/record"
 	"server/data/notifications"
 	"database/sql"
+	"server/object/description"
+	"server/transactions"
 )
 
 type objectClassValidator func(Record) ([]Record, error)
@@ -19,28 +21,27 @@ type ExecuteContext interface {
 	Execute(operations []Operation) error
 	Complete() error
 	Close() error
-	GetTransaction() *sql.Tx
 }
 
 type DataManager interface {
-	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*object.FieldDescription, tx *sql.Tx) ([]map[string]interface{}, error)
-	GetIn(m *object.Meta, fields []*object.FieldDescription, key string, in []interface{}, tx *sql.Tx) ([]map[string]interface{}, error)
-	Get(m *object.Meta, fields []*object.FieldDescription, key string, val interface{}, tx *sql.Tx) (map[string]interface{}, error)
-	GetAll(m *object.Meta, fileds []*object.FieldDescription, filters map[string]interface{}, tx *sql.Tx) ([]map[string]interface{}, error)
+	Db() (interface{})
+	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, tx *sql.Tx) ([]map[string]interface{}, error)
+	GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, tx *sql.Tx) ([]map[string]interface{}, error)
+	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, tx *sql.Tx) (map[string]interface{}, error)
+	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, tx *sql.Tx) ([]map[string]interface{}, error)
 	PrepareDeletes(n *DNode, keys []interface{}, tx *sql.Tx) (Operation, []interface{}, error)
-	PrepareCreateOperation(m *object.Meta, objs []map[string]interface{}) (Operation, error)
-	PrepareUpdateOperation(m *object.Meta, objs []map[string]interface{}) (Operation, error)
-	NewExecuteContext() (ExecuteContext, error)
+	PrepareCreateOperation(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
+	PrepareUpdateOperation(m *meta.Meta, objs []map[string]interface{}) (Operation, error)
 }
 
 type Processor struct {
-	metaStore      *object.MetaStore
+	metaStore      *meta.MetaStore
 	dataManager    DataManager
 	vCache         map[string]objectClassValidator
 	ExecuteContext ExecuteContext
 }
 
-func NewProcessor(m *object.MetaStore, d DataManager) (*Processor, error) {
+func NewProcessor(m *meta.MetaStore, d DataManager) (*Processor, error) {
 	return &Processor{metaStore: m, dataManager: d, vCache: make(map[string]objectClassValidator)}, nil
 }
 
@@ -69,7 +70,7 @@ func (processor *Processor) getValidator(vk string, preValidator func(pt2 *Recor
 
 }
 
-func (processor *Processor) flatten(objectMeta *object.Meta, recordValues map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Record, error) {
+func (processor *Processor) flatten(objectMeta *meta.Meta, recordValues map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Record, error) {
 	tc := []Record{{objectMeta, recordValues}}
 	for tail := tc; len(tail) > 0; tail = tail[1:] {
 		if v, e := validatorFactory(tail[0].Meta.Name); e != nil {
@@ -84,7 +85,7 @@ func (processor *Processor) flatten(objectMeta *object.Meta, recordValues map[st
 	return tc, nil
 }
 
-func (processor *Processor) splitNestedRecordsByObjects(meta *object.Meta, recordsData []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*RecordSet, error) {
+func (processor *Processor) splitNestedRecordsByObjects(meta *meta.Meta, recordsData []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*RecordSet, error) {
 	var recordSetsSplitByLevels = [][]*RecordSet{{&RecordSet{meta, recordsData}}}
 
 	for currentLevel := recordSetsSplitByLevels[0]; currentLevel != nil; {
@@ -134,23 +135,23 @@ type SearchContext struct {
 	Tx         *sql.Tx
 }
 
-func isBackLink(m *object.Meta, f *object.FieldDescription) bool {
+func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	for i, _ := range m.Fields {
-		if m.Fields[i].LinkType == object.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
+		if m.Fields[i].LinkType == description.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
 			return true
 		}
 	}
 	return false
 }
 
-func (processor *Processor) Get(transaction *object.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error) {
+func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error) {
 	if objectMeta, e := processor.getMeta(transaction, objectClass); e != nil {
 		return nil, e
 	} else {
 		if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
 			return nil, e
 		} else {
-			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", Tx: processor.ExecuteContext.GetTransaction()}
+			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", Tx: transaction.(*sql.Tx)}
 
 			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
 			root.RecursivelyFillChildNodes(ctx.depthLimit)
@@ -167,13 +168,13 @@ func (processor *Processor) Get(transaction *object.DbTransaction, objectClass, 
 	}
 }
 
-func (processor *Processor) GetBulk(transaction *object.DbTransaction, objectName string, filter string, depth int, sink func(map[string]interface{}) error) error {
-	if businessObject, ok, e := processor.metaStore.Get(&object.GlobalTransaction{DbTransaction: transaction}, objectName); e != nil {
+func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, sink func(map[string]interface{}) error) error {
+	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName); e != nil {
 		return e
 	} else if !ok {
 		return errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
-		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", Tx: processor.ExecuteContext.GetTransaction()}
+		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", Tx: transaction.(*sql.Tx)}
 		root := &Node{
 			KeyField:   businessObject.Key,
 			Meta:       businessObject,
@@ -206,15 +207,15 @@ func (processor *Processor) GetBulk(transaction *object.DbTransaction, objectNam
 }
 
 type DNode struct {
-	KeyField   *object.FieldDescription
-	Meta       *object.Meta
+	KeyField   *meta.FieldDescription
+	Meta       *meta.Meta
 	ChildNodes map[string]*DNode
 	Plural     bool
 }
 
 func (dn *DNode) fillOuterChildNodes() {
 	for _, f := range dn.Meta.Fields {
-		if f.LinkType == object.LinkTypeOuter {
+		if f.LinkType == description.LinkTypeOuter {
 			dn.ChildNodes[f.Name] = &DNode{KeyField: f.OuterLinkField,
 				Meta: f.LinkMeta,
 				ChildNodes: make(map[string]*DNode),
@@ -244,8 +245,8 @@ func updateValidator(t *Record) (*Record, bool, error) {
 	return t, false, nil
 }
 
-func (processor *Processor) getMeta(transaction *object.DbTransaction, objectName string) (*object.Meta, error) {
-	objectMeta, ok, err := processor.metaStore.Get(&object.GlobalTransaction{DbTransaction: transaction}, objectName)
+func (processor *Processor) getMeta(transaction transactions.DbTransaction, objectName string) (*meta.Meta, error) {
+	objectMeta, ok, err := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName)
 	if err != nil {
 		return nil, err
 	}
@@ -255,16 +256,7 @@ func (processor *Processor) getMeta(transaction *object.DbTransaction, objectNam
 	return objectMeta, nil
 }
 
-func (processor *Processor) CreateRecord(transaction *object.DbTransaction, objectName string, obj map[string]interface{}, user auth.User, handleTransaction bool) (retObj map[string]interface{}, err error) {
-
-	//start transaction
-	if handleTransaction {
-		if err := processor.BeginTransaction(); err != nil {
-			return nil, err
-		}
-		defer processor.RollbackTransaction()
-	}
-
+func (processor *Processor) CreateRecord(transaction transactions.DbTransaction, objectName string, obj map[string]interface{}, user auth.User, handleTransaction bool) (retObj map[string]interface{}, err error) {
 	// get Meta
 	objectMeta, err := processor.getMeta(transaction, objectName)
 	if err != nil {
@@ -300,25 +292,10 @@ func (processor *Processor) CreateRecord(transaction *object.DbTransaction, obje
 		recordSetNotificationPool.CaptureCurrentState()
 		recordSetNotificationPool.Push(user)
 	}
-
-	//commit transaction if needed
-	if handleTransaction {
-		if err := processor.CommitTransaction(); err != nil {
-			return nil, err
-		}
-	}
 	return obj, nil
 }
 
-func (processor *Processor) BulkCreateRecords(transaction *object.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User, handleTransaction bool) (err error) {
-	//start transaction
-	if handleTransaction {
-		if err := processor.BeginTransaction(); err != nil {
-			return err
-		}
-		defer processor.RollbackTransaction()
-	}
-
+func (processor *Processor) BulkCreateRecords(transaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User, handleTransaction bool) (err error) {
 	// get Meta
 	objectMeta, err := processor.getMeta(transaction, objectName)
 	if err != nil {
@@ -364,23 +341,10 @@ func (processor *Processor) BulkCreateRecords(transaction *object.DbTransaction,
 		recordSetNotificationPool.Push(user)
 	}
 
-	//commit transaction if needed
-	if handleTransaction {
-		if err := processor.CommitTransaction(); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
-func (processor *Processor) UpdateRecord(transaction *object.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User, handleTransaction bool) (updatedRecordData map[string]interface{}, err error) {
-	//start transaction
-	if handleTransaction {
-		if err := processor.BeginTransaction(); err != nil {
-			return nil, err
-		}
-		defer processor.RollbackTransaction()
-	}
+func (processor *Processor) UpdateRecord(transaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User, handleTransaction bool) (updatedRecordData map[string]interface{}, err error) {
 	// get Meta
 	objectMeta, err := processor.getMeta(transaction, objectName)
 	if err != nil {
@@ -427,23 +391,10 @@ func (processor *Processor) UpdateRecord(transaction *object.DbTransaction, obje
 		recordSetNotificationPool.Push(user)
 	}
 
-	//commit transaction if needed
-	if handleTransaction {
-		if err := processor.CommitTransaction(); err != nil {
-			return nil, err
-		}
-	}
 	return rootRecordData, nil
 }
 
-func (processor *Processor) BulkUpdateRecords(transaction *object.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User, handleTransaction bool) (err error) {
-	//start transaction
-	if handleTransaction {
-		if err := processor.BeginTransaction(); err != nil {
-			return err
-		}
-		defer processor.RollbackTransaction()
-	}
+func (processor *Processor) BulkUpdateRecords(transaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User, handleTransaction bool) (err error) {
 
 	// get Meta
 	objectMeta, err := processor.getMeta(transaction, objectName)
@@ -485,25 +436,12 @@ func (processor *Processor) BulkUpdateRecords(transaction *object.DbTransaction,
 		recordSetNotificationPool.Push(user)
 	}
 
-	//commit transaction if needed
-	if handleTransaction {
-		if err := processor.CommitTransaction(); err != nil {
-			return err
-		}
-	}
 	return nil
 
 }
 
 //TODO: Refactor this method similarly to UpdateRecord, so notifications could be tested properly, it should affect PrepareDeletes method
-func (processor *Processor) DeleteRecord(transaction *object.DbTransaction, objectName, key string, user auth.User, handleTransaction bool) (isDeleted bool, err error) {
-	//start transaction
-	if handleTransaction {
-		if err := processor.BeginTransaction(); err != nil {
-			return false, err
-		}
-		defer processor.RollbackTransaction()
-	}
+func (processor *Processor) DeleteRecord(transaction transactions.DbTransaction, objectName, key string, user auth.User, handleTransaction bool) (isDeleted bool, err error) {
 	// get Meta
 	objectMeta, err := processor.getMeta(transaction, objectName)
 	if err != nil {
@@ -528,14 +466,14 @@ func (processor *Processor) DeleteRecord(transaction *object.DbTransaction, obje
 	//prepare operation
 	var operation Operation
 	var keys []interface{}
-	operation, keys, err = processor.dataManager.PrepareDeletes(root, []interface{}{pk}, processor.ExecuteContext.GetTransaction())
+	operation, keys, err = processor.dataManager.PrepareDeletes(root, []interface{}{pk}, transaction.(*sql.Tx))
 	if err != nil {
 		return false, err
 	}
 	//process root records notificationSender
 
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: pk}}}, true, object.MethodRemove, processor.GetBulk, processor.Get)
+	recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: pk}}}, true, description.MethodRemove, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -546,12 +484,12 @@ func (processor *Processor) DeleteRecord(transaction *object.DbTransaction, obje
 		for _, childNode := range t2d[0].n.ChildNodes {
 
 			//TODO: workaround should be fixed asap
-			if childNode.KeyField.Type == object.FieldTypeGeneric {
+			if childNode.KeyField.Type == description.FieldTypeGeneric {
 				continue
 			}
 			//
 
-			if operation, keys, err = processor.dataManager.PrepareDeletes(childNode, t2d[0].keys, processor.ExecuteContext.GetTransaction()); err != nil {
+			if operation, keys, err = processor.dataManager.PrepareDeletes(childNode, t2d[0].keys, transaction.(*sql.Tx)); err != nil {
 				return false, err
 			} else {
 				operations = append(operations, operation)
@@ -561,7 +499,7 @@ func (processor *Processor) DeleteRecord(transaction *object.DbTransaction, obje
 				for _, primaryKeyValue := range t2d[0].keys {
 
 					// create notification, capture current recordData state and Add notification to notification pool
-					recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: primaryKeyValue}}}, false, object.MethodRemove, processor.GetBulk, processor.Get)
+					recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: primaryKeyValue}}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
 					if recordSetNotification.ShouldBeProcessed() {
 						recordSetNotification.CapturePreviousState()
 						recordSetNotificationPool.Add(recordSetNotification)
@@ -585,24 +523,11 @@ func (processor *Processor) DeleteRecord(transaction *object.DbTransaction, obje
 		recordSetNotificationPool.Push(user)
 	}
 
-	//commit transaction if needed
-	if handleTransaction {
-		if err := processor.CommitTransaction(); err != nil {
-			return false, err
-		}
-	}
 	return true, nil
 }
 
 //TODO: Refactor this method similarly to BulkUpdateRecords, so notifications could be tested properly, it should affect PrepareDeletes method
-func (processor *Processor) BulkDeleteRecords(transaction *object.DbTransaction, objectName string, next func() (map[string]interface{}, error), user auth.User, handleTransaction bool) (err error) {
-	//start transaction
-	if handleTransaction {
-		if err := processor.BeginTransaction(); err != nil {
-			return err
-		}
-		defer processor.RollbackTransaction()
-	}
+func (processor *Processor) BulkDeleteRecords(transaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), user auth.User, handleTransaction bool) (err error) {
 
 	// get Meta
 	objectMeta, err := processor.getMeta(transaction, objectName)
@@ -629,7 +554,7 @@ func (processor *Processor) BulkDeleteRecords(transaction *object.DbTransaction,
 	}
 
 	var op Operation
-	if op, keys, err = processor.dataManager.PrepareDeletes(root, keys, processor.ExecuteContext.GetTransaction()); err != nil {
+	if op, keys, err = processor.dataManager.PrepareDeletes(root, keys, transaction.(*sql.Tx)); err != nil {
 		return err
 	} else {
 		ops := []Operation{op}
@@ -637,13 +562,13 @@ func (processor *Processor) BulkDeleteRecords(transaction *object.DbTransaction,
 
 			for _, v := range t2d[0].n.ChildNodes {
 				if len(t2d[0].keys) > 0 {
-					if op, keys, err = processor.dataManager.PrepareDeletes(v, t2d[0].keys, processor.ExecuteContext.GetTransaction()); err != nil {
+					if op, keys, err = processor.dataManager.PrepareDeletes(v, t2d[0].keys, transaction.(*sql.Tx)); err != nil {
 						return err
 					} else {
 						for _, primaryKeyValue := range t2d[0].keys {
 
 							// create notification, capture current recordData state and Add notification to notification pool
-							recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{v.KeyField.Name: primaryKeyValue}}}, false, object.MethodRemove, processor.GetBulk, processor.Get)
+							recordSetNotification := notifications.NewRecordSetNotification(&RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{v.KeyField.Name: primaryKeyValue}}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
 							if recordSetNotification.ShouldBeProcessed() {
 								recordSetNotification.CapturePreviousState()
 								recordSetNotificationPool.Add(recordSetNotification)
@@ -672,17 +597,11 @@ func (processor *Processor) BulkDeleteRecords(transaction *object.DbTransaction,
 		recordSetNotificationPool.Push(user)
 	}
 
-	//commit transaction if needed
-	if handleTransaction {
-		if err := processor.CommitTransaction(); err != nil {
-			return err
-		}
-	}
 	return nil
 }
 
 //consume all records from callback function
-func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string]interface{}, error), objectMeta *object.Meta, strictPkCheck bool) ([]map[string]interface{}, error) {
+func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string]interface{}, error), objectMeta *meta.Meta, strictPkCheck bool) ([]map[string]interface{}, error) {
 	var recordDataSet = make([]map[string]interface{}, 0)
 	// collect records
 	for recordData, err := nextCallback(); err != nil || (recordData != nil); recordData, err = nextCallback() {
@@ -715,13 +634,8 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 
 // perform update and return list of records
 func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
-	// ensure transaction is running
-	if err := processor.ensureTransactionBegun(); err != nil {
-		return nil, err
-	}
-
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, object.MethodUpdate, processor.GetBulk, processor.Get)
+	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, description.MethodUpdate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -746,13 +660,8 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 
 // perform create and return list of records
 func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
-	// ensure transaction is running
-	if err := processor.ensureTransactionBegun(); err != nil {
-		return nil, err
-	}
-
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, object.MethodCreate, processor.GetBulk, processor.Get)
+	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, description.MethodCreate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -773,27 +682,4 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 	recordSet.CollapseLinks()
 
 	return recordSet, nil
-}
-
-//transaction related methods
-func (processor *Processor) BeginTransaction() (error) {
-	//start transaction
-	var err error
-	processor.ExecuteContext, err = processor.dataManager.NewExecuteContext()
-	return err
-}
-
-func (processor *Processor) CommitTransaction() (error) {
-	return processor.ExecuteContext.Complete()
-}
-
-func (processor *Processor) RollbackTransaction() (error) {
-	return processor.ExecuteContext.Close()
-}
-
-func (processor *Processor) ensureTransactionBegun() (error) {
-	if processor.ExecuteContext == nil {
-		return &errors.TransactionNotBegunError{}
-	}
-	return nil
 }

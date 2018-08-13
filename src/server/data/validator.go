@@ -1,15 +1,16 @@
 package data
 
 import (
-	"server/meta"
+	"server/object/meta"
 	"server/data/errors"
 	"server/data/validators"
 	. "server/data/record"
 	. "server/data/types"
+	"server/object/description"
 )
 
 type ValidationService struct {
-	metaStore *object.MetaStore
+	metaStore *meta.MetaStore
 	processor *Processor
 }
 
@@ -35,10 +36,10 @@ func (validationService *ValidationService) Validate(record *Record, mandatoryCh
 		//perform validation otherwise
 		if valueIsSet && !(value == nil && fieldDescription.Optional) {
 			switch {
-			case fieldDescription.Type == object.FieldTypeString && object.FieldTypeNumber.AssertType(value):
+			case fieldDescription.Type == description.FieldTypeString && description.FieldTypeNumber.AssertType(value):
 				break
 			case fieldDescription.Type.AssertType(value):
-				if fieldDescription.Type == object.FieldTypeArray {
+				if fieldDescription.Type == description.FieldTypeArray {
 					var a = value.([]interface{})
 					for _, av := range a {
 						if m, ok := av.(map[string]interface{}); ok {
@@ -49,24 +50,24 @@ func (validationService *ValidationService) Validate(record *Record, mandatoryCh
 						}
 					}
 					delete(record.Data, k)
-				} else if fieldDescription.Type == object.FieldTypeObject {
+				} else if fieldDescription.Type == description.FieldTypeObject {
 					var of = value.(map[string]interface{})
-					if fieldDescription.LinkType == object.LinkTypeOuter {
+					if fieldDescription.LinkType == description.LinkTypeOuter {
 						of[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, IsOuter: true, Obj: record.Data}
 						delete(record.Data, k)
-					} else if fieldDescription.LinkType == object.LinkTypeInner {
+					} else if fieldDescription.LinkType == description.LinkTypeInner {
 						record.Data[fieldDescription.Name] = ALink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Obj: of}
 					} else {
 						return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Unknown link type %s", fieldDescription.LinkType)
 					}
 					toCheck = append(toCheck, Record{fieldDescription.LinkMeta, of})
-				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == object.LinkTypeInner {
+				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == description.LinkTypeInner {
 					record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
 				}
-			case fieldDescription.Type == object.FieldTypeObject && fieldDescription.LinkType == object.LinkTypeInner && fieldDescription.LinkMeta.Key.Type.AssertType(value):
+			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && fieldDescription.LinkMeta.Key.Type.AssertType(value):
 				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
-			case fieldDescription.Type == object.FieldTypeObject && fieldDescription.LinkType == object.LinkTypeInner && AssertLink(value):
-			case fieldDescription.Type == object.FieldTypeGeneric && fieldDescription.LinkType == object.LinkTypeInner:
+			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && AssertLink(value):
+			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner:
 				if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(validationService.metaStore.Get, validationService.processor.Get).Validate(fieldDescription, value); err != nil {
 					return nil, err
 				}
@@ -79,6 +80,6 @@ func (validationService *ValidationService) Validate(record *Record, mandatoryCh
 	return toCheck, nil
 }
 
-func NewValidationService(metaStore *object.MetaStore, processor *Processor) *ValidationService {
+func NewValidationService(metaStore *meta.MetaStore, processor *Processor) *ValidationService {
 	return &ValidationService{metaStore: metaStore, processor: processor}
 }

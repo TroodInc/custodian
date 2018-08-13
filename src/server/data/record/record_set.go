@@ -1,12 +1,11 @@
 package record
 
 import (
-	"server/meta"
-	//"utils"
+	"server/object/meta"
 )
 
 type RecordSet struct {
-	Meta    *object.Meta
+	Meta    *meta.Meta
 	DataSet []map[string]interface{}
 }
 

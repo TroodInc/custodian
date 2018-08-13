@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"server/transactions"
+	. "server/object/description"
 )
 
 type FileMetaDriver struct {
