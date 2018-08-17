@@ -71,13 +71,17 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 		return err
 	} else {
 		if recordData, err := validator.recordGetCallback(validator.dbTransaction, objectMeta.Name, pkValueAsString, 1); err != nil || recordData == nil {
-			return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Record of object '%s' with PK '%s' referenced in '%s'`s value does not exist", objectMeta.Name, pkValue, fieldDescription.Name)
+			if err != nil {
+				return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Failed to validate generic value of object '%s' with PK '%s' referenced in '%s'. Original error is: '%s'", objectMeta.Name, pkValue, fieldDescription.Name, err.Error())
+			} else {
+				return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Record of object '%s' with PK '%s' referenced in '%s'`s value does not exist", objectMeta.Name, pkValue, fieldDescription.Name)
+			}
 		} else {
 			return nil
 		}
 	}
 }
 
-func NewGenericInnerFieldValidator(metaGetCallback func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) *GenericInnerFieldValidator {
-	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback}
+func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) *GenericInnerFieldValidator {
+	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback, dbTransaction: dbTransaction}
 }

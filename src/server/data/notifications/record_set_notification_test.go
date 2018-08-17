@@ -3,50 +3,70 @@ package notifications_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/meta"
 	"server/pg"
 	"server/data"
 	"utils"
-	"server/data/record"
-	. "server/data/notifications"
 	"server/auth"
+	"server/object/meta"
+	"server/object/description"
+	. "server/data/notifications"
+	"server/transactions/file_transaction"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
 	"strconv"
+	"server/data/record"
 )
 
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+	//transaction managers
+	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+
+	var globalTransaction *transactions.GlobalTransaction
 
 	BeforeEach(func() {
-		metaStore.Flush()
+		var err error
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
 	})
 
 	AfterEach(func() {
-		metaStore.Flush()
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	Describe("RecordSetNotification state capturing", func() {
 
 		var err error
-		var aMetaObj *object.Meta
-		var bMetaObj *object.Meta
+		var aMetaObj *meta.Meta
+		var bMetaObj *meta.Meta
 		var aRecordData map[string]interface{}
 		var bRecordData map[string]interface{}
 
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
-			aMetaDescription := object.MetaDescription{
+			aMetaDescription := description.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []object.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -54,26 +74,26 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "first_name",
-						Type:     object.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					},
 					{
 						Name:     "last_name",
-						Type:     object.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					},
 					{
 						Name:     "b",
-						LinkType: object.LinkTypeInner,
-						Type:     object.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						Type:     description.FieldTypeObject,
 						LinkMeta: "a",
 						Optional: true,
 					},
 				},
-				Actions: []object.Action{
+				Actions: []description.Action{
 					{
-						Method:          object.MethodCreate,
-						Protocol:        object.TEST,
+						Method:          description.MethodCreate,
+						Protocol:        description.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", "b": "b.id"},
@@ -82,20 +102,20 @@ var _ = Describe("Data", func() {
 			}
 			aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMetaObj)
+			err = metaStore.Create(globalTransaction, aMetaObj)
 			Expect(err).To(BeNil())
 		}
 
 		havingObjectB := func() {
 			By("Having object B which")
-			bMetaDescription := object.MetaDescription{
+			bMetaDescription := description.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []object.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -105,35 +125,31 @@ var _ = Describe("Data", func() {
 			}
 			bMetaObj, err = metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMetaObj)
+			err = metaStore.Create(globalTransaction, bMetaObj)
 			Expect(err).To(BeNil())
 		}
 
 		havingARecord := func(bRecordId float64) {
 			By("Having a record of A object")
-			aRecordData, err = dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", "b": bRecordId}, auth.User{}, true)
+			aRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", "b": bRecordId}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecordData, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{}, auth.User{}, true)
+			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		It("can capture previous record state on create", func() {
 
 			havingObjectA()
-			//start transaction
-			executeContext, err := dataManager.NewExecuteContext()
-			Expect(err).To(BeNil())
-			defer executeContext.Close()
-
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
+				globalTransaction.DbTransaction,
 				&record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"first_name": "Veronika", "last_name": "Petrova"}}},
 				true,
-				object.MethodCreate,
+				description.MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -150,14 +166,12 @@ var _ = Describe("Data", func() {
 
 			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"first_name": "Veronika", "last_name": "Petrova"}}}
 
-			dataProcessor.BeginTransaction()
-			defer dataProcessor.CommitTransaction()
-
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
+				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
-				object.MethodCreate,
+				description.MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -168,7 +182,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			// execute operation
-			err = dataProcessor.ExecuteContext.Execute([]data.Operation{operation})
+			err = globalTransaction.DbTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
 
 			recordSet.CollapseLinks()
@@ -189,14 +203,12 @@ var _ = Describe("Data", func() {
 
 			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Kozlova"}}}
 
-			dataProcessor.BeginTransaction()
-			defer dataProcessor.CommitTransaction()
-
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
+				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
-				object.MethodCreate,
+				description.MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -217,14 +229,12 @@ var _ = Describe("Data", func() {
 
 			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Ivanova"}}}
 
-			dataProcessor.BeginTransaction()
-			defer dataProcessor.CommitTransaction()
-
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
+				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
-				object.MethodCreate,
+				description.MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -234,7 +244,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			// execute operation
-			err = dataProcessor.ExecuteContext.Execute([]data.Operation{operation})
+			err = globalTransaction.DbTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
 
 			recordSet.CollapseLinks()
@@ -255,19 +265,17 @@ var _ = Describe("Data", func() {
 
 			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Ivanova"}}}
 
-			dataProcessor.BeginTransaction()
-			defer dataProcessor.CommitTransaction()
-
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
+				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
-				object.MethodCreate,
+				description.MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
 
-			dataProcessor.DeleteRecord(aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{}, false)
+			dataProcessor.DeleteRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
 
 			recordSetNotification.CaptureCurrentState()
 
@@ -284,20 +292,18 @@ var _ = Describe("Data", func() {
 
 			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Ivanova"}}}
 
-			dataProcessor.BeginTransaction()
-			defer dataProcessor.CommitTransaction()
-
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
+				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
-				object.MethodCreate,
+				description.MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
 			recordSetNotification.CapturePreviousState()
 
-			dataProcessor.DeleteRecord(aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{}, false)
+			dataProcessor.DeleteRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
 			recordSetNotification.CaptureCurrentState()
 			notificationsData := recordSetNotification.BuildNotificationsData(0, auth.User{})
 			Expect(notificationsData).To(HaveLen(1))

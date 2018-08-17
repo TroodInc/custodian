@@ -3,53 +3,72 @@ package notifications_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/meta"
 	"server/pg"
 	"server/data"
 	"utils"
-	"server/data/record"
-	. "server/data/notifications"
 	"server/auth"
-	//"strconv"
+	"server/object/meta"
+	"server/object/description"
+	. "server/data/notifications"
+	"server/transactions/file_transaction"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
 	"strconv"
+	"server/data/record"
 )
 
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+	//transaction managers
+	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+
+	var globalTransaction *transactions.GlobalTransaction
 
 	BeforeEach(func() {
-		metaStore.Flush()
+		var err error
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
 	})
 
 	AfterEach(func() {
-		metaStore.Flush()
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	Describe("RecordSetNotification state capturing", func() {
 
 		var err error
-		var aMetaObj *object.Meta
-		var bMetaObj *object.Meta
-		var cMetaObj *object.Meta
+		var aMetaObj *meta.Meta
+		var bMetaObj *meta.Meta
+		var cMetaObj *meta.Meta
 		var aRecordData map[string]interface{}
 		var bRecordData map[string]interface{}
 		var cRecordData map[string]interface{}
 
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
-			aMetaDescription := object.MetaDescription{
+			aMetaDescription := description.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []object.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -57,16 +76,16 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target_object",
-						LinkType:     object.LinkTypeInner,
-						Type:         object.FieldTypeGeneric,
+						LinkType:     description.LinkTypeInner,
+						Type:         description.FieldTypeGeneric,
 						LinkMetaList: []string{"b", "c"},
 						Optional:     true,
 					},
 				},
-				Actions: []object.Action{
+				Actions: []description.Action{
 					{
-						Method:          object.MethodCreate,
-						Protocol:        object.TEST,
+						Method:          description.MethodCreate,
+						Protocol:        description.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues: map[string]interface{}{"target_value": map[string]interface{}{
@@ -83,20 +102,20 @@ var _ = Describe("Data", func() {
 			}
 			aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMetaObj)
+			err = metaStore.Create(globalTransaction, aMetaObj)
 			Expect(err).To(BeNil())
 		}
 
 		havingObjectB := func() {
 			By("Having object B which")
-			bMetaDescription := object.MetaDescription{
+			bMetaDescription := description.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []object.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -104,27 +123,27 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "first_name",
-						Type:     object.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					},
 				},
 			}
 			bMetaObj, err = metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMetaObj)
+			err = metaStore.Create(globalTransaction, bMetaObj)
 			Expect(err).To(BeNil())
 		}
 
 		havingObjectC := func() {
 			By("Having object C")
-			cMetaDescription := object.MetaDescription{
+			cMetaDescription := description.MetaDescription{
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []object.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -134,13 +153,14 @@ var _ = Describe("Data", func() {
 			}
 			cMetaObj, err = metaStore.NewMeta(&cMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(cMetaObj)
+			err = metaStore.Create(globalTransaction, cMetaObj)
 			Expect(err).To(BeNil())
 		}
 
 		havingARecord := func(targetRecordObjectName string, targetRecordId float64) {
 			By("Having a record of A object")
 			aRecordData, err = dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction,
 				aMetaObj.Name,
 				map[string]interface{}{
 					"first_name":    "Veronika",
@@ -148,20 +168,19 @@ var _ = Describe("Data", func() {
 					"target_object": map[string]interface{}{"_object": targetRecordObjectName, "id": strconv.Itoa(int(targetRecordId))},
 				},
 				auth.User{},
-				true,
 			)
 			Expect(err).To(BeNil())
 		}
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecordData, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"first_name": "Feodor"}, auth.User{}, true)
+			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"first_name": "Feodor"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingCRecord := func() {
 			By("Having a record of C object")
-			cRecordData, err = dataProcessor.CreateRecord(cMetaObj.Name, map[string]interface{}{}, auth.User{}, true)
+			cRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMetaObj.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -176,14 +195,12 @@ var _ = Describe("Data", func() {
 
 			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"]}}}
 
-			dataProcessor.BeginTransaction()
-			defer dataProcessor.CommitTransaction()
-
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
+				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
-				object.MethodCreate,
+				description.MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)

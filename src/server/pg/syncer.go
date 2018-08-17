@@ -13,7 +13,7 @@ type Syncer struct {
 }
 
 /*
-Example of the Tx info:
+Example of the PgTransaction info:
     - user=%s password=%s dbname=%s sslmode=disable
     - user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full
 */
@@ -37,10 +37,7 @@ func (syncer *Syncer) NewDataManager() (*DataManager, error) {
 }
 
 func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, m *meta.Meta) error {
-	tx := transaction.(*Tx)
-	if err := syncer.ensureTransactionBegun(tx); err != nil {
-		return err
-	}
+	tx := transaction.Transaction().(*sql.Tx)
 	var md *MetaDDL
 	var e error
 	metaDdlFactory := MetaDdlFactory{}
@@ -61,10 +58,7 @@ func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, m *meta.
 }
 
 func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name string, force bool) error {
-	tx := transaction.(*Tx)
-	if err := syncer.ensureTransactionBegun(tx); err != nil {
-		return err
-	}
+	tx := transaction.(*PgTransaction)
 	var metaDdlFromDb *MetaDDL
 	var e error
 	if metaDdlFromDb, e = MetaDDLFromDB(tx.Tx, name); e != nil {
@@ -85,10 +79,7 @@ func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name str
 
 //UpdateRecord an existing business object
 func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentBusinessObj *meta.Meta, newBusinessObject *meta.Meta) error {
-	tx := transaction.(*Tx)
-	if err := syncer.ensureTransactionBegun(tx); err != nil {
-		return err
-	}
+	tx := transaction.(*PgTransaction)
 	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
 	var err error
 
@@ -119,7 +110,7 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentB
 
 //Calculates the difference between the given and the existing business object in the database
 func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaObj *meta.Meta) (DDLStmts, error) {
-	tx := transaction.(*Tx)
+	tx := transaction.(*PgTransaction)
 	metaDdlFactory := MetaDdlFactory{}
 	newMetaDdl, e := metaDdlFactory.Factory(metaObj)
 	if e != nil {
@@ -141,10 +132,7 @@ func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaOb
 }
 
 func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, businessObject *meta.Meta) error {
-	tx := transaction.(*Tx)
-	if err := syncer.ensureTransactionBegun(tx); err != nil {
-		return err
-	}
+	tx := transaction.(*PgTransaction)
 	ddlStatements, e := syncer.diffScripts(tx, businessObject)
 	if e != nil {
 		return e
@@ -161,11 +149,7 @@ func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, busine
 //Check if the given business object equals to the corresponding one stored in the database.
 //The validation fails if the given business object is different
 func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, businessObject *meta.Meta) (bool, error) {
-	tx := transaction.(*Tx)
-	if err := syncer.ensureTransactionBegun(tx); err != nil {
-		return false, err
-	}
-	ddlStatements, e := syncer.diffScripts(tx, businessObject)
+	ddlStatements, e := syncer.diffScripts(transaction, businessObject)
 	if e != nil {
 		return false, e
 	} else {
@@ -181,26 +165,19 @@ func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, busine
 //transaction related methods
 func (syncer *Syncer) BeginTransaction() (transactions.DbTransaction, error) {
 	tx, err := syncer.db.Begin()
-	return &Tx{Tx: tx}, err
+	return &PgTransaction{Tx: tx}, err
 }
 
 func (syncer *Syncer) CommitTransaction(transaction transactions.DbTransaction) (error) {
-	tx := transaction.(*Tx)
+	tx := transaction.(*PgTransaction)
 	return tx.Commit()
 }
 
 func (syncer *Syncer) RollbackTransaction(transaction transactions.DbTransaction) (error) {
-	tx := transaction.(*Tx)
+	tx := transaction.(*PgTransaction)
 	err := tx.Rollback()
 	return err
 }
 
-func (syncer *Syncer) ensureTransactionBegun(transaction transactions.DbTransaction) (error) {
-	tx := transaction.(*Tx)
-	if tx == nil {
-		return &TransactionNotBegunError{}
-	}
-	return nil
-}
 
 //

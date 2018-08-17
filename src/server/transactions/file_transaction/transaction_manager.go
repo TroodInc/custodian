@@ -40,3 +40,8 @@ func (fm *FileMetaDescriptionTransactionManager) RollbackTransaction(transaction
 	transaction.SetState(RolledBack)
 	return nil
 }
+
+func NewFileMetaDescriptionTransactionManager(RemoveMetaCallback func(name string) (bool, error),
+	CreateMetaCallBack func(MetaDescriptionTransaction, description.MetaDescription) error) *FileMetaDescriptionTransactionManager {
+	return &FileMetaDescriptionTransactionManager{RemoveMetaCallback: RemoveMetaCallback, CreateMetaCallBack: CreateMetaCallBack}
+}

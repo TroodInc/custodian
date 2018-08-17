@@ -44,7 +44,7 @@ func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMet
 }
 
 func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, error) {
-	return sc.dm.GetRql(node, rqlNode, nil, sc.Tx)
+	return sc.dm.GetRql(node, rqlNode, nil, sc.DbTransaction)
 }
 
 func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
@@ -74,7 +74,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 		fields = []*meta.FieldDescription{objectMeta.Key}
 	}
 
-	obj, err := sc.dm.Get(objectMeta, fields, objectMeta.Key.Name, pkValue, sc.Tx)
+	obj, err := sc.dm.Get(objectMeta, fields, objectMeta.Key.Name, pkValue, sc.DbTransaction)
 	if err != nil || obj == nil {
 		return nil, err
 	}
@@ -109,7 +109,7 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 	if node.OnlyLink {
 		fields = []*meta.FieldDescription{node.Meta.Key}
 	}
-	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{node.KeyField.Name: key}, sc.Tx); err != nil {
+	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{node.KeyField.Name: key}, sc.DbTransaction); err != nil {
 		return nil, err
 	} else {
 		result := make([]interface{}, len(records), len(records))
@@ -140,7 +140,7 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{
 		meta.GetGenericFieldKeyColumnName(node.KeyField.Name):  key,
 		meta.GetGenericFieldTypeColumnName(node.KeyField.Name): objectMeta.Name,
-	}, sc.Tx); err != nil {
+	}, sc.DbTransaction); err != nil {
 		return nil, err
 	} else {
 		result := make([]interface{}, len(records), len(records))

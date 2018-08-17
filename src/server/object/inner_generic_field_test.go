@@ -1,37 +1,66 @@
-package meta
+package object
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/pg"
-	"server/meta"
 	"utils"
+	"server/object/meta"
+	"server/transactions/file_transaction"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
 	"database/sql"
+	"server/object/description"
 )
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := object.NewStore(object.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+
+	dataManager, _ := syncer.NewDataManager()
+	//transaction managers
+	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
 	BeforeEach(func() {
-		metaStore.Flush()
+		var err error
+
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		err = metaStore.Flush(globalTransaction)
+		Expect(err).To(BeNil())
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
 	})
 
 	AfterEach(func() {
-		metaStore.Flush()
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		err = metaStore.Flush(globalTransaction)
+		Expect(err).To(BeNil())
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("can create object with inner generic field", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		By("having two objects: A and B")
-		aMetaDescription := object.MetaDescription{
+		aMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -40,17 +69,17 @@ var _ = Describe("Inner generic field", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
+		err = metaStore.Create(globalTransaction, aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaDescription := object.MetaDescription{
+		bMetaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -59,27 +88,27 @@ var _ = Describe("Inner generic field", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(bMetaObj)
+		err = metaStore.Create(globalTransaction, bMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and object C, containing generic inner field")
 
-		cMetaDescription := object.MetaDescription{
+		cMetaDescription := description.MetaDescription{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name, bMetaObj.Name},
 					Optional:     false,
 				},
@@ -87,12 +116,11 @@ var _ = Describe("Inner generic field", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(globalTransaction, metaObj)
 		Expect(err).To(BeNil())
 
 		//check database columns
-		db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
-		tx, err := db.Begin()
+		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		Expect(err).To(BeNil())
 
 		tableName := pg.GetTableName(metaObj)
@@ -103,59 +131,67 @@ var _ = Describe("Inner generic field", func() {
 		reverser.Columns(&columns, &pk)
 		Expect(columns).To(HaveLen(3))
 		// check meta fields
-		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
+		cMeta, _, err := metaStore.Get(globalTransaction, cMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(cMeta.Fields).To(HaveLen(2))
 		Expect(cMeta.Fields[1].LinkMetaList.GetAll()).To(HaveLen(2))
 	})
 
 	It("Validates linked metas", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		By("having an object A, referencing non-existing object B")
 
-		cMetaDescription := object.MetaDescription{
+		cMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
 					LinkMetaList: []string{"b"},
 					Optional:     false,
 				},
 			},
 		}
 		By("Meta should not be created")
-		_, err := metaStore.NewMeta(&cMetaDescription)
+		_, err = metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(Not(BeNil()))
 	})
 
 	It("can remove generic field from object", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		By("having object A with generic field")
-		metaDescription := object.MetaDescription{
+		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
 					LinkMetaList: []string{},
 					Optional:     false,
 				},
@@ -163,18 +199,18 @@ var _ = Describe("Inner generic field", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(globalTransaction, metaObj)
 		Expect(err).To(BeNil())
 		By("when generic field is removed from object and object has been updated")
 
-		metaDescription = object.MetaDescription{
+		metaDescription = description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -183,13 +219,11 @@ var _ = Describe("Inner generic field", func() {
 		}
 		metaObj, err = metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
+		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
 
 		//check database columns
-		db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
-		tx, err := db.Begin()
-		Expect(err).To(BeNil())
+		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
 		tableName := pg.GetTableName(metaObj)
 
@@ -200,7 +234,7 @@ var _ = Describe("Inner generic field", func() {
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
-		cMeta, _, err := metaStore.Get(metaDescription.Name, true)
+		cMeta, _, err := metaStore.Get(globalTransaction, metaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(cMeta.Fields).To(HaveLen(1))
 		Expect(cMeta.Fields[0].Name).To(Equal("id"))
@@ -208,15 +242,19 @@ var _ = Describe("Inner generic field", func() {
 	})
 
 	It("does not leave orphan links in LinkMetaList on object removal", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		By("having two objects A and B reference by generic field of object C")
-		aMetaDescription := object.MetaDescription{
+		aMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -225,17 +263,17 @@ var _ = Describe("Inner generic field", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
+		err = metaStore.Create(globalTransaction, aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaDescription := object.MetaDescription{
+		bMetaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -244,25 +282,25 @@ var _ = Describe("Inner generic field", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(bMetaObj)
+		err = metaStore.Create(globalTransaction, bMetaObj)
 		Expect(err).To(BeNil())
 
-		cMetaDescription := object.MetaDescription{
+		cMetaDescription := description.MetaDescription{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name, bMetaObj.Name},
 					Optional:     false,
 				},
@@ -270,29 +308,33 @@ var _ = Describe("Inner generic field", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(globalTransaction, metaObj)
 		Expect(err).To(BeNil())
 
 		By("since object A is deleted, it should be removed from LinkMetaList")
 
-		_, err = metaStore.Remove(aMetaObj.Name, false, true)
+		_, err = metaStore.Remove(globalTransaction, aMetaObj.Name, false)
 		Expect(err).To(BeNil())
 
-		cMetaObj, _, err := metaStore.Get(cMetaDescription.Name, true)
+		cMetaObj, _, err := metaStore.Get(globalTransaction, cMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(cMetaObj.Fields[1].LinkMetaList.GetAll()).To(HaveLen(1))
 	})
 
 	It("can create object with inner generic field", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		By("having object A")
-		aMetaDescription := object.MetaDescription{
+		aMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -301,27 +343,27 @@ var _ = Describe("Inner generic field", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
+		err = metaStore.Create(globalTransaction, aMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and object C, containing generic inner field")
 
-		cMetaDescription := object.MetaDescription{
+		cMetaDescription := description.MetaDescription{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     false,
 				},
@@ -329,28 +371,32 @@ var _ = Describe("Inner generic field", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(globalTransaction, metaObj)
 		Expect(err).To(BeNil())
 
 		// check meta fields
-		aMeta, _, err := metaStore.Get(aMetaDescription.Name, true)
+		aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
 		Expect(aMeta.Fields[1].Name).To(Equal("c__set"))
-		Expect(aMeta.Fields[1].LinkType).To(Equal(object.LinkTypeOuter))
-		Expect(aMeta.Fields[1].Type).To(Equal(object.FieldTypeGeneric))
+		Expect(aMeta.Fields[1].LinkType).To(Equal(description.LinkTypeOuter))
+		Expect(aMeta.Fields[1].Type).To(Equal(description.FieldTypeGeneric))
 	})
 
 	It("can create object with inner generic field", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		By("having two objects: A and B")
-		aMetaDescription := object.MetaDescription{
+		aMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -359,17 +405,17 @@ var _ = Describe("Inner generic field", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
+		err = metaStore.Create(globalTransaction, aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaDescription := object.MetaDescription{
+		bMetaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -378,27 +424,27 @@ var _ = Describe("Inner generic field", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(bMetaObj)
+		err = metaStore.Create(globalTransaction, bMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and object C, containing generic inner field")
 
-		cMetaDescription := object.MetaDescription{
+		cMetaDescription := description.MetaDescription{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name, bMetaObj.Name},
 					Optional:     false,
 				},
@@ -406,31 +452,31 @@ var _ = Describe("Inner generic field", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(globalTransaction, metaObj)
 		Expect(err).To(BeNil())
 
 		// check A meta fields
-		aMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
+		aMeta, _, err := metaStore.Get(globalTransaction, cMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
 
 		By("removing object A from object`s C LinkMetaList")
-		cMetaDescription = object.MetaDescription{
+		cMetaDescription = description.MetaDescription{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []object.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
 					LinkMetaList: []string{bMetaObj.Name},
 					Optional:     false,
 				},
@@ -438,12 +484,12 @@ var _ = Describe("Inner generic field", func() {
 		}
 		metaObj, err = metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
+		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
 
 		//c__set field should be removed from object A
 		// check A meta fields
-		aMeta, _, err = metaStore.Get(aMetaDescription.Name, true)
+		aMeta, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(1))
 	})

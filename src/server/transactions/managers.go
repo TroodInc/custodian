@@ -28,7 +28,7 @@ func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*descr
 	if err != nil {
 		return nil, err
 	}
-	return &GlobalTransaction{DbTransaction: dbTransaction, MetaDescriptionTransaction: &metaDescriptionTransaction}, nil
+	return &GlobalTransaction{DbTransaction: dbTransaction, MetaDescriptionTransaction: metaDescriptionTransaction}, nil
 }
 
 func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransaction) (error) {

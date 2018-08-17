@@ -22,7 +22,7 @@ type RecordSetNotification struct {
 	dbTransaction transactions.DbTransaction
 }
 
-func NewRecordSetNotification(recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) *RecordSetNotification {
+func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) *RecordSetNotification {
 	return &RecordSetNotification{
 		recordSet:          recordSet,
 		isRoot:             isRoot,
@@ -31,6 +31,7 @@ func NewRecordSetNotification(recordSet *record.RecordSet, isRoot bool, method d
 		CurrentState:       make([]*record.RecordSet, len(recordSet.Meta.Actions.Original)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
 		getRecordsCallback: getRecordsCallback,
 		getRecordCallback:  getRecordCallback,
+		dbTransaction:      dbTransaction,
 	}
 }
 

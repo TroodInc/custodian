@@ -7,6 +7,7 @@ import (
 	. "server/data/record"
 	. "server/data/types"
 	"server/object/description"
+	"server/transactions"
 )
 
 type ValidationService struct {
@@ -15,7 +16,7 @@ type ValidationService struct {
 }
 
 //TODO:this method needs deep refactoring
-func (validationService *ValidationService) Validate(record *Record, mandatoryCheck bool) ([]Record, error) {
+func (validationService *ValidationService) Validate(dbTransaction transactions.DbTransaction, record *Record, mandatoryCheck bool) ([]Record, error) {
 	var err error
 	toCheck := make([]Record, 0)
 	for k, _ := range record.Data {
@@ -73,7 +74,7 @@ func (validationService *ValidationService) Validate(record *Record, mandatoryCh
 				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
 			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && AssertLink(value):
 			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner:
-				if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(validationService.metaStore.Get, validationService.processor.Get).Validate(fieldDescription, value); err != nil {
+				if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(dbTransaction, validationService.metaStore.Get, validationService.processor.Get).Validate(fieldDescription, value); err != nil {
 					return nil, err
 				}
 			default:

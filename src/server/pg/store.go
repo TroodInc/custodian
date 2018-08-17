@@ -18,6 +18,7 @@ import (
 	"server/data/types"
 	"utils"
 	"server/object/description"
+	"server/transactions"
 )
 
 type DataManager struct {
@@ -165,10 +166,6 @@ func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, erro
 	}
 }
 
-type pgOpCtx struct {
-	tx *Tx
-}
-
 type Stmt struct {
 	*sql.Stmt
 }
@@ -189,14 +186,6 @@ func NewStmt(tx *sql.Tx, q string) (*Stmt, error) {
 
 func (dataManager *DataManager) Prepare(q string, tx *sql.Tx) (*Stmt, error) {
 	return NewStmt(tx, q)
-}
-
-type Tx struct {
-	*sql.Tx
-}
-
-func (tx *Tx) Prepare(q string) (*Stmt, error) {
-	return NewStmt(tx.Tx, q)
 }
 
 func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
@@ -296,7 +285,7 @@ func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, ex
 	return values, nil
 }
 
-func emptyOperation(ctx data.OperationContext) error {
+func emptyOperation(dbTransaction transactions.DbTransaction) error {
 	return nil
 }
 
@@ -324,7 +313,7 @@ func increaseCasVal(v interface{}) interface{} {
 	return cas + 1
 }
 
-func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (data.Operation, error) {
+func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -399,8 +388,8 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	return func(ctx data.OperationContext) error {
-		stmt, err := ctx.(*pgOpCtx).tx.Prepare(b.String())
+	return func(dbTransaction transactions.DbTransaction) error {
+		stmt, err := dbTransaction.(*PgTransaction).Prepare(b.String())
 		if err != nil {
 			return err
 		}
@@ -442,7 +431,7 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 	}, nil
 }
 
-func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (data.Operation, error) {
+func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordsValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -459,7 +448,7 @@ func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValu
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	return func(ctx data.OperationContext) error {
+	return func(dbTransaction transactions.DbTransaction) error {
 		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
 		binds := make([]interface{}, 0, len(insertColumns)*len(recordsValues))
 		for _, recordValues := range recordsValues {
@@ -469,7 +458,7 @@ func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValu
 				binds = append(binds, values...)
 			}
 		}
-		stmt, err := ctx.(*pgOpCtx).tx.Prepare(insertDML.String())
+		stmt, err := dbTransaction.(*PgTransaction).Prepare(insertDML.String())
 		if err != nil {
 			return err
 		}
@@ -497,8 +486,8 @@ func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 	return columns
 }
 
-func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, tx *sql.Tx) (map[string]interface{}, error) {
-	objs, err := dataManager.GetAll(m, fields, map[string]interface{}{key: val}, tx)
+func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error) {
+	objs, err := dataManager.GetAll(m, fields, map[string]interface{}{key: val}, dbTransaction)
 	if err != nil {
 		return nil, err
 	}
@@ -515,7 +504,8 @@ func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescriptio
 	return objs[0], nil
 }
 
-func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, tx *sql.Tx) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
+	tx := dbTransction.Transaction().(*sql.Tx)
 	if fields == nil {
 		fields = tableFields(m)
 	}
@@ -535,14 +525,14 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}, tx *Tx) (data.Operation, []interface{}, error) {
-	return dataManager.PrepareDeletes(n, []interface{}{key}, tx.Tx)
+func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}, dbTransaction transactions.DbTransaction) (transactions.Operation, []interface{}, error) {
+	return dataManager.PrepareDeletes(n, []interface{}{key}, dbTransaction)
 }
 
-func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}, tx *sql.Tx) (data.Operation, []interface{}, error) {
+func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}, dbTransaction transactions.DbTransaction) (transactions.Operation, []interface{}, error) {
 	var pks []interface{}
 	if n.KeyField.Name != n.Meta.Key.Name {
-		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys, tx)
+		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys, dbTransaction)
 		if err != nil {
 			return nil, nil, err
 		}
@@ -560,8 +550,8 @@ func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}
 		return nil, nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	return func(ctx data.OperationContext) error {
-		stmt, err := ctx.(*pgOpCtx).tx.Prepare(q.String())
+	return func(dbTransaction transactions.DbTransaction) error {
+		stmt, err := dbTransaction.(*PgTransaction).Prepare(q.String())
 		if err != nil {
 			return err
 		}
@@ -573,7 +563,8 @@ func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}
 	}, pks, nil
 }
 
-func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, tx *sql.Tx) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error) {
+	tx := dbTransaction.Transaction().(*sql.Tx)
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
 	sqlQuery, err := translator.query(tableAlias, dataNode)
@@ -604,7 +595,7 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	return statement.ParsedQuery(sqlQuery.Binds, fields)
 }
 
-func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, tx *sql.Tx) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error) {
 	if fields == nil {
 		fields = tableFields(m)
 	}
@@ -619,7 +610,7 @@ func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescript
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	stmt, err := dataManager.Prepare(q.String(), tx)
+	stmt, err := dataManager.Prepare(q.String(), dbTransaction.Transaction().(*sql.Tx))
 	if err != nil {
 		return nil, err
 	}

@@ -1,6 +1,8 @@
 package transactions
 
-import "server/object/description"
+import (
+	"server/object/description"
+)
 
 type State int
 
@@ -19,6 +21,10 @@ type MetaDescriptionTransaction interface {
 }
 
 type DbTransaction interface {
+	Execute([]Operation) error
+	Complete() error
+	Close() error
+	Transaction() interface{}
 }
 
 type GlobalTransaction struct {

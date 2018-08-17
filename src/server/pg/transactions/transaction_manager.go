@@ -4,6 +4,7 @@ import (
 	"server/data"
 	"server/transactions"
 	"database/sql"
+	"server/pg"
 )
 
 type PgDbTransactionManager struct {
@@ -12,11 +13,15 @@ type PgDbTransactionManager struct {
 
 //transaction related methods
 func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction, error) {
-	return tm.dataManager.Db().(*sql.DB).Begin()
+	if tx, err := tm.dataManager.Db().(*sql.DB).Begin(); err != nil {
+		return nil, err
+	} else {
+		return &pg.PgTransaction{Tx: tx}, nil
+	}
 }
 
 func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) (error) {
-	tx := dbTransaction.(*sql.Tx)
+	tx := dbTransaction.Transaction().(*sql.Tx)
 	if err := tx.Commit(); err != nil {
 		return NewTransactionError(ErrCommitFailed, err.Error())
 	}
@@ -24,7 +29,7 @@ func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.D
 }
 
 func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) (error) {
-	return dbTransaction.(*sql.Tx).Rollback()
+	return dbTransaction.Transaction().(*sql.Tx).Rollback()
 }
 
 func NewPgDbTransactionManager(dataManager data.DataManager) *PgDbTransactionManager {
