@@ -520,7 +520,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(meta.OnDeleteCascade))
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -590,7 +590,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(meta.OnDeleteCascade))
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -660,7 +660,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(meta.OnDeleteSetNull))
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteSetNull))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -730,7 +730,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(meta.OnDeleteRestrict))
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteRestrict))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -800,7 +800,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(meta.OnDeleteSetDefault))
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteSetDefault))
 			Expect(err).To(BeNil())
 		})
 	})

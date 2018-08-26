@@ -86,7 +86,7 @@ func (metaStore *MetaStore) Create(transaction *transactions.GlobalTransaction, 
 		if e := metaStore.drv.Create(transaction.MetaDescriptionTransaction, *objectMeta.MetaDescription); e == nil {
 
 			//add corresponding outer generic fields
-			metaStore.processGenericInnerLinkAddition(transaction, nil, objectMeta)
+			metaStore.addReversedOuterGenericFields(transaction, nil, objectMeta)
 			return nil
 		} else {
 			var e2 = metaStore.syncer.RemoveObj(transaction.DbTransaction, objectMeta.Name, false)
@@ -117,7 +117,7 @@ func (metaStore *MetaStore) Update(globalTransaction *transactions.GlobalTransac
 
 		if updateError := metaStore.syncer.UpdateObj(globalTransaction.DbTransaction, currentBusinessObj, newBusinessObj); updateError == nil {
 			//add corresponding outer generic fields
-			metaStore.processGenericInnerLinkAddition(globalTransaction, currentBusinessObj, newBusinessObj)
+			metaStore.addReversedOuterGenericFields(globalTransaction, currentBusinessObj, newBusinessObj)
 			return true, nil
 		} else {
 			//rollback to the previous version
@@ -371,7 +371,7 @@ func (metaStore *MetaStore) processGenericOuterLinkKeeping(transaction *transact
 }
 
 //add corresponding reverse outer generic field if field is added
-func (metaStore *MetaStore) processGenericInnerLinkAddition(transaction *transactions.GlobalTransaction, previousMeta *Meta, currentMeta *Meta) {
+func (metaStore *MetaStore) addReversedOuterGenericFields(transaction *transactions.GlobalTransaction, previousMeta *Meta, currentMeta *Meta) {
 	for _, field := range currentMeta.Fields {
 		if field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner {
 			shouldProcessOuterLinks := true

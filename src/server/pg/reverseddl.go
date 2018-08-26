@@ -3,8 +3,8 @@ package pg
 import (
 	"database/sql"
 	"fmt"
-	//"git.reaxoft.loc/infomir/custodian/logger"
-	"server/object/meta"
+
+	"server/object/description"
 )
 
 type Reverser struct {
@@ -169,7 +169,7 @@ func (r *Reverser) Constraints(ifks *[]IFK, ofks *[]OFK) error {
 		if err = ifkrows.Scan(&fromCol, &toTbl, &toCol, &OnDeleteStrategyCode); err != nil {
 			return &DDLError{table: r.table, code: ErrInternal, msg: "parse IFK:" + err.Error()}
 		}
-		*ifks = append(*ifks, IFK{fromCol, toTbl, toCol, meta.GetOnDeleteStrategyByDbCode(OnDeleteStrategyCode).ToDbValue(), ""})
+		*ifks = append(*ifks, IFK{fromCol, toTbl, toCol, description.GetOnDeleteStrategyByDbCode(OnDeleteStrategyCode).ToDbValue(), ""})
 	}
 
 	return nil

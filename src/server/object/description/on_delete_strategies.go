@@ -1,4 +1,4 @@
-package meta
+package description
 
 import (
 	"fmt"
@@ -22,30 +22,45 @@ const (
 	OnDeleteUndefined
 )
 
+const (
+	OnDeleteCascadeDb    = "CASCADE"
+	OnDeleteRestrictDb   = "RESTRICT"
+	OnDeleteSetDefaultDb = "SET DEFAULT"
+	OnDeleteSetNullDb    = "SET NULL"
+	OnDeleteUndefinedDb  = "UNDEFINED"
+)
+
+const (
+	OnDeleteCascadeVerbose    = "cascade"
+	OnDeleteRestrictVerbose   = "restrict"
+	OnDeleteSetDefaultVerbose = "setDefault"
+	OnDeleteSetNullVerbose    = "setNull"
+)
+
 func (onDeleteStrategy OnDeleteStrategy) ToDbValue() string {
 	switch onDeleteStrategy {
 	case OnDeleteCascade:
-		return "CASCADE"
+		return OnDeleteCascadeDb
 	case OnDeleteSetNull:
-		return "SET NULL"
+		return OnDeleteSetNullDb
 	case OnDeleteRestrict:
-		return "RESTRICT"
+		return OnDeleteRestrictDb
 	case OnDeleteSetDefault:
-		return "SET DEFAULT"
+		return OnDeleteSetDefaultDb
 	default:
-		return "UNDEFINED"
+		return OnDeleteUndefinedDb
 	}
 }
 
 func GetOnDeleteStrategyByVerboseName(strategyName string) (OnDeleteStrategy, error) {
 	switch strategyName {
-	case "cascade", "":
+	case OnDeleteCascadeVerbose, "":
 		return OnDeleteCascade, nil
-	case "setNull":
+	case OnDeleteSetNullVerbose:
 		return OnDeleteSetNull, nil
-	case "restrict":
+	case OnDeleteRestrictVerbose:
 		return OnDeleteRestrict, nil
-	case "setDefault":
+	case OnDeleteSetDefaultVerbose:
 		return OnDeleteSetDefault, nil
 	default:
 		return OnDeleteUndefined, &OnDeleteStrategyError{msg: fmt.Sprintf("Incorrect strategy %s specified", strategyName)}
