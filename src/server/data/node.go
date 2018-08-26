@@ -166,11 +166,9 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 	if node.Meta != nil {
 		for i, fieldDescription := range node.Meta.Fields {
 			var onlyLink = false
-			var branches map[string]*Node = nil
+			branches := make(map[string]*Node)
 			if node.Depth == depthLimit {
 				onlyLink = true
-			} else {
-				branches = make(map[string]*Node)
 			}
 
 			if fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, &fieldDescription)) {
@@ -232,7 +230,9 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 
 func (node *Node) RecursivelyFillChildNodes(depthLimit int) {
 	node.fillDirectChildNodes(depthLimit)
-
+	if node.IsOfGenericType() {
+		return
+	}
 	nodesToProcess := make([]*Node, 0)
 	for _, v := range node.ChildNodes {
 		nodesToProcess = append(nodesToProcess, v)
