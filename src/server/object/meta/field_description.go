@@ -12,6 +12,7 @@ type FieldDescription struct {
 	LinkMeta       *Meta
 	OuterLinkField *FieldDescription
 	LinkMetaList   *MetaList
+	OnDelete       OnDeleteStrategy
 }
 
 func (f *FieldDescription) Default() Def {

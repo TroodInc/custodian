@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	//"git.reaxoft.loc/infomir/custodian/logger"
+	"server/object/meta"
 )
 
 type Reverser struct {
@@ -58,7 +59,8 @@ const (
 			AND a.attnum > 0 AND NOT a.attisdropped AND a.attnum = ANY(c.conkey)) as conkey,
 		   c.confrelid::pg_catalog.regclass,
 		   (select a.attname from pg_catalog.pg_attribute a where c.confrelid = a.attrelid
-			AND a.attnum > 0 AND NOT a.attisdropped AND a.attnum = ANY(c.confkey)) as confkey
+			AND a.attnum > 0 AND NOT a.attisdropped AND a.attnum = ANY(c.confkey)) as confkey,
+			c.confdeltype
 		FROM pg_catalog.pg_constraint c
 		WHERE c.conrelid = $1 AND c.contype = 'f';
 	`
@@ -163,12 +165,11 @@ func (r *Reverser) Constraints(ifks *[]IFK, ofks *[]OFK) error {
 	defer ifkrows.Close()
 
 	for ifkrows.Next() {
-		var fromCol, toTbl, toCol string
-		if err = ifkrows.Scan(&fromCol, &toTbl, &toCol); err != nil {
-			return &DDLError{table: r.table, code: ErrInternal, msg: "parse OFK:" + err.Error()}
+		var fromCol, toTbl, toCol, OnDeleteStrategyCode string
+		if err = ifkrows.Scan(&fromCol, &toTbl, &toCol, &OnDeleteStrategyCode); err != nil {
+			return &DDLError{table: r.table, code: ErrInternal, msg: "parse IFK:" + err.Error()}
 		}
-
-		*ifks = append(*ifks, IFK{fromCol, toTbl, toCol})
+		*ifks = append(*ifks, IFK{fromCol, toTbl, toCol, meta.GetOnDeleteStrategyByDbCode(OnDeleteStrategyCode).ToDbValue(), ""})
 	}
 
 	return nil

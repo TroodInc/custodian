@@ -73,7 +73,13 @@ func (metaDdlFactory *MetaDdlFactory) processInnerLinkField(field *meta.FieldDes
 		return nil, nil, nil, nil, &DDLError{table: field.Meta.Name, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(field.LinkMeta.Key.Type)}
 	}
 
-	ifk := IFK{FromColumn: field.Name, ToTable: GetTableName(field.LinkMeta), ToColumn: field.LinkMeta.Key.Name}
+	ifk := IFK{
+		FromColumn: field.Name,
+		ToTable:    GetTableName(field.LinkMeta),
+		ToColumn:   field.LinkMeta.Key.Name,
+		OnDelete:   field.OnDelete.ToDbValue(),
+		Default:    column.Defval,
+	}
 
 	return []Column{*column}, &ifk, nil, metaDdlFactory.factorySequence(field), nil
 }

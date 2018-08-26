@@ -101,10 +101,26 @@ func (metaFactory *MetaFactory) buildMeta(metaName string) (metaObj *Meta, shoul
 
 //factory field description by provided Field
 func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
-	fieldDescription := FieldDescription{&field, objectMeta, nil, nil, &MetaList{}}
+	var err error
+	var onDeleteStrategy OnDeleteStrategy
+	if field.Type == FieldTypeObject || (field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner) {
+		onDeleteStrategy, err = GetOnDeleteStrategyByVerboseName(field.OnDelete)
+		if err != nil {
+			return nil, NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Failed to validate %s's onDelete strategy. %s", field.Name, err.Error())
+		}
+	}
+
+	fieldDescription := FieldDescription{
+		Field:          &field,
+		Meta:           objectMeta,
+		LinkMeta:       nil,
+		OuterLinkField: nil,
+		LinkMetaList:   &MetaList{},
+		OnDelete:       onDeleteStrategy,
+	}
 
 	if field.LinkMeta != "" {
-		var err error
+
 		var shouldBuild bool
 		if fieldDescription.LinkMeta, shouldBuild, err = metaFactory.buildMeta(field.LinkMeta); err != nil {
 			return nil, err
