@@ -1,6 +1,6 @@
 package types
 
-import "server/meta"
+import "server/object/meta"
 
 type ALink struct {
 	Field   *meta.FieldDescription

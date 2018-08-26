@@ -1,26 +1,28 @@
 package notifications
 
 import (
-	"server/meta"
 	"server/data/record"
 	"strconv"
 	"utils"
 	"server/auth"
 	"strings"
 	"server/data/types"
+	"server/object/description"
+	"server/transactions"
 )
 
 type RecordSetNotification struct {
 	recordSet     *record.RecordSet
 	isRoot        bool
-	method        meta.Method
+	method        description.Method
 	PreviousState []*record.RecordSet
 	CurrentState  []*record.RecordSet
-	getRecordsCallback func(objectName, filter string, depth int, sink func(map[string]interface{}) error, handleTransaction bool) error
-	getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)
+	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error
+	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)
+	dbTransaction transactions.DbTransaction
 }
 
-func NewRecordSetNotification(recordSet *record.RecordSet, isRoot bool, method meta.Method, getRecordsCallback func(objectName, filter string, depth int, sink func(map[string]interface{}) error, handleTransaction bool) error, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) *RecordSetNotification {
+func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) *RecordSetNotification {
 	return &RecordSetNotification{
 		recordSet:          recordSet,
 		isRoot:             isRoot,
@@ -29,6 +31,7 @@ func NewRecordSetNotification(recordSet *record.RecordSet, isRoot bool, method m
 		CurrentState:       make([]*record.RecordSet, len(recordSet.Meta.Actions.Original)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
 		getRecordsCallback: getRecordsCallback,
 		getRecordCallback:  getRecordCallback,
+		dbTransaction:      dbTransaction,
 	}
 }
 
@@ -62,19 +65,21 @@ func (notification *RecordSetNotification) BuildNotificationsData(actionIndex in
 func (notification *RecordSetNotification) captureState(state []*record.RecordSet) {
 	//capture state if recordSet has PKs defined, set empty map otherwise, because records cannot be retrieved
 	for i, action := range notification.recordSet.Meta.Actions.Original {
-		state[i] = &record.RecordSet{Meta: notification.recordSet.Meta, DataSet: make([]map[string]interface{}, 0)}
+		if notification.method == action.Method {
+			state[i] = &record.RecordSet{Meta: notification.recordSet.Meta, DataSet: make([]map[string]interface{}, 0)}
 
-		if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
-			recordsSink := func(recordData map[string]interface{}) error {
-				state[i].DataSet = append(state[i].DataSet, notification.buildRecordStateObject(recordData, &action, notification.getRecordsCallback))
-				return nil
+			if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
+				recordsSink := func(recordData map[string]interface{}) error {
+					state[i].DataSet = append(state[i].DataSet, notification.buildRecordStateObject(recordData, &action, notification.getRecordsCallback))
+					return nil
+				}
+				//get data within current transaction
+				notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink)
 			}
-			//get data within current transaction
-			notification.getRecordsCallback(notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink, false)
-		}
-		//fill DataSet with empty values
-		if len(state[i].DataSet) == 0 {
-			state[i].DataSet = make([]map[string]interface{}, len(notification.recordSet.DataSet))
+			//fill DataSet with empty values
+			if len(state[i].DataSet) == 0 {
+				state[i].DataSet = make([]map[string]interface{}, len(notification.recordSet.DataSet))
+			}
 		}
 	}
 }
@@ -109,20 +114,26 @@ func (notification *RecordSetNotification) getRecordsFilter() string {
 }
 
 //Build object to use in notification
-func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *meta.Action, getRecordsCallback func(objectName, filter string, depth int, sink func(map[string]interface{}) error, handleTransaction bool) error) map[string]interface{} {
+func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error) map[string]interface{} {
 
 	stateObject := make(map[string]interface{}, 0)
+
 	//	include values which are updated being updated/created
-	keys, _ := utils.GetMapKeysValues(notification.recordSet.DataSet[0])
-	for _, key := range keys {
-		if value, ok := recordData[key]; ok {
-			stateObject[key] = value
+	if action.Method != description.MethodRemove {
+		keys, _ := utils.GetMapKeysValues(notification.recordSet.DataSet[0])
+		for _, key := range keys {
+			if value, ok := recordData[key]; ok {
+				stateObject[key] = value
+			}
 		}
+	} else {
+		//copy entire record data if it is being removed
+		stateObject = utils.CloneMap(recordData)
 	}
 
 	//include values listed in IncludeValues
 	for alias, getterConfig := range action.IncludeValues {
-		stateObject[alias] = getValue(record.Record{Data: recordData, Meta: notification.recordSet.Meta}, getterConfig, notification.getRecordCallback)
+		stateObject[alias] = getValue(record.Record{Data: recordData, Meta: notification.recordSet.Meta}, getterConfig, notification.dbTransaction, notification.getRecordCallback)
 		//remove key if alias is not equal to actual getterConfig and stateObject already
 		// contains value under the getterConfig key, that is getterConfig key should be replaced with alias
 
@@ -136,18 +147,18 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 	return stateObject
 }
 
-func getValue(targetRecord record.Record, getterConfig interface{}, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
+func getValue(targetRecord record.Record, getterConfig interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) interface{} {
 	switch getterValue := getterConfig.(type) {
 	case map[string]interface{}:
-		return getGenericValue(targetRecord, getterValue, getRecordCallback)
+		return getGenericValue(targetRecord, getterValue, transaction, getRecordCallback)
 	case string:
-		return getSimpleValue(targetRecord, strings.Split(getterValue, "."), getRecordCallback)
+		return getSimpleValue(targetRecord, strings.Split(getterValue, "."), transaction, getRecordCallback)
 	}
 	return ""
 }
 
 //get key value traversing down if needed
-func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
+func getSimpleValue(targetRecord record.Record, keyParts []string, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) interface{} {
 	if len(keyParts) == 1 {
 		return targetRecord.Data[keyParts[0]]
 	} else {
@@ -156,7 +167,7 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCall
 		nestedObjectField := targetRecord.Meta.FindField(keyPart)
 
 		//case of retrieving value or PK of generic field
-		if nestedObjectField.Type == meta.FieldTypeGeneric && len(keyParts) == 2 {
+		if nestedObjectField.Type == description.FieldTypeGeneric && len(keyParts) == 2 {
 			if genericFieldValue, ok := rawKeyValue.(map[string]interface{}); ok {
 				return genericFieldValue[keyParts[1]]
 			}
@@ -166,8 +177,8 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCall
 		nestedObjectMeta := targetRecord.Meta.FindField(keyPart).LinkMeta
 		if targetRecord.Data[keyPart] != nil {
 			keyValue, _ := nestedObjectMeta.Key.ValueAsString(rawKeyValue)
-			nestedRecordData, _ := getRecordCallback(nestedObjectMeta.Name, keyValue, 1, false)
-			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, keyParts[1:], getRecordCallback)
+			nestedRecordData, _ := getRecordCallback(transaction, nestedObjectMeta.Name, keyValue, 1, )
+			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, keyParts[1:], transaction, getRecordCallback)
 		} else {
 			return nil
 		}
@@ -175,16 +186,17 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, getRecordCall
 }
 
 //get key value traversing down if needed
-func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, getRecordCallback func(objectClass, key string, depth int, handleTransaction bool) (map[string]interface{}, error)) interface{} {
+func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) interface{} {
 	genericFieldName := getterConfig["field"].(string)
-	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), getRecordCallback, ).(map[string]interface{})
+
+	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), transaction, getRecordCallback, ).(map[string]interface{})
 	for _, objectCase := range getterConfig["cases"].([]interface{}) {
 		castObjectCase := objectCase.(map[string]interface{})
 		if genericFieldValue[types.GenericInnerLinkObjectKey] == castObjectCase["object"] {
 			nestedObjectMeta := targetRecord.Meta.FindField(genericFieldName).LinkMetaList.GetByName(castObjectCase["object"].(string))
 			nestedObjectPk, _ := nestedObjectMeta.Key.ValueAsString(genericFieldValue[nestedObjectMeta.Key.Name])
-			nestedRecordData, _ := getRecordCallback(genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, 1, false)
-			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, strings.Split(castObjectCase["value"].(string), "."), getRecordCallback)
+			nestedRecordData, _ := getRecordCallback(transaction, genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, 1)
+			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, strings.Split(castObjectCase["value"].(string), "."), transaction, getRecordCallback)
 		}
 	}
 	return nil

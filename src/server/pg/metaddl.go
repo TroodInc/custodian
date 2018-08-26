@@ -5,12 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	//	"git.reaxoft.loc/infomir/custodian/logger"
-	"server/meta"
+	"server/object/meta"
 	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
+	"server/object/description"
 )
 
 //DDL statament description
@@ -60,19 +60,19 @@ func (ct ColumnType) DdlType() (string, error) {
 	}
 }
 
-func fieldTypeToColumnType(ft meta.FieldType) (ColumnType, bool) {
+func fieldTypeToColumnType(ft description.FieldType) (ColumnType, bool) {
 	switch ft {
-	case meta.FieldTypeString:
+	case description.FieldTypeString:
 		return ColumnTypeText, true
-	case meta.FieldTypeNumber:
+	case description.FieldTypeNumber:
 		return ColumnTypeNumeric, true
-	case meta.FieldTypeBool:
+	case description.FieldTypeBool:
 		return ColumnTypeBool, true
-	case meta.FieldTypeDateTime:
+	case description.FieldTypeDateTime:
 		return ColumnTypeDateTime, true
-	case meta.FieldTypeDate:
+	case description.FieldTypeDate:
 		return ColumnTypeDate, true
-	case meta.FieldTypeTime:
+	case description.FieldTypeTime:
 		return ColumnTypeTime, true
 	default:
 		return 0, false

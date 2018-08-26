@@ -3,50 +3,71 @@ package server_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server"
 	"net/http"
 	"fmt"
 	"net/http/httptest"
 	"server/pg"
-	"server/meta"
 	"server/data"
 	"server/auth"
 	"bytes"
 	"encoding/json"
 	"utils"
+	"server/transactions/file_transaction"
+
+	"server/object/meta"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
+	"server/object/description"
+	"server"
 )
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
-
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+	//transaction managers
+	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+
+	var globalTransaction *transactions.GlobalTransaction
 
 	BeforeEach(func() {
+		var err error
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup()
 		recorder = httptest.NewRecorder()
-		metaStore.Flush()
+
 	})
 
 	AfterEach(func() {
-		metaStore.Flush()
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	factoryObjectA := func() *meta.Meta {
-		metaDescription := meta.MetaDescription{
+	factoryObjectA := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []description.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     description.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -54,7 +75,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     meta.FieldTypeString,
+					Type:     description.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -64,20 +85,20 @@ var _ = Describe("Server", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(globalTransaction, metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
 
-	factoryObjectB := func() *meta.Meta {
-		metaDescription := meta.MetaDescription{
+	factoryObjectB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+		metaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []description.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     description.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -85,7 +106,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     meta.FieldTypeString,
+					Type:     description.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -93,27 +114,32 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
 					LinkMeta: "a",
 				},
 			},
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(globalTransaction, metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
 
 	It("updates record with the given id, omitting id specified in body", func() {
 		Context("having a record of given object", func() {
-			objectA := factoryObjectA()
-			record, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{}, true)
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			objectA := factoryObjectA(globalTransaction)
+			record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
 			Expect(err).To(BeNil())
 			//create another record to ensure only specified record is affected by update
-			_, err = dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{}, true)
+			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
 			Expect(err).To(BeNil())
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			Context("and PUT request performed by URL with specified record ID with wrong id specified in body", func() {
 				updateData := map[string]interface{}{
@@ -139,13 +165,18 @@ var _ = Describe("Server", func() {
 
 	It("updates record and outputs its data respecting depth", func() {
 		Context("having a record of given object", func() {
-			objectA := factoryObjectA()
-			aRecord, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{}, true)
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			objectB := factoryObjectB()
-			bRecord, err := dataProcessor.CreateRecord(objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord["id"]}, auth.User{}, true)
+			objectA := factoryObjectA(globalTransaction)
+			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
+
+			objectB := factoryObjectB(globalTransaction)
+			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord["id"]}, auth.User{})
+			Expect(err).To(BeNil())
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			Context("and PUT request performed by URL with specified record ID with wrong id specified in body", func() {
 				updateData := map[string]interface{}{

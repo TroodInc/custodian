@@ -3,11 +3,16 @@ package pg_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/meta"
 	"server/pg"
+	"utils"
+	"server/transactions/file_transaction"
+
+	pg_transactions "server/pg/transactions"
+	"server/object/meta"
+	"server/transactions"
+	"server/object/description"
 	"server/data"
 	"server/auth"
-	"utils"
 )
 
 var _ = Describe("Store", func() {
@@ -17,51 +22,66 @@ var _ = Describe("Store", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
-	user := auth.User{1, "staff", "active", "manager"}
+	//transaction managers
+	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+
+	var globalTransaction *transactions.GlobalTransaction
 
 	BeforeEach(func() {
-		metaStore.Flush()
+		var err error
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
 	})
 
 	AfterEach(func() {
-		metaStore.Flush()
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Having an record for person with null value", func() {
 		//create meta
-		meta := meta.MetaDescription{
+		meta := description.MetaDescription{
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 					Optional: true,
 				}, {
 					Name:     "name",
-					Type:     meta.FieldTypeString,
+					Type:     description.FieldTypeString,
 					Optional: false,
 				}, {
 					Name:     "gender",
-					Type:     meta.FieldTypeString,
+					Type:     description.FieldTypeString,
 					Optional: true,
 				},
 			},
 		}
 		metaDescription, _ := metaStore.NewMeta(&meta)
 
-		err := metaStore.Create(metaDescription)
+		err := metaStore.Create(globalTransaction, metaDescription)
 		Expect(err).To(BeNil())
 
 		//create record
 		recordData := map[string]interface{}{
 			"name": "Sergey",
 		}
-		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, user, true)
+		record, _ := dataProcessor.CreateRecord(globalTransaction.DbTransaction, meta.Name, recordData, auth.User{})
 		Expect(record).To(HaveKey("gender"))
 	})
 })

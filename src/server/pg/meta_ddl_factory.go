@@ -1,8 +1,9 @@
 package pg
 
 import (
-	"server/meta"
+	"server/object/meta"
 	"fmt"
+	"server/object/description"
 )
 
 type MetaDdlFactory struct{}
@@ -35,11 +36,11 @@ func (metaDdlFactory *MetaDdlFactory) Factory(m *meta.Meta) (*MetaDDL, error) {
 func (metaDdlFactory *MetaDdlFactory) processField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
 	if field.IsSimple() {
 		return metaDdlFactory.processSimpleField(field)
-	} else if field.Type == meta.FieldTypeObject && field.LinkType == meta.LinkTypeInner {
+	} else if field.Type == description.FieldTypeObject && field.LinkType == description.LinkTypeInner {
 		return metaDdlFactory.processInnerLinkField(field)
-	} else if field.LinkType == meta.LinkTypeOuter {
+	} else if field.LinkType == description.LinkTypeOuter {
 		return metaDdlFactory.processOuterLinkField(field)
-	} else if field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeInner {
+	} else if field.Type == description.FieldTypeGeneric && field.LinkType == description.LinkTypeInner {
 		return metaDdlFactory.processGenericInnerLinkField(field)
 	} else {
 		return nil, nil, nil, nil, &DDLError{table: field.Meta.Name, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(field.LinkType), string(field.LinkType))}

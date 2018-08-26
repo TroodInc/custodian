@@ -3,8 +3,9 @@ package pg
 import (
 	"database/sql"
 	"reflect"
-	"server/meta"
+	"server/object/meta"
 	"server/data/types"
+	"server/object/description"
 )
 
 type Rows struct {
@@ -58,7 +59,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 			}
 			result = append(result, make(map[string]interface{}))
 			for j, columnName := range cols {
-				if fieldByColumnName(columnName).Type == meta.FieldTypeDate {
+				if fieldByColumnName(columnName).Type == description.FieldTypeDate {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -69,7 +70,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = string([]rune(*value)[0:10])
 					}
-				} else if fieldByColumnName(columnName).Type == meta.FieldTypeTime {
+				} else if fieldByColumnName(columnName).Type == description.FieldTypeTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -80,7 +81,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = string([]rune(*value)[11:])
 					}
-				} else if fieldByColumnName(columnName).Type == meta.FieldTypeDateTime {
+				} else if fieldByColumnName(columnName).Type == description.FieldTypeDateTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -91,7 +92,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = *value
 					}
-				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == meta.FieldTypeGeneric {
+				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == description.FieldTypeGeneric {
 
 					//
 					value := values[j].(*sql.NullString)

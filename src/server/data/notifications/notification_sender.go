@@ -1,9 +1,10 @@
 package notifications
 
 import (
-	"server/meta"
+	"server/object/meta"
 	"server/noti"
 	"server/auth"
+	"server/object/description"
 )
 
 type notificationSender struct {
@@ -25,7 +26,7 @@ func (notificationSender *notificationSender) push(recordSetNotification *Record
 	}
 }
 
-func (notificationSender *notificationSender) getNotificationChannel(meta *meta.Meta, method meta.Method, action *meta.Action) chan *noti.Event {
+func (notificationSender *notificationSender) getNotificationChannel(meta *meta.Meta, method description.Method, action *description.Action) chan *noti.Event {
 	key := meta.Name + method.AsString()
 	notificationChannel, ok := notificationSender.notificationChannels[key]
 	if !ok {

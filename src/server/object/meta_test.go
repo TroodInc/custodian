@@ -1,11 +1,15 @@
-package meta_test
+package object
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/pg"
-	"server/meta"
 	"utils"
+	"server/object/meta"
+	"server/transactions/file_transaction"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
+	"server/object/description"
 	"database/sql"
 )
 
@@ -14,45 +18,73 @@ var _ = Describe("The PG MetaStore", func() {
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
+	dataManager, _ := syncer.NewDataManager()
+	//transaction managers
+	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+
 	BeforeEach(func() {
-		metaStore.Flush()
+		var err error
+
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	AfterEach(func() {
-		metaStore.Flush()
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		err = metaStore.Flush(globalTransaction)
+		Expect(err).To(BeNil())
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("can flush all objects", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
 		Context("once object is created", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					}, {
 						Name:     "gender",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: true,
 					},
 				},
 			}
 			meta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(meta)
+			err = metaStore.Create(globalTransaction, meta)
 			Expect(err).To(BeNil())
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+
 			Context("and 'flush' method is called", func() {
-				metaStore.Flush()
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+				metaStore.Flush(globalTransaction)
+				globalTransactionManager.CommitTransaction(globalTransaction)
+
 				metaList, _, _ := metaStore.List()
 				Expect(*metaList).To(HaveLen(0))
 			})
@@ -60,15 +92,19 @@ var _ = Describe("The PG MetaStore", func() {
 	})
 
 	It("can remove object without leaving orphan outer links", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		Context("having two objects with mutual links", func() {
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := description.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -78,17 +114,17 @@ var _ = Describe("The PG MetaStore", func() {
 			}
 			aMeta, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMeta)
+			err = metaStore.Create(globalTransaction, aMeta)
 			Expect(err).To(BeNil())
 
-			bMetaDescription := meta.MetaDescription{
+			bMetaDescription := description.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -96,26 +132,26 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:     "a_fk",
-						Type:     meta.FieldTypeObject,
+						Type:     description.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: description.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMeta)
+			err = metaStore.Create(globalTransaction, bMeta)
 			Expect(err).To(BeNil())
 
-			aMetaDescription = meta.MetaDescription{
+			aMetaDescription = description.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -123,9 +159,9 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:           "b_set",
-						Type:           meta.FieldTypeObject,
+						Type:           description.FieldTypeObject,
 						Optional:       true,
-						LinkType:       meta.LinkTypeOuter,
+						LinkType:       description.LinkTypeOuter,
 						LinkMeta:       "b",
 						OuterLinkField: "a_fk",
 					},
@@ -133,12 +169,12 @@ var _ = Describe("The PG MetaStore", func() {
 			}
 			aMeta, err = metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(aMeta.Name, aMeta, true, true)
+			metaStore.Update(globalTransaction, aMeta.Name, aMeta, true)
 
 			Context("and 'remove' method is called for B meta", func() {
-				metaStore.Remove(bMeta.Name, true, true)
+				metaStore.Remove(globalTransaction, bMeta.Name, true)
 				Context("meta A should not contain outer link field which references B meta", func() {
-					aMeta, _, _ = metaStore.Get(aMeta.Name, true)
+					aMeta, _, _ = metaStore.Get(globalTransaction, aMeta.Name)
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
 				})
@@ -148,15 +184,19 @@ var _ = Describe("The PG MetaStore", func() {
 	})
 
 	It("can remove object without leaving orphan inner links", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		Context("having two objects with mutual links", func() {
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := description.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -166,16 +206,16 @@ var _ = Describe("The PG MetaStore", func() {
 			}
 			aMeta, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(aMeta)
+			metaStore.Create(globalTransaction, aMeta)
 
-			bMetaDescription := meta.MetaDescription{
+			bMetaDescription := description.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -183,23 +223,23 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:     "a_fk",
-						Type:     meta.FieldTypeObject,
+						Type:     description.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: description.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(bMeta)
+			metaStore.Create(globalTransaction, bMeta)
 			Expect(err).To(BeNil())
 
 			Context("and 'remove' method is called for meta A", func() {
-				metaStore.Remove(aMeta.Name, true, true)
+				metaStore.Remove(globalTransaction, aMeta.Name, true)
 
 				Context("meta B should not contain inner link field which references A meta", func() {
-					bMeta, _, _ = metaStore.Get(bMeta.Name, true)
+					bMeta, _, _ = metaStore.Get(globalTransaction, bMeta.Name)
 					Expect(bMeta.Fields).To(HaveLen(1))
 					Expect(bMeta.Fields[0].Name).To(Equal("id"))
 				})
@@ -208,15 +248,19 @@ var _ = Describe("The PG MetaStore", func() {
 	})
 
 	It("can remove object`s inner link field without leaving orphan outer links", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		Context("having objects A and B with mutual links", func() {
-			aMetaDescription := meta.MetaDescription{
+			aMetaDescription := description.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -226,16 +270,16 @@ var _ = Describe("The PG MetaStore", func() {
 			}
 			aMeta, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(aMeta)
+			metaStore.Create(globalTransaction, aMeta)
 
-			bMetaDescription := meta.MetaDescription{
+			bMetaDescription := description.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -243,26 +287,26 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:     "a_fk",
-						Type:     meta.FieldTypeObject,
+						Type:     description.FieldTypeObject,
 						Optional: true,
-						LinkType: meta.LinkTypeInner,
+						LinkType: description.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
 			}
 			bMeta, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(bMeta)
+			metaStore.Create(globalTransaction, bMeta)
 			Expect(err).To(BeNil())
 
-			aMetaDescription = meta.MetaDescription{
+			aMetaDescription = description.MetaDescription{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -270,27 +314,27 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 					{
 						Name:           "b_set",
-						Type:           meta.FieldTypeObject,
+						Type:           description.FieldTypeObject,
 						Optional:       true,
-						LinkType:       meta.LinkTypeOuter,
+						LinkType:       description.LinkTypeOuter,
 						LinkMeta:       "b",
 						OuterLinkField: "a_fk",
 					},
 				},
 			}
 			aMeta, err = metaStore.NewMeta(&aMetaDescription)
-			metaStore.Update(aMeta.Name, aMeta, true, true)
+			metaStore.Update(globalTransaction, aMeta.Name, aMeta, true)
 			Expect(err).To(BeNil())
 
 			Context("and inner link field was removed from object B", func() {
-				bMetaDescription := meta.MetaDescription{
+				bMetaDescription := description.MetaDescription{
 					Name: "b",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []description.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: description.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -300,10 +344,10 @@ var _ = Describe("The PG MetaStore", func() {
 				}
 				bMeta, err := metaStore.NewMeta(&bMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(bMeta.Name, bMeta, true,true)
+				metaStore.Update(globalTransaction, bMeta.Name, bMeta, true)
 
 				Context("outer link field should be removed from object A", func() {
-					aMeta, _, err = metaStore.Get(aMeta.Name, true)
+					aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name)
 					Expect(err).To(BeNil())
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
@@ -313,25 +357,29 @@ var _ = Describe("The PG MetaStore", func() {
 	})
 
 	It("checks object for fields with duplicated names when creating object", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		Context("having an object description with duplicated field names", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -345,57 +393,59 @@ var _ = Describe("The PG MetaStore", func() {
 	})
 
 	It("can change field type of existing object", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
 		By("having an existing object with string field")
-		metaDescription := meta.MetaDescription{
+		metaDescription := description.MetaDescription{
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []description.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: description.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				}, {
 					Name:     "name",
-					Type:     meta.FieldTypeNumber,
+					Type:     description.FieldTypeNumber,
 					Optional: false,
 				},
 			},
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(globalTransaction, metaObj)
 		Expect(err).To(BeNil())
 
 		Context("when object is updated with modified field`s type", func() {
-			metaDescription = meta.MetaDescription{
+			metaDescription = description.MetaDescription{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					}, {
 						Name:     "name",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					},
 				},
 			}
 			meta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(meta.Name, meta, true,true)
+			_, err = metaStore.Update(globalTransaction, meta.Name, meta, true)
 			Expect(err).To(BeNil())
 
-			db, err := sql.Open("postgres", appConfig.DbConnectionOptions)
-
-			tx, err := db.Begin()
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 			Expect(err).To(BeNil())
 
 			actualMeta, err := pg.MetaDDLFromDB(tx, meta.Name)
@@ -404,6 +454,5 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 			Expect(actualMeta.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
 		})
-
 	})
 })

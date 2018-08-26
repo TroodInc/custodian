@@ -5,55 +5,76 @@ import (
 	. "github.com/onsi/gomega"
 
 	"server/pg"
-	"server/meta"
 	"server/data"
 	"server/auth"
 	"utils"
 	"regexp"
+
+	"server/transactions/file_transaction"
+	pg_transactions "server/pg/transactions"
+	"server/object/meta"
+	"server/transactions"
+	"server/object/description"
 )
 
 var _ = Describe("PG MetaStore test", func() {
 	appConfig := utils.GetConfig()
-
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+	//transaction managers
+	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+
+	var globalTransaction *transactions.GlobalTransaction
 
 	BeforeEach(func() {
-		metaStore.Flush()
+		var err error
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
 	})
+
 	AfterEach(func() {
-		metaStore.Flush()
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("can create object with fields containing reserved words", func() {
 		Context("Once create method is called with an object containing fields with reserved words", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "select",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					},
 				},
 			}
 			meta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(meta)
+			err = metaStore.Create(globalTransaction, meta)
 			Expect(err).To(BeNil())
-			object, _, err := metaStore.Get(metaDescription.Name, true)
+			object, _, err := metaStore.Get(globalTransaction, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(object.Name).To(BeEquivalentTo(metaDescription.Name))
 		})
@@ -61,32 +82,32 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can remove object with fields containing reserved words", func() {
 		Context("once create method is called with an object containing fields with reserved words", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "select",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					},
 				},
 			}
 			meta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(meta)
+			err = metaStore.Create(globalTransaction, meta)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Remove(metaDescription.Name, true, true)
+			_, err = metaStore.Remove(globalTransaction, metaDescription.Name, true)
 			Expect(err).To(BeNil())
-			_, objectRetrieved, err := metaStore.Get(metaDescription.Name, true)
+			_, objectRetrieved, err := metaStore.Get(globalTransaction, metaDescription.Name)
 			Expect(err).To(Not(BeNil()))
 
 			Expect(objectRetrieved).To(BeEquivalentTo(false))
@@ -95,14 +116,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can add field containing reserved words", func() {
 		Context("once 'create' method is called with an object", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -111,31 +132,31 @@ var _ = Describe("PG MetaStore test", func() {
 				},
 			}
 			metaObj, _ := metaStore.NewMeta(&metaDescription)
-			metaStore.Create(metaObj)
+			metaStore.Create(globalTransaction, metaObj)
 			Context("and 'update' method is called with an object containing fields with reserved words", func() {
-				updatedMetaDescription := meta.MetaDescription{
+				updatedMetaDescription := description.MetaDescription{
 					Name: "order",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []description.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: description.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
 							Optional: true,
 						}, {
 							Name:     "select",
-							Type:     meta.FieldTypeString,
+							Type:     description.FieldTypeString,
 							Optional: false,
 						},
 					},
 				}
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
-				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true,true)
+				_, err := metaStore.Update(globalTransaction, updatedMetaDescription.Name, updatedMetaObj, true)
 				Expect(err).To(BeNil())
-				metaObj, _, err := metaStore.Get(metaDescription.Name, true)
+				metaObj, _, err := metaStore.Get(globalTransaction, metaDescription.Name)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(2))
@@ -145,14 +166,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can remove field containing reserved words", func() {
 		Context("once 'create' method is called with an object containing fields with reserved words", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -160,24 +181,24 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "select",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					},
 				},
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(metaObj)
+			err = metaStore.Create(globalTransaction, metaObj)
 			Expect(err).To(BeNil())
 			Context("and 'remove' method is called", func() {
-				updatedMetaDescription := meta.MetaDescription{
+				updatedMetaDescription := description.MetaDescription{
 					Name: "order",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []description.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: description.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -187,8 +208,8 @@ var _ = Describe("PG MetaStore test", func() {
 				}
 				updatedMetaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true,true)
-				metaObj, _, err = metaStore.Get(metaDescription.Name, true)
+				metaStore.Update(globalTransaction, updatedMetaDescription.Name, updatedMetaObj, true)
+				metaObj, _, err = metaStore.Get(globalTransaction, metaDescription.Name)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(1))
@@ -198,14 +219,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing date field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'date' type", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     description.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -213,7 +234,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "date",
-						Type:     meta.FieldTypeDate,
+						Type:     description.FieldTypeDate,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "CURRENT_DATE",
@@ -223,10 +244,10 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(metaObj)
+			metaCreateError := metaStore.Create(globalTransaction, metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{}, true)
+				record, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", record["date"].(string))
 				Expect(matched).To(BeTrue())
@@ -236,14 +257,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing time field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'time' type", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     description.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -251,7 +272,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "time",
-						Type:     meta.FieldTypeTime,
+						Type:     description.FieldTypeTime,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "now",
@@ -261,10 +282,10 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(metaObj)
+			metaCreateError := metaStore.Create(globalTransaction, metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{}, true)
+				record, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+\\+[0-9]{2}:[0-9]{2}$", record["time"].(string))
 				Expect(matched).To(BeTrue())
@@ -274,14 +295,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     description.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -289,7 +310,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "created",
-						Type:     meta.FieldTypeDateTime,
+						Type:     description.FieldTypeDateTime,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "CURRENT_TIMESTAMP",
@@ -299,10 +320,10 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(metaObj)
+			metaCreateError := metaStore.Create(globalTransaction, metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{}, true)
+				record, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+\\+[0-9]{2}:[0-9]{2}$", record["created"].(string))
 				Expect(matched).To(BeTrue())
@@ -312,14 +333,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     description.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -329,20 +350,20 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(metaObj)
+			metaCreateError := metaStore.Create(globalTransaction, metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				_, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{}, true)
+				_, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				Context("Mandatory field added", func() {
-					updatedMetaDescription := meta.MetaDescription{
+					updatedMetaDescription := description.MetaDescription{
 						Name: "order",
 						Key:  "id",
 						Cas:  false,
-						Fields: []meta.Field{
+						Fields: []description.Field{
 							{
 								Name:     "id",
-								Type:     meta.FieldTypeNumber,
+								Type:     description.FieldTypeNumber,
 								Optional: true,
 								Def: map[string]interface{}{
 									"func": "nextval",
@@ -350,7 +371,7 @@ var _ = Describe("PG MetaStore test", func() {
 							},
 							{
 								Name:     "created",
-								Type:     meta.FieldTypeDateTime,
+								Type:     description.FieldTypeDateTime,
 								Optional: false,
 								Def: map[string]interface{}{
 									"func": "CURRENT_TIMESTAMP",
@@ -360,7 +381,7 @@ var _ = Describe("PG MetaStore test", func() {
 					}
 					metaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 					Expect(err).To(BeNil())
-					ok, err := metaStore.Update(metaObj.Name, metaObj, true,true)
+					ok, err := metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
 					Expect(ok).To(BeTrue())
 					Expect(err).To(BeNil())
 				})
@@ -370,14 +391,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can query object containing reserved words", func() {
 		Context("once 'create' method is called with an object containing fields with reserved words", func() {
-			metaDescription := meta.MetaDescription{
+			metaDescription := description.MetaDescription{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []description.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: description.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -385,20 +406,20 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "order",
-						Type:     meta.FieldTypeString,
+						Type:     description.FieldTypeString,
 						Optional: false,
 					},
 				},
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(metaObj)
+			err = metaStore.Create(globalTransaction, metaObj)
 			Expect(err).To(BeNil())
 
-			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{}, true)
+			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			record, err := dataProcessor.Get(metaObj.Name, "1", 1, true)
+			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", 1)
 			Expect(err).To(BeNil())
 			Expect(record["order"]).To(Equal("value"))
 

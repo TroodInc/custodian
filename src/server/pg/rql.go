@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"logger"
 	"server/data"
-	"server/meta"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strconv"
 	"strings"
 	"text/template"
 	"server/data/types"
+	"server/object/meta"
+	"server/object/description"
 )
 
 //https://doc.apsstandard.org/2.1/spec/rql/
@@ -259,7 +260,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 		// process related object`s table join
 		// do it only if the current iteration is not that last, because the target field for the query can have the
 		// "LinkMeta"
-		if field.Type == meta.FieldTypeGeneric {
+		if field.Type == description.FieldTypeGeneric {
 			//apply filtering by generic fields _object value and skip the next iteration
 			if fieldPathParts[i+1] != types.GenericInnerLinkObjectKey {
 				expression.WriteString(alias)
@@ -282,7 +283,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 					exists.RCol = linkedMeta.Key.Name
 				} else {
 
-					if field.Type == meta.FieldTypeGeneric {
+					if field.Type == description.FieldTypeGeneric {
 						//cast object PK to string, because join is performed by generic __id field, which has string type
 						exists.FK = linkedMeta.Key.Name + "::text"
 						exists.RCol = meta.GetGenericFieldKeyColumnName(field.Name)
@@ -311,7 +312,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			}
 		} else {
 			var fieldName string
-			if field.Type == meta.FieldTypeGeneric {
+			if field.Type == description.FieldTypeGeneric {
 				fieldName = meta.GetGenericFieldTypeColumnName(field.Name)
 			} else {
 				fieldName = field.Name
@@ -342,7 +343,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 //eg: queryPath is "target.a.name" and field is generic, then A meta should be returned
 //regular field case is straightforward
 func (ctx *context) getMetaToJoin(fieldDescription *meta.FieldDescription, queryPath []string) *meta.Meta {
-	if fieldDescription.Type == meta.FieldTypeGeneric {
+	if fieldDescription.Type == description.FieldTypeGeneric {
 		return fieldDescription.LinkMetaList.GetByName(queryPath[0])
 	} else {
 		return fieldDescription.LinkMeta

@@ -1,8 +1,7 @@
 package record
 
 import (
-	"server/meta"
-	//"utils"
+	"server/object/meta"
 )
 
 type RecordSet struct {
