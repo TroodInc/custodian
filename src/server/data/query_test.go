@@ -646,4 +646,158 @@ var _ = Describe("Data", func() {
 		})
 	})
 
+	It("can query through 3 related objects", func() {
+		Context("having an object with outer link to another object", func() {
+			aMetaDescription := description.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "name",
+						Type: description.FieldTypeString,
+					},
+				},
+			}
+			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			metaStore.Create(globalTransaction, aMetaObj)
+
+			bMetaDescription := description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "a",
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: "a",
+						Optional: false,
+					},
+				},
+			}
+			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			metaStore.Create(globalTransaction, bMetaObj)
+
+			cMetaDescription := description.MetaDescription{
+				Name: "c",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "b",
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: "b",
+						Optional: false,
+					},
+				},
+			}
+			cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+			Expect(err).To(BeNil())
+			metaStore.Create(globalTransaction, cMetaObj)
+
+			dMetaDescription := description.MetaDescription{
+				Name: "d",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "c",
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: "c",
+						Optional: false,
+					},
+				},
+			}
+			dMetaObj, err := metaStore.NewMeta(&dMetaDescription)
+			Expect(err).To(BeNil())
+			metaStore.Create(globalTransaction, dMetaObj)
+
+			aRecord, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction,
+				aMetaDescription.Name,
+				map[string]interface{}{"name": "Arecord"},
+				auth.User{},
+			)
+			Expect(err).To(BeNil())
+
+			bRecord, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction,
+				bMetaDescription.Name,
+				map[string]interface{}{"a": aRecord["id"]},
+				auth.User{},
+			)
+			Expect(err).To(BeNil())
+
+			cRecord, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction,
+				cMetaDescription.Name,
+				map[string]interface{}{"b": bRecord["id"]},
+				auth.User{},
+			)
+			Expect(err).To(BeNil())
+
+			dRecord, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction,
+				dMetaDescription.Name,
+				map[string]interface{}{"c": cRecord["id"]},
+				auth.User{},
+			)
+			Expect(err).To(BeNil())
+
+			matchedRecords := make([]map[string]interface{}, 0)
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+			Context("query by date returns correct result", func() {
+				err = dataProcessor.GetBulk(
+					globalTransaction.DbTransaction,
+					dMetaDescription.Name,
+					fmt.Sprintf("eq(c.b.a.name,%s)", "Arecord"),
+					1,
+					callbackFunction,
+				)
+				Expect(err).To(BeNil())
+				Expect(matchedRecords).To(HaveLen(1))
+				Expect(matchedRecords[0]["id"]).To(Equal(dRecord["id"]))
+			})
+		})
+	})
 })

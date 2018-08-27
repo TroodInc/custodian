@@ -304,6 +304,12 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 					return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' branch", linkedMeta.Name, field.Name)
 				}
 				currentNode = expectedNode
+
+				//dynamically build child nodes if not built yet
+				if len(currentNode.ChildNodes) == 0 {
+					currentNode.RecursivelyFillChildNodes(currentNode.Depth + 1)
+				}
+
 				currentMeta = linkedMeta
 				alias = exists.Alias
 				expression.WriteString(" AND ")
