@@ -87,6 +87,8 @@ func (metaStore *MetaStore) Create(transaction *transactions.GlobalTransaction, 
 
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(transaction, nil, objectMeta)
+			//add corresponding outer field
+			metaStore.addReversedOuterFields(transaction, nil, objectMeta)
 			return nil
 		} else {
 			var e2 = metaStore.syncer.RemoveObj(transaction.DbTransaction, objectMeta.Name, false)
@@ -439,6 +441,58 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(transaction *transacti
 						}
 					}
 				}
+			}
+		}
+	}
+}
+
+//add corresponding reverse outer generic field if field is added
+func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.GlobalTransaction, previousMeta *Meta, currentMeta *Meta) {
+	for _, field := range currentMeta.Fields {
+		if field.Type == FieldTypeObject && field.LinkType == LinkTypeInner {
+			referencedMeta := new(Meta)
+			if previousMeta != nil {
+				previousStateField := previousMeta.FindField(field.Name)
+				if previousStateField != nil {
+					//if field has already been added
+					if previousStateField.LinkType != field.LinkType ||
+						previousStateField.Type != field.Type ||
+						previousStateField.LinkMeta.Name != field.LinkMeta.Name {
+						referencedMeta = field.LinkMeta
+					}
+				} else {
+					referencedMeta = field.LinkMeta
+				}
+			} else {
+				referencedMeta = field.LinkMeta
+			}
+
+			if referencedMeta != nil {
+				//add reverse outer
+				fieldName := currentMeta.Name + "__set"
+				if referencedMeta.FindField(fieldName) != nil {
+					continue
+				}
+				outerField := Field{
+					Name:           fieldName,
+					Type:           FieldTypeArray,
+					LinkType:       LinkTypeOuter,
+					LinkMeta:       currentMeta.Name,
+					OuterLinkField: field.Name,
+					Optional:       true,
+				}
+				referencedMeta.MetaDescription.Fields = append(
+					referencedMeta.MetaDescription.Fields,
+					outerField,
+				)
+				referencedMeta.Fields = append(referencedMeta.Fields,
+					FieldDescription{
+						Field:          &outerField,
+						Meta:           referencedMeta,
+						LinkMeta:       currentMeta,
+						OuterLinkField: &field,},
+				)
+				metaStore.Update(transaction, referencedMeta.Name, referencedMeta, true)
 			}
 		}
 	}

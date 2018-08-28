@@ -13,8 +13,8 @@ import (
 	"server/transactions/file_transaction"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"strconv"
 	"server/data/record"
+	"strconv"
 )
 
 var _ = Describe("Data", func() {
@@ -86,7 +86,7 @@ var _ = Describe("Data", func() {
 						Name:     "b",
 						LinkType: description.LinkTypeInner,
 						Type:     description.FieldTypeObject,
-						LinkMeta: "a",
+						LinkMeta: "b",
 						Optional: true,
 					},
 				},
@@ -142,7 +142,7 @@ var _ = Describe("Data", func() {
 		}
 
 		It("can capture previous record state on create", func() {
-
+			havingObjectB()
 			havingObjectA()
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -222,8 +222,8 @@ var _ = Describe("Data", func() {
 		})
 
 		It("can capture current state of existing record after update", func() {
-			havingObjectA()
 			havingObjectB()
+			havingObjectA()
 			havingBRecord()
 			havingARecord(bRecordData["id"].(float64))
 
@@ -258,8 +258,8 @@ var _ = Describe("Data", func() {
 		})
 
 		It("can capture empty state of removed record after remove", func() {
-			havingObjectA()
 			havingObjectB()
+			havingObjectA()
 			havingBRecord()
 			havingARecord(bRecordData["id"].(float64))
 
@@ -285,8 +285,8 @@ var _ = Describe("Data", func() {
 		})
 
 		It("forms correct notification message on record removal", func() {
-			havingObjectA()
 			havingObjectB()
+			havingObjectA()
 			havingBRecord()
 			havingARecord(bRecordData["id"].(float64))
 

@@ -184,7 +184,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 		}
 
-		It("propery captures generic field value if action config does not match its object", func() {
+		It("properly captures generic field value if action config does not match its object", func() {
 
 			havingObjectB()
 			havingObjectC()
