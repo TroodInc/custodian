@@ -44,3 +44,7 @@ func collapseLinks(obj map[string]interface{}) {
 func (record *Record) Pk() interface{} {
 	return record.Data[record.Meta.Key.Name]
 }
+
+func NewRecord(meta *meta.Meta, data map[string]interface{}) *Record {
+	return &Record{Meta: meta, Data: data}
+}

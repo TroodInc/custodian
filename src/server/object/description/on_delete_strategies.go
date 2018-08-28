@@ -51,6 +51,20 @@ func (onDeleteStrategy OnDeleteStrategy) ToDbValue() string {
 		return OnDeleteUndefinedDb
 	}
 }
+func (onDeleteStrategy OnDeleteStrategy) ToVerbose() string {
+	switch onDeleteStrategy {
+	case OnDeleteCascade:
+		return OnDeleteCascadeVerbose
+	case OnDeleteSetNull:
+		return OnDeleteSetNullVerbose
+	case OnDeleteRestrict:
+		return OnDeleteRestrictVerbose
+	case OnDeleteSetDefault:
+		return OnDeleteSetDefaultVerbose
+	default:
+		return ""
+	}
+}
 
 func GetOnDeleteStrategyByVerboseName(strategyName string) (OnDeleteStrategy, error) {
 	switch strategyName {
