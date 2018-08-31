@@ -262,14 +262,14 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 		// "LinkMeta"
 		if field.Type == description.FieldTypeGeneric {
 			//apply filtering by generic fields _object value and skip the next iteration
-			if fieldPathParts[i+1] != types.GenericInnerLinkObjectKey {
+			i++
+			if fieldPathParts[i] != types.GenericInnerLinkObjectKey {
 				expression.WriteString(alias)
 				expression.WriteRune('.')
 				expression.WriteString(meta.GetGenericFieldTypeColumnName(field.Name))
-				expression.WriteString(fmt.Sprintf("='%s'", fieldPathParts[i+1]))
+				expression.WriteString(fmt.Sprintf("='%s'", fieldPathParts[i]))
 				expression.WriteString(" AND ")
 			}
-			i++
 		}
 
 		//fieldPathParts[len(fieldPathParts)-1] != types.GenericInnerLinkObjectKey
@@ -300,6 +300,17 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 				}
 
 				expectedNode, ok := currentNode.ChildNodes[field.Name]
+				if field.Type == description.FieldTypeGeneric{
+					expectedNode =  &data.Node{
+						KeyField:   linkedMeta.Key,
+						Meta:       linkedMeta,
+						ChildNodes: make(map[string]*data.Node),
+						Depth:      1,
+						OnlyLink:   false,
+						Parent:     nil,
+						Type:       data.NodeTypeRegular,
+					}
+				}
 				if !ok {
 					return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' branch", linkedMeta.Name, field.Name)
 				}

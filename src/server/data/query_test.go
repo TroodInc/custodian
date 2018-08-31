@@ -800,4 +800,123 @@ var _ = Describe("Data", func() {
 			})
 		})
 	})
+
+	It("can query through 1 generic and 2 related objects", func() {
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name: "name",
+					Type: description.FieldTypeString,
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		metaStore.Create(globalTransaction, aMetaObj)
+
+		bMetaDescription := description.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "a",
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "a",
+					Optional: false,
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		metaStore.Create(globalTransaction, bMetaObj)
+
+		cMetaDescription := description.MetaDescription{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target_object",
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
+					LinkMetaList: []string{"b"},
+					Optional:     false,
+				},
+			},
+		}
+		cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+		Expect(err).To(BeNil())
+		metaStore.Create(globalTransaction, cMetaObj)
+
+		aRecord, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			aMetaDescription.Name,
+			map[string]interface{}{"name": "Arecord"},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		bRecord, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			bMetaDescription.Name,
+			map[string]interface{}{"a": aRecord["id"]},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		cRecord, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			cMetaDescription.Name,
+			map[string]interface{}{"target_object": map[string]interface{}{"_object": bMetaObj.Name, "id": bRecord["id"]}},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		matchedRecords := make([]map[string]interface{}, 0)
+		callbackFunction := func(obj map[string]interface{}) error {
+			matchedRecords = append(matchedRecords, obj)
+			return nil
+		}
+		Context("query by date returns correct result", func() {
+			err = dataProcessor.GetBulk(
+				globalTransaction.DbTransaction,
+				cMetaDescription.Name,
+				fmt.Sprintf("eq(target_object.b.a.name,%s)", "Arecord"),
+				1,
+				callbackFunction,
+			)
+			Expect(err).To(BeNil())
+			Expect(matchedRecords).To(HaveLen(1))
+			Expect(matchedRecords[0]["id"]).To(Equal(cRecord["id"]))
+		})
+	})
 })
