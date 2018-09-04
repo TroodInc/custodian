@@ -266,16 +266,28 @@ func (cs *CustodianServer) Setup() *http.Server {
 	//Records operations
 	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
-
+		objectName := p.ByName("name")
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			if recordData, err := dataProcessor.CreateRecord(dbTransaction, p.ByName("name"), src.Value, user); err != nil {
+			if recordData, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.Value, user); err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(err)
 			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				sink.pushGeneric(recordData)
+				var depth = 1
+				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+					depth = i
+				}
+				objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
+				pkValue, _ := objectMeta.Key.ValueAsString(recordData[objectMeta.Key.Name])
+				if recordData, err := dataProcessor.Get(dbTransaction, objectName, pkValue, depth);
+					err != nil {
+					dbTransactionManager.RollbackTransaction(dbTransaction)
+					sink.pushError(err)
+				} else {
+					dbTransactionManager.CommitTransaction(dbTransaction)
+					sink.pushGeneric(recordData)
+				}
 			}
 		}
 	}, false))
