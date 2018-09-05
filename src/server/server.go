@@ -323,7 +323,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
 				} else {
 					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushGeneric(o)
+					sink.pushGeneric(o.Data)
 				}
 			}
 		}
@@ -360,17 +360,12 @@ func (cs *CustodianServer) Setup() *http.Server {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			if ok, e := dataProcessor.DeleteRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
+			if e := dataProcessor.RemoveRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
-				if ok {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushGeneric(nil)
-				} else {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
-				}
+				dbTransactionManager.CommitTransaction(dbTransaction)
+				sink.pushGeneric(nil)
 			}
 		}
 	}, true))
@@ -428,7 +423,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 						sink.pushError(err)
 					} else {
 						dbTransactionManager.CommitTransaction(dbTransaction)
-						sink.pushGeneric(recordData)
+						sink.pushGeneric(recordData.Data)
 					}
 
 				} else {

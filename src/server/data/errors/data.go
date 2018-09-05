@@ -8,16 +8,16 @@ import (
 type DataError struct {
 	Code        string
 	Msg         string
-	objectClass string
+	ObjectClass string
 }
 
 func (e *DataError) Error() string {
-	return fmt.Sprintf("Data error:  object class = '%s', code='%s'  msg = '%s'", e.objectClass, e.Code, e.Msg)
+	return fmt.Sprintf("Data error:  object class = '%s', code='%s'  msg = '%s'", e.ObjectClass, e.Code, e.Msg)
 }
 
 func (e *DataError) Json() []byte {
 	j, _ := json.Marshal(map[string]string{
-		"objectClass": e.objectClass,
+		"ObjectClass": e.ObjectClass,
 		"code":        "table:" + e.Code,
 		"msg":         e.Msg,
 	})
@@ -25,5 +25,5 @@ func (e *DataError) Json() []byte {
 }
 
 func NewDataError(objectClass string, code string, msg string, a ...interface{}) *DataError {
-	return &DataError{objectClass: objectClass, Code: code, Msg: fmt.Sprintf(msg, a...)}
+	return &DataError{ObjectClass: objectClass, Code: code, Msg: fmt.Sprintf(msg, a...)}
 }

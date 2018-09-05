@@ -355,7 +355,7 @@ var _ = Describe("Data", func() {
 	Describe("Retrieving records with generic values and casts PK value into its object PK type", func() {
 
 		var aRecord map[string]interface{}
-		var bRecord map[string]interface{}
+		var bRecordData map[string]interface{}
 		var err error
 
 		havingObjectA := func() {
@@ -456,7 +456,7 @@ var _ = Describe("Data", func() {
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectB := func() {
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
+			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -468,9 +468,9 @@ var _ = Describe("Data", func() {
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
 
-			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord["id"].(float64))), 1)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecordData["id"].(float64))), 1)
 			Expect(err).To(BeNil())
-			targetValue := bRecord["target"].(map[string]interface{})
+			targetValue := bRecord.Data["target"].(map[string]interface{})
 			Expect(targetValue["_object"]).To(Equal("a"))
 			value, ok := targetValue["id"].(float64)
 			Expect(ok).To(BeTrue())
@@ -485,9 +485,9 @@ var _ = Describe("Data", func() {
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
 
-			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord["id"].(float64))), 3)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecordData["id"].(float64))), 3)
 			Expect(err).To(BeNil())
-			targetValue := bRecord["target"].(map[string]interface{})
+			targetValue := bRecord.Data["target"].(map[string]interface{})
 			Expect(targetValue["_object"]).To(Equal("a"))
 			Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
 			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"]))
@@ -501,20 +501,20 @@ var _ = Describe("Data", func() {
 
 			Describe("And having a record of object A", havingARecordOfObjectA)
 
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{
+			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{
 				"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]},
 			}, auth.User{})
 			Expect(err).To(BeNil())
 
 			cRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "c", map[string]interface{}{
-				"target": map[string]interface{}{"_object": "b", "id": bRecord["id"]},
+				"target": map[string]interface{}{"_object": "b", "id": bRecordData["id"]},
 			}, auth.User{})
 			Expect(err).To(BeNil())
 
-			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "c", strconv.Itoa(int(cRecord["id"].(float64))), 3)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "c", strconv.Itoa(int(cRecord["id"].(float64))), 3)
 			Expect(err).To(BeNil())
-			Expect(bRecord["target"].(map[string]interface{})["_object"].(string)).To(Equal("b"))
-			Expect(bRecord["target"].(map[string]interface{})["target"].(map[string]interface{})["name"].(string)).To(Equal("A record"))
+			Expect(bRecord.Data["target"].(map[string]interface{})["_object"].(string)).To(Equal("b"))
+			Expect(bRecord.Data["target"].(map[string]interface{})["target"].(map[string]interface{})["name"].(string)).To(Equal("A record"))
 		})
 
 		It("can retrieve record containing null generic inner value", func() {
@@ -522,13 +522,13 @@ var _ = Describe("Data", func() {
 			Describe("And having object B", havingObjectBWithGenericLinkToA)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{}, auth.User{})
+			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord["id"].(float64))), 3)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecordData["id"].(float64))), 3)
 			Expect(err).To(BeNil())
-			Expect(bRecord).To(HaveKey("target"))
-			Expect(bRecord["target"]).To(BeNil())
+			Expect(bRecord.Data).To(HaveKey("target"))
+			Expect(bRecord.Data["target"]).To(BeNil())
 		})
 	})
 

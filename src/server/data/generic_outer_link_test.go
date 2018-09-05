@@ -50,7 +50,7 @@ var _ = Describe("Data", func() {
 
 	Describe("Querying records by generic fields` values", func() {
 
-		var aRecord map[string]interface{}
+		var aRecordData map[string]interface{}
 		var bRecord map[string]interface{}
 		var err error
 
@@ -146,12 +146,12 @@ var _ = Describe("Data", func() {
 		}
 
 		havingARecordOfObjectA := func() {
-			aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", map[string]interface{}{"name": "A record"}, auth.User{})
+			aRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecordData["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -163,9 +163,9 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord["id"].(float64))), 1)
+			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecordData["id"].(float64))), 1)
 			Expect(err).To(BeNil())
-			bSet := aRecord["b_set"].([]interface{})
+			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
 			Expect(bSet).To(Equal([]interface{}{bRecord["id"].(float64)}))
 		})
@@ -178,9 +178,9 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord["id"].(float64))), 3)
+			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecordData["id"].(float64))), 3)
 			Expect(err).To(BeNil())
-			bSet := aRecord["b_set"].([]interface{})
+			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
 			targetValue := bSet[0].(map[string]interface{})["target"].(map[string]interface{})
 			Expect(targetValue[types.GenericInnerLinkObjectKey].(string)).To(Equal("a"))

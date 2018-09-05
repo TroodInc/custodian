@@ -19,6 +19,8 @@ import (
 	"utils"
 	"server/object/description"
 	"server/transactions"
+	"server/data/notifications"
+	"server/data/record"
 )
 
 type DataManager struct {
@@ -525,42 +527,68 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}, dbTransaction transactions.DbTransaction) (transactions.Operation, []interface{}, error) {
-	return dataManager.PrepareDeletes(n, []interface{}{key}, dbTransaction)
-}
-
-func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}, dbTransaction transactions.DbTransaction) (transactions.Operation, []interface{}, error) {
-	var pks []interface{}
-	if n.KeyField.Name != n.Meta.Key.Name {
-		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys, dbTransaction)
-		if err != nil {
-			return nil, nil, err
-		}
-		pks := make([]interface{}, len(objs), len(objs))
-		for i := range objs {
-			pks[i] = objs[i][n.Meta.Key.Name]
-		}
+func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
+	var operation transactions.Operation
+	var err error
+	var onDeleteStrategy description.OnDeleteStrategy
+	if recordNode.OnDeleteStrategy != nil {
+		onDeleteStrategy = *recordNode.OnDeleteStrategy
 	} else {
-		pks = keys
-	}
-	sqlHelper := dml_info.SqlHelper{}
-	deleteInfo := dml_info.NewDeleteInfo(GetTableName(n.Meta), []string{sqlHelper.EscapeColumn(n.KeyField.Name) + " IN (" + sqlHelper.BindValues(1, len(keys)) + ")"})
-	var q bytes.Buffer
-	if err := parsedTemplDelete.Execute(&q, deleteInfo); err != nil {
-		return nil, nil, NewDMLError(ErrTemplateFailed, err.Error())
+		onDeleteStrategy = description.OnDeleteCascade
 	}
 
-	return func(dbTransaction transactions.DbTransaction) error {
-		stmt, err := dbTransaction.(*PgTransaction).Prepare(q.String())
+	//make operation
+	switch onDeleteStrategy {
+	case description.OnDeleteSetNull:
+		operation, err = dataManager.PrepareUpdateOperation(
+			recordNode.Record.Meta,
+			[]map[string]interface{}{{recordNode.Record.Meta.Key.Name: recordNode.Record.Pk(), recordNode.LinkField.Name: nil}},
+		)
 		if err != nil {
 			return err
 		}
-		defer stmt.Close()
-		if _, err = stmt.Exec(keys...); err != nil {
-			return NewDMLError(ErrDMLFailed, err.Error())
+	default:
+		var query bytes.Buffer
+		sqlHelper := dml_info.SqlHelper{}
+		deleteInfo := dml_info.NewDeleteInfo(GetTableName(recordNode.Record.Meta), []string{sqlHelper.EscapeColumn(recordNode.Record.Meta.Key.Name) + " IN (" + sqlHelper.BindValues(1, 1) + ")"})
+
+		if err := parsedTemplDelete.Execute(&query, deleteInfo); err != nil {
+			return NewDMLError(ErrTemplateFailed, err.Error())
 		}
+
+		operation = func(dbTransaction transactions.DbTransaction) error {
+			stmt, err := dbTransaction.(*PgTransaction).Prepare(query.String())
+			if err != nil {
+				return err
+			}
+			defer stmt.Close()
+			if _, err = stmt.Exec(recordNode.Record.Pk()); err != nil {
+				return NewDMLError(ErrDMLFailed, err.Error())
+			}
+			return nil
+		}
+	}
+	//process child records
+	for _, recordNodes := range recordNode.Children {
+		for _, recordNode := range recordNodes {
+			err := dataManager.PerformRemove(recordNode, dbTransaction, notificationPool, processor)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	//create and process notification
+	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, DataSet: []map[string]interface{}{recordNode.Record.Data}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
+	if recordSetNotification.ShouldBeProcessed() {
+		recordSetNotification.CapturePreviousState()
+		notificationPool.Add(recordSetNotification)
+	}
+	if err := dbTransaction.Execute([]transactions.Operation{operation}); err != nil {
+		return err
+	} else {
+		recordSetNotification.CaptureCurrentState()
 		return nil
-	}, pks, nil
+	}
 }
 
 func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error) {

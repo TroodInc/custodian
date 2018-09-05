@@ -275,7 +275,7 @@ var _ = Describe("Data", func() {
 				dataProcessor.Get,
 			)
 
-			dataProcessor.DeleteRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
+			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
 
 			recordSetNotification.CaptureCurrentState()
 
@@ -303,7 +303,7 @@ var _ = Describe("Data", func() {
 			)
 			recordSetNotification.CapturePreviousState()
 
-			dataProcessor.DeleteRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
+			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
 			recordSetNotification.CaptureCurrentState()
 			notificationsData := recordSetNotification.BuildNotificationsData(0, auth.User{})
 			Expect(notificationsData).To(HaveLen(1))

@@ -16,7 +16,7 @@ import (
 	"server/data/errors"
 )
 
-var _ = FDescribe("Record tree extractor", func() {
+var _ = Describe("Record tree extractor", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)

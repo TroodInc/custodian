@@ -11,12 +11,20 @@ import (
 
 type RecordNode struct {
 	Children         map[string][]*RecordNode
+	Parent           *RecordNode
+	LinkField        *meta.FieldDescription
 	Record           *record.Record
 	OnDeleteStrategy *description.OnDeleteStrategy
 }
 
-func NewRecordNode(record *record.Record, onDeleteStrategy *description.OnDeleteStrategy) *RecordNode {
-	return &RecordNode{Record: record, Children: make(map[string][]*RecordNode), OnDeleteStrategy: onDeleteStrategy}
+func NewRecordNode(record *record.Record, onDeleteStrategy *description.OnDeleteStrategy, parent *RecordNode, linkField *meta.FieldDescription) *RecordNode {
+	return &RecordNode{
+		Record:           record,
+		Children:         make(map[string][]*RecordNode),
+		Parent:           parent,
+		LinkField:        linkField,
+		OnDeleteStrategy: onDeleteStrategy,
+	}
 }
 
 type RecordRemovalTreeExtractor struct {
@@ -24,7 +32,7 @@ type RecordRemovalTreeExtractor struct {
 
 //Extract record`s full tree consisting of depending records, which would be affected by root record removal
 func (r *RecordRemovalTreeExtractor) Extract(record *record.Record, processor *Processor, dbTransaction transactions.DbTransaction) (*RecordNode, error) {
-	recordTree := NewRecordNode(record, nil)
+	recordTree := NewRecordNode(record, nil, nil, nil)
 	if err := r.fillWithDependingRecords(recordTree, processor, dbTransaction); err != nil {
 		return nil, err
 	} else {
@@ -58,7 +66,12 @@ func (r *RecordRemovalTreeExtractor) fillWithDependingRecords(recordNode *Record
 			if len(relatedRecords) > 0 {
 				recordNode.Children[field.Name] = make([]*RecordNode, 0)
 				for _, relatedRecord := range relatedRecords {
-					newRecordNode := NewRecordNode(record.NewRecord(field.LinkMeta, relatedRecord), &field.OuterLinkField.OnDelete)
+					newRecordNode := NewRecordNode(
+						record.NewRecord(field.LinkMeta, relatedRecord),
+						&field.OuterLinkField.OnDelete,
+						recordNode,
+						field.OuterLinkField,
+					)
 					switch *newRecordNode.OnDeleteStrategy {
 					case description.OnDeleteCascade:
 						if err := r.fillWithDependingRecords(newRecordNode, processor, dbTransaction); err != nil {
@@ -66,7 +79,11 @@ func (r *RecordRemovalTreeExtractor) fillWithDependingRecords(recordNode *Record
 						}
 						recordNode.Children[field.Name] = append(recordNode.Children[field.Name], newRecordNode)
 					case description.OnDeleteRestrict:
-						return errors.NewRemovalError(field.Meta.Name, "record with PK '%s' referenced by record of '%s' with PK '%s' in strict mode")
+						relatedPkAsString, _ := newRecordNode.Record.Meta.Key.ValueAsString(newRecordNode.Record.Pk())
+						return errors.NewRemovalError(
+							field.Meta.Name,
+							fmt.Sprintf("record with PK '%s' referenced by record of '%s' with PK '%s' in strict mode", pkAsString, newRecordNode.Record.Meta.Name, relatedPkAsString),
+						)
 					case description.OnDeleteSetNull:
 						recordNode.Children[field.Name] = append(recordNode.Children[field.Name], newRecordNode)
 					case description.OnDeleteSetDefault:

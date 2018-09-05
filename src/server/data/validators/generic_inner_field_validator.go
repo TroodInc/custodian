@@ -5,12 +5,13 @@ import (
 	"server/data/types"
 	"server/data/errors"
 	"server/transactions"
+	"server/data/record"
 )
 
 type GenericInnerFieldValidator struct {
-	metaGetCallback func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error)
-	recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)
-	dbTransaction transactions.DbTransaction
+	metaGetCallback   func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error)
+	recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)
+	dbTransaction     transactions.DbTransaction
 }
 
 func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.FieldDescription, value interface{}) (*types.GenericInnerLink, error) {
@@ -82,6 +83,6 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 	}
 }
 
-func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) *GenericInnerFieldValidator {
+func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *GenericInnerFieldValidator {
 	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback, dbTransaction: dbTransaction}
 }

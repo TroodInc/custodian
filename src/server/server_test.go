@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"server/pg"
 
-	"server/data"
 	"bytes"
 	"encoding/json"
 	"utils"
@@ -20,6 +19,7 @@ import (
 	"server"
 	"server/object/description"
 	"server/auth"
+	"server/data"
 )
 
 var _ = Describe("Server", func() {
