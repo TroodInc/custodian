@@ -44,6 +44,10 @@ func (r *RecordRemovalTreeExtractor) makeFilter(innerField *meta.FieldDescriptio
 	return fmt.Sprintf("eq(%s,%s)", innerField.Name, ownerId)
 }
 
+func (r *RecordRemovalTreeExtractor) makeGenericFilter(innerField *meta.FieldDescription, ownerObjectName string, ownerId string) string {
+	return fmt.Sprintf("eq(%s.%s.%s,%s)", innerField.Name, ownerObjectName, innerField.LinkMetaList.GetByName(ownerObjectName).Key.Name, ownerId)
+}
+
 //iterate through record`s fields and process outer relations
 func (r *RecordRemovalTreeExtractor) fillWithDependingRecords(recordNode *RecordNode, processor *Processor, dbTransaction transactions.DbTransaction) error {
 	for _, field := range recordNode.Record.Meta.Fields {
@@ -58,7 +62,13 @@ func (r *RecordRemovalTreeExtractor) fillWithDependingRecords(recordNode *Record
 			if err != nil {
 				return err
 			}
-			err = processor.GetBulk(dbTransaction, field.LinkMeta.Name, r.makeFilter(field.OuterLinkField, pkAsString), 1, callbackFunction)
+			filter := ""
+			if field.Type == description.FieldTypeArray {
+				filter = r.makeFilter(field.OuterLinkField, pkAsString)
+			} else if field.Type == description.FieldTypeGeneric {
+				filter = r.makeGenericFilter(field.OuterLinkField, recordNode.Record.Meta.Name, pkAsString)
+			}
+			err = processor.GetBulk(dbTransaction, field.LinkMeta.Name, filter, 1, callbackFunction)
 			if err != nil {
 				return err
 			}

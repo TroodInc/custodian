@@ -260,6 +260,72 @@ var _ = Describe("Data", func() {
 		Expect(targetValue["id"]).To(Equal(bRecord["id"].(float64)))
 	})
 
+	It("can update a record with null generic inner value", func() {
+		By("having three objects: A, B and C")
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		By("B contains generic inner field")
+
+		bMetaDescription := description.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+				{
+					Name:         "target",
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
+					LinkMetaList: []string{aMetaObj.Name},
+					Optional:     true,
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		By("having a record of object A")
+		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		Expect(err).To(BeNil())
+
+		By("and having a record of object B containing generic field value with A object`s record")
+		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMetaObj.Name, "id": aRecord["id"]}}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord, err = dataProcessor.UpdateRecord(globalTransaction.DbTransaction, bMetaObj.Name, strconv.Itoa(int(bRecord["id"].(float64))), map[string]interface{}{"target": nil}, auth.User{})
+		Expect(err).To(BeNil())
+		Expect(bRecord["id"]).To(Equal(float64(1)))
+		Expect(bRecord).To(HaveKey("target"))
+		Expect(bRecord["target"]).To(BeNil())
+	})
+
 	PIt("can update a record containing generic inner value without affecting value itself and it outputs generic value right", func() {
 		By("having three objects: A, B and C")
 		aMetaDescription := description.MetaDescription{

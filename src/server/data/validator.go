@@ -35,11 +35,11 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 		}
 		//skip validation if field is optional and value is null
 		//perform validation otherwise
-		if valueIsSet && !(value == nil && fieldDescription.Optional) {
+		if valueIsSet {
 			switch {
-			case fieldDescription.Type == description.FieldTypeString && description.FieldTypeNumber.AssertType(value):
+			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type == description.FieldTypeString && description.FieldTypeNumber.AssertType(value):
 				break
-			case fieldDescription.Type.AssertType(value):
+			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type.AssertType(value):
 				if fieldDescription.Type == description.FieldTypeArray {
 					var a = value.([]interface{})
 					for _, av := range a {
@@ -70,17 +70,22 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == description.LinkTypeInner {
 					record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
 				}
-			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && fieldDescription.LinkMeta.Key.Type.AssertType(value):
+			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && fieldDescription.LinkMeta.Key.Type.AssertType(value):
 				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
-			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && AssertLink(value):
+			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && AssertLink(value):
 			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner:
-				if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(dbTransaction, validationService.metaStore.Get, validationService.processor.Get).Validate(fieldDescription, value); err != nil {
-					return nil, err
+				if value != nil {
+					if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(dbTransaction, validationService.metaStore.Get, validationService.processor.Get).Validate(fieldDescription, value); err != nil {
+						return nil, err
+					}
+				} else {
+					record.Data[fieldDescription.Name] = new(GenericInnerLink)
 				}
 			default:
-				return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", k)
+				if !(value == nil && fieldDescription.Optional) {
+					return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", k)
+				}
 			}
-
 		}
 	}
 	return toCheck, nil

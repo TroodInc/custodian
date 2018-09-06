@@ -236,7 +236,11 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 			case types.DLink:
 				val.Id = rv
 			case *types.GenericInnerLink:
-				nodes[fieldName] = map[string]interface{}{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
+				if val.Pk != nil {
+					nodes[fieldName] = map[string]interface{}{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
+				} else {
+					nodes[fieldName] = nil
+				}
 			default:
 				nodes[fieldName] = rv
 			}
@@ -302,8 +306,12 @@ func dlinkVal(v interface{}) interface{} {
 
 func genericInnerLinkValue(value interface{}) interface{} {
 	castValue := value.(*types.GenericInnerLink)
-	pkValueAsString, _ := castValue.FieldDescription.ValueAsString(castValue.Pk)
-	return []string{castValue.ObjectName, pkValueAsString}
+	if castValue.FieldDescription != nil {
+		pkValueAsString, _ := castValue.FieldDescription.ValueAsString(castValue.Pk)
+		return []string{castValue.ObjectName, pkValueAsString}
+	} else {
+		return []interface{}{nil, nil}
+	}
 }
 
 func identityVal(v interface{}) interface{} {
@@ -409,6 +417,11 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 					} else {
 						switch castValue := value.(type) {
 						case []string:
+							for _, value := range castValue {
+								binds = append(binds, value)
+							}
+						case []interface{}:
+							//case for inner generic nil value: [nil,nil]
 							for _, value := range castValue {
 								binds = append(binds, value)
 							}
@@ -541,9 +554,17 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTra
 	var recordSetNotification *notifications.RecordSetNotification
 	switch onDeleteStrategy {
 	case description.OnDeleteSetNull:
+		//make corresponding null value
+		var nullValue interface{}
+		if recordNode.LinkField.Type == description.FieldTypeGeneric {
+			nullValue = new(types.GenericInnerLink)
+		} else {
+			nullValue = nil
+		}
+		//update record with this value
 		operation, err = dataManager.PrepareUpdateOperation(
 			recordNode.Record.Meta,
-			[]map[string]interface{}{{recordNode.Record.Meta.Key.Name: recordNode.Record.Pk(), recordNode.LinkField.Name: nil}},
+			[]map[string]interface{}{{recordNode.Record.Meta.Key.Name: recordNode.Record.Pk(), recordNode.LinkField.Name: nullValue}},
 		)
 		if err != nil {
 			return err

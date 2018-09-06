@@ -178,7 +178,7 @@ var _ = Describe("Records removal", func() {
 		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1)
 		Expect(record).To(BeNil())
 
-		//check B record does not exist
+		//check B record exists
 		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
 		Expect(record).To(Not(BeNil()))
 		Expect(record.Data["a"]).To(BeNil())
@@ -245,5 +245,160 @@ var _ = Describe("Records removal", func() {
 		//remove A record
 		err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(Not(BeNil()))
+	})
+
+	It("Can remove record and update child records with generic relation and 'setNull' strategy", func() {
+
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		Expect(err).To(BeNil())
+
+		//
+		bMetaDescription := description.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target_object",
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
+					LinkMetaList: []string{"a"},
+					Optional:     true,
+					OnDelete:     description.OnDeleteSetNull.ToVerbose(),
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		aKey, _ := aMetaObj.Key.ValueAsString(aRecordData["id"])
+		bRecordData, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			bMetaObj.Name,
+			map[string]interface{}{"target_object": map[string]interface{}{"_object": aMetaObj.Name, "id": aKey}},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+		bKey, _ := bMetaObj.Key.ValueAsString(bRecordData["id"])
+
+		//remove A record
+		err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		Expect(err).To(BeNil())
+
+		//check A record does not exist
+		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1)
+		Expect(record).To(BeNil())
+
+		//check B record exists, but generic field value has null value
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
+		Expect(record).To(Not(BeNil()))
+		Expect(record.Data).To(HaveKey("target_object"))
+		Expect(record.Data["target_object"]).To(BeNil())
+	})
+
+	It("Can remove record and update child records with generic relation and 'cascade' strategy", func() {
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		Expect(err).To(BeNil())
+
+		//
+		bMetaDescription := description.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target_object",
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
+					LinkMetaList: []string{"a"},
+					Optional:     true,
+					OnDelete:     description.OnDeleteCascade.ToVerbose(),
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		aKey, _ := aMetaObj.Key.ValueAsString(aRecordData["id"])
+		bRecordData, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			bMetaObj.Name,
+			map[string]interface{}{"target_object": map[string]interface{}{"_object": aMetaObj.Name, "id": aKey}},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+		bKey, _ := bMetaObj.Key.ValueAsString(bRecordData["id"])
+
+		//remove A record
+		err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		Expect(err).To(BeNil())
+
+		//check A record does not exist
+		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1)
+		Expect(record).To(BeNil())
+
+		//check B record does not exist
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
+		Expect(record).To(BeNil())
 	})
 })
