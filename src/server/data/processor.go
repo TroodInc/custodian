@@ -140,7 +140,7 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	return false
 }
 func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, depth int) (*Record, error) {
-	if objectMeta, e := processor.getMeta(transaction, objectClass); e != nil {
+	if objectMeta, e := processor.GetMeta(transaction, objectClass); e != nil {
 		return nil, e
 	} else {
 		if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
@@ -231,11 +231,16 @@ func (dn *DNode) recursivelyFillOuterChildNodes() {
 	}
 }
 
+type tuple2d struct {
+	n    *DNode
+	keys []interface{}
+}
+
 func updateValidator(t *Record) (*Record, bool, error) {
 	return t, false, nil
 }
 
-func (processor *Processor) getMeta(transaction transactions.DbTransaction, objectName string) (*meta.Meta, error) {
+func (processor *Processor) GetMeta(transaction transactions.DbTransaction, objectName string) (*meta.Meta, error) {
 	objectMeta, ok, err := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName)
 	if err != nil {
 		return nil, err
@@ -248,7 +253,7 @@ func (processor *Processor) getMeta(transaction transactions.DbTransaction, obje
 
 func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransaction, objectName string, obj map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
 	// get Meta
-	objectMeta, err := processor.getMeta(dbTransaction, objectName)
+	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return nil, err
 	}
@@ -288,7 +293,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 
 func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
 	// get Meta
-	objectMeta, err := processor.getMeta(dbTransaction, objectName)
+	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
 	}
@@ -337,7 +342,7 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 
 func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecordData map[string]interface{}, err error) {
 	// get Meta
-	objectMeta, err := processor.getMeta(dbTransaction, objectName)
+	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return nil, err
 	}
@@ -392,7 +397,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
 
 	// get Meta
-	objectMeta, err := processor.getMeta(dbTransaction, objectName)
+	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
 	}
@@ -438,7 +443,7 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 //TODO: Refactor this method similarly to UpdateRecord, so notifications could be tested properly, it should affect PrepareDeletes method
 func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransaction, objectName string, key string, user auth.User) error {
 	var err error
-	
+
 	//get pk
 	recordToRemove, err := processor.Get(dbTransaction, objectName, key, 1)
 	if err != nil {
@@ -475,7 +480,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), user auth.User) (err error) {
 
 	// get Meta
-	objectMeta, err := processor.getMeta(dbTransaction, objectName)
+	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
 	}

@@ -127,43 +127,7 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	It("updates record with the given id, omitting id specified in body", func() {
-		Context("having a record of given object", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			objectA := factoryObjectA(globalTransaction)
-			record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
-			Expect(err).To(BeNil())
-			//create another record to ensure only specified record is affected by update
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
-			Expect(err).To(BeNil())
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
-
-			Context("and PUT request performed by URL with specified record ID with wrong id specified in body", func() {
-				updateData := map[string]interface{}{
-					"name": "SomeOtherName",
-					"id":   int(record["id"].(float64) + 1),
-				}
-				encodedMetaData, _ := json.Marshal(updateData)
-
-				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, objectA.Name, int(record["id"].(float64)))
-
-				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
-				request.Header.Set("Content-Type", "application/json")
-				httpServer.Handler.ServeHTTP(recorder, request)
-				responseBody := recorder.Body.String()
-
-				Context("response should contain original id and updated name", func() {
-					Expect(responseBody).To(Equal("{\"data\":{\"id\":1,\"name\":\"SomeOtherName\"},\"status\":\"OK\"}"))
-				})
-
-			})
-		})
-	})
-
-	It("updates record and outputs its data respecting depth", func() {
+	It("creates record and outputs its data respecting depth", func() {
 		Context("having a record of given object", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
@@ -173,28 +137,27 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 
 			objectB := factoryObjectB(globalTransaction)
-			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord["id"]}, auth.User{})
-			Expect(err).To(BeNil())
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
-			Context("and update request performed by URL with specified record ID with wrong id specified in body", func() {
-				updateData := map[string]interface{}{
-					"name": "B record new name",
-					"id":   bRecord["id"],
+			Context("and create request performed by URL with specified record ID with wrong id specified in body", func() {
+				createData := map[string]interface{}{
+					"name": "B record name",
+					"a":    aRecord["id"],
 				}
-				encodedMetaData, _ := json.Marshal(updateData)
+				encodedMetaData, _ := json.Marshal(createData)
 
-				url := fmt.Sprintf("%s/data/single/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s?depth=2", appConfig.UrlPrefix, objectB.Name)
 
-				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+				var request, _ = http.NewRequest("PUT", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
 				Context("response should contain nested A record", func() {
-					Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"b__set\":[1],\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
+					Expect(responseBody).To(Equal(`{"data":{"a":{"b__set":[1],"id":1,"name":"A record"},"id":1,"name":"B record name"},"status":"OK"}`))
 				})
+
 			})
 		})
 	})
