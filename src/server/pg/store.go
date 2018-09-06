@@ -538,6 +538,7 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTra
 	}
 
 	//make operation
+	var recordSetNotification *notifications.RecordSetNotification
 	switch onDeleteStrategy {
 	case description.OnDeleteSetNull:
 		operation, err = dataManager.PrepareUpdateOperation(
@@ -547,6 +548,7 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTra
 		if err != nil {
 			return err
 		}
+		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, DataSet: []map[string]interface{}{recordNode.Record.Data}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
 	default:
 		var query bytes.Buffer
 		sqlHelper := dml_info.SqlHelper{}
@@ -567,6 +569,7 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTra
 			}
 			return nil
 		}
+		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, DataSet: []map[string]interface{}{recordNode.Record.Data}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
 	}
 	//process child records
 	for _, recordNodes := range recordNode.Children {
@@ -578,7 +581,7 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTra
 		}
 	}
 	//create and process notification
-	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, DataSet: []map[string]interface{}{recordNode.Record.Data}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
+
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		notificationPool.Add(recordSetNotification)

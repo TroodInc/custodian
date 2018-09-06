@@ -12,23 +12,26 @@ import (
 )
 
 type RecordSetNotification struct {
-	recordSet     *record.RecordSet
-	isRoot        bool
-	method        description.Method
-	PreviousState []*record.RecordSet
-	CurrentState  []*record.RecordSet
+	recordSet *record.RecordSet
+	isRoot    bool
 	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error
 	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)
 	dbTransaction     transactions.DbTransaction
+	Actions           []*description.Action
+	Method            description.Method
+	PreviousState     []*record.RecordSet
+	CurrentState      []*record.RecordSet
 }
 
 func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *RecordSetNotification {
+	actions := recordSet.Meta.Actions.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,
 		isRoot:             isRoot,
-		method:             method,
-		PreviousState:      make([]*record.RecordSet, len(recordSet.Meta.Actions.Original)), //for both arrays index is an corresponding
-		CurrentState:       make([]*record.RecordSet, len(recordSet.Meta.Actions.Original)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
+		Method:             method,
+		Actions:            actions,
+		PreviousState:      make([]*record.RecordSet, len(actions)), //for both arrays index is an corresponding
+		CurrentState:       make([]*record.RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
 		getRecordsCallback: getRecordsCallback,
 		getRecordCallback:  getRecordCallback,
 		dbTransaction:      dbTransaction,
@@ -44,7 +47,7 @@ func (notification *RecordSetNotification) CaptureCurrentState() {
 }
 
 func (notification *RecordSetNotification) ShouldBeProcessed() bool {
-	return len(notification.recordSet.Meta.Actions.Notifiers[notification.method]) > 0
+	return len(notification.recordSet.Meta.Actions.Notifiers[notification.Method]) > 0
 }
 
 //Build notification object for each record in recordSet for given action
@@ -52,7 +55,7 @@ func (notification *RecordSetNotification) BuildNotificationsData(actionIndex in
 	notifications := make([]map[string]interface{}, 0)
 	for i := range notification.PreviousState[actionIndex].DataSet {
 		notificationData := make(map[string]interface{})
-		notificationData["action"] = notification.method.AsString()
+		notificationData["action"] = notification.Method.AsString()
 		notificationData["object"] = notification.recordSet.Meta.Name
 		notificationData["previous"] = adaptRecordData(notification.PreviousState[actionIndex].DataSet[i])
 		notificationData["current"] = adaptRecordData(notification.CurrentState[actionIndex].DataSet[i])
@@ -64,22 +67,21 @@ func (notification *RecordSetNotification) BuildNotificationsData(actionIndex in
 
 func (notification *RecordSetNotification) captureState(state []*record.RecordSet) {
 	//capture state if recordSet has PKs defined, set empty map otherwise, because records cannot be retrieved
-	for i, action := range notification.recordSet.Meta.Actions.Original {
-		if notification.method == action.Method {
-			state[i] = &record.RecordSet{Meta: notification.recordSet.Meta, DataSet: make([]map[string]interface{}, 0)}
+	for id, action := range notification.Actions {
 
-			if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
-				recordsSink := func(recordData map[string]interface{}) error {
-					state[i].DataSet = append(state[i].DataSet, notification.buildRecordStateObject(recordData, &action, notification.getRecordsCallback))
-					return nil
-				}
-				//get data within current transaction
-				notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink)
+		state[id] = &record.RecordSet{Meta: notification.recordSet.Meta, DataSet: make([]map[string]interface{}, 0)}
+
+		if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
+			recordsSink := func(recordData map[string]interface{}) error {
+				state[id].DataSet = append(state[id].DataSet, notification.buildRecordStateObject(recordData, action, notification.getRecordsCallback))
+				return nil
 			}
-			//fill DataSet with empty values
-			if len(state[i].DataSet) == 0 {
-				state[i].DataSet = make([]map[string]interface{}, len(notification.recordSet.DataSet))
-			}
+			//get data within current transaction
+			notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink)
+		}
+		//fill DataSet with empty values
+		if len(state[id].DataSet) == 0 {
+			state[id].DataSet = make([]map[string]interface{}, len(notification.recordSet.DataSet))
 		}
 	}
 }
@@ -118,7 +120,7 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 
 	stateObject := make(map[string]interface{}, 0)
 
-	//	include values which are updated being updated/created
+	//	include values which are being updated/created
 	if action.Method != description.MethodRemove {
 		keys, _ := utils.GetMapKeysValues(notification.recordSet.DataSet[0])
 		for _, key := range keys {

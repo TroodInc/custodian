@@ -17,8 +17,8 @@ func newNotificationSender() *notificationSender {
 
 func (notificationSender *notificationSender) push(recordSetNotification *RecordSetNotification, user auth.User) {
 	for actionIndex, action := range recordSetNotification.recordSet.Meta.Actions.Original {
-		if recordSetNotification.method == action.Method {
-			notificationChannel := notificationSender.getNotificationChannel(recordSetNotification.recordSet.Meta, recordSetNotification.method, &action)
+		if recordSetNotification.Method == action.Method {
+			notificationChannel := notificationSender.getNotificationChannel(recordSetNotification.recordSet.Meta, recordSetNotification.Method, &action)
 			for _, notificationObject := range recordSetNotification.BuildNotificationsData(actionIndex, user) {
 				notificationChannel <- noti.NewObjectEvent(notificationObject, recordSetNotification.isRoot)
 			}

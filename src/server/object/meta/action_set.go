@@ -34,3 +34,13 @@ func newActions(array []Action) (*ActionSet, error) {
 func (a *ActionSet) NewNotificationChannel(method Method, action *Action) chan *noti.Event {
 	return noti.Broadcast(a.Notifiers[method][action.GetUid()])
 }
+
+func (a *ActionSet) FilterByMethod(method Method) []*Action {
+	actions := make([]*Action, 0)
+	for _, action := range a.Original {
+		if action.Method == method {
+			actions = append(actions, &action)
+		}
+	}
+	return actions
+}

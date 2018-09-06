@@ -37,6 +37,10 @@ func (notificationPool *RecordSetNotificationPool) ShouldBeProcessed() bool {
 	return shouldBeProcessed
 }
 
+func (notificationPool *RecordSetNotificationPool) Notifications() []*RecordSetNotification {
+	return notificationPool.notifications
+}
+
 func NewRecordSetNotificationPool() *RecordSetNotificationPool {
 	return &RecordSetNotificationPool{
 		notifications:      make([]*RecordSetNotification, 0),
