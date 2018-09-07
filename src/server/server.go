@@ -372,12 +372,12 @@ func (cs *CustodianServer) Setup() *http.Server {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			if e := dataProcessor.RemoveRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
+			if removedData, e := dataProcessor.RemoveRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
-				sink.pushGeneric(nil)
+				sink.pushGeneric(removedData)
 			}
 		}
 	}, true))

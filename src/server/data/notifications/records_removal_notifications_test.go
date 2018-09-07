@@ -209,10 +209,10 @@ var _ = Describe("Data", func() {
 
 			Expect(notifications[0].CurrentState).To(HaveLen(1))
 			Expect(notifications[0].Method).To(Equal(description.MethodUpdate))
-			Expect(notifications[0].CurrentState[0].Meta.Name).To(Equal(aMetaObj.Name))
+			Expect(notifications[0].CurrentState[1].Meta.Name).To(Equal(aMetaObj.Name))
 			Expect(notifications[0].CurrentState).To(HaveLen(1))
-			Expect(notifications[0].CurrentState[0].DataSet[0]).To(Not(BeNil()))
-			Expect(notifications[0].PreviousState[0].DataSet[0]["id"]).To(Equal(aRecordData["id"]))
+			Expect(notifications[0].CurrentState[1].DataSet[0]).To(Not(BeNil()))
+			Expect(notifications[0].PreviousState[1].DataSet[0]["id"]).To(Equal(aRecordData["id"]))
 
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
 			Expect(notifications[1].Method).To(Equal(description.MethodRemove))

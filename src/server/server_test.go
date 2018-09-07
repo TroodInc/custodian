@@ -165,7 +165,7 @@ var _ = Describe("Server", func() {
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
 				Expect(err).To(BeNil())
 
-				Expect(responseBody).To(Equal("{\"status\":\"OK\"}"))
+				Expect(responseBody).To(Equal(`{"data":{"id":1},"status":"OK"}`))
 
 				Context("and the number of records should be equal to 1 and existing record is not deleted one", func() {
 					matchedRecords := []map[string]interface{}{}

@@ -99,7 +99,7 @@ var _ = Describe("Records removal", func() {
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecordData["id"])
 
 		//remove A record
-		err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		removedData, err := dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
@@ -109,6 +109,11 @@ var _ = Describe("Records removal", func() {
 		//check B record does not exist
 		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
 		Expect(record).To(BeNil())
+
+		//check removed data tree
+		Expect(removedData).NotTo(BeNil())
+		Expect(removedData).To(HaveKey("b__set"))
+		Expect(removedData["b__set"]).To(HaveLen(1))
 	})
 
 	It("Can remove record and update child records with 'setNull' relation", func() {
@@ -171,7 +176,7 @@ var _ = Describe("Records removal", func() {
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecordData["id"])
 
 		//remove A record
-		err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		removedData, err := dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
@@ -182,6 +187,10 @@ var _ = Describe("Records removal", func() {
 		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
 		Expect(record).To(Not(BeNil()))
 		Expect(record.Data["a"]).To(BeNil())
+
+		//check removed data tree
+		Expect(removedData).NotTo(BeNil())
+		Expect(removedData).To(Not(HaveKey("b__set")))
 	})
 
 	It("Cannot remove record with 'restrict' relation", func() {
@@ -243,7 +252,7 @@ var _ = Describe("Records removal", func() {
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecordData["id"])
 
 		//remove A record
-		err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		_, err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(Not(BeNil()))
 	})
 
@@ -312,7 +321,7 @@ var _ = Describe("Records removal", func() {
 		bKey, _ := bMetaObj.Key.ValueAsString(bRecordData["id"])
 
 		//remove A record
-		err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		removedData, err := dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
@@ -324,6 +333,10 @@ var _ = Describe("Records removal", func() {
 		Expect(record).To(Not(BeNil()))
 		Expect(record.Data).To(HaveKey("target_object"))
 		Expect(record.Data["target_object"]).To(BeNil())
+
+		//check removed data tree
+		Expect(removedData).To(Not(BeNil()))
+		Expect(removedData).To(Not(HaveKey("b__set")))
 	})
 
 	It("Can remove record and update child records with generic relation and 'cascade' strategy", func() {
@@ -390,7 +403,7 @@ var _ = Describe("Records removal", func() {
 		bKey, _ := bMetaObj.Key.ValueAsString(bRecordData["id"])
 
 		//remove A record
-		err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		removedData, err := dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
@@ -400,5 +413,10 @@ var _ = Describe("Records removal", func() {
 		//check B record does not exist
 		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
 		Expect(record).To(BeNil())
+
+		//check removed data tree
+		Expect(removedData).To(Not(BeNil()))
+		Expect(removedData).To(HaveKey("b__set"))
+		Expect(removedData["b__set"]).To(HaveLen(1))
 	})
 })

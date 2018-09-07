@@ -441,16 +441,16 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 }
 
 //TODO: Refactor this method similarly to UpdateRecord, so notifications could be tested properly, it should affect PrepareDeletes method
-func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransaction, objectName string, key string, user auth.User) error {
+func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransaction, objectName string, key string, user auth.User) (map[string]interface{}, error) {
 	var err error
 
 	//get pk
 	recordToRemove, err := processor.Get(dbTransaction, objectName, key, 1)
 	if err != nil {
-		return err
+		return nil,err
 	}
 	if recordToRemove == nil {
-		return &errors.DataError{"RecordNotFound", "Record not found", objectName}
+		return nil, &errors.DataError{"RecordNotFound", "Record not found", objectName}
 	}
 
 	// create notification pool
@@ -460,12 +460,12 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 	//fill node
 	removalRootNode, err := new(RecordRemovalTreeExtractor).Extract(recordToRemove, processor, dbTransaction)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	err = processor.dataManager.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool, processor)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	// push notifications if needed
@@ -473,7 +473,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 		//capture updated state of all records in the pool
 		recordSetNotificationPool.Push(user)
 	}
-	return nil
+	return removalRootNode.Data(), nil
 }
 
 //TODO: Refactor this method similarly to BulkUpdateRecords, so notifications could be tested properly, it should affect PrepareDeletes method

@@ -9,24 +9,6 @@ import (
 	"server/data/errors"
 )
 
-type RecordNode struct {
-	Children         map[string][]*RecordNode
-	Parent           *RecordNode
-	LinkField        *meta.FieldDescription
-	Record           *record.Record
-	OnDeleteStrategy *description.OnDeleteStrategy
-}
-
-func NewRecordNode(record *record.Record, onDeleteStrategy *description.OnDeleteStrategy, parent *RecordNode, linkField *meta.FieldDescription) *RecordNode {
-	return &RecordNode{
-		Record:           record,
-		Children:         make(map[string][]*RecordNode),
-		Parent:           parent,
-		LinkField:        linkField,
-		OnDeleteStrategy: onDeleteStrategy,
-	}
-}
-
 type RecordRemovalTreeExtractor struct {
 }
 
