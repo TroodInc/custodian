@@ -119,8 +119,8 @@ var _ = Describe("Server", func() {
 
 				meta, _, err := metaStore.Get(globalTransaction, "person")
 				Expect(err).To(BeNil())
-				Expect(meta.Actions.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
-				Expect(meta.Actions.Original[0].IncludeValues["amount"]).To(Equal("amount"))
+				Expect(meta.ActionSet.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
+				Expect(meta.ActionSet.Original[0].IncludeValues["amount"]).To(Equal("amount"))
 			})
 		})
 	})

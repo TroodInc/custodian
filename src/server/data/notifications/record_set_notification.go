@@ -24,7 +24,7 @@ type RecordSetNotification struct {
 }
 
 func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *RecordSetNotification {
-	actions := recordSet.Meta.Actions.FilterByMethod(method)
+	actions := recordSet.Meta.ActionSet.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,
 		isRoot:             isRoot,
@@ -47,18 +47,18 @@ func (notification *RecordSetNotification) CaptureCurrentState() {
 }
 
 func (notification *RecordSetNotification) ShouldBeProcessed() bool {
-	return len(notification.recordSet.Meta.Actions.Notifiers[notification.Method]) > 0
+	return len(notification.recordSet.Meta.ActionSet.Notifiers[notification.Method]) > 0
 }
 
 //Build notification object for each record in recordSet for given action
-func (notification *RecordSetNotification) BuildNotificationsData(actionIndex int, user auth.User) []map[string]interface{} {
+func (notification *RecordSetNotification) BuildNotificationsData(previousState *record.RecordSet, currentState *record.RecordSet, user auth.User) []map[string]interface{} {
 	notifications := make([]map[string]interface{}, 0)
-	for i := range notification.PreviousState[actionIndex].DataSet {
+	for i := range previousState.DataSet {
 		notificationData := make(map[string]interface{})
 		notificationData["action"] = notification.Method.AsString()
 		notificationData["object"] = notification.recordSet.Meta.Name
-		notificationData["previous"] = adaptRecordData(notification.PreviousState[actionIndex].DataSet[i])
-		notificationData["current"] = adaptRecordData(notification.CurrentState[actionIndex].DataSet[i])
+		notificationData["previous"] = adaptRecordData(previousState.DataSet[i])
+		notificationData["current"] = adaptRecordData(currentState.DataSet[i])
 		notificationData["user"] = user
 		notifications = append(notifications, notificationData)
 	}

@@ -58,9 +58,9 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 		}
 	}
 
-	//factory actions
-	if actions, err := newActions(currentMeta.MetaDescription.Actions); err == nil {
-		currentMeta.Actions = actions
+	//factory actionSet
+	if actionSet, err := newActionSet(currentMeta.MetaDescription.Actions); err == nil {
+		currentMeta.ActionSet = actionSet
 	} else {
 		return err
 	}

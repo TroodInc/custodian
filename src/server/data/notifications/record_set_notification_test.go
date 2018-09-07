@@ -98,6 +98,13 @@ var _ = Describe("Data", func() {
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", "b": "b.id"},
 					},
+					{
+						Method:          description.MethodCreate,
+						Protocol:        description.TEST,
+						Args:            []string{"http://example1.com"},
+						ActiveIfNotRoot: true,
+						IncludeValues:   map[string]interface{}{},
+					},
 				},
 			}
 			aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
@@ -305,7 +312,11 @@ var _ = Describe("Data", func() {
 
 			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
 			recordSetNotification.CaptureCurrentState()
-			notificationsData := recordSetNotification.BuildNotificationsData(0, auth.User{})
+			notificationsData := recordSetNotification.BuildNotificationsData(
+				recordSetNotification.PreviousState[0],
+				recordSetNotification.CurrentState[0],
+				auth.User{},
+			)
 			Expect(notificationsData).To(HaveLen(1))
 			Expect(notificationsData[0]).To(HaveKey("previous"))
 			Expect(notificationsData[0]).To(HaveKey("current"))
