@@ -332,7 +332,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				if o == nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
+					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
 				} else {
 					dbTransactionManager.CommitTransaction(dbTransaction)
 					sink.pushGeneric(o.Data)
@@ -440,7 +440,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 				} else {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
+					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
 				}
 			}
 		}
