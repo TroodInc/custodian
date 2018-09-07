@@ -19,8 +19,8 @@ type RecordSetNotification struct {
 	dbTransaction     transactions.DbTransaction
 	Actions           []*description.Action
 	Method            description.Method
-	PreviousState     []*record.RecordSet
-	CurrentState      []*record.RecordSet
+	PreviousState     map[int]*record.RecordSet
+	CurrentState      map[int]*record.RecordSet
 }
 
 func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *RecordSetNotification {
@@ -30,8 +30,8 @@ func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSe
 		isRoot:             isRoot,
 		Method:             method,
 		Actions:            actions,
-		PreviousState:      make([]*record.RecordSet, len(actions)), //for both arrays index is an corresponding
-		CurrentState:       make([]*record.RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
+		PreviousState:      make(map[int]*record.RecordSet, len(actions)), //for both arrays index is an corresponding
+		CurrentState:       make(map[int]*record.RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
 		getRecordsCallback: getRecordsCallback,
 		getRecordCallback:  getRecordCallback,
 		dbTransaction:      dbTransaction,
@@ -65,23 +65,23 @@ func (notification *RecordSetNotification) BuildNotificationsData(previousState 
 	return notifications
 }
 
-func (notification *RecordSetNotification) captureState(state []*record.RecordSet) {
+func (notification *RecordSetNotification) captureState(state map[int]*record.RecordSet) {
 	//capture state if recordSet has PKs defined, set empty map otherwise, because records cannot be retrieved
-	for id, action := range notification.Actions {
+	for _, action := range notification.Actions {
 
-		state[id] = &record.RecordSet{Meta: notification.recordSet.Meta, DataSet: make([]map[string]interface{}, 0)}
+		state[action.Id()] = &record.RecordSet{Meta: notification.recordSet.Meta, DataSet: make([]map[string]interface{}, 0)}
 
 		if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
 			recordsSink := func(recordData map[string]interface{}) error {
-				state[id].DataSet = append(state[id].DataSet, notification.buildRecordStateObject(recordData, action, notification.getRecordsCallback))
+				state[action.Id()].DataSet = append(state[action.Id()].DataSet, notification.buildRecordStateObject(recordData, action, notification.getRecordsCallback))
 				return nil
 			}
 			//get data within current transaction
 			notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink)
 		}
 		//fill DataSet with empty values
-		if len(state[id].DataSet) == 0 {
-			state[id].DataSet = make([]map[string]interface{}, len(notification.recordSet.DataSet))
+		if len(state[action.Id()].DataSet) == 0 {
+			state[action.Id()].DataSet = make([]map[string]interface{}, len(notification.recordSet.DataSet))
 		}
 	}
 }
