@@ -272,4 +272,152 @@ var _ = Describe("Data", func() {
 		})
 
 	})
+
+	aMetaDescription := description.MetaDescription{
+		Name: "a",
+		Key:  "id",
+		Cas:  false,
+		Fields: []description.Field{
+			{
+				Name: "id",
+				Type: description.FieldTypeNumber,
+				Def: map[string]interface{}{
+					"func": "nextval",
+				},
+				Optional: true,
+			},
+			{
+				Name:     "name",
+				Type:     description.FieldTypeString,
+				Optional: true,
+			},
+		},
+	}
+
+	bMetaDescription := description.MetaDescription{
+		Name: "b",
+		Key:  "id",
+		Cas:  false,
+		Fields: []description.Field{
+			{
+				Name: "id",
+				Type: description.FieldTypeNumber,
+				Def: map[string]interface{}{
+					"func": "nextval",
+				},
+				Optional: true,
+			},
+			{
+				Name:     "a",
+				Type:     description.FieldTypeObject,
+				Optional: true,
+				LinkType: description.LinkTypeInner,
+				LinkMeta: "a",
+				OnDelete: description.OnDeleteCascade.ToVerbose(),
+			},
+			{
+				Name:     "name",
+				Type:     description.FieldTypeString,
+				Optional: true,
+			},
+		},
+	}
+
+	It("Can perform update of record with nested inner record at once", func() {
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bPkValue, _ := bMetaObj.Key.ValueAsString(bRecordData[bMetaDescription.Key])
+		bUpdatedData := map[string]interface{}{
+			"id":          bPkValue,
+			"name":        "Updated B name",
+			aMetaObj.Name: map[string]interface{}{"id": aRecordData["id"], "name": "Updated A name"},
+		}
+		recordData, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, bMetaObj.Name, bPkValue, bUpdatedData, auth.User{})
+		Expect(err).To(BeNil())
+		Expect(recordData).To(HaveKey("a"))
+	})
+
+	It("Can perform update of record with nested inner record at once", func() {
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bPkValue, _ := bMetaObj.Key.ValueAsString(bRecordData[bMetaDescription.Key])
+		bUpdatedData := map[string]interface{}{
+			"id":          bPkValue,
+			"name":        "Updated B name",
+			aMetaObj.Name: map[string]interface{}{"id": aRecordData["id"], "name": "Updated A name"},
+		}
+		recordData, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, bMetaObj.Name, bPkValue, bUpdatedData, auth.User{})
+		Expect(err).To(BeNil())
+		Expect(recordData).To(HaveKey("a"))
+	})
+
+	It("Can perform update of record with nested outer records of mixed types: new record, existing record`s PK and existing record`s new data at once", func() {
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		anotherBRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "Another B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		aPkValue, _ := aMetaObj.Key.ValueAsString(aRecordData[aMetaDescription.Key])
+
+		aUpdateData := map[string]interface{}{
+			"id":   aPkValue,
+			"name": "Updated B name",
+			"b__set": []interface{}{
+				map[string]interface{}{"id": bRecordData["id"], "name": "Updated B name"}, //existing record with new data
+				anotherBRecordData["id"],                                                  //existing record`s PK
+				map[string]interface{}{"name": "New B Record"},                            //new record`s data
+			},
+		}
+
+		recordData, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, aUpdateData, auth.User{})
+		Expect(err).To(BeNil())
+		Expect(recordData).To(HaveKey("b__set"))
+		bSetData := recordData["b__set"].([]interface{})
+		Expect(bSetData).To(HaveLen(3))
+		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("Updated B name"))
+		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("Another B record"))
+		Expect(bSetData[2].(map[string]interface{})["name"]).To(Equal("New B Record"))
+	})
 })

@@ -55,10 +55,10 @@ func (processor *Processor) getValidator(dbTransaction transactions.DbTransactio
 		if err != nil {
 			return nil, err
 		}
-		if toCheck, e := NewValidationService(processor.metaStore, processor).Validate(dbTransaction, preValidatedT2, mandatoryCheck); e != nil {
+		if nestedRecords, e := NewValidationService(processor.metaStore, processor).Validate(dbTransaction, preValidatedT2, mandatoryCheck); e != nil {
 			return nil, e
 		} else {
-			return toCheck, nil
+			return nestedRecords, nil
 		}
 	}
 	//processor.vCache[vk] = validator
@@ -66,19 +66,20 @@ func (processor *Processor) getValidator(dbTransaction transactions.DbTransactio
 
 }
 
-func (processor *Processor) flatten(objectMeta *meta.Meta, recordValues map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Record, error) {
-	tc := []Record{{objectMeta, recordValues}}
-	for tail := tc; len(tail) > 0; tail = tail[1:] {
-		if v, e := validatorFactory(tail[0].Meta.Name); e != nil {
+//takes record values(could be nested) and returns a list of corresponding records
+func (processor *Processor) splitIntoRecords(objectMeta *meta.Meta, recordValues map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Record, error) {
+	records := []Record{*NewRecord(objectMeta, recordValues)}
+	for tail := records; len(tail) > 0; tail = tail[1:] {
+		if validator, e := validatorFactory(tail[0].Meta.Name); e != nil {
 			return nil, e
-		} else if t, e := v(tail[0]); e != nil {
+		} else if nestedRecords, e := validator(tail[0]); e != nil {
 			return nil, e
 		} else {
-			tc = append(tc, t...)
-			tail = append(tail, t...)
+			records = append(records, nestedRecords...)
+			tail = append(tail, nestedRecords...)
 		}
 	}
-	return tc, nil
+	return records, nil
 }
 
 func (processor *Processor) splitNestedRecordsByObjects(meta *meta.Meta, recordsData []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*RecordSet, error) {
@@ -91,7 +92,7 @@ func (processor *Processor) splitNestedRecordsByObjects(meta *meta.Meta, records
 				return nil, e
 			} else {
 				for _, recordData := range tail[0].DataSet {
-					if nestedRecords, e := validator(Record{tail[0].Meta, recordData}); e != nil {
+					if nestedRecords, e := validator(*NewRecord(tail[0].Meta, recordData)); e != nil {
 						return nil, e
 					} else {
 						for _, record := range nestedRecords {
@@ -263,7 +264,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// assemble records
-	records, e := processor.flatten(objectMeta, obj, func(mn string) (objectClassValidator, error) {
+	records, e := processor.splitIntoRecords(objectMeta, obj, func(mn string) (objectClassValidator, error) {
 		return processor.getValidator(dbTransaction, "put:"+mn, putValidator)
 	})
 	if e != nil {
@@ -272,13 +273,26 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 
 	// create records
 	for i, record := range records {
-		if _, err := processor.createRecordSet(
-			dbTransaction,
-			&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
-			i == 0,
-			recordSetNotificationPool,
-		); err != nil {
-			return nil, err
+		if record.IsPhantom {
+			if _, err := processor.createRecordSet(
+				dbTransaction,
+				&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
+				i == 0,
+				recordSetNotificationPool,
+			); err != nil {
+				return nil, err
+			}
+		} else {
+			//collapse links to normalize record`s values
+			record.CollapseLinks()
+			if _, err := processor.updateRecordSet(
+				dbTransaction,
+				&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
+				i == 0,
+				recordSetNotificationPool,
+			); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -354,7 +368,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 		recordData[objectMeta.Key.Name] = pkValue
 	}
 	// extract list of records from nested record data
-	records, err := processor.flatten(objectMeta, recordData, func(mn string) (objectClassValidator, error) {
+	records, err := processor.splitIntoRecords(objectMeta, recordData, func(mn string) (objectClassValidator, error) {
 		return processor.getValidator(dbTransaction, "upd:"+mn, updateValidator)
 	})
 	if err != nil {
@@ -369,17 +383,33 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 	var rootRecordData map[string]interface{}
 	for i, record := range records {
 		isRoot := i == 0
-
-		if recordSet, err := processor.updateRecordSet(
-			dbTransaction,
-			&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
-			isRoot,
-			recordSetNotificationPool,
-		); err != nil {
-			return nil, err
+		//collapse links to normalize record`s values
+		record.NormalizeLinks()
+		if !record.IsPhantom {
+			if recordSet, err := processor.updateRecordSet(
+				dbTransaction,
+				&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
+				isRoot,
+				recordSetNotificationPool,
+			); err != nil {
+				return nil, err
+			} else {
+				if isRoot {
+					rootRecordData = recordSet.DataSet[0]
+				}
+			}
 		} else {
-			if isRoot {
-				rootRecordData = recordSet.DataSet[0]
+			if recordSet, err := processor.createRecordSet(
+				dbTransaction,
+				&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
+				isRoot,
+				recordSetNotificationPool,
+			); err != nil {
+				return nil, err
+			} else {
+				if isRoot {
+					rootRecordData = recordSet.DataSet[0]
+				}
 			}
 		}
 	}
@@ -447,7 +477,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 	//get pk
 	recordToRemove, err := processor.Get(dbTransaction, objectName, key, 1)
 	if err != nil {
-		return nil,err
+		return nil, err
 	}
 	if recordToRemove == nil {
 		return nil, &errors.DataError{"RecordNotFound", "Record not found", objectName}

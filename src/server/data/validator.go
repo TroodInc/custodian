@@ -18,7 +18,7 @@ type ValidationService struct {
 //TODO:this method needs deep refactoring
 func (validationService *ValidationService) Validate(dbTransaction transactions.DbTransaction, record *Record, mandatoryCheck bool) ([]Record, error) {
 	var err error
-	toCheck := make([]Record, 0)
+	recordsToProcess := make([]Record, 0)
 	for k, _ := range record.Data {
 		if f := record.Meta.FindField(k); f == nil {
 			delete(record.Data, k)
@@ -26,12 +26,12 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 	}
 
 	for i := 0; i < len(record.Meta.Fields); i++ {
-		k := record.Meta.Fields[i].Name
+		fieldName := record.Meta.Fields[i].Name
 		fieldDescription := &record.Meta.Fields[i]
 
-		value, valueIsSet := record.Data[k]
+		value, valueIsSet := record.Data[fieldName]
 		if mandatoryCheck && !valueIsSet && !fieldDescription.Optional {
-			return nil, errors.NewDataError(record.Meta.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", k)
+			return nil, errors.NewDataError(record.Meta.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", fieldName)
 		}
 		//skip validation if field is optional and value is null
 		//perform validation otherwise
@@ -41,32 +41,24 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 				break
 			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type.AssertType(value):
 				if fieldDescription.Type == description.FieldTypeArray {
-					var a = value.([]interface{})
-					for _, av := range a {
-						if m, ok := av.(map[string]interface{}); ok {
-							m[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, IsOuter: true, Obj: record.Data}
-							toCheck = append(toCheck, Record{fieldDescription.LinkMeta, m})
-						} else if pkValue, ok := av.(interface{}); ok {
-							toCheck = append(toCheck, Record{fieldDescription.LinkMeta, map[string]interface{}{
-								fieldDescription.OuterLinkField.Name: record.Pk(),
-								fieldDescription.LinkMeta.Key.Name:   pkValue,
-							}})
-						} else {
-							return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", k)
-						}
+					//validate outer links
+					if childRecordsToProcess, err := validationService.validateArray(value, fieldDescription, record); err != nil {
+						return nil, err
+					} else {
+						recordsToProcess = append(recordsToProcess, childRecordsToProcess...)
 					}
-					delete(record.Data, k)
+					delete(record.Data, fieldName)
 				} else if fieldDescription.Type == description.FieldTypeObject {
 					var of = value.(map[string]interface{})
 					if fieldDescription.LinkType == description.LinkTypeOuter {
 						of[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, IsOuter: true, Obj: record.Data}
-						delete(record.Data, k)
+						delete(record.Data, fieldName)
 					} else if fieldDescription.LinkType == description.LinkTypeInner {
 						record.Data[fieldDescription.Name] = ALink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Obj: of}
 					} else {
 						return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Unknown link type %s", fieldDescription.LinkType)
 					}
-					toCheck = append(toCheck, Record{fieldDescription.LinkMeta, of})
+					recordsToProcess = append(recordsToProcess, *NewRecord(fieldDescription.LinkMeta, of))
 				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == description.LinkTypeInner {
 					record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
 				}
@@ -83,12 +75,32 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 				}
 			default:
 				if !(value == nil && fieldDescription.Optional) {
-					return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", k)
+					return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldName)
 				}
 			}
 		}
 	}
-	return toCheck, nil
+	return recordsToProcess, nil
+}
+
+func (validationService *ValidationService) validateArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]Record, error) {
+	var nestedRecordsData = value.([]interface{})
+	recordsToProcess := make([]Record, len(nestedRecordsData))
+	for i, recordData := range nestedRecordsData {
+		if recordDataAsMap, ok := recordData.(map[string]interface{}); ok {
+			//new record`s data case
+			recordDataAsMap[fieldDescription.OuterLinkField.Name] = ALink{Field: fieldDescription, IsOuter: true, Obj: record.Data}
+			recordsToProcess[i] = *NewRecord(fieldDescription.LinkMeta, recordDataAsMap)
+		} else if pkValue, ok := recordData.(interface{}); ok {
+			recordsToProcess[i] = *NewRecord(fieldDescription.LinkMeta, map[string]interface{}{
+				fieldDescription.OuterLinkField.Name: ALink{Field: fieldDescription, IsOuter: true, Obj: record.Data},
+				fieldDescription.LinkMeta.Key.Name:   pkValue,
+			})
+		} else {
+			return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", fieldDescription.Name)
+		}
+	}
+	return recordsToProcess, nil
 }
 
 func NewValidationService(metaStore *meta.MetaStore, processor *Processor) *ValidationService {
