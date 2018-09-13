@@ -540,7 +540,7 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
+func (dataManager *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
 	var operation transactions.Operation
 	var err error
 	var onDeleteStrategy description.OnDeleteStrategy
@@ -569,7 +569,7 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTra
 		if err != nil {
 			return err
 		}
-		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, DataSet: []map[string]interface{}{recordNode.Record.Data}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
+		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
 	default:
 		var query bytes.Buffer
 		sqlHelper := dml_info.SqlHelper{}
@@ -590,7 +590,7 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordNode, dbTra
 			}
 			return nil
 		}
-		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, DataSet: []map[string]interface{}{recordNode.Record.Data}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
+		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
 	}
 	//process child records
 	for _, recordNodes := range recordNode.Children {

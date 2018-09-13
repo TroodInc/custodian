@@ -403,7 +403,7 @@ var _ = Describe("Data", func() {
 
 		aUpdateData := map[string]interface{}{
 			"id":   aPkValue,
-			"name": "Updated B name",
+			"name": "Updated A name",
 			"b__set": []interface{}{
 				map[string]interface{}{"id": bRecordData["id"], "name": "Updated B name"}, //existing record with new data
 				anotherBRecordData["id"],                                                  //existing record`s PK

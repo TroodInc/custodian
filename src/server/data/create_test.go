@@ -77,7 +77,7 @@ var _ = Describe("Create test", func() {
 			{
 				Name:     "a",
 				Type:     description.FieldTypeObject,
-				Optional: true,
+				Optional: false,
 				LinkType: description.LinkTypeInner,
 				LinkMeta: "a",
 				OnDelete: description.OnDeleteCascade.ToVerbose(),
@@ -346,7 +346,9 @@ var _ = Describe("Create test", func() {
 		Expect(err).To(BeNil())
 
 		user := auth.User{}
-		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "Existing B record"}, user)
+		anotherARecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, map[string]interface{}{}, user)
+
+		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "Existing B record", "a": anotherARecord["id"]}, user)
 		Expect(err).To(BeNil())
 
 		aData := map[string]interface{}{

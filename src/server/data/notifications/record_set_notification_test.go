@@ -154,7 +154,7 @@ var _ = Describe("Data", func() {
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
 				globalTransaction.DbTransaction,
-				&record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"first_name": "Veronika", "last_name": "Petrova"}}},
+				&record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}},
 				true,
 				description.MethodCreate,
 				dataProcessor.GetBulk,
@@ -162,8 +162,8 @@ var _ = Describe("Data", func() {
 			)
 			recordSetNotification.CapturePreviousState()
 			//previous state for create operation should contain empty objects
-			Expect(recordSetNotification.PreviousState[0].DataSet).To(HaveLen(1))
-			Expect(recordSetNotification.PreviousState[0].DataSet[0]).To(HaveLen(0))
+			Expect(recordSetNotification.PreviousState[0].Records).To(HaveLen(1))
+			Expect(recordSetNotification.PreviousState[0].Records[0]).To(BeNil())
 		})
 
 		It("can capture current record state on create", func() {
@@ -171,7 +171,7 @@ var _ = Describe("Data", func() {
 			havingObjectB()
 			havingObjectA()
 
-			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"first_name": "Veronika", "last_name": "Petrova"}}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -185,7 +185,7 @@ var _ = Describe("Data", func() {
 
 			//assemble operations
 
-			operation, err := dataManager.PrepareCreateOperation(recordSet.Meta, recordSet.DataSet)
+			operation, err := dataManager.PrepareCreateOperation(recordSet.Meta, recordSet.Data())
 			Expect(err).To(BeNil())
 
 			// execute operation
@@ -197,8 +197,8 @@ var _ = Describe("Data", func() {
 			recordSetNotification.CaptureCurrentState()
 
 			//previous state for create operation should contain empty objects
-			Expect(recordSetNotification.CurrentState[0].DataSet).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(4))
+			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(4))
 		})
 
 		It("can capture current state of existing record", func() {
@@ -208,7 +208,7 @@ var _ = Describe("Data", func() {
 			havingBRecord()
 			havingARecord(bRecordData["id"].(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Kozlova"}}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"], "last_name": "Kozlova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -223,9 +223,9 @@ var _ = Describe("Data", func() {
 			recordSetNotification.CaptureCurrentState()
 
 			//only last_name specified for recordSet, thus first_name should not be included in notification message
-			Expect(recordSetNotification.CurrentState[0].DataSet).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(3))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]["a_last_name"].(string)).To(Equal("Petrova"))
+			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(3))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data["a_last_name"].(string)).To(Equal("Petrova"))
 		})
 
 		It("can capture current state of existing record after update", func() {
@@ -234,7 +234,7 @@ var _ = Describe("Data", func() {
 			havingBRecord()
 			havingARecord(bRecordData["id"].(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Ivanova"}}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"], "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -247,7 +247,7 @@ var _ = Describe("Data", func() {
 			)
 
 			//assemble operations
-			operation, err := dataManager.PrepareUpdateOperation(recordSet.Meta, recordSet.DataSet)
+			operation, err := dataManager.PrepareUpdateOperation(recordSet.Meta, recordSet.Data())
 			Expect(err).To(BeNil())
 
 			// execute operation
@@ -259,9 +259,9 @@ var _ = Describe("Data", func() {
 			recordSetNotification.CaptureCurrentState()
 
 			//only last_name specified for update, thus first_name should not be included in notification message
-			Expect(recordSetNotification.CurrentState[0].DataSet).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(4))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]["a_last_name"].(string)).To(Equal("Ivanova"))
+			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(4))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data["a_last_name"].(string)).To(Equal("Ivanova"))
 		})
 
 		It("can capture empty state of removed record after remove", func() {
@@ -270,7 +270,7 @@ var _ = Describe("Data", func() {
 			havingBRecord()
 			havingARecord(bRecordData["id"].(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Ivanova"}}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"], "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -287,8 +287,8 @@ var _ = Describe("Data", func() {
 			recordSetNotification.CaptureCurrentState()
 
 			//only last_name specified for update, thus first_name should not be included in notification message
-			Expect(recordSetNotification.CurrentState[0].DataSet).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(0))
+			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
+			Expect(recordSetNotification.CurrentState[0].Records[0]).To(BeNil())
 		})
 
 		It("forms correct notification message on record removal", func() {
@@ -297,7 +297,7 @@ var _ = Describe("Data", func() {
 			havingBRecord()
 			havingARecord(bRecordData["id"].(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"], "last_name": "Ivanova"}}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"], "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(

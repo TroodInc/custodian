@@ -111,6 +111,7 @@ var _ = Describe("Data", func() {
 		Expect(targetValue["_object"]).To(Equal(aMetaObj.Name))
 		Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
 	})
+
 	It("cant create a record containing generic inner value with pk referencing not existing record", func() {
 		By("having two objects: A and B")
 		aMetaDescription := description.MetaDescription{
@@ -181,6 +182,11 @@ var _ = Describe("Data", func() {
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
+					Optional: true,
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -782,6 +788,19 @@ var _ = Describe("Data", func() {
 			Expect(targetValue["id"].(float64)).To(Equal(aRecord["id"].(float64)))
 			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"].(string)))
 		})
-	})
 
+		It("can create record with nested inner generic record", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("Having object C", havingObjectC)
+			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+
+			bRecordData := map[string]interface{}{"target": map[string]interface{}{"_object": "a", "name": "Some A record"}}
+
+			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", bRecordData, auth.User{})
+			Expect(err).To(BeNil())
+			Expect(bRecordData).To(HaveKey("target"))
+			Expect(bRecordData["target"]).To(Not(BeNil()))
+		})
+	})
 })

@@ -55,6 +55,9 @@ func (validator *GenericInnerFieldValidator) validateObject(objectName string, f
 }
 
 func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{}, fieldDescription *meta.FieldDescription) (interface{}, error) {
+	if pkValue == nil {
+		return nil, errors.GenericFieldPkIsNullError{}
+	}
 	var validatedPkValue interface{}
 	switch castPkValue := pkValue.(type) {
 	case float64, string:

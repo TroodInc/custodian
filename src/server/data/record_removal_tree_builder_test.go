@@ -146,7 +146,7 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
 		By("Building removal node for A record")
-		recordNode, err := new(data.RecordRemovalTreeExtractor).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
+		recordNode, err := new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 
 		By("It should only contain B record marked with 'setNull' strategy")
 		Expect(err).To(BeNil())
@@ -179,7 +179,7 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
 		By("Building removal node for A record")
-		_, err = new(data.RecordRemovalTreeExtractor).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
+		_, err = new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 
 		By("It should return error")
 		Expect(err).NotTo(BeNil())
@@ -207,7 +207,7 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
 		By("Building removal node for A record")
-		recordNode, err := new(data.RecordRemovalTreeExtractor).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
+		recordNode, err := new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 
 		By("It should contain B record marked with 'cascade' strategy, which contains C record containing 'cascade' strategy")
 		Expect(err).To(BeNil())

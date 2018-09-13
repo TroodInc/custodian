@@ -160,7 +160,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			//fill node
-			removalRootNode, err := new(data.RecordRemovalTreeExtractor).Extract(bRecord, dataProcessor, globalTransaction.DbTransaction)
+			removalRootNode, err := new(data.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
 
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, recordSetNotificationPool, dataProcessor)
@@ -173,14 +173,14 @@ var _ = Describe("Data", func() {
 			Expect(notifications[0].CurrentState).To(HaveLen(1))
 			Expect(notifications[0].Method).To(Equal(description.MethodRemove))
 			Expect(notifications[0].CurrentState[0].Meta.Name).To(Equal(aMetaObj.Name))
-			Expect(notifications[0].CurrentState[0].DataSet[0]).To(BeNil())
-			Expect(notifications[0].PreviousState[0].DataSet[0]["id"]).To(Equal(aRecordData["id"]))
+			Expect(notifications[0].CurrentState[0].Records[0]).To(BeNil())
+			Expect(notifications[0].PreviousState[0].Records[0].Data["id"]).To(Equal(aRecordData["id"]))
 
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
 			Expect(notifications[1].Method).To(Equal(description.MethodRemove))
 			Expect(notifications[1].CurrentState[0].Meta.Name).To(Equal(bMetaObj.Name))
-			Expect(notifications[1].CurrentState[0].DataSet[0]).To(BeNil())
-			Expect(notifications[1].PreviousState[0].DataSet[0]["id"]).To(Equal(bRecordData["id"]))
+			Expect(notifications[1].CurrentState[0].Records[0]).To(BeNil())
+			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecordData["id"]))
 		})
 
 		It("makes correct notification messages on record removal with `setNull` remove", func() {
@@ -196,7 +196,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			//fill node
-			removalRootNode, err := new(data.RecordRemovalTreeExtractor).Extract(bRecord, dataProcessor, globalTransaction.DbTransaction)
+			removalRootNode, err := new(data.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
 
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, recordSetNotificationPool, dataProcessor)
@@ -211,15 +211,15 @@ var _ = Describe("Data", func() {
 			Expect(notifications[0].Method).To(Equal(description.MethodUpdate))
 			Expect(notifications[0].CurrentState[1].Meta.Name).To(Equal(aMetaObj.Name))
 			Expect(notifications[0].CurrentState).To(HaveLen(1))
-			Expect(notifications[0].CurrentState[1].DataSet[0]).To(Not(BeNil()))
-			Expect(notifications[0].PreviousState[1].DataSet[0]["id"]).To(Equal(aRecordData["id"]))
+			Expect(notifications[0].CurrentState[1].Records[0]).To(Not(BeNil()))
+			Expect(notifications[0].PreviousState[1].Records[0].Data["id"]).To(Equal(aRecordData["id"]))
 
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
 			Expect(notifications[1].Method).To(Equal(description.MethodRemove))
 			Expect(notifications[1].CurrentState[0].Meta.Name).To(Equal(bMetaObj.Name))
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
-			Expect(notifications[1].CurrentState[0].DataSet[0]).To(BeNil())
-			Expect(notifications[1].PreviousState[0].DataSet[0]["id"]).To(Equal(bRecordData["id"]))
+			Expect(notifications[1].CurrentState[0].Records[0]).To(BeNil())
+			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecordData["id"]))
 		})
 	})
 })

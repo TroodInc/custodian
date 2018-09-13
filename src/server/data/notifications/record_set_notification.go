@@ -53,12 +53,24 @@ func (notification *RecordSetNotification) ShouldBeProcessed() bool {
 //Build notification object for each record in recordSet for given action
 func (notification *RecordSetNotification) BuildNotificationsData(previousState *record.RecordSet, currentState *record.RecordSet, user auth.User) []map[string]interface{} {
 	notifications := make([]map[string]interface{}, 0)
-	for i := range previousState.DataSet {
+	for i := range previousState.Records {
+		var previousStateData map[string]interface{}
+		var currentStateData map[string]interface{}
+		if previousState.Records[i] != nil {
+			previousStateData = previousState.Records[i].Data
+		} else {
+			previousStateData = map[string]interface{}{}
+		}
+		if currentState.Records[i] != nil {
+			currentStateData = currentState.Records[i].Data
+		} else {
+			currentStateData = map[string]interface{}{}
+		}
 		notificationData := make(map[string]interface{})
 		notificationData["action"] = notification.Method.AsString()
 		notificationData["object"] = notification.recordSet.Meta.Name
-		notificationData["previous"] = adaptRecordData(previousState.DataSet[i])
-		notificationData["current"] = adaptRecordData(currentState.DataSet[i])
+		notificationData["previous"] = adaptRecordData(previousStateData)
+		notificationData["current"] = adaptRecordData(currentStateData)
 		notificationData["user"] = user
 		notifications = append(notifications, notificationData)
 	}
@@ -69,19 +81,23 @@ func (notification *RecordSetNotification) captureState(state map[int]*record.Re
 	//capture state if recordSet has PKs defined, set empty map otherwise, because records cannot be retrieved
 	for _, action := range notification.Actions {
 
-		state[action.Id()] = &record.RecordSet{Meta: notification.recordSet.Meta, DataSet: make([]map[string]interface{}, 0)}
+		state[action.Id()] = &record.RecordSet{Meta: notification.recordSet.Meta, Records: make([]*record.Record, 0)}
 
 		if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
 			recordsSink := func(recordData map[string]interface{}) error {
-				state[action.Id()].DataSet = append(state[action.Id()].DataSet, notification.buildRecordStateObject(recordData, action, notification.getRecordsCallback))
+
+				state[action.Id()].Records = append(
+					state[action.Id()].Records,
+					record.NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(recordData, action, notification.getRecordsCallback)),
+				)
 				return nil
 			}
 			//get data within current transaction
 			notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink)
 		}
 		//fill DataSet with empty values
-		if len(state[action.Id()].DataSet) == 0 {
-			state[action.Id()].DataSet = make([]map[string]interface{}, len(notification.recordSet.DataSet))
+		if len(state[action.Id()].Records) == 0 {
+			state[action.Id()].Records = make([]*record.Record, len(notification.recordSet.Records))
 		}
 	}
 }
@@ -89,8 +105,8 @@ func (notification *RecordSetNotification) captureState(state map[int]*record.Re
 func (notification *RecordSetNotification) getRecordsFilter() string {
 	hasKeys := false
 	filter := "in(" + notification.recordSet.Meta.Key.Name + ",("
-	for i, recordData := range notification.recordSet.DataSet {
-		if rawKeyValue, ok := recordData[notification.recordSet.Meta.Key.Name]; ok {
+	for i, record := range notification.recordSet.Records {
+		if rawKeyValue, ok := record.Data[notification.recordSet.Meta.Key.Name]; ok {
 			hasKeys = true
 			var keyValue string
 			switch value := rawKeyValue.(type) {
@@ -122,7 +138,7 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 
 	//	include values which are being updated/created
 	if action.Method != description.MethodRemove {
-		keys, _ := utils.GetMapKeysValues(notification.recordSet.DataSet[0])
+		keys, _ := utils.GetMapKeysValues(notification.recordSet.Records[0].Data)
 		for _, key := range keys {
 			if value, ok := recordData[key]; ok {
 				stateObject[key] = value

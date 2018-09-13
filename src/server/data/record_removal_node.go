@@ -7,18 +7,18 @@ import (
 )
 
 //Represents record and its dependent children
-type RecordNode struct {
-	Children         map[string][]*RecordNode
-	Parent           *RecordNode
+type RecordRemovalNode struct {
+	Children         map[string][]*RecordRemovalNode
+	Parent           *RecordRemovalNode
 	LinkField        *meta.FieldDescription
 	Record           *record.Record
 	OnDeleteStrategy *description.OnDeleteStrategy
 }
 
-func NewRecordNode(record *record.Record, onDeleteStrategy *description.OnDeleteStrategy, parent *RecordNode, linkField *meta.FieldDescription) *RecordNode {
-	return &RecordNode{
+func NewRecordRemovalNode(record *record.Record, onDeleteStrategy *description.OnDeleteStrategy, parent *RecordRemovalNode, linkField *meta.FieldDescription) *RecordRemovalNode {
+	return &RecordRemovalNode{
 		Record:           record,
-		Children:         make(map[string][]*RecordNode),
+		Children:         make(map[string][]*RecordRemovalNode),
 		Parent:           parent,
 		LinkField:        linkField,
 		OnDeleteStrategy: onDeleteStrategy,
@@ -26,11 +26,11 @@ func NewRecordNode(record *record.Record, onDeleteStrategy *description.OnDelete
 }
 
 //Get record`s data and children`s data, which is directly bind to parent record
-func (r *RecordNode) Data() map[string]interface{} {
+func (r *RecordRemovalNode) Data() map[string]interface{} {
 	return r.appendChildNodes(r.Record.Data, r.Children).(map[string]interface{})
 }
 
-func (r *RecordNode) appendChildNodes(data map[string]interface{}, children map[string][]*RecordNode) interface{} {
+func (r *RecordRemovalNode) appendChildNodes(data map[string]interface{}, children map[string][]*RecordRemovalNode) interface{} {
 	for childName, childNodes := range children {
 		var onDeleteStrategy description.OnDeleteStrategy
 		if len(childNodes) > 0 {
