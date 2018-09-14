@@ -227,50 +227,87 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 }
 
 func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
-	//// get Meta
-	//objectMeta, err := processor.GetMeta(dbTransaction, objectName)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	//// create notification pool
-	//recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
-	//defer func() { recordSetNotificationPool.CompleteSend(err) }()
-	//
-	//// collect records` data to update
-	//recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, false)
-	//if err != nil {
-	//	return err
-	//}
-	//
-	////assemble RecordSets
-	//recordSetsSplitByObject, e := processor.splitNestedRecordsByObjects(objectMeta, recordDataSet, func(mn string) (objectClassValidator, error) {
-	//	return processor.getValidator(dbTransaction, "put:"+mn, putValidator)
-	//})
-	//if e != nil {
-	//	return e
-	//}
-	//
-	//for i, recordSets := range recordSetsSplitByObject {
-	//	isRoot := i == 0
-	//	for _, recordSet := range recordSets {
-	//		if _, err := processor.createRecordSet(dbTransaction, recordSet, isRoot, recordSetNotificationPool); err != nil {
-	//			return err
-	//		}
-	//	}
-	//}
-	//
-	//// feed created data to the sink
-	//if err = processor.feedRecordSets(recordSetsSplitByObject[0], sink); err != nil {
-	//	return err
-	//}
-	//
-	//// push notifications if needed
-	//if recordSetNotificationPool.ShouldBeProcessed() {
-	//	//capture updated state of all records in the pool
-	//	recordSetNotificationPool.CaptureCurrentState()
-	//	recordSetNotificationPool.Push(user)
-	//}
+	// get Meta
+	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
+	if err != nil {
+		return err
+	}
+
+	// create notification pool
+	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	defer func() { recordSetNotificationPool.CompleteSend(err) }()
+
+	// collect records` data to update
+	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, false)
+	if err != nil {
+		return err
+	}
+
+	//assemble RecordSets
+	var recordProcessingNode *RecordProcessingNode
+	rootRecordSets := make([] *RecordSet, 0)
+	for _, recordData := range recordDataSet {
+		// extract processing node
+		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(&Record{Meta: objectMeta, Data: recordData}, processor, dbTransaction)
+		if err != nil {
+			return err
+		}
+		rootRecordSet, recordSets := recordProcessingNode.RecordSets()
+
+		for _, recordSet := range recordSets {
+			isRoot := recordSet == rootRecordSet
+			recordSet.PrepareData()
+			if !recordSet.IsPhantom() {
+				if _, err := processor.updateRecordSet(
+					dbTransaction,
+					recordSet,
+					isRoot,
+					recordSetNotificationPool,
+				); err != nil {
+					return err
+				} else {
+					recordSet.MergeData()
+					if isRoot {
+						rootRecordSet = recordSet
+					}
+				}
+			} else {
+				if _, err := processor.createRecordSet(
+					dbTransaction,
+					recordSet,
+					isRoot,
+					recordSetNotificationPool,
+				); err != nil {
+					return err
+				} else {
+					recordSet.MergeData()
+					if isRoot {
+						rootRecordSet = recordSet
+					}
+				}
+			}
+		}
+		rootRecordSets = append(rootRecordSets, rootRecordSet)
+
+		//collapse links
+		for _, recordSet := range recordSets {
+			recordSet.CollapseLinks()
+		}
+	}
+
+	if err != nil {
+		return err
+	}
+
+	// feed updated data to the sink
+	processor.feedRecordSets(rootRecordSets, sink)
+
+	// push notifications if needed
+	if recordSetNotificationPool.ShouldBeProcessed() {
+		//capture updated state of all records in the pool
+		recordSetNotificationPool.CaptureCurrentState()
+		recordSetNotificationPool.Push(user)
+	}
 
 	return nil
 }
