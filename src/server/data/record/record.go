@@ -89,6 +89,11 @@ func (record *Record) Pk() interface{} {
 	return record.Data[record.Meta.Key.Name]
 }
 
+func (record *Record) PkAsString() string {
+	pkAsString, _ := record.Meta.Key.ValueAsString(record.Pk())
+	return pkAsString
+}
+
 func (record *Record) IsPhantom() bool {
 	// probably not best solution to determine isPhantom value, but it requires DB access for each record otherwise
 	_, pkIsSet := record.Data[record.Meta.Key.Name]

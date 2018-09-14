@@ -8,6 +8,7 @@ import (
 	. "server/data/types"
 	"server/object/description"
 	"server/transactions"
+	"fmt"
 )
 
 type ValidationService struct {
@@ -16,9 +17,10 @@ type ValidationService struct {
 }
 
 //TODO:this method needs deep refactoring
-func (validationService *ValidationService) Validate(dbTransaction transactions.DbTransaction, record *Record) ([]*RecordProcessingNode, []*RecordProcessingNode, error) {
+func (validationService *ValidationService) Validate(dbTransaction transactions.DbTransaction, record *Record) ([]*RecordProcessingNode, []*RecordProcessingNode, []*RecordProcessingNode, error) {
 	nodesToProcessBefore := make([]*RecordProcessingNode, 0)
 	nodesToProcessAfter := make([]*RecordProcessingNode, 0)
+	nodesToRemoveBefore := make([]*RecordProcessingNode, 0)
 	for k, _ := range record.Data {
 		if f := record.Meta.FindField(k); f == nil {
 			delete(record.Data, k)
@@ -31,7 +33,7 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 
 		value, valueIsSet := record.Data[fieldName]
 		if !valueIsSet && !fieldDescription.Optional && record.IsPhantom() {
-			return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", fieldName)
+			return nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", fieldName)
 		}
 		//skip validation if field is optional and value is null
 		//perform validation otherwise
@@ -42,11 +44,14 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 			case value != nil && fieldDescription.Type.AssertType(value):
 				if fieldDescription.Type == description.FieldTypeArray {
 					//validate outer links
-					if childRecordsToProcess, err := validationService.validateArray(value, fieldDescription, record); err != nil {
-						return nil, nil, err
+					if childRecordsToProcess, childRecordsToRemove, err := validationService.validateArray(dbTransaction, value, fieldDescription, record); err != nil {
+						return nil, nil, nil, err
 					} else {
 						for _, childRecord := range childRecordsToProcess {
 							nodesToProcessAfter = append(nodesToProcessAfter, NewRecordProcessingNode(childRecord))
+						}
+						for _, childRecord := range childRecordsToRemove {
+							nodesToRemoveBefore = append(nodesToRemoveBefore, NewRecordProcessingNode(childRecord))
 						}
 
 					}
@@ -60,7 +65,7 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 					} else if fieldDescription.LinkType == description.LinkTypeInner {
 						record.Data[fieldDescription.Name] = ALink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Obj: of}
 					} else {
-						return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Unknown link type %s", fieldDescription.LinkType)
+						return nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Unknown link type %s", fieldDescription.LinkType)
 					}
 					nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(NewRecord(fieldDescription.LinkMeta, of)))
 				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == description.LinkTypeInner {
@@ -70,7 +75,7 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
 			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner:
 				if recordToProcess, err := validationService.validateInnerGenericLink(dbTransaction, value, fieldDescription, record); err != nil {
-					return nil, nil, err
+					return nil, nil, nil, err
 				} else {
 					if recordToProcess != nil {
 						nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(recordToProcess))
@@ -78,27 +83,31 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 				}
 			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeOuter:
 				//validate outer generic links
-				if childRecordsToProcess, err := validationService.validateGenericArray(value, fieldDescription, record); err != nil {
-					return nil, nil, err
+				if childRecordsToProcess, childRecordsToRemove, err := validationService.validateGenericArray(dbTransaction, value, fieldDescription, record); err != nil {
+					return nil, nil, nil, err
 				} else {
 					for _, childRecord := range childRecordsToProcess {
 						nodesToProcessAfter = append(nodesToProcessAfter, NewRecordProcessingNode(childRecord))
+					}
+					for _, childRecord := range childRecordsToRemove {
+						nodesToRemoveBefore = append(nodesToRemoveBefore, NewRecordProcessingNode(childRecord))
 					}
 				}
 				delete(record.Data, fieldName)
 			default:
 				if !(value == nil && fieldDescription.Optional) {
-					return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldName)
+					return nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldName)
 				}
 			}
 		}
 	}
-	return nodesToProcessBefore, nodesToProcessAfter, nil
+	return nodesToProcessBefore, nodesToProcessAfter, nodesToRemoveBefore, nil
 }
 
-func (validationService *ValidationService) validateArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, error) {
+func (validationService *ValidationService) validateArray(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, len(nestedRecordsData))
+	recordsToRemove := make([]*Record, 0)
 	for i, recordData := range nestedRecordsData {
 		if recordDataAsMap, ok := recordData.(map[string]interface{}); ok {
 			//new record`s data case
@@ -110,15 +119,46 @@ func (validationService *ValidationService) validateArray(value interface{}, fie
 				fieldDescription.LinkMeta.Key.Name:   pkValue,
 			})
 		} else {
-			return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", fieldDescription.Name)
+			return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", fieldDescription.Name)
 		}
 	}
-	return recordsToProcess, nil
+
+	//get records which are not presented in data
+	if !record.IsPhantom() {
+		idFilters := ""
+		for _, record := range recordsToProcess {
+			if !record.IsPhantom() {
+				idAsString, _ := record.Meta.Key.ValueAsString(record.Pk())
+				if len(idFilters) != 0 {
+					idFilters += ","
+				}
+				idFilters += idAsString
+			}
+		}
+		filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
+		callbackFunction := func(obj map[string]interface{}) error {
+			if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteCascade || fieldDescription.OuterLinkField.OnDelete == description.OnDeleteRestrict {
+				recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkMeta, obj))
+			} else if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteSetNull {
+				obj[fieldDescription.OuterLinkField.Name] = nil
+				recordsToProcess = append(recordsToProcess, NewRecord(fieldDescription.LinkMeta, obj))
+			}
+			return nil
+		}
+		validationService.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, 1, callbackFunction)
+		if len(recordsToRemove) > 0 {
+			if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteRestrict {
+				return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrRestrictConstraintViolation, "Array in field '%s'contains records, which could not be removed due to `Restrict` strategy set", fieldDescription.Name)
+			}
+		}
+	}
+	return recordsToProcess, recordsToRemove, nil
 }
 
-func (validationService *ValidationService) validateGenericArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, error) {
+func (validationService *ValidationService) validateGenericArray(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, len(nestedRecordsData))
+	recordsToRemove := make([]*Record, 0)
 	for i, recordData := range nestedRecordsData {
 		if recordDataAsMap, ok := recordData.(map[string]interface{}); ok {
 			recordDataAsMap[fieldDescription.OuterLinkField.Name] = &AGenericInnerLink{
@@ -136,10 +176,11 @@ func (validationService *ValidationService) validateGenericArray(value interface
 			}
 			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, recordDataAsMap)
 		} else {
-			return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Value in field '%s' has invalid value", fieldDescription.Name)
+			return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Value in field '%s' has invalid value", fieldDescription.Name)
 		}
 	}
-	return recordsToProcess, nil
+
+	return recordsToProcess, recordsToRemove, nil
 }
 
 func (validationService *ValidationService) validateInnerGenericLink(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.FieldDescription, record *Record) (*Record, error) {

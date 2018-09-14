@@ -177,44 +177,51 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
-	rootRecordSet, recordSets := recordProcessingNode.RecordSets()
+	rootRecordSet, recordSetsOperations := recordProcessingNode.RecordSetOperations()
 
 	// create records
 
-	for _, recordSet := range recordSets {
-		isRoot := recordSet == rootRecordSet
-		if !recordSet.IsPhantom() {
+	for _, recordSetOperation := range recordSetsOperations {
+		isRoot := recordSetOperation.RecordSet == rootRecordSet
+		if recordSetOperation.Type == RecordOperationTypeUpdate {
 			if _, err := processor.updateRecordSet(
 				dbTransaction,
-				recordSet,
+				recordSetOperation.RecordSet,
 				isRoot,
 				recordSetNotificationPool,
 			); err != nil {
 				return nil, err
-			} else {
-				if isRoot {
-					rootRecordSet = recordSet
-				}
 			}
-		} else {
+		} else if recordSetOperation.Type == RecordOperationTypeCreate {
 			if _, err := processor.createRecordSet(
 				dbTransaction,
-				recordSet,
+				recordSetOperation.RecordSet,
 				isRoot,
 				recordSetNotificationPool,
 			); err != nil {
 				return nil, err
-			} else {
-				if isRoot {
-					rootRecordSet = recordSet
+			}
+		} else if recordSetOperation.Type == RecordOperationTypeRemove {
+			for _, record := range recordSetOperation.RecordSet.Records {
+				recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+				if _, err := processor.RemoveRecord(
+					dbTransaction,
+					record.Meta.Name,
+					recordPkAsStr,
+					user,
+				); err != nil {
+					return nil, err
 				}
 			}
+
 		}
 	}
 
 	//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data
-	for _, recordSet := range recordSets {
-		recordSet.CollapseLinks()
+	for _, recordSetOperation := range recordSetsOperations {
+		if recordSetOperation.Type != RecordOperationTypeRemove {
+			recordSetOperation.RecordSet.CollapseLinks()
+		}
 	}
 
 	// push notifications if needed
@@ -243,7 +250,7 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 		return err
 	}
 
-	//assemble RecordSets
+	//assemble RecordSetOperations
 	var recordProcessingNode *RecordProcessingNode
 	rootRecordSets := make([] *RecordSet, 0)
 	for _, recordData := range recordDataSet {
@@ -252,46 +259,50 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 		if err != nil {
 			return err
 		}
-		rootRecordSet, recordSets := recordProcessingNode.RecordSets()
+		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
 
-		for _, recordSet := range recordSets {
-			isRoot := recordSet == rootRecordSet
-			recordSet.PrepareData()
-			if !recordSet.IsPhantom() {
+		for _, recordSetOperation := range recordSetOperations {
+			isRoot := recordSetOperation.RecordSet == rootRecordSet
+			if recordSetOperation.Type == RecordOperationTypeUpdate {
 				if _, err := processor.updateRecordSet(
 					dbTransaction,
-					recordSet,
+					recordSetOperation.RecordSet,
 					isRoot,
 					recordSetNotificationPool,
 				); err != nil {
 					return err
-				} else {
-					recordSet.MergeData()
-					if isRoot {
-						rootRecordSet = recordSet
-					}
 				}
-			} else {
+			} else if recordSetOperation.Type == RecordOperationTypeCreate {
 				if _, err := processor.createRecordSet(
 					dbTransaction,
-					recordSet,
+					recordSetOperation.RecordSet,
 					isRoot,
 					recordSetNotificationPool,
 				); err != nil {
 					return err
-				} else {
-					recordSet.MergeData()
-					if isRoot {
-						rootRecordSet = recordSet
+				}
+			} else if recordSetOperation.Type == RecordOperationTypeRemove {
+				for _, record := range recordSetOperation.RecordSet.Records {
+					recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+					if _, err := processor.RemoveRecord(
+						dbTransaction,
+						record.Meta.Name,
+						recordPkAsStr,
+						user,
+					); err != nil {
+						return err
 					}
 				}
+
 			}
 		}
 		rootRecordSets = append(rootRecordSets, rootRecordSet)
 
-		//collapse links
-		for _, recordSet := range recordSets {
-			recordSet.CollapseLinks()
+		//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data
+		for _, recordSetOperation := range recordSetOperations {
+			if recordSetOperation.Type != RecordOperationTypeRemove {
+				recordSetOperation.RecordSet.CollapseLinks()
+			}
 		}
 	}
 
@@ -336,43 +347,49 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
-	rootRecordSet, recordSets := recordProcessingNode.RecordSets()
+	rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
 
-	for _, recordSet := range recordSets {
-		isRoot := recordSet == rootRecordSet
-		if !recordSet.IsPhantom() {
+	for _, recordSetOperation := range recordSetOperations {
+		isRoot := recordSetOperation.RecordSet == rootRecordSet
+		if recordSetOperation.Type == RecordOperationTypeUpdate {
 			if _, err := processor.updateRecordSet(
 				dbTransaction,
-				recordSet,
+				recordSetOperation.RecordSet,
 				isRoot,
 				recordSetNotificationPool,
 			); err != nil {
 				return nil, err
-			} else {
-				if isRoot {
-					rootRecordSet = recordSet
-				}
 			}
-		} else {
+		} else if recordSetOperation.Type == RecordOperationTypeCreate {
 			if _, err := processor.createRecordSet(
 				dbTransaction,
-				recordSet,
+				recordSetOperation.RecordSet,
 				isRoot,
 				recordSetNotificationPool,
 			); err != nil {
 				return nil, err
-			} else {
-				if isRoot {
-					rootRecordSet = recordSet
+			}
+		} else if recordSetOperation.Type == RecordOperationTypeRemove {
+			for _, record := range recordSetOperation.RecordSet.Records {
+				recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+				if _, err := processor.RemoveRecord(
+					dbTransaction,
+					record.Meta.Name,
+					recordPkAsStr,
+					user,
+				); err != nil {
+					return nil, err
 				}
 			}
+
 		}
 	}
 	//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data
-	for _, recordSet := range recordSets {
-		recordSet.CollapseLinks()
+	for _, recordSetOperation := range recordSetOperations {
+		if recordSetOperation.Type != RecordOperationTypeRemove {
+			recordSetOperation.RecordSet.CollapseLinks()
+		}
 	}
-
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all recordSetsSplitByObjects in the pool
@@ -401,7 +418,7 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 		return err
 	}
 
-	//assemble RecordSets
+	//assemble RecordSetOperations
 	var recordProcessingNode *RecordProcessingNode
 	rootRecordSets := make([] *RecordSet, 0)
 	for _, recordData := range recordDataSet {
@@ -410,46 +427,51 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 		if err != nil {
 			return err
 		}
-		rootRecordSet, recordSets := recordProcessingNode.RecordSets()
+		//perform update
+		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
 
-		for _, recordSet := range recordSets {
-			isRoot := recordSet == rootRecordSet
-			recordSet.PrepareData()
-			if !recordSet.IsPhantom() {
+		for _, recordSetOperation := range recordSetOperations {
+			isRoot := recordSetOperation.RecordSet == rootRecordSet
+			if recordSetOperation.Type == RecordOperationTypeUpdate {
 				if _, err := processor.updateRecordSet(
 					dbTransaction,
-					recordSet,
+					recordSetOperation.RecordSet,
 					isRoot,
 					recordSetNotificationPool,
 				); err != nil {
 					return err
-				} else {
-					recordSet.MergeData()
-					if isRoot {
-						rootRecordSet = recordSet
-					}
 				}
-			} else {
+			} else if recordSetOperation.Type == RecordOperationTypeCreate {
 				if _, err := processor.createRecordSet(
 					dbTransaction,
-					recordSet,
+					recordSetOperation.RecordSet,
 					isRoot,
 					recordSetNotificationPool,
 				); err != nil {
 					return err
-				} else {
-					recordSet.MergeData()
-					if isRoot {
-						rootRecordSet = recordSet
+				}
+			} else if recordSetOperation.Type == RecordOperationTypeRemove {
+				for _, record := range recordSetOperation.RecordSet.Records {
+					recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+					if _, err := processor.RemoveRecord(
+						dbTransaction,
+						record.Meta.Name,
+						recordPkAsStr,
+						user,
+					); err != nil {
+						return err
 					}
 				}
+
 			}
 		}
 		rootRecordSets = append(rootRecordSets, rootRecordSet)
 
-		//collapse links
-		for _, recordSet := range recordSets {
-			recordSet.CollapseLinks()
+		//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data
+		for _, recordSetOperation := range recordSetOperations {
+			if recordSetOperation.Type != RecordOperationTypeRemove {
+				recordSetOperation.RecordSet.CollapseLinks()
+			}
 		}
 	}
 
@@ -534,11 +556,11 @@ func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTrans
 		keys = append(keys, recordData[objectMeta.Key.Name])
 	}
 
-	//var op transactions.Operation
+	//var op transactions.Type
 	//if op, keys, err = processor.dataManager.PerformRemove(root, keys, dbTransaction); err != nil {
 	//	return err
 	//} else {
-	//	ops := []transactions.Operation{op}
+	//	ops := []transactions.Type{op}
 	//	for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
 	//
 	//		for _, v := range t2d[0].n.ChildNodes {

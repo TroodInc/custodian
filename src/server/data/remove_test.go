@@ -14,7 +14,7 @@ import (
 	"server/object/description"
 )
 
-var _ = Describe("RecordSets removal", func() {
+var _ = Describe("RecordSetOperations removal", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)

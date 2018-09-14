@@ -5,67 +5,87 @@ import (
 	"server/object/meta"
 )
 
-//represents list of RecordSets which are queued on the same level
+//represents list of RecordSetOperations which are queued on the same level
 type RecordProcessingNode struct {
 	Record        *record.Record
 	ProcessBefore []*RecordProcessingNode
 	ProcessAfter  []*RecordProcessingNode
+	RemoveBefore  []*RecordProcessingNode
 }
 
 //return records in order of processing
-func (r *RecordProcessingNode) RecordSets() (*record.RecordSet, []*record.RecordSet) {
-	records := r.collectRecords(make([]*record.Record, 0))
-	return r.composeRecordSets(records)
+func (r *RecordProcessingNode) RecordSetOperations() (*record.RecordSet, []*RecordSetOperation) {
+	recordOperations := r.collectRecordOperations(make([]*RecordOperation, 0))
+	return r.composeRecordSetOperations(recordOperations)
 }
 
-func (r *RecordProcessingNode) collectRecords(records []*record.Record) []*record.Record {
+func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*RecordOperation) []*RecordOperation {
+	for _, recordProcessingNode := range r.RemoveBefore {
+		recordOperations = append(
+			recordOperations,
+			&RecordOperation{Record: recordProcessingNode.Record, Type: RecordOperationTypeRemove},
+		)
+	}
+
 	for _, recordProcessingNode := range r.ProcessBefore {
-		records = recordProcessingNode.collectRecords(records)
+		recordOperations = recordProcessingNode.collectRecordOperations(recordOperations)
 	}
-	records = append(records, r.Record)
+
+	var operation RecordOperationType
+	if r.Record.IsPhantom() {
+		operation = RecordOperationTypeCreate
+	} else {
+		operation = RecordOperationTypeUpdate
+	}
+	recordOperations = append(recordOperations, &RecordOperation{Record: r.Record, Type: operation})
+
 	for _, recordProcessingNode := range r.ProcessAfter {
-		records = recordProcessingNode.collectRecords(records)
+		recordOperations = recordProcessingNode.collectRecordOperations(recordOperations)
 	}
-	return records
+	return recordOperations
 }
 
 //unite records of same objects, so they could be processed within same DB operation
-func (r *RecordProcessingNode) composeRecordSets(records []*record.Record) (*record.RecordSet, []*record.RecordSet) {
-	recordSets := make([]*record.RecordSet, 0)
+func (r *RecordProcessingNode) composeRecordSetOperations(recordOperations []*RecordOperation) (*record.RecordSet, []*RecordSetOperation) {
+	recordSetOperations := make([]*RecordSetOperation, 0)
 	rootRecordSet := new(record.RecordSet)
 	var currentMeta *meta.Meta
-	var currentMetaRecordSetPool []*record.RecordSet //pool represent a set of recordSets, which belong to the same
+	var currentOperationType RecordOperationType
+	var currentMetaRecordSetOperationPool []*RecordSetOperation //pool represent a set of recordSetOperations, which belong to the same
 	// object, but should be processed separately dut to different sets of fields
-	var currentRecordSet *record.RecordSet
-	for _, currentRecord := range records {
+	var currentRecordSetOperation *RecordSetOperation
+	for _, currentRecordOperation := range recordOperations {
 		//change pool and meta if needed
-		if currentMeta == nil || r.Record == currentRecord || currentMeta.Name != currentRecord.Meta.Name {
-			currentMeta = currentRecord.Meta
-			currentMetaRecordSetPool = make([]*record.RecordSet, 0)
-
+		isRootRecord := r.Record == currentRecordOperation.Record
+		metaChanged := currentMeta == nil || currentMeta.Name != currentRecordOperation.Record.Meta.Name
+		operationChanged := currentRecordOperation.Type != currentOperationType
+		if currentMeta == nil || isRootRecord || metaChanged || operationChanged {
+			currentMeta = currentRecordOperation.Record.Meta
+			currentOperationType = currentRecordOperation.Type
+			currentMetaRecordSetOperationPool = make([]*RecordSetOperation, 0)
 		}
 
 		//find matching recordSet for current record
-		currentRecordSet = nil
-		for _, recordSet := range currentMetaRecordSetPool {
-			if recordSet.CanAppendRecord(currentRecord) {
-				currentRecordSet = recordSet
+		currentRecordSetOperation = nil
+		for _, recordSetOperation := range currentMetaRecordSetOperationPool {
+			if recordSetOperation.RecordSet.CanAppendRecord(currentRecordOperation.Record) {
+				currentRecordSetOperation = recordSetOperation
 			}
 		}
 		//if record set is not found - create a new one
-		if currentRecordSet == nil {
-			currentRecordSet = record.NewRecordSet(currentRecord.Meta)
-			currentMetaRecordSetPool = append(currentMetaRecordSetPool, currentRecordSet)
-			recordSets = append(recordSets, currentRecordSet)
+		if currentRecordSetOperation == nil {
+			currentRecordSetOperation = &RecordSetOperation{RecordSet: record.NewRecordSet(currentRecordOperation.Record.Meta), Type: currentRecordOperation.Type}
+			currentMetaRecordSetOperationPool = append(currentMetaRecordSetOperationPool, currentRecordSetOperation)
+			recordSetOperations = append(recordSetOperations, currentRecordSetOperation)
 		}
 
 		//root record`s recordSet should contain only root record
-		if r.Record == currentRecord {
-			rootRecordSet = currentRecordSet
+		if isRootRecord {
+			rootRecordSet = currentRecordSetOperation.RecordSet
 		}
-		currentRecordSet.Records = append(currentRecordSet.Records, currentRecord)
+		currentRecordSetOperation.RecordSet.Records = append(currentRecordSetOperation.RecordSet.Records, currentRecordOperation.Record)
 	}
-	return rootRecordSet, recordSets
+	return rootRecordSet, recordSetOperations
 }
 
 func NewRecordProcessingNode(record *record.Record) *RecordProcessingNode {

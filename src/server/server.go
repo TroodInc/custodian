@@ -263,7 +263,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 		}
 	}))
 
-	//RecordSets operations
+	//RecordSetOperations operations
 	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")

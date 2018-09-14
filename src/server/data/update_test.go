@@ -420,4 +420,156 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("Another B record"))
 		Expect(bSetData[2].(map[string]interface{})["name"]).To(Equal("New B Record"))
 	})
+
+	It("Processes delete logic for outer records which are not presented in update data. `Cascade` strategy case ", func() {
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		anotherBRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "Another B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		aPkValue, _ := aMetaObj.Key.ValueAsString(aRecordData[aMetaDescription.Key])
+
+		//anotherBRecord`s id is not set
+		aUpdateData := map[string]interface{}{
+			"id":   aPkValue,
+			"name": "Updated A name",
+			"b__set": []interface{}{
+				bRecordData["id"],                              //existing record with new data
+				map[string]interface{}{"name": "New B Record"}, //new record`s data
+			},
+		}
+
+		recordData, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, aUpdateData, auth.User{})
+		Expect(err).To(BeNil())
+
+		//check returned data
+		Expect(recordData).To(HaveKey("b__set"))
+		bSetData := recordData["b__set"].([]interface{})
+		Expect(bSetData).To(HaveLen(2))
+		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
+		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
+		//	check queried data
+		record, err := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, 2)
+		Expect(err).To(BeNil())
+		Expect(record.Data).To(HaveKey("b__set"))
+		bSetData = record.Data["b__set"].([]interface{})
+		Expect(bSetData).To(HaveLen(2))
+		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
+		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
+		//	check B record is deleted
+		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord["id"])
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, 1)
+		Expect(err).To(BeNil())
+		Expect(record).To(BeNil())
+	})
+
+	It("Processes delete logic for outer records which are not presented in update data. `SetNull` strategy case ", func() {
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		bMetaDescription := bMetaDescription
+		bMetaDescription.Fields[1].OnDelete = description.OnDeleteSetNull.ToVerbose()
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		anotherBRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "Another B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		aPkValue, _ := aMetaObj.Key.ValueAsString(aRecordData[aMetaDescription.Key])
+
+		//anotherBRecord`s id is not set
+		aUpdateData := map[string]interface{}{
+			"id":   aPkValue,
+			"name": "Updated A name",
+			"b__set": []interface{}{
+				bRecordData["id"],                              //existing record with new data
+				map[string]interface{}{"name": "New B Record"}, //new record`s data
+			},
+		}
+
+		recordData, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, aUpdateData, auth.User{})
+		Expect(err).To(BeNil())
+
+		//check returned data
+		Expect(recordData).To(HaveKey("b__set"))
+		bSetData := recordData["b__set"].([]interface{})
+		Expect(bSetData).To(HaveLen(2))
+		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
+		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
+		//	check queried data
+		record, err := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, 2)
+		Expect(err).To(BeNil())
+		Expect(record.Data).To(HaveKey("b__set"))
+		bSetData = record.Data["b__set"].([]interface{})
+		Expect(bSetData).To(HaveLen(2))
+		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
+		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
+		//	check B record is not deleted
+		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord["id"])
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, 1)
+		Expect(err).To(BeNil())
+		Expect(record).NotTo(BeNil())
+	})
+
+	It("Processes delete logic for outer records which are not presented in update data. `Restrict` strategy case ", func() {
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+
+		bMetaDescription := bMetaDescription
+		bMetaDescription.Fields[1].OnDelete = description.OnDeleteRestrict.ToVerbose()
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+
+		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "Another B record", "a": aRecordData["id"]}, auth.User{})
+		Expect(err).To(BeNil())
+
+		aPkValue, _ := aMetaObj.Key.ValueAsString(aRecordData[aMetaDescription.Key])
+
+		//anotherBRecord`s id is not set
+		aUpdateData := map[string]interface{}{
+			"id":   aPkValue,
+			"name": "Updated A name",
+			"b__set": []interface{}{
+				bRecordData["id"],                              //existing record with new data
+				map[string]interface{}{"name": "New B Record"}, //new record`s data
+			},
+		}
+
+		_, err = dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, aUpdateData, auth.User{})
+		Expect(err).NotTo(BeNil())
+	})
 })
