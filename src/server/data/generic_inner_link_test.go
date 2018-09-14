@@ -789,7 +789,7 @@ var _ = Describe("Data", func() {
 			Expect(targetValue["name"].(string)).To(Equal(aRecord["name"].(string)))
 		})
 
-		It("can create record with nested inner generic record", func() {
+		It("can create record with nested new inner generic record", func() {
 
 			Describe("Having object A", havingObjectA)
 			Describe("Having object C", havingObjectC)
@@ -801,6 +801,29 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			Expect(bRecordData).To(HaveKey("target"))
 			Expect(bRecordData["target"]).To(Not(BeNil()))
+		})
+
+		It("can create record with nested existing inner generic record", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("Having object C", havingObjectC)
+			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+
+			existingARecordData, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction,
+				"a",
+				map[string]interface{}{"name": "Existing A record"},
+				auth.User{},
+			)
+			Expect(err).To(BeNil())
+
+			bRecordData := map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": existingARecordData["id"]}}
+
+			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", bRecordData, auth.User{})
+			Expect(err).To(BeNil())
+			Expect(bRecordData).To(HaveKey("target"))
+			Expect(bRecordData["target"]).To(Not(BeNil()))
+			Expect(bRecordData["target"].(map[string]interface{})["id"]).To(Equal(existingARecordData["id"]))
 		})
 	})
 })

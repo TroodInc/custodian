@@ -109,6 +109,16 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 		} else {
 			return f.OuterLinkField.ValueAsString(v)
 		}
+	case FieldTypeGeneric:
+		switch value := v.(type) {
+		case float64:
+			return strconv.FormatFloat(value, 'f', -1, 64), nil
+		case string:
+			return value, nil
+		default:
+			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
+				"Wrong input value type '%s'. For Field '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
+		}
 	default:
 		return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal, "Unknown Field type '%s'", f.Type)
 	}

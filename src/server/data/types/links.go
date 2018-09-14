@@ -15,14 +15,3 @@ type DLink struct {
 	IsOuter bool
 	Id      interface{}
 }
-
-func AssertLink(i interface{}) bool {
-	switch i.(type) {
-	case DLink:
-		return true
-	case ALink:
-		return true
-	default:
-		return false
-	}
-}

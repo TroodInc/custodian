@@ -68,7 +68,6 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 				}
 			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && fieldDescription.LinkMeta.Key.Type.AssertType(value):
 				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
-			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && AssertLink(value):
 			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner:
 				if recordToProcess, err := validationService.validateInnerGenericLink(dbTransaction, value, fieldDescription, record); err != nil {
 					return nil, nil, err
@@ -77,10 +76,16 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 						nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(recordToProcess))
 					}
 				}
-
 			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeOuter:
-				//TODO:IMPLEMENT
-				continue
+				//validate outer generic links
+				if childRecordsToProcess, err := validationService.validateGenericArray(value, fieldDescription, record); err != nil {
+					return nil, nil, err
+				} else {
+					for _, childRecord := range childRecordsToProcess {
+						nodesToProcessAfter = append(nodesToProcessAfter, NewRecordProcessingNode(childRecord))
+					}
+				}
+				delete(record.Data, fieldName)
 			default:
 				if !(value == nil && fieldDescription.Optional) {
 					return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldName)
@@ -111,16 +116,53 @@ func (validationService *ValidationService) validateArray(value interface{}, fie
 	return recordsToProcess, nil
 }
 
+func (validationService *ValidationService) validateGenericArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, error) {
+	var nestedRecordsData = value.([]interface{})
+	recordsToProcess := make([]*Record, len(nestedRecordsData))
+	for i, recordData := range nestedRecordsData {
+		if recordDataAsMap, ok := recordData.(map[string]interface{}); ok {
+			recordDataAsMap[fieldDescription.OuterLinkField.Name] = &AGenericInnerLink{
+				Field:           fieldDescription,
+				LinkType:        description.LinkTypeOuter,
+				RecordData:      record.Data,
+				Index:           i,
+				NeighboursCount: len(nestedRecordsData),
+				GenericInnerLink: &GenericInnerLink{
+					ObjectName:       fieldDescription.Meta.Name,
+					Pk:               nil,
+					FieldDescription: fieldDescription,
+					PkName:           fieldDescription.Meta.Key.Name,
+				},
+			}
+			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, recordDataAsMap)
+		} else {
+			return nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Value in field '%s' has invalid value", fieldDescription.Name)
+		}
+	}
+	return recordsToProcess, nil
+}
+
 func (validationService *ValidationService) validateInnerGenericLink(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.FieldDescription, record *Record) (*Record, error) {
 	var err error
 	var recordToProcess *Record
 	if value != nil {
+		//if value is already set by "validateGenericArray"
+		if _, ok := value.(*AGenericInnerLink); ok {
+			return nil, nil
+		}
 		if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(dbTransaction, validationService.metaStore.Get, validationService.processor.Get).Validate(fieldDescription, value); err != nil {
 			if _, ok := err.(errors.GenericFieldPkIsNullError); ok {
 				recordValuesAsMap := value.(map[string]interface{})
 				objMeta := fieldDescription.LinkMetaList.GetByName(recordValuesAsMap[GenericInnerLinkObjectKey].(string))
 				delete(recordValuesAsMap, GenericInnerLinkObjectKey)
-				record.Data[fieldDescription.Name] = &GenericInnerLink{objMeta.Name, nil, fieldDescription, objMeta.Key.Name, recordValuesAsMap}
+				record.Data[fieldDescription.Name] = &AGenericInnerLink{
+					GenericInnerLink: &GenericInnerLink{objMeta.Name, nil, fieldDescription, objMeta.Key.Name},
+					Field:            fieldDescription,
+					RecordData:       recordValuesAsMap,
+					Index:            0,
+					NeighboursCount:  1,
+					LinkType:         description.LinkTypeInner,
+				}
 				recordToProcess = NewRecord(objMeta, recordValuesAsMap)
 			} else {
 				return nil, err

@@ -34,6 +34,15 @@ func (record *Record) CollapseLinks() {
 			if !link.IsOuter {
 				record.Data[k] = link.Id
 			}
+		case *types.AGenericInnerLink:
+			if link.LinkType == description.LinkTypeOuter {
+				if _, ok := record.Data[link.Field.Name]; !ok {
+					link.RecordData[link.Field.Name] = make([]interface{}, link.NeighboursCount)
+				}
+				link.RecordData[link.Field.Name].([]interface{})[link.Index] = link.GenericInnerLink.Pk
+			} else {
+				link.RecordData[link.Field.Name] = link.GenericInnerLink.AsMap()
+			}
 		}
 	}
 }
@@ -43,6 +52,9 @@ func (record *Record) MergeData() {
 	for k := range record.RawData {
 		if value, ok := record.Data[k]; ok {
 			if _, ok := value.(types.ALink); ok {
+				continue
+			}
+			if _, ok := value.(*types.AGenericInnerLink); ok {
 				continue
 			}
 		}
@@ -61,12 +73,12 @@ func (record *Record) PrepareData() {
 			} else {
 				record.RawData[k] = link.Obj[link.Field.Meta.Key.Name]
 			}
-		case *types.GenericInnerLink:
+		case *types.AGenericInnerLink:
 			//fill PK if it is presented in RecordData stash, case of newly created record
-			if pkValue, ok := link.RecordData[link.PkName]; ok {
-				link.Pk = pkValue
+			if pkValue, ok := link.RecordData[link.GenericInnerLink.PkName]; ok {
+				link.GenericInnerLink.Pk = pkValue
 			}
-			record.RawData[k] = link
+			record.RawData[k] = link.GenericInnerLink
 		default:
 			record.RawData[k] = record.Data[k]
 		}
