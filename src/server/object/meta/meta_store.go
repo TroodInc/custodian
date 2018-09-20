@@ -403,7 +403,7 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(transaction *transacti
 			if shouldProcessOuterLinks {
 				//add reverse outer
 				for _, linkMeta := range includedMetas {
-					fieldName := currentMeta.Name + "__set"
+					fieldName := ReverseInnerLinkName(currentMeta.Name)
 					if linkMeta.FindField(fieldName) != nil {
 						continue
 					}
@@ -469,7 +469,7 @@ func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.Glo
 
 			if referencedMeta != nil {
 				//add reverse outer
-				fieldName := currentMeta.Name + "__set"
+				fieldName := ReverseInnerLinkName(currentMeta.Name)
 				if referencedMeta.FindField(fieldName) != nil {
 					continue
 				}
