@@ -24,10 +24,14 @@ func (r *RecordProcessingTreeBuilder) buildNode(recordProcessingNode *RecordProc
 		return err
 	} else {
 		for _, childRecordProcessingNode := range recordProcessingNode.ProcessBefore {
-			r.buildNode(childRecordProcessingNode, processor, dbTransaction)
+			if err = r.buildNode(childRecordProcessingNode, processor, dbTransaction); err != nil {
+				return err
+			}
 		}
 		for _, childRecordProcessingNode := range recordProcessingNode.ProcessAfter {
-			r.buildNode(childRecordProcessingNode, processor, dbTransaction)
+			if err = r.buildNode(childRecordProcessingNode, processor, dbTransaction); err != nil {
+				return err
+			}
 		}
 	}
 	return nil

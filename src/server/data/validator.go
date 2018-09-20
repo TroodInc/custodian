@@ -95,7 +95,9 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 				}
 				delete(record.Data, fieldName)
 			default:
-				if !(value == nil && fieldDescription.Optional) {
+				if _, ok := value.(ALink); ok {
+					break
+				} else if value != nil {
 					return nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldName)
 				}
 			}
