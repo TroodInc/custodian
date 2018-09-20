@@ -38,6 +38,9 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 			break
 		}
 	}
+	if err := metaFactory.checkOuterLinks(objectMeta); err != nil {
+		return nil, err
+	}
 	if err := metaFactory.setOuterLinks(objectMeta); err != nil {
 		return nil, err
 	}
@@ -170,7 +173,7 @@ func (metaFactory *MetaFactory) popMetaToResolve() *Meta {
 }
 
 //check outer links for each processed Metal
-func (metaFactory *MetaFactory) setOuterLinks(objectMeta *Meta) (error) {
+func (metaFactory *MetaFactory) setOuterLinks(objectMeta *Meta) error {
 	for _, currentObjectMeta := range metaFactory.builtMetas {
 		//processing outer links
 		for i, _ := range currentObjectMeta.Fields {
@@ -178,15 +181,22 @@ func (metaFactory *MetaFactory) setOuterLinks(objectMeta *Meta) (error) {
 			if field.LinkType != LinkTypeOuter {
 				continue
 			}
-			if field.OuterLinkField = field.LinkMeta.FindField(field.Field.OuterLinkField); field.OuterLinkField == nil {
-				if field.Field.OuterLinkField == "" {
-					return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has no outer link field specified", field.Name)
-				} else {
-					return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. Meta '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
-				}
-			} else if !field.OuterLinkField.canBeLinkTo(field.Meta) {
-				return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, field.OuterLinkField.Name, field.OuterLinkField.Meta.Name, field.Meta.Name)
-			}
+			field.OuterLinkField = field.LinkMeta.FindField(field.Field.OuterLinkField)
+		}
+	}
+	return nil
+}
+
+func (metaFactory *MetaFactory) checkOuterLinks(objectMeta *Meta) error {
+	for i, _ := range objectMeta.Fields {
+		field := &objectMeta.Fields[i]
+		if field.LinkType != LinkTypeOuter {
+			continue
+		}
+		if outerLinkField := field.LinkMeta.FindField(field.Field.OuterLinkField); outerLinkField == nil {
+			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. Meta '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
+		} else if !outerLinkField.canBeLinkTo(field.Meta) {
+			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, outerLinkField.Name, outerLinkField.Meta.Name, field.Meta.Name)
 		}
 	}
 	return nil

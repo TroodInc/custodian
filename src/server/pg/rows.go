@@ -108,12 +108,20 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					//fill corresponding value
 					if meta.IsGenericFieldTypeColumn(columnName) {
 						castAssembledValue.ObjectName = value.String
-						if value.String != "" {
-							castAssembledValue.PkName = fieldDescription.LinkMetaList.GetByName(value.String).Key.Name
+						if linkMeta := fieldDescription.LinkMetaList.GetByName(value.String); linkMeta == nil {
+							return nil, NewDMLError(ErrDMLFailed, "Generic field '%s' references improper meta '%s'", fieldDescription.Name, castAssembledValue.ObjectName)
+						} else {
+							if value.String != "" {
+								castAssembledValue.PkName = linkMeta.Key.Name
+							}
 						}
 					} else if meta.IsGenericFieldKeyColumn(columnName) {
 						if value.String != "" {
-							castAssembledValue.Pk, _ = fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName).Key.ValueFromString(value.String)
+							if linkMeta := fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName); linkMeta == nil {
+								return nil, NewDMLError(ErrDMLFailed, "Generic field %s references improper meta'%s'", fieldDescription.Name, castAssembledValue.ObjectName)
+							} else {
+								castAssembledValue.Pk, _ = linkMeta.Key.ValueFromString(value.String)
+							}
 						}
 					}
 					//include value if it contains not null data
