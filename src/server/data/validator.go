@@ -135,17 +135,19 @@ func (validationService *ValidationService) validateArray(dbTransaction transact
 				idFilters += idAsString
 			}
 		}
-		filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
-		callbackFunction := func(obj map[string]interface{}) error {
-			if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteCascade || fieldDescription.OuterLinkField.OnDelete == description.OnDeleteRestrict {
-				recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkMeta, obj))
-			} else if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteSetNull {
-				obj[fieldDescription.OuterLinkField.Name] = nil
-				recordsToProcess = append(recordsToProcess, NewRecord(fieldDescription.LinkMeta, obj))
+		if len(idFilters) > 0 {
+			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
+			callbackFunction := func(obj map[string]interface{}) error {
+				if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteCascade || fieldDescription.OuterLinkField.OnDelete == description.OnDeleteRestrict {
+					recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkMeta, obj))
+				} else if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteSetNull {
+					obj[fieldDescription.OuterLinkField.Name] = nil
+					recordsToProcess = append(recordsToProcess, NewRecord(fieldDescription.LinkMeta, obj))
+				}
+				return nil
 			}
-			return nil
+			validationService.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, 1, callbackFunction)
 		}
-		validationService.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, 1, callbackFunction)
 		if len(recordsToRemove) > 0 {
 			if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteRestrict {
 				return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrRestrictConstraintViolation, "Array in field '%s'contains records, which could not be removed due to `Restrict` strategy set", fieldDescription.Name)
@@ -175,6 +177,20 @@ func (validationService *ValidationService) validateGenericArray(dbTransaction t
 				},
 			}
 			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, recordDataAsMap)
+		} else if pkValue, ok := recordData.(interface{}); ok {
+			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, map[string]interface{}{fieldDescription.OuterLinkField.Name: &AGenericInnerLink{
+				Field:           fieldDescription,
+				LinkType:        description.LinkTypeOuter,
+				RecordData:      record.Data,
+				Index:           i,
+				NeighboursCount: len(nestedRecordsData),
+				GenericInnerLink: &GenericInnerLink{
+					ObjectName:       fieldDescription.Meta.Name,
+					Pk:               nil,
+					FieldDescription: fieldDescription,
+					PkName:           fieldDescription.Meta.Key.Name,
+				},
+			}, fieldDescription.LinkMeta.Key.Name: pkValue})
 		} else {
 			return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Value in field '%s' has invalid value", fieldDescription.Name)
 		}

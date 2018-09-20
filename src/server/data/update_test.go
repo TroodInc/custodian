@@ -404,7 +404,7 @@ var _ = Describe("Data", func() {
 		aUpdateData := map[string]interface{}{
 			"id":   aPkValue,
 			"name": "Updated A name",
-			"b__set": []interface{}{
+			"b_set": []interface{}{
 				map[string]interface{}{"id": bRecordData["id"], "name": "Updated B name"}, //existing record with new data
 				anotherBRecordData["id"],                                                  //existing record`s PK
 				map[string]interface{}{"name": "New B Record"},                            //new record`s data
@@ -413,8 +413,8 @@ var _ = Describe("Data", func() {
 
 		recordData, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, aUpdateData, auth.User{})
 		Expect(err).To(BeNil())
-		Expect(recordData).To(HaveKey("b__set"))
-		bSetData := recordData["b__set"].([]interface{})
+		Expect(recordData).To(HaveKey("b_set"))
+		bSetData := recordData["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(3))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("Updated B name"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("Another B record"))
@@ -447,7 +447,7 @@ var _ = Describe("Data", func() {
 		aUpdateData := map[string]interface{}{
 			"id":   aPkValue,
 			"name": "Updated A name",
-			"b__set": []interface{}{
+			"b_set": []interface{}{
 				bRecordData["id"],                              //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
@@ -457,16 +457,16 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		//check returned data
-		Expect(recordData).To(HaveKey("b__set"))
-		bSetData := recordData["b__set"].([]interface{})
+		Expect(recordData).To(HaveKey("b_set"))
+		bSetData := recordData["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
 		record, err := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, 2)
 		Expect(err).To(BeNil())
-		Expect(record.Data).To(HaveKey("b__set"))
-		bSetData = record.Data["b__set"].([]interface{})
+		Expect(record.Data).To(HaveKey("b_set"))
+		bSetData = record.Data["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
@@ -505,7 +505,7 @@ var _ = Describe("Data", func() {
 		aUpdateData := map[string]interface{}{
 			"id":   aPkValue,
 			"name": "Updated A name",
-			"b__set": []interface{}{
+			"b_set": []interface{}{
 				bRecordData["id"],                              //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
@@ -515,16 +515,16 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		//check returned data
-		Expect(recordData).To(HaveKey("b__set"))
-		bSetData := recordData["b__set"].([]interface{})
+		Expect(recordData).To(HaveKey("b_set"))
+		bSetData := recordData["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
 		record, err := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aPkValue, 2)
 		Expect(err).To(BeNil())
-		Expect(record.Data).To(HaveKey("b__set"))
-		bSetData = record.Data["b__set"].([]interface{})
+		Expect(record.Data).To(HaveKey("b_set"))
+		bSetData = record.Data["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
@@ -563,7 +563,7 @@ var _ = Describe("Data", func() {
 		aUpdateData := map[string]interface{}{
 			"id":   aPkValue,
 			"name": "Updated A name",
-			"b__set": []interface{}{
+			"b_set": []interface{}{
 				bRecordData["id"],                              //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},

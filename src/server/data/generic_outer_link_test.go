@@ -190,13 +190,13 @@ var _ = Describe("Data", func() {
 			Describe("Having object A", havingObjectA)
 			Describe("And having object B", havingObjectBWithGenericLinkToA)
 
-			aRecordData := map[string]interface{}{"name": "New A record", "b__set": []interface{}{map[string]interface{}{}}}
+			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{}}}
 			aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", aRecordData, auth.User{})
 
 			Expect(err).To(BeNil())
-			Expect(aRecordData).To(HaveKey("b__set"))
-			Expect(aRecordData["b__set"]).To(HaveLen(1))
-			bSetData := aRecordData["b__set"].([]interface{})
+			Expect(aRecordData).To(HaveKey("b_set"))
+			Expect(aRecordData["b_set"]).To(HaveLen(1))
+			bSetData := aRecordData["b_set"].([]interface{})
 			Expect(bSetData[0]).To(BeAssignableToTypeOf(1.0))
 
 		})
@@ -208,23 +208,23 @@ var _ = Describe("Data", func() {
 			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			aRecordData := map[string]interface{}{"name": "New A record", "b__set": []interface{}{map[string]interface{}{"id": bRecord["id"]}}}
+			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{"id": bRecord["id"]}}}
 			aRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", aRecordData, auth.User{})
 
 			//check returned data
 			Expect(err).To(BeNil())
-			Expect(aRecordData).To(HaveKey("b__set"))
-			Expect(aRecordData["b__set"]).To(HaveLen(1))
-			bSetData := aRecordData["b__set"].([]interface{})
+			Expect(aRecordData).To(HaveKey("b_set"))
+			Expect(aRecordData["b_set"]).To(HaveLen(1))
+			bSetData := aRecordData["b_set"].([]interface{})
 			Expect(bSetData[0].(float64)).To(Equal(bRecord["id"]))
 
 			//check queried data
 			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecordData["id"].(float64))), 1)
 			Expect(err).To(BeNil())
 
-			Expect(aRecord.Data).To(HaveKey("b__set"))
-			Expect(aRecord.Data["b__set"]).To(HaveLen(1))
-			bSetData = aRecord.Data["b__set"].([]interface{})
+			Expect(aRecord.Data).To(HaveKey("b_set"))
+			Expect(aRecord.Data["b_set"]).To(HaveLen(1))
+			bSetData = aRecord.Data["b_set"].([]interface{})
 			Expect(bSetData[0].(float64)).To(Equal(bRecord["id"]))
 		})
 	})

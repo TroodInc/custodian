@@ -322,13 +322,13 @@ var _ = Describe("Create test", func() {
 
 		aData := map[string]interface{}{
 			"name":   "A record",
-			"b__set": []interface{}{map[string]interface{}{"name": "B record"}},
+			"b_set": []interface{}{map[string]interface{}{"name": "B record"}},
 		}
 		user := auth.User{}
 		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, aData, user)
 		Expect(err).To(BeNil())
-		Expect(record).To(HaveKey("b__set"))
-		bSetData := record["b__set"].([]interface{})
+		Expect(record).To(HaveKey("b_set"))
+		bSetData := record["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(1))
 		bRecordData := bSetData[0].(map[string]interface{})
 		Expect(bRecordData["id"]).To(BeAssignableToTypeOf(1.0))
@@ -353,13 +353,13 @@ var _ = Describe("Create test", func() {
 
 		aData := map[string]interface{}{
 			"name":   "A record",
-			"b__set": []interface{}{map[string]interface{}{"name": "B record"}, bRecord["id"]},
+			"b_set": []interface{}{map[string]interface{}{"name": "B record"}, bRecord["id"]},
 		}
 
 		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, aData, user)
 		Expect(err).To(BeNil())
-		Expect(record).To(HaveKey("b__set"))
-		bSetData := record["b__set"].([]interface{})
+		Expect(record).To(HaveKey("b_set"))
+		bSetData := record["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 
 		newBRecordData := bSetData[0].(map[string]interface{})

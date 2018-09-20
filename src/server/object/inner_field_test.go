@@ -98,7 +98,7 @@ var _ = Describe("Inner generic field", func() {
 		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaObj.Name)
 		Expect(err).To(BeNil())
 
-		reverseField := aMetaObj.FindField("b__set")
+		reverseField := aMetaObj.FindField("b_set")
 		Expect(reverseField).NotTo(BeNil())
 		Expect(reverseField.Type).To(Equal(description.FieldTypeArray))
 		Expect(reverseField.LinkType).To(Equal(description.LinkTypeOuter))

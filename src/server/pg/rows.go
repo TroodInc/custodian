@@ -107,11 +107,11 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					}
 					//fill corresponding value
 					if meta.IsGenericFieldTypeColumn(columnName) {
-						castAssembledValue.ObjectName = value.String
-						if linkMeta := fieldDescription.LinkMetaList.GetByName(value.String); linkMeta == nil {
-							return nil, NewDMLError(ErrDMLFailed, "Generic field '%s' references improper meta '%s'", fieldDescription.Name, castAssembledValue.ObjectName)
-						} else {
-							if value.String != "" {
+						if value.String != "" {
+							castAssembledValue.ObjectName = value.String
+							if linkMeta := fieldDescription.LinkMetaList.GetByName(value.String); linkMeta == nil {
+								return nil, NewDMLError(ErrDMLFailed, "Generic field '%s' references improper meta '%s'", fieldDescription.Name, castAssembledValue.ObjectName)
+							} else {
 								castAssembledValue.PkName = linkMeta.Key.Name
 							}
 						}

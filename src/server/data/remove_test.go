@@ -112,8 +112,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).NotTo(BeNil())
-		Expect(removedData).To(HaveKey("b__set"))
-		Expect(removedData["b__set"]).To(HaveLen(1))
+		Expect(removedData).To(HaveKey("b_set"))
+		Expect(removedData["b_set"]).To(HaveLen(1))
 	})
 
 	It("Can remove record and update child records with 'setNull' relation", func() {
@@ -190,7 +190,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).NotTo(BeNil())
-		Expect(removedData).To(Not(HaveKey("b__set")))
+		Expect(removedData).To(Not(HaveKey("b_set")))
 	})
 
 	It("Cannot remove record with 'restrict' relation", func() {
@@ -336,7 +336,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).To(Not(BeNil()))
-		Expect(removedData).To(Not(HaveKey("b__set")))
+		Expect(removedData).To(Not(HaveKey("b_set")))
 	})
 
 	It("Can remove record and update child records with generic relation and 'cascade' strategy", func() {
@@ -416,7 +416,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).To(Not(BeNil()))
-		Expect(removedData).To(HaveKey("b__set"))
-		Expect(removedData["b__set"]).To(HaveLen(1))
+		Expect(removedData).To(HaveKey("b_set"))
+		Expect(removedData["b_set"]).To(HaveLen(1))
 	})
 })
