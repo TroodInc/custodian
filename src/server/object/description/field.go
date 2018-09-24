@@ -204,6 +204,7 @@ type Field struct {
 	LinkType       LinkType    `json:"linkType,omitempty"`
 	OuterLinkField string      `json:"outerLinkField,omitempty"`
 	Optional       bool        `json:"optional"`
+	OnDelete       string      `json:"onDelete,omitempty"`
 	Def            interface{} `json:"default,omitempty"`
 }
 

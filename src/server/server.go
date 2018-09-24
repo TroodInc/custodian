@@ -2,7 +2,6 @@ package server
 
 import (
 	"encoding/json"
-	"fmt"
 	"logger"
 	"server/data"
 	"server/data/errors"
@@ -24,27 +23,9 @@ import (
 	"server/transactions/file_transaction"
 	pg_transactions "server/pg/transactions"
 	"server/object/description"
+	. "server/errors"
+	. "server/streams"
 )
-
-//Server errors description
-const (
-	ErrUnsupportedMediaType = "unsupported_media_type"
-	ErrBadRequest           = "bad_request"
-	ErrInternalServerError  = "internal_server_error"
-	ErrNotFound             = "not_found"
-)
-
-//The interface of error convertable to JSON in format {"code":"some_code"; "msg":"message"}.
-type JsonError interface {
-	Json() []byte
-	Serialize() map[string]string
-}
-
-type ServerError struct {
-	status int
-	code   string
-	msg    string
-}
 
 type CustodianApp struct {
 	router        *httprouter.Router
@@ -77,26 +58,6 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	} else {
 		returnError(w, err)
 	}
-}
-
-func (e *ServerError) Error() string {
-	return fmt.Sprintf("Server error: status = %d, code = '%s', msg = '%s'", e.status, e.code, e.msg)
-}
-
-func serializeError(errorCode string, errorMessage string) map[string]string {
-	return map[string]string{
-		"code": errorCode,
-		"msg":  errorMessage,
-	}
-}
-
-func (e *ServerError) Serialize() map[string]string {
-	return serializeError(e.code, e.msg)
-}
-
-func (e *ServerError) Json() []byte {
-	encodedData, _ := json.Marshal(e.Serialize())
-	return encodedData
 }
 
 func softParseQuery(m url.Values, query string) (err error) {
@@ -216,7 +177,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}
 			if e := metaStore.Create(globalTransaction, metaObj); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]string{"status": "OK"})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(e)
@@ -237,7 +198,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 					js.pushError(e)
 				} else {
 					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(&ServerError{status: http.StatusNotFound, code: ErrNotFound})
+					js.pushError(&ServerError{Status: http.StatusNotFound, Code: ErrNotFound})
 				}
 			}
 		}
@@ -255,7 +216,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}
 			if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushEmpty()
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)
@@ -263,7 +224,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 		}
 	}))
 
-	//Records operations
+	//RecordSetOperations operations
 	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")
@@ -280,24 +241,24 @@ func (cs *CustodianServer) Setup() *http.Server {
 				}
 				objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
 				pkValue, _ := objectMeta.Key.ValueAsString(recordData[objectMeta.Key.Name])
-				if recordData, err := dataProcessor.Get(dbTransaction, objectName, pkValue, depth);
+				if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, depth);
 					err != nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(err)
 				} else {
 					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushGeneric(recordData)
+					sink.pushGeneric(record.Data)
 				}
 			}
 		}
 	}, false))
 
 	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
-		defer sink.Complete()
+		defer sink.Complete(nil)
 		user := request.Context().Value("auth_user").(auth.User)
 
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+			sink.PushError(err)
 		} else {
 
 			e := dataProcessor.BulkCreateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
@@ -311,7 +272,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
 			if e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
+				sink.PushError(e)
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
 			}
@@ -332,32 +293,33 @@ func (cs *CustodianServer) Setup() *http.Server {
 			} else {
 				if o == nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
+					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
 				} else {
 					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushGeneric(o)
+					sink.pushGeneric(o.Data)
 				}
 			}
 		}
 	}))
 
 	app.router.GET(cs.root+"/data/bulk/:name", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL) {
+		var count int
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+			sink.PushError(err)
 		} else {
-			defer sink.Complete()
+			defer sink.Complete(&count)
 			pq := make(url.Values)
 			if e := softParseQuery(pq, q.RawQuery); e != nil {
-				sink.pushError(e)
+				sink.PushError(e)
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 			} else {
 				var depth = 2
 				if i, e := strconv.Atoi(url.QueryEscape(pq.Get("depth"))); e == nil {
 					depth = i
 				}
-				e := dataProcessor.GetBulk(dbTransaction, p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
 				if e != nil {
-					sink.pushError(e)
+					sink.PushError(e)
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 				} else {
 					dbTransactionManager.CommitTransaction(dbTransaction)
@@ -372,26 +334,21 @@ func (cs *CustodianServer) Setup() *http.Server {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			if ok, e := dataProcessor.DeleteRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
+			if removedData, e := dataProcessor.RemoveRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
-				if ok {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushGeneric(nil)
-				} else {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
-				}
+				dbTransactionManager.CommitTransaction(dbTransaction)
+				sink.pushGeneric(removedData)
 			}
 		}
 	}, true))
 
 	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+			sink.PushError(err)
 		} else {
-			defer sink.Complete()
+			defer sink.Complete(nil)
 			user := request.Context().Value("auth_user").(auth.User)
 			e := dataProcessor.BulkDeleteRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
 				if obj, eof, e := stream.Next(); e != nil {
@@ -404,7 +361,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}, user)
 			if e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
+				sink.PushError(e)
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
 			}
@@ -440,12 +397,12 @@ func (cs *CustodianServer) Setup() *http.Server {
 						sink.pushError(err)
 					} else {
 						dbTransactionManager.CommitTransaction(dbTransaction)
-						sink.pushGeneric(recordData)
+						sink.pushGeneric(recordData.Data)
 					}
 
 				} else {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "object not found"})
+					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
 				}
 			}
 		}
@@ -453,9 +410,9 @@ func (cs *CustodianServer) Setup() *http.Server {
 
 	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+			sink.PushError(err)
 		} else {
-			defer sink.Complete()
+			defer sink.Complete(nil)
 			user := request.Context().Value("auth_user").(auth.User)
 			e := dataProcessor.BulkUpdateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
 				if obj, eof, e := stream.Next(); e != nil {
@@ -469,10 +426,10 @@ func (cs *CustodianServer) Setup() *http.Server {
 			if e != nil {
 				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
+					sink.PushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
 				} else {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(e)
+					sink.PushError(e)
 				}
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
@@ -522,7 +479,7 @@ func CreateDualJsonStreamAction(callbackFunction func(*JsonStream, *JsonSinkStre
 			returnError(w, e)
 			return
 		}
-		sink, _ := asJsonSinkStream(w)
+		sink, _ := AsJsonSinkStream(w)
 		callbackFunction(stream, sink, p, request)
 	}
 }
@@ -536,7 +493,7 @@ func CreateJsonAction(f func(io.ReadCloser, *JsonSink, httprouter.Params, url.Va
 
 func CreateJsonStreamAction(f func(*JsonSinkStream, httprouter.Params, *url.URL)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
 	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		sink, _ := asJsonSinkStream(w)
+		sink, _ := AsJsonSinkStream(w)
 		f(sink, p, r.URL)
 	}
 }
@@ -551,7 +508,7 @@ func returnError(w http.ResponseWriter, e error) {
 	switch e := e.(type) {
 	case *ServerError:
 		responseData["error"] = e.Serialize()
-		w.WriteHeader(e.status)
+		w.WriteHeader(e.Status)
 	case *auth.AuthError:
 		w.WriteHeader(http.StatusForbidden)
 		responseData["error"] = e.Serialize()
@@ -560,7 +517,8 @@ func returnError(w http.ResponseWriter, e error) {
 		responseData["error"] = e.Serialize()
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
-		responseData["error"] = serializeError(ErrInternalServerError, e.Error())
+		err := ServerError{Status: http.StatusInternalServerError, Code: ErrInternalServerError, Msg: e.Error()}
+		responseData["error"] = err.Serialize()
 	}
 	//encoded
 	encodedData, _ := json.Marshal(responseData)
@@ -693,72 +651,4 @@ func (js *JsonSink) push(i interface{}) {
 //Push an emptiness into JsonSink.
 func (js *JsonSink) pushEmpty() {
 	js.rw.WriteHeader(http.StatusNoContent)
-}
-
-type JsonSinkStream struct {
-	rw         http.ResponseWriter
-	empty      bool
-	status     string
-	err        []byte
-	httpStatus int
-}
-
-func asJsonSinkStream(w http.ResponseWriter) (*JsonSinkStream, error) {
-	return &JsonSinkStream{rw: w, empty: true, status: "OK", err: nil, httpStatus: http.StatusOK}, nil
-}
-
-func (jsonSinkStream *JsonSinkStream) PourOff(obj map[string]interface{}) error {
-	//TODO: rewrite this method, response should not be wrote as byte sequence
-	b, e := json.Marshal(obj)
-	if e != nil {
-		return e
-	}
-	if jsonSinkStream.empty {
-		jsonSinkStream.empty = false
-		jsonSinkStream.rw.Header().Set("Content-Type", "application/json")
-		jsonSinkStream.rw.WriteHeader(jsonSinkStream.httpStatus)
-		jsonSinkStream.rw.Write([]byte("{\"data\":["))
-		jsonSinkStream.rw.Write(b)
-		return nil
-	} else {
-		jsonSinkStream.rw.Write([]byte{','})
-		jsonSinkStream.rw.Write(b)
-		return nil
-	}
-}
-
-func (jsonSinkStream *JsonSinkStream) pushError(e error) {
-	jsonSinkStream.status = "FAILED"
-	switch e := e.(type) {
-	case *ServerError:
-		jsonSinkStream.httpStatus = e.status
-		jsonSinkStream.err = e.Json()
-		return
-	case JsonError:
-		jsonSinkStream.httpStatus = http.StatusBadRequest
-		jsonSinkStream.err = e.Json()
-		return
-	default:
-		jsonSinkStream.httpStatus = http.StatusInternalServerError
-		encodedResponse, _ := json.Marshal(serializeError(ErrInternalServerError, e.Error()))
-		jsonSinkStream.err = encodedResponse
-		return
-	}
-}
-
-func (jsonSinkStream *JsonSinkStream) Complete() {
-	//TODO: rewrite this method
-	if jsonSinkStream.empty {
-		jsonSinkStream.empty = false
-		jsonSinkStream.rw.Header().Set("Content-Type", "application/json")
-		jsonSinkStream.rw.WriteHeader(jsonSinkStream.httpStatus)
-		jsonSinkStream.rw.Write([]byte("{\"data\":["))
-	}
-	jsonSinkStream.rw.Write([]byte("],\"status\":\"" + jsonSinkStream.status + "\""))
-	if jsonSinkStream.err != nil {
-		jsonSinkStream.rw.Write([]byte(",\"error\":"))
-		jsonSinkStream.rw.Write(jsonSinkStream.err)
-	}
-	jsonSinkStream.rw.Write([]byte("}"))
-
 }

@@ -193,9 +193,8 @@ var _ = Describe("Server", func() {
 				responseBody := recorder.Body.String()
 
 				Context("response should contain nested A record", func() {
-					Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
+					Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"b_set\":[1],\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
 				})
-
 			})
 		})
 	})

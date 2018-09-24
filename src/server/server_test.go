@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"server/pg"
 
-	"server/data"
 	"bytes"
 	"encoding/json"
 	"utils"
@@ -20,6 +19,7 @@ import (
 	"server"
 	"server/object/description"
 	"server/auth"
+	"server/data"
 )
 
 var _ = Describe("Server", func() {
@@ -111,7 +111,7 @@ var _ = Describe("Server", func() {
 
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
-				Expect(responseBody).To(Equal("{\"status\":\"OK\"}"))
+				Expect(responseBody).To(Equal(`{"data":{"name":"person","key":"id","fields":[{"name":"id","type":"number","optional":true,"default":{"func":"nextval"}},{"name":"name","type":"string","optional":false},{"name":"gender","type":"string","optional":true},{"name":"cas","type":"number","optional":false}],"actions":[{"method":"create","protocol":"REST","args":["http://localhost:2000/create/contact"],"activeIfNotRoot":true,"includeValues":{"account__plan":"accountPlan","amount":"amount"}}],"cas":true},"status":"OK"}`))
 
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
@@ -119,8 +119,8 @@ var _ = Describe("Server", func() {
 
 				meta, _, err := metaStore.Get(globalTransaction, "person")
 				Expect(err).To(BeNil())
-				Expect(meta.Actions.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
-				Expect(meta.Actions.Original[0].IncludeValues["amount"]).To(Equal("amount"))
+				Expect(meta.ActionSet.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
+				Expect(meta.ActionSet.Original[0].IncludeValues["amount"]).To(Equal("amount"))
 			})
 		})
 	})
@@ -165,7 +165,7 @@ var _ = Describe("Server", func() {
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
 				Expect(err).To(BeNil())
 
-				Expect(responseBody).To(Equal("{\"status\":\"OK\"}"))
+				Expect(responseBody).To(Equal(`{"data":{"id":1},"status":"OK"}`))
 
 				Context("and the number of records should be equal to 1 and existing record is not deleted one", func() {
 					matchedRecords := []map[string]interface{}{}

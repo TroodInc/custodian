@@ -421,7 +421,7 @@ var _ = Describe("PG MetaStore test", func() {
 
 			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", 1)
 			Expect(err).To(BeNil())
-			Expect(record["order"]).To(Equal("value"))
+			Expect(record.Data["order"]).To(Equal("value"))
 
 		})
 	})

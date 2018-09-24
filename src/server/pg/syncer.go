@@ -6,6 +6,7 @@ import (
 	"logger"
 	"server/object/meta"
 	"server/transactions"
+	"server/object/description"
 )
 
 type Syncer struct {
@@ -156,7 +157,7 @@ func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, busine
 		if len(ddlStatements) == 0 {
 			return true, nil
 		} else {
-			return false, &meta.ValidationError{Message: "Inconsistent object state found."}
+			return false, &description.ValidationError{Message: "Inconsistent object state found."}
 		}
 	}
 	return len(ddlStatements) == 0, nil

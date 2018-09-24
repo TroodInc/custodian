@@ -378,7 +378,7 @@ var _ = Describe("Inner generic field", func() {
 		aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
-		Expect(aMeta.Fields[1].Name).To(Equal("c__set"))
+		Expect(aMeta.Fields[1].Name).To(Equal("c_set"))
 		Expect(aMeta.Fields[1].LinkType).To(Equal(description.LinkTypeOuter))
 		Expect(aMeta.Fields[1].Type).To(Equal(description.FieldTypeGeneric))
 	})
@@ -487,7 +487,7 @@ var _ = Describe("Inner generic field", func() {
 		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
 
-		//c__set field should be removed from object A
+		//c_set field should be removed from object A
 		// check A meta fields
 		aMeta, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name)
 		Expect(err).To(BeNil())

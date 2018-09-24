@@ -455,4 +455,353 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(actualMeta.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
 		})
 	})
+
+	It("creates inner link with 'on_delete' behavior defined as 'CASCADE' by default", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
+		By("having an object A")
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		By("and having an object B reversing A")
+		Context("when object is updated with modified field`s type", func() {
+			bMetaDescription := description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					}, {
+						Name:     "a",
+						LinkMeta: aMetaDescription.Name,
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						Optional: false,
+					},
+				},
+			}
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, aMeta)
+			Expect(err).To(BeNil())
+
+			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, bMeta)
+			Expect(err).To(BeNil())
+
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			Expect(err).To(BeNil())
+
+			//assert schema
+			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			Expect(err).To(BeNil())
+
+			Expect(actualMeta.IFKs).To(HaveLen(1))
+			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("CASCADE"))
+
+			//assert meta
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteCascade))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	It("creates inner link with 'on_delete' behavior defined as 'CASCADE' when manually specified", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
+		By("having an object A")
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		By("and having an object B reversing A")
+		Context("when object is updated with modified field`s type", func() {
+			bMetaDescription := description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					}, {
+						Name:     "a",
+						LinkMeta: aMetaDescription.Name,
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						OnDelete: "cascade",
+						Optional: false,
+					},
+				},
+			}
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, aMeta)
+			Expect(err).To(BeNil())
+
+			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, bMeta)
+			Expect(err).To(BeNil())
+
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			Expect(err).To(BeNil())
+
+			//assert schema
+			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			Expect(err).To(BeNil())
+
+			Expect(actualMeta.IFKs).To(HaveLen(1))
+			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("CASCADE"))
+
+			//assert meta
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteCascade))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	It("creates inner link with 'on_delete' behavior defined as 'SET NULL' when manually specified", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
+		By("having an object A")
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		By("and having an object B reversing A")
+		Context("when object is updated with modified field`s type", func() {
+			bMetaDescription := description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					}, {
+						Name:     "a",
+						LinkMeta: aMetaDescription.Name,
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						OnDelete: "setNull",
+						Optional: false,
+					},
+				},
+			}
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, aMeta)
+			Expect(err).To(BeNil())
+
+			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, bMeta)
+			Expect(err).To(BeNil())
+
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			Expect(err).To(BeNil())
+
+			//assert schema
+			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			Expect(err).To(BeNil())
+
+			Expect(actualMeta.IFKs).To(HaveLen(1))
+			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("SET NULL"))
+
+			//assert meta
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteSetNull))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	It("creates inner link with 'on_delete' behavior defined as 'RESTRICT' when manually specified", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
+		By("having an object A")
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		By("and having an object B reversing A")
+		Context("when object is updated with modified field`s type", func() {
+			bMetaDescription := description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					}, {
+						Name:     "a",
+						LinkMeta: aMetaDescription.Name,
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						OnDelete: "restrict",
+						Optional: false,
+					},
+				},
+			}
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, aMeta)
+			Expect(err).To(BeNil())
+
+			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, bMeta)
+			Expect(err).To(BeNil())
+
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			Expect(err).To(BeNil())
+
+			//assert schema
+			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			Expect(err).To(BeNil())
+
+			Expect(actualMeta.IFKs).To(HaveLen(1))
+			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("RESTRICT"))
+
+			//assert meta
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteRestrict))
+			Expect(err).To(BeNil())
+		})
+	})
+
+	It("creates inner link with 'on_delete' behavior defined as 'RESTRICT' when manually specified", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
+
+		By("having an object A")
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		By("and having an object B reversing A")
+		Context("when object is updated with modified field`s type", func() {
+			bMetaDescription := description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					}, {
+						Name:     "a",
+						LinkMeta: aMetaDescription.Name,
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						OnDelete: "setDefault",
+						Optional: false,
+					},
+				},
+			}
+			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, aMeta)
+			Expect(err).To(BeNil())
+
+			bMeta, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, bMeta)
+			Expect(err).To(BeNil())
+
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			Expect(err).To(BeNil())
+
+			//assert schema
+			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			Expect(err).To(BeNil())
+
+			Expect(actualMeta.IFKs).To(HaveLen(1))
+			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("SET DEFAULT"))
+
+			//assert meta
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteSetDefault))
+			Expect(err).To(BeNil())
+		})
+	})
 })

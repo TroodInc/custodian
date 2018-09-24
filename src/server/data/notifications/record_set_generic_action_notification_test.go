@@ -162,11 +162,7 @@ var _ = Describe("Data", func() {
 			aRecordData, err = dataProcessor.CreateRecord(
 				globalTransaction.DbTransaction,
 				aMetaObj.Name,
-				map[string]interface{}{
-					"first_name":    "Veronika",
-					"last_name":     "Petrova",
-					"target_object": map[string]interface{}{"_object": targetRecordObjectName, "id": strconv.Itoa(int(targetRecordId))},
-				},
+				map[string]interface{}{"target_object": map[string]interface{}{"_object": targetRecordObjectName, "id": strconv.Itoa(int(targetRecordId))}},
 				auth.User{},
 			)
 			Expect(err).To(BeNil())
@@ -184,7 +180,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 		}
 
-		It("propery captures generic field value if action config does not match its object", func() {
+		It("properly captures generic field value if action config does not match its object", func() {
 
 			havingObjectB()
 			havingObjectC()
@@ -193,7 +189,7 @@ var _ = Describe("Data", func() {
 			havingCRecord()
 			havingARecord(cMetaObj.Name, cRecordData["id"].(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"]}}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"]})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -208,9 +204,9 @@ var _ = Describe("Data", func() {
 			recordSetNotification.CaptureCurrentState()
 
 			//only last_name specified for recordSet, thus first_name should not be included in notification message
-			Expect(recordSetNotification.CurrentState[0].DataSet).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(2))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]["target_value"]).To(BeNil())
+			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(2))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data["target_value"]).To(BeNil())
 		})
 	})
 })

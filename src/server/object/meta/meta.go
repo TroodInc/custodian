@@ -26,9 +26,9 @@ var notifierFactories = map[Protocol]noti.Factory{
 //Object metadata description.
 type Meta struct {
 	*MetaDescription
-	Key     *FieldDescription
-	Fields  []FieldDescription
-	Actions *ActionSet
+	Key       *FieldDescription
+	Fields    []FieldDescription
+	ActionSet *ActionSet
 }
 
 func (m *Meta) FindField(name string) *FieldDescription {

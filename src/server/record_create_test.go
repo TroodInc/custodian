@@ -143,7 +143,7 @@ var _ = Describe("Server", func() {
 			Context("and create request performed by URL with specified record ID with wrong id specified in body", func() {
 				createData := map[string]interface{}{
 					"name": "B record name",
-					"a":   aRecord["id"],
+					"a":    aRecord["id"],
 				}
 				encodedMetaData, _ := json.Marshal(createData)
 
@@ -155,7 +155,7 @@ var _ = Describe("Server", func() {
 				responseBody := recorder.Body.String()
 
 				Context("response should contain nested A record", func() {
-					Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record name\"},\"status\":\"OK\"}"))
+					Expect(responseBody).To(Equal(`{"data":{"a":{"b_set":[1],"id":1,"name":"A record"},"id":1,"name":"B record name"},"status":"OK"}`))
 				})
 
 			})

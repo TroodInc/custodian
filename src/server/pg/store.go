@@ -19,6 +19,8 @@ import (
 	"utils"
 	"server/object/description"
 	"server/transactions"
+	"server/data/notifications"
+	"server/data/record"
 )
 
 type DataManager struct {
@@ -225,6 +227,19 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	return &Rows{rows}, nil
 }
 
+func (s *Stmt) Scalar(receiver interface{}, binds []interface{}) (error) {
+	if rows, err := s.Query(binds); err != nil {
+		return err
+	} else {
+		defer rows.Close()
+		rows.Next()
+		if err := rows.Scan(receiver); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 	for fieldName, rv := range dbObj {
 		if val, ok := nodes[fieldName]; ok {
@@ -234,7 +249,11 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 			case types.DLink:
 				val.Id = rv
 			case *types.GenericInnerLink:
-				nodes[fieldName] = map[string]interface{}{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
+				if val.Pk != nil {
+					nodes[fieldName] = map[string]interface{}{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
+				} else {
+					nodes[fieldName] = nil
+				}
 			default:
 				nodes[fieldName] = rv
 			}
@@ -300,8 +319,12 @@ func dlinkVal(v interface{}) interface{} {
 
 func genericInnerLinkValue(value interface{}) interface{} {
 	castValue := value.(*types.GenericInnerLink)
-	pkValueAsString, _ := castValue.FieldDescription.ValueAsString(castValue.Pk)
-	return []string{castValue.ObjectName, pkValueAsString}
+	if castValue.FieldDescription != nil {
+		pkValueAsString, _ := castValue.FieldDescription.ValueAsString(castValue.Pk)
+		return []string{castValue.ObjectName, pkValueAsString}
+	} else {
+		return []interface{}{nil, nil}
+	}
 }
 
 func identityVal(v interface{}) interface{} {
@@ -407,6 +430,11 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 					} else {
 						switch castValue := value.(type) {
 						case []string:
+							for _, value := range castValue {
+								binds = append(binds, value)
+							}
+						case []interface{}:
+							//case for inner generic nil value: [nil,nil]
 							for _, value := range castValue {
 								binds = append(binds, value)
 							}
@@ -525,74 +553,136 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dataManager *DataManager) PrepareDelete(n *data.DNode, key interface{}, dbTransaction transactions.DbTransaction) (transactions.Operation, []interface{}, error) {
-	return dataManager.PrepareDeletes(n, []interface{}{key}, dbTransaction)
-}
-
-func (dataManager *DataManager) PrepareDeletes(n *data.DNode, keys []interface{}, dbTransaction transactions.DbTransaction) (transactions.Operation, []interface{}, error) {
-	var pks []interface{}
-	if n.KeyField.Name != n.Meta.Key.Name {
-		objs, err := dataManager.GetIn(n.Meta, []*meta.FieldDescription{n.Meta.Key}, n.KeyField.Name, keys, dbTransaction)
-		if err != nil {
-			return nil, nil, err
-		}
-		pks := make([]interface{}, len(objs), len(objs))
-		for i := range objs {
-			pks[i] = objs[i][n.Meta.Key.Name]
-		}
+func (dataManager *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
+	var operation transactions.Operation
+	var err error
+	var onDeleteStrategy description.OnDeleteStrategy
+	if recordNode.OnDeleteStrategy != nil {
+		onDeleteStrategy = *recordNode.OnDeleteStrategy
 	} else {
-		pks = keys
-	}
-	sqlHelper := dml_info.SqlHelper{}
-	deleteInfo := dml_info.NewDeleteInfo(GetTableName(n.Meta), []string{sqlHelper.EscapeColumn(n.KeyField.Name) + " IN (" + sqlHelper.BindValues(1, len(keys)) + ")"})
-	var q bytes.Buffer
-	if err := parsedTemplDelete.Execute(&q, deleteInfo); err != nil {
-		return nil, nil, NewDMLError(ErrTemplateFailed, err.Error())
+		onDeleteStrategy = description.OnDeleteCascade
 	}
 
-	return func(dbTransaction transactions.DbTransaction) error {
-		stmt, err := dbTransaction.(*PgTransaction).Prepare(q.String())
+	//make operation
+	var recordSetNotification *notifications.RecordSetNotification
+	switch onDeleteStrategy {
+	case description.OnDeleteSetNull:
+		//make corresponding null value
+		var nullValue interface{}
+		if recordNode.LinkField.Type == description.FieldTypeGeneric {
+			nullValue = new(types.GenericInnerLink)
+		} else {
+			nullValue = nil
+		}
+		//update record with this value
+		operation, err = dataManager.PrepareUpdateOperation(
+			recordNode.Record.Meta,
+			[]map[string]interface{}{{recordNode.Record.Meta.Key.Name: recordNode.Record.Pk(), recordNode.LinkField.Name: nullValue}},
+		)
 		if err != nil {
 			return err
 		}
-		defer stmt.Close()
-		if _, err = stmt.Exec(keys...); err != nil {
-			return NewDMLError(ErrDMLFailed, err.Error())
+		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
+	default:
+		var query bytes.Buffer
+		sqlHelper := dml_info.SqlHelper{}
+		deleteInfo := dml_info.NewDeleteInfo(GetTableName(recordNode.Record.Meta), []string{sqlHelper.EscapeColumn(recordNode.Record.Meta.Key.Name) + " IN (" + sqlHelper.BindValues(1, 1) + ")"})
+
+		if err := parsedTemplDelete.Execute(&query, deleteInfo); err != nil {
+			return NewDMLError(ErrTemplateFailed, err.Error())
 		}
+
+		operation = func(dbTransaction transactions.DbTransaction) error {
+			stmt, err := dbTransaction.(*PgTransaction).Prepare(query.String())
+			if err != nil {
+				return err
+			}
+			defer stmt.Close()
+			if _, err = stmt.Exec(recordNode.Record.Pk()); err != nil {
+				return NewDMLError(ErrDMLFailed, err.Error())
+			}
+			return nil
+		}
+		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
+	}
+	//process child records
+	for _, recordNodes := range recordNode.Children {
+		for _, recordNode := range recordNodes {
+			err := dataManager.PerformRemove(recordNode, dbTransaction, notificationPool, processor)
+			if err != nil {
+				return err
+			}
+		}
+	}
+	//create and process notification
+
+	if recordSetNotification.ShouldBeProcessed() {
+		recordSetNotification.CapturePreviousState()
+		notificationPool.Add(recordSetNotification)
+	}
+	if err := dbTransaction.Execute([]transactions.Operation{operation}); err != nil {
+		return err
+	} else {
+		recordSetNotification.CaptureCurrentState()
 		return nil
-	}, pks, nil
+	}
 }
 
-func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
 	tx := dbTransaction.Transaction().(*sql.Tx)
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
 	sqlQuery, err := translator.query(tableAlias, dataNode)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if fields == nil {
 		fields = tableFields(dataNode.Meta)
 	}
-	si := &SelectInfo{From: GetTableName(dataNode.Meta) + " " + tableAlias,
-		Cols: fieldsToCols(fields, tableAlias),
-		Where: sqlQuery.Where,
-		Order: sqlQuery.Sort,
-		Limit: sqlQuery.Limit,
-		Offset: sqlQuery.Offset}
+	selectInfo := &SelectInfo{
+		From:   GetTableName(dataNode.Meta) + " " + tableAlias,
+		Cols:   fieldsToCols(fields, tableAlias),
+		Where:  sqlQuery.Where,
+		Order:  sqlQuery.Sort,
+		Limit:  sqlQuery.Limit,
+		Offset: sqlQuery.Offset,
+	}
 
+	countInfo := &SelectInfo{
+		From:  GetTableName(dataNode.Meta) + " " + tableAlias,
+		Cols:  []string{"count(*)"},
+		Where: sqlQuery.Where,
+	}
+
+	//records data
 	var queryString bytes.Buffer
-	if err := si.sql(&queryString); err != nil {
-		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+	if err := selectInfo.sql(&queryString); err != nil {
+		return nil, 0, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 	statement, err := dataManager.Prepare(queryString.String(), tx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer statement.Close()
+	//count data
+	count := 0
+	queryString.Reset()
+	if err := countInfo.sql(&queryString); err != nil {
+		return nil, 0, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+	countStatement, err := dataManager.Prepare(queryString.String(), tx)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer countStatement.Close()
 
-	return statement.ParsedQuery(sqlQuery.Binds, fields)
+	recordsData, err := statement.ParsedQuery(sqlQuery.Binds, fields)
+	err = countStatement.Scalar(&count, sqlQuery.Binds)
+	if err != nil {
+		return nil, 0, err
+	}
+	return recordsData, count, err
 }
 
 func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error) {
