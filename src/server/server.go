@@ -216,7 +216,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}
 			if e := metaStore.Create(globalTransaction, metaObj); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]string{"status": "OK"})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(e)
@@ -255,7 +255,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}
 			if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushEmpty()
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)

@@ -183,8 +183,8 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 
 	for _, recordSetOperation := range recordSetsOperations {
 		isRoot := recordSetOperation.RecordSet == rootRecordSet
-		if recordSetOperation.Type == RecordOperationTypeUpdate {
-			if _, err := processor.updateRecordSet(
+		if recordSetOperation.Type == RecordOperationTypeCreate || isRoot {
+			if _, err := processor.createRecordSet(
 				dbTransaction,
 				recordSetOperation.RecordSet,
 				isRoot,
@@ -192,8 +192,8 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 			); err != nil {
 				return nil, err
 			}
-		} else if recordSetOperation.Type == RecordOperationTypeCreate {
-			if _, err := processor.createRecordSet(
+		} else if recordSetOperation.Type == RecordOperationTypeUpdate {
+			if _, err := processor.updateRecordSet(
 				dbTransaction,
 				recordSetOperation.RecordSet,
 				isRoot,
@@ -245,7 +245,7 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
-	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, false)
+	records, err := processor.consumeRecords(next, objectMeta, false)
 	if err != nil {
 		return err
 	}
@@ -253,9 +253,9 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 	//assemble RecordSetOperations
 	var recordProcessingNode *RecordProcessingNode
 	rootRecordSets := make([] *RecordSet, 0)
-	for _, recordData := range recordDataSet {
+	for _, record := range records {
 		// extract processing node
-		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(&Record{Meta: objectMeta, Data: recordData}, processor, dbTransaction)
+		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(record, processor, dbTransaction)
 		if err != nil {
 			return err
 		}
@@ -413,7 +413,7 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
-	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, true)
+	records, err := processor.consumeRecords(next, objectMeta, true)
 	if err != nil {
 		return err
 	}
@@ -421,9 +421,9 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 	//assemble RecordSetOperations
 	var recordProcessingNode *RecordProcessingNode
 	rootRecordSets := make([] *RecordSet, 0)
-	for _, recordData := range recordDataSet {
+	for _, record := range records {
 		// extract processing node
-		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(&Record{Meta: objectMeta, Data: recordData}, processor, dbTransaction)
+		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(record, processor, dbTransaction)
 		if err != nil {
 			return err
 		}
@@ -531,67 +531,51 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 
 //TODO: Refactor this method similarly to BulkUpdateRecords, so notifications could be tested properly, it should affect PrepareDeletes method
 func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), user auth.User) (err error) {
-
 	// get Meta
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
 	}
-
-	//prepare node
-	root := &DNode{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*DNode), Plural: false}
-	root.recursivelyFillOuterChildNodes()
+	//
 
 	// create notification pool
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
-	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, true)
+	records, err := processor.consumeRecords(next, objectMeta, true)
 	if err != nil {
 		return err
 	}
-	keys := make([]interface{}, 0)
-	for _, recordData := range recordDataSet {
-		keys = append(keys, recordData[objectMeta.Key.Name])
-	}
+	for _, record := range records {
 
-	//var op transactions.Type
-	//if op, keys, err = processor.dataManager.PerformRemove(root, keys, dbTransaction); err != nil {
-	//	return err
-	//} else {
-	//	ops := []transactions.Type{op}
-	//	for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
-	//
-	//		for _, v := range t2d[0].n.ChildNodes {
-	//			if len(t2d[0].keys) > 0 {
-	//				if op, keys, err = processor.dataManager.PrepareDeletes(v, t2d[0].keys, dbTransaction); err != nil {
-	//					return err
-	//				} else {
-	//					for _, primaryKeyValue := range t2d[0].keys {
-	//
-	//						// create notification, capture current recordData state and Add notification to notification pool
-	//						recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, &RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{v.KeyField.Name: primaryKeyValue}}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
-	//						if recordSetNotification.ShouldBeProcessed() {
-	//							recordSetNotification.CapturePreviousState()
-	//							recordSetNotificationPool.Add(recordSetNotification)
-	//						}
-	//
-	//					}
-	//
-	//					ops = append(ops, op)
-	//					t2d = append(t2d, tuple2d{v, keys})
-	//				}
-	//			}
-	//		}
-	//	}
-	//	for i := 0; i < len(ops)>>2; i++ {
-	//		ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
-	//	}
-	//	if err = dbTransaction.Execute(ops); err != nil {
-	//		return err
-	//	}
-	//}
+		//get pk
+		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), 1)
+		if err != nil {
+			return err
+		}
+		if recordToRemove == nil {
+			return &errors.DataError{"RecordNotFound", "Record not found", objectName}
+		}
+
+		//fill node
+		removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
+		if err != nil {
+			return err
+		}
+
+		err = processor.dataManager.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool, processor)
+		if err != nil {
+			return err
+		}
+
+		// push notifications if needed
+		if recordSetNotificationPool.ShouldBeProcessed() {
+			//capture updated state of all records in the pool
+			recordSetNotificationPool.Push(user)
+		}
+
+	}
 
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
@@ -604,8 +588,8 @@ func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTrans
 }
 
 //consume all records from callback function
-func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string]interface{}, error), objectMeta *meta.Meta, strictPkCheck bool) ([]map[string]interface{}, error) {
-	var recordDataSet = make([]map[string]interface{}, 0)
+func (processor *Processor) consumeRecords(nextCallback func() (map[string]interface{}, error), objectMeta *meta.Meta, strictPkCheck bool) ([]*Record, error) {
+	var records = make([]*Record, 0)
 	// collect records
 	for recordData, err := nextCallback(); err != nil || (recordData != nil); recordData, err = nextCallback() {
 		if err != nil {
@@ -618,9 +602,9 @@ func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string
 			}
 		}
 
-		recordDataSet = append(recordDataSet, recordData)
+		records = append(records, NewRecord(objectMeta, recordData))
 	}
-	return recordDataSet, nil
+	return records, nil
 }
 
 //feed recordSet`s data to the sink
