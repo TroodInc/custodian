@@ -111,7 +111,7 @@ var _ = Describe("Server", func() {
 
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
-				Expect(responseBody).To(Equal("{\"status\":\"OK\"}"))
+				Expect(responseBody).To(Equal(`{"data":{"name":"person","key":"id","fields":[{"name":"id","type":"number","optional":true,"default":{"func":"nextval"}},{"name":"name","type":"string","optional":false},{"name":"gender","type":"string","optional":true},{"name":"cas","type":"number","optional":false}],"actions":[{"method":"create","protocol":"REST","args":["http://localhost:2000/create/contact"],"activeIfNotRoot":true,"includeValues":{"account__plan":"accountPlan","amount":"amount"}}],"cas":true},"status":"OK"}`))
 
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()

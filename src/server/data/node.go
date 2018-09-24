@@ -43,7 +43,7 @@ func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMet
 	return castValue, err
 }
 
-func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, error) {
+func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, int, error) {
 	return sc.dm.GetRql(node, rqlNode, nil, sc.DbTransaction)
 }
 

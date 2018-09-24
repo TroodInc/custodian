@@ -563,7 +563,7 @@ var _ = Describe("Data", func() {
 
 			Context("query by a`s attribute returns correct result", func() {
 				query := fmt.Sprintf("eq(a.name,%s)", aRecordOne["name"])
-				err = dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, query, 1, callbackFunction)
+				_, err = dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, query, 1, callbackFunction)
 				Expect(err).To(BeNil())
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["id"]).To(Equal(bRecordOne["id"]))
@@ -637,7 +637,7 @@ var _ = Describe("Data", func() {
 
 			Context("query by a`s attribute returns correct result", func() {
 				query := fmt.Sprintf("eq(id,%s)", strconv.Itoa(int(bRecordOne["id"].(float64))))
-				err = dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, query, 1, callbackFunction)
+				_, err = dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, query, 1, callbackFunction)
 				Expect(err).To(BeNil())
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]).To(HaveKey("a"))
@@ -787,7 +787,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 			Context("query by date returns correct result", func() {
-				err = dataProcessor.GetBulk(
+				_, err = dataProcessor.GetBulk(
 					globalTransaction.DbTransaction,
 					dMetaDescription.Name,
 					fmt.Sprintf("eq(c.b.a.name,%s)", "Arecord"),
@@ -907,7 +907,7 @@ var _ = Describe("Data", func() {
 			return nil
 		}
 		Context("query by date returns correct result", func() {
-			err = dataProcessor.GetBulk(
+			_, err = dataProcessor.GetBulk(
 				globalTransaction.DbTransaction,
 				cMetaDescription.Name,
 				fmt.Sprintf("eq(target_object.b.a.name,%s)", "Arecord"),

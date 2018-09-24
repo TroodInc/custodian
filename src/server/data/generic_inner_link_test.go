@@ -729,7 +729,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target.a.name,A%20record)", 1, callbackFunction)
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target.a.name,A%20record)", 1, callbackFunction)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]interface{})
@@ -753,7 +753,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target.a.name,A%20record)", 2, callbackFunction)
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target.a.name,A%20record)", 2, callbackFunction)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]interface{})
@@ -780,7 +780,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target._object,a)", 2, callbackFunction)
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target._object,a)", 2, callbackFunction)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]interface{})

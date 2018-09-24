@@ -14,7 +14,7 @@ import (
 type RecordSetNotification struct {
 	recordSet *record.RecordSet
 	isRoot    bool
-	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error
+	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error)
 	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)
 	dbTransaction     transactions.DbTransaction
 	Actions           []*description.Action
@@ -23,7 +23,7 @@ type RecordSetNotification struct {
 	CurrentState      map[int]*record.RecordSet
 }
 
-func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *RecordSetNotification {
+func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error), getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *RecordSetNotification {
 	actions := recordSet.Meta.ActionSet.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,
@@ -132,7 +132,7 @@ func (notification *RecordSetNotification) getRecordsFilter() string {
 }
 
 //Build object to use in notification
-func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error) map[string]interface{} {
+func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error)) map[string]interface{} {
 
 	stateObject := make(map[string]interface{}, 0)
 

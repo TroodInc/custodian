@@ -227,6 +227,19 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	return &Rows{rows}, nil
 }
 
+func (s *Stmt) Scalar(receiver interface{}, binds []interface{}) (error) {
+	if rows, err := s.Query(binds); err != nil {
+		return err
+	} else {
+		defer rows.Close()
+		rows.Next()
+		if err := rows.Scan(receiver); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
 func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 	for fieldName, rv := range dbObj {
 		if val, ok := nodes[fieldName]; ok {
@@ -615,36 +628,61 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordRemovalNode
 	}
 }
 
-func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error) {
+func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
 	tx := dbTransaction.Transaction().(*sql.Tx)
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
 	sqlQuery, err := translator.query(tableAlias, dataNode)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 
 	if fields == nil {
 		fields = tableFields(dataNode.Meta)
 	}
-	si := &SelectInfo{From: GetTableName(dataNode.Meta) + " " + tableAlias,
-		Cols: fieldsToCols(fields, tableAlias),
-		Where: sqlQuery.Where,
-		Order: sqlQuery.Sort,
-		Limit: sqlQuery.Limit,
-		Offset: sqlQuery.Offset}
+	selectInfo := &SelectInfo{
+		From:   GetTableName(dataNode.Meta) + " " + tableAlias,
+		Cols:   fieldsToCols(fields, tableAlias),
+		Where:  sqlQuery.Where,
+		Order:  sqlQuery.Sort,
+		Limit:  sqlQuery.Limit,
+		Offset: sqlQuery.Offset,
+	}
 
+	countInfo := &SelectInfo{
+		From:  GetTableName(dataNode.Meta) + " " + tableAlias,
+		Cols:  []string{"count(*)"},
+		Where: sqlQuery.Where,
+	}
+
+	//records data
 	var queryString bytes.Buffer
-	if err := si.sql(&queryString); err != nil {
-		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+	if err := selectInfo.sql(&queryString); err != nil {
+		return nil, 0, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 	statement, err := dataManager.Prepare(queryString.String(), tx)
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
 	defer statement.Close()
+	//count data
+	count := 0
+	queryString.Reset()
+	if err := countInfo.sql(&queryString); err != nil {
+		return nil, 0, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+	countStatement, err := dataManager.Prepare(queryString.String(), tx)
+	if err != nil {
+		return nil, 0, err
+	}
+	defer countStatement.Close()
 
-	return statement.ParsedQuery(sqlQuery.Binds, fields)
+	recordsData, err := statement.ParsedQuery(sqlQuery.Binds, fields)
+	err = countStatement.Scalar(&count, sqlQuery.Binds)
+	if err != nil {
+		return nil, 0, err
+	}
+	return recordsData, count, err
 }
 
 func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error) {

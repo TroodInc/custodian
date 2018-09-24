@@ -50,7 +50,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 			} else if field.Type == description.FieldTypeGeneric {
 				filter = r.makeGenericFilter(field.OuterLinkField, recordNode.Record.Meta.Name, pkAsString)
 			}
-			err = processor.GetBulk(dbTransaction, field.LinkMeta.Name, filter, 1, callbackFunction)
+			_, err = processor.GetBulk(dbTransaction, field.LinkMeta.Name, filter, 1, callbackFunction)
 			if err != nil {
 				return err
 			}

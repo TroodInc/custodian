@@ -22,7 +22,7 @@ type ExecuteContext interface {
 
 type DataManager interface {
 	Db() (interface{})
-	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
+	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
 	GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
 	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
 	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
@@ -80,11 +80,11 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 	}
 }
 
-func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, sink func(map[string]interface{}) error) error {
+func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, sink func(map[string]interface{}) error) (int, error) {
 	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName); e != nil {
-		return e
+		return 0, e
 	} else if !ok {
-		return errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
+		return 0, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction}
 		root := &Node{
@@ -102,19 +102,19 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
-			return errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
+			return 0, errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
 		}
 
-		records, e := root.ResolveByRql(searchContext, rqlNode)
+		records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
 
 		if e != nil {
-			return e
+			return recordsCount, e
 		}
 		for _, record := range records {
 			record = root.FillRecordValues(record, searchContext)
 			sink(record)
 		}
-		return nil
+		return recordsCount, nil
 	}
 }
 
