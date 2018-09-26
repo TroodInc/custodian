@@ -154,7 +154,7 @@ func (cs *CustodianServer) Setup() *http.Server {
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
 			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
-			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), ); e == nil {
+			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), true); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
 				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
 			} else {

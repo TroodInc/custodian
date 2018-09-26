@@ -74,7 +74,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(globalTransaction, meta)
 			Expect(err).To(BeNil())
-			object, _, err := metaStore.Get(globalTransaction, metaDescription.Name)
+			object, _, err := metaStore.Get(globalTransaction, metaDescription.Name, true)
 			Expect(err).To(BeNil())
 			Expect(object.Name).To(BeEquivalentTo(metaDescription.Name))
 		})
@@ -107,7 +107,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			_, err = metaStore.Remove(globalTransaction, metaDescription.Name, true)
 			Expect(err).To(BeNil())
-			_, objectRetrieved, err := metaStore.Get(globalTransaction, metaDescription.Name)
+			_, objectRetrieved, err := metaStore.Get(globalTransaction, metaDescription.Name, true)
 			Expect(err).To(Not(BeNil()))
 
 			Expect(objectRetrieved).To(BeEquivalentTo(false))
@@ -156,7 +156,7 @@ var _ = Describe("PG MetaStore test", func() {
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
 				_, err := metaStore.Update(globalTransaction, updatedMetaDescription.Name, updatedMetaObj, true)
 				Expect(err).To(BeNil())
-				metaObj, _, err := metaStore.Get(globalTransaction, metaDescription.Name)
+				metaObj, _, err := metaStore.Get(globalTransaction, metaDescription.Name, true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(2))
@@ -209,7 +209,7 @@ var _ = Describe("PG MetaStore test", func() {
 				updatedMetaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 				Expect(err).To(BeNil())
 				metaStore.Update(globalTransaction, updatedMetaDescription.Name, updatedMetaObj, true)
-				metaObj, _, err = metaStore.Get(globalTransaction, metaDescription.Name)
+				metaObj, _, err = metaStore.Get(globalTransaction, metaDescription.Name, true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(1))

@@ -117,7 +117,7 @@ var _ = Describe("Server", func() {
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
 				Expect(err).To(BeNil())
 
-				meta, _, err := metaStore.Get(globalTransaction, "person")
+				meta, _, err := metaStore.Get(globalTransaction, "person", true)
 				Expect(err).To(BeNil())
 				Expect(meta.ActionSet.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
 				Expect(meta.ActionSet.Original[0].IncludeValues["amount"]).To(Equal("amount"))
