@@ -84,6 +84,7 @@ func main() {
 		}
 	}
 
+	appConfig := utils.GetConfig()
 	log.Println("Custodian server started.")
-	srv.Setup().ListenAndServe()
+	srv.Setup(appConfig.EnableProfiler).ListenAndServe()
 }
