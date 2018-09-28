@@ -174,7 +174,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Context("and 'remove' method is called for B meta", func() {
 				metaStore.Remove(globalTransaction, bMeta.Name, true)
 				Context("meta A should not contain outer link field which references B meta", func() {
-					aMeta, _, _ = metaStore.Get(globalTransaction, aMeta.Name)
+					aMeta, _, _ = metaStore.Get(globalTransaction, aMeta.Name, true)
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
 				})
@@ -239,7 +239,7 @@ var _ = Describe("The PG MetaStore", func() {
 				metaStore.Remove(globalTransaction, aMeta.Name, true)
 
 				Context("meta B should not contain inner link field which references A meta", func() {
-					bMeta, _, _ = metaStore.Get(globalTransaction, bMeta.Name)
+					bMeta, _, _ = metaStore.Get(globalTransaction, bMeta.Name, true)
 					Expect(bMeta.Fields).To(HaveLen(1))
 					Expect(bMeta.Fields[0].Name).To(Equal("id"))
 				})
@@ -347,7 +347,7 @@ var _ = Describe("The PG MetaStore", func() {
 				metaStore.Update(globalTransaction, bMeta.Name, bMeta, true)
 
 				Context("outer link field should be removed from object A", func() {
-					aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name)
+					aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
 					Expect(err).To(BeNil())
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields[0].Name).To(Equal("id"))
@@ -519,7 +519,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("CASCADE"))
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
 			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
@@ -589,7 +589,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("CASCADE"))
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
 			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
@@ -659,7 +659,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("SET NULL"))
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
 			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteSetNull))
 			Expect(err).To(BeNil())
 		})
@@ -729,7 +729,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("RESTRICT"))
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
 			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteRestrict))
 			Expect(err).To(BeNil())
 		})
@@ -799,7 +799,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("SET DEFAULT"))
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name)
+			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
 			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteSetDefault))
 			Expect(err).To(BeNil())
 		})

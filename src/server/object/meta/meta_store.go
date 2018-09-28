@@ -1,7 +1,6 @@
 package meta
 
 import (
-	"sync"
 	"io"
 	"encoding/json"
 	"logger"
@@ -14,11 +13,9 @@ import (
    Metadata store of objects persisted in DB.
 */
 type MetaStore struct {
-	drv         MetaDriver
-	cache       map[string]*Meta
-	cacheMutex  sync.RWMutex
-	syncer      MetaDbSyncer
-	syncerMutex sync.RWMutex
+	drv    MetaDriver
+	cache  *MetaCache
+	syncer MetaDbSyncer
 }
 
 func (metaStore *MetaStore) UnmarshalJSON(r io.ReadCloser) (*Meta, error) {
@@ -42,11 +39,9 @@ func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
 }
 
 /*
-   Retrives the list of metadata objects from the underlying store.
+   Gets the list of metadata objects from the underlying store.
 */
 func (metaStore *MetaStore) List() (*[]*MetaDescription, bool, error) {
-	metaStore.syncerMutex.RLock()
-	defer metaStore.syncerMutex.RUnlock()
 	metaList, isFound, err := metaStore.drv.List()
 
 	if err != nil {
@@ -59,7 +54,15 @@ func (metaStore *MetaStore) List() (*[]*MetaDescription, bool, error) {
 /*
    Retrives object metadata from the underlying store.
 */
-func (metaStore *MetaStore) Get(transaction *transactions.GlobalTransaction, name string) (*Meta, bool, error) {
+func (metaStore *MetaStore) Get(transaction *transactions.GlobalTransaction, name string, useCache bool) (*Meta, bool, error) {
+	//try to get meta from cache
+	if useCache {
+		metaObj := metaStore.cache.Get(name)
+		if metaObj != nil {
+			return metaObj, true, nil
+		}
+	}
+
 	//retrieve business object metadata from the storage
 	metaData, isFound, err := metaStore.drv.Get(name)
 
@@ -67,14 +70,15 @@ func (metaStore *MetaStore) Get(transaction *transactions.GlobalTransaction, nam
 		return nil, isFound, err
 	}
 	//assemble the new business object with the given metadata
-	businessObject, err := metaStore.NewMeta(metaData)
+	metaObj, err := metaStore.NewMeta(metaData)
 	if err != nil {
 		return nil, isFound, err
 	}
 	//validate the newly created business object against existing one in the database
-	ok, err := metaStore.syncer.ValidateObj(transaction.DbTransaction, businessObject)
+	ok, err := metaStore.syncer.ValidateObj(transaction.DbTransaction, metaObj)
 	if ok {
-		return businessObject, isFound, nil
+		metaStore.cache.Set(metaObj)
+		return metaObj, isFound, nil
 	}
 
 	return nil, false, err
@@ -89,6 +93,9 @@ func (metaStore *MetaStore) Create(transaction *transactions.GlobalTransaction, 
 			metaStore.addReversedOuterGenericFields(transaction, nil, objectMeta)
 			//add corresponding outer field
 			metaStore.addReversedOuterFields(transaction, nil, objectMeta)
+
+			//invalidate cache
+			metaStore.cache.Invalidate()
 			return nil
 		} else {
 			var e2 = metaStore.syncer.RemoveObj(transaction.DbTransaction, objectMeta.Name, false)
@@ -102,7 +109,7 @@ func (metaStore *MetaStore) Create(transaction *transactions.GlobalTransaction, 
 
 // Updates an existing object metadata.
 func (metaStore *MetaStore) Update(globalTransaction *transactions.GlobalTransaction, name string, newBusinessObj *Meta, keepOuter bool) (bool, error) {
-	if currentBusinessObj, ok, err := metaStore.Get(globalTransaction, name); err == nil {
+	if currentBusinessObj, ok, err := metaStore.Get(globalTransaction, name, false); err == nil {
 		if keepOuter {
 			metaStore.processGenericOuterLinkKeeping(globalTransaction, currentBusinessObj, newBusinessObj)
 		}
@@ -120,6 +127,10 @@ func (metaStore *MetaStore) Update(globalTransaction *transactions.GlobalTransac
 		if updateError := metaStore.syncer.UpdateObj(globalTransaction.DbTransaction, currentBusinessObj, newBusinessObj); updateError == nil {
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(globalTransaction, currentBusinessObj, newBusinessObj)
+
+			//invalidate cache
+			metaStore.cache.Invalidate()
+
 			return true, nil
 		} else {
 			//rollback to the previous version
@@ -144,7 +155,7 @@ func (metaStore *MetaStore) Update(globalTransaction *transactions.GlobalTransac
 // Deletes an existing object metadata from the store.
 func (metaStore *MetaStore) Remove(transaction *transactions.GlobalTransaction, name string, force bool) (bool, error) {
 
-	meta, _, err := metaStore.Get(transaction, name)
+	meta, _, err := metaStore.Get(transaction, name, false)
 	if err != nil {
 		return false, err
 	}
@@ -160,6 +171,10 @@ func (metaStore *MetaStore) Remove(transaction *transactions.GlobalTransaction, 
 	if e := metaStore.syncer.RemoveObj(transaction.DbTransaction, name, force); e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.drv.Remove(name)
+
+		//invalidate cache
+		metaStore.cache.Invalidate()
+
 		return ok, err
 	} else {
 		return false, e
@@ -222,7 +237,7 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(transaction *transactions.Gl
 	for _, objectMetaDescription := range *metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
-			objectMeta, _, _ := metaStore.Get(transaction, objectMetaDescription.Name)
+			objectMeta, _, _ := metaStore.Get(transaction, objectMetaDescription.Name, false)
 			objectMetaFields := make([]Field, 0)
 			objectMetaFieldDescriptions := make([]FieldDescription, 0)
 			objectNeedsUpdate := false
@@ -255,7 +270,7 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(transaction *transact
 	for _, objectMetaDescription := range *metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
-			objectMeta, _, _ := metaStore.Get(transaction, objectMetaDescription.Name)
+			objectMeta, _, _ := metaStore.Get(transaction, objectMetaDescription.Name, false)
 			objectMetaFields := make([]Field, 0)
 			objectMetaFieldDescriptions := make([]FieldDescription, 0)
 			objectNeedsUpdate := false
@@ -354,7 +369,7 @@ func (metaStore *MetaStore) processGenericOuterLinkKeeping(transaction *transact
 	for _, previousMetaField := range previousMeta.Fields {
 		if previousMetaField.Type == FieldTypeGeneric && previousMetaField.LinkType == LinkTypeOuter {
 			if currentMeta.FindField(previousMetaField.Name) == nil {
-				if _, _, err := metaStore.Get(transaction, previousMetaField.LinkMeta.Name); err == nil {
+				if _, _, err := metaStore.Get(transaction, previousMetaField.LinkMeta.Name, false); err == nil {
 					fieldIsBeingRenamed := false
 					for _, currentMetaField := range currentMeta.Fields {
 						if currentMetaField.Type == FieldTypeGeneric && currentMetaField.LinkType == LinkTypeOuter {
@@ -513,5 +528,5 @@ func (metaStore *MetaStore) Flush(globalTransaction *transactions.GlobalTransact
 }
 
 func NewStore(md MetaDriver, mds MetaDbSyncer) *MetaStore {
-	return &MetaStore{drv: md, syncer: mds, cache: make(map[string]*Meta)}
+	return &MetaStore{drv: md, syncer: mds, cache: NewCache()}
 }

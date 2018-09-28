@@ -81,7 +81,7 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 }
 
 func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, sink func(map[string]interface{}) error) (int, error) {
-	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName); e != nil {
+	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true); e != nil {
 		return 0, e
 	} else if !ok {
 		return 0, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
@@ -149,7 +149,7 @@ func (dn *DNode) recursivelyFillOuterChildNodes() {
 }
 
 func (processor *Processor) GetMeta(transaction transactions.DbTransaction, objectName string) (*meta.Meta, error) {
-	objectMeta, ok, err := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName)
+	objectMeta, ok, err := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true)
 	if err != nil {
 		return nil, err
 	}

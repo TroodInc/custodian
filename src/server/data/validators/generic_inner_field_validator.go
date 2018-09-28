@@ -9,7 +9,7 @@ import (
 )
 
 type GenericInnerFieldValidator struct {
-	metaGetCallback   func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error)
+	metaGetCallback   func(transaction *transactions.GlobalTransaction, name string, useCache bool) (*meta.Meta, bool, error)
 	recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)
 	dbTransaction     transactions.DbTransaction
 }
@@ -47,7 +47,7 @@ func (validator *GenericInnerFieldValidator) validateObjectName(objectName inter
 }
 
 func (validator *GenericInnerFieldValidator) validateObject(objectName string, fieldDescription *meta.FieldDescription) (*meta.Meta, error) {
-	if objectMeta, _, err := validator.metaGetCallback(&transactions.GlobalTransaction{DbTransaction: validator.dbTransaction}, objectName); err != nil {
+	if objectMeta, _, err := validator.metaGetCallback(&transactions.GlobalTransaction{DbTransaction: validator.dbTransaction}, objectName, true); err != nil {
 		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Object '%s' referenced in '%s'`s value does not exist", fieldDescription.Name)
 	} else {
 		return objectMeta, nil
@@ -86,6 +86,6 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 	}
 }
 
-func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *GenericInnerFieldValidator {
+func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string, useCache bool) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *GenericInnerFieldValidator {
 	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback, dbTransaction: dbTransaction}
 }

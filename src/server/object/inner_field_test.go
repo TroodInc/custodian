@@ -95,7 +95,7 @@ var _ = Describe("Inner generic field", func() {
 		err = metaStore.Create(globalTransaction, bMetaObj)
 		Expect(err).To(BeNil())
 
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaObj.Name)
+		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaObj.Name, true)
 		Expect(err).To(BeNil())
 
 		reverseField := aMetaObj.FindField("b_set")

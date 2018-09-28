@@ -142,7 +142,7 @@ var _ = Describe("Record tree extractor", func() {
 		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecordData["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name)
+		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
 		Expect(err).To(BeNil())
 		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
 		By("Building removal node for A record")
@@ -175,7 +175,7 @@ var _ = Describe("Record tree extractor", func() {
 		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecordData["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name)
+		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
 		Expect(err).To(BeNil())
 		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
 		By("Building removal node for A record")
@@ -203,7 +203,7 @@ var _ = Describe("Record tree extractor", func() {
 		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecordData["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name)
+		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
 		Expect(err).To(BeNil())
 		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
 		By("Building removal node for A record")
