@@ -11,9 +11,8 @@ services:
       - test-network
 
   custodian_postgres:
-    image: postgres:9.6
+    image: postgres:10.5
     container_name: postgres.custodian
-    entrypoint: "docker-entrypoint.sh postgres -c \"idle_in_transaction_session_timeout=10000\""
     environment:
       LC_ALL: C.UTF-8
       POSTGRES_DB: custodian
