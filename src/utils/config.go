@@ -10,6 +10,7 @@ type AppConfig struct {
 	UrlPrefix           string
 	DbConnectionOptions string
 	SentryDsn           string
+	EnableProfiler      bool
 }
 
 func getRealWorkingDirectory() string {
@@ -44,9 +45,10 @@ func GetConfig() *AppConfig {
 	godotenv.Load(getRealWorkingDirectory() + "/.env")
 
 	var appConfig = AppConfig{
-		"/custodian",
-		"host=localhost port=5432 dbname=custodian sslmode=disable",
-		"",
+		UrlPrefix:           "/custodian",
+		DbConnectionOptions: "host=localhost port=5432 dbname=custodian sslmode=disable",
+		SentryDsn:           "",
+		EnableProfiler:      false,
 	}
 
 	if urlPrefix := os.Getenv("URL_PREFIX"); len(urlPrefix) > 0 {
@@ -59,6 +61,10 @@ func GetConfig() *AppConfig {
 
 	if dbConnectionOptions := os.Getenv("DB_CONNECTION_OPTIONS"); len(dbConnectionOptions) > 0 {
 		appConfig.DbConnectionOptions = dbConnectionOptions
+	}
+
+	if enableProfiler := os.Getenv("ENABLE_PROFILER"); len(enableProfiler) > 0 {
+		appConfig.EnableProfiler = enableProfiler == "true"
 	}
 
 	return &appConfig

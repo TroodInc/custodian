@@ -25,6 +25,7 @@ import (
 	"server/object/description"
 	. "server/errors"
 	. "server/streams"
+	_ "net/http/pprof"
 )
 
 type CustodianApp struct {
@@ -119,7 +120,7 @@ func (cs *CustodianServer) SetAuth(s string) {
 	cs.auth_url = s
 }
 
-func (cs *CustodianServer) Setup() *http.Server {
+func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 
 	app := GetApp(cs)
 
@@ -436,6 +437,10 @@ func (cs *CustodianServer) Setup() *http.Server {
 			}
 		}
 	}))
+
+	if enableProfiler {
+		app.router.Handler(http.MethodGet, "/debug/pprof/:item", http.DefaultServeMux)
+	}
 
 	app.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
 		user := r.Context().Value("auth_user").(auth.User)
