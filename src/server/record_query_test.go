@@ -45,7 +45,7 @@ var _ = Describe("Server", func() {
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup()
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(false)
 		recorder = httptest.NewRecorder()
 
 	})
