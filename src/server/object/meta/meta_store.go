@@ -473,6 +473,9 @@ func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.Glo
 				previousStateField := previousMeta.FindField(field.Name)
 				if previousStateField != nil {
 					//if field has already been added
+					//TODO: remove referencedMeta = field.LinkMeta outside of "if" block, this is a temporary workaround
+					//to provide backward compatibility with Topline schema
+					referencedMeta = field.LinkMeta
 					if previousStateField.LinkType != field.LinkType ||
 						previousStateField.Type != field.Type ||
 						previousStateField.LinkMeta.Name != field.LinkMeta.Name {
