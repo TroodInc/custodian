@@ -128,6 +128,9 @@ func (metaStore *MetaStore) Update(globalTransaction *transactions.GlobalTransac
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(globalTransaction, currentBusinessObj, newBusinessObj)
 
+			//add corresponding outer field
+			metaStore.addReversedOuterFields(globalTransaction, currentBusinessObj, newBusinessObj)
+
 			//invalidate cache
 			metaStore.cache.Invalidate()
 
@@ -465,7 +468,7 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(transaction *transacti
 func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.GlobalTransaction, previousMeta *Meta, currentMeta *Meta) {
 	for _, field := range currentMeta.Fields {
 		if field.Type == FieldTypeObject && field.LinkType == LinkTypeInner {
-			referencedMeta := new(Meta)
+			var referencedMeta *Meta
 			if previousMeta != nil {
 				previousStateField := previousMeta.FindField(field.Name)
 				if previousStateField != nil {
