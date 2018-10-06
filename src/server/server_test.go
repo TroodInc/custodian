@@ -106,6 +106,7 @@ var _ = Describe("Server", func() {
 			}
 			Context("and valid HTTP request object", func() {
 				encodedMetaData, _ := json.Marshal(metaData)
+				fmt.Println(string(encodedMetaData))
 				var request, _ = http.NewRequest("PUT", fmt.Sprintf("%s/meta", appConfig.UrlPrefix), bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
 

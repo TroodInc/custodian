@@ -157,7 +157,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		} else {
 			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), true); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.InstanceForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
@@ -170,7 +170,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
 			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
-			metaObj, err := metaStore.UnmarshalJSON(r)
+			metaObj, err := metaStore.UnmarshalIncomingJSON(r)
 			if err != nil {
 				js.pushError(err)
 				globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -178,7 +178,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			}
 			if e := metaStore.Create(globalTransaction, metaObj); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.InstanceForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(e)
@@ -209,7 +209,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
 			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
 		} else {
-			metaObj, err := metaStore.UnmarshalJSON(r)
+			metaObj, err := metaStore.UnmarshalIncomingJSON(r)
 			if err != nil {
 				js.pushError(err)
 				globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -217,7 +217,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			}
 			if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.InstanceForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)

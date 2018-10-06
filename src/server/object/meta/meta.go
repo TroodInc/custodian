@@ -6,6 +6,7 @@ import (
 	"utils"
 	. "server/object/description"
 	"server/transactions"
+	"github.com/jinzhu/copier"
 )
 
 type Def interface{}
@@ -46,10 +47,22 @@ func (m *Meta) AddField(fieldDescription FieldDescription) *FieldDescription {
 	return nil
 }
 
-func (m Meta) MarshalJSON() ([]byte, error) {
+func (m *Meta) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.MetaDescription)
 }
 
+func (m *Meta) InstanceForExport() *Meta {
+	metaCopy := &Meta{}
+	copier.Copy(metaCopy, m)
+	for i := range metaCopy.MetaDescription.Fields {
+		if metaCopy.MetaDescription.Fields[i].LinkType == LinkTypeOuter {
+			//false value interprets as zero value
+			metaCopy.MetaDescription.Fields[i].RetrieveMode = false
+			metaCopy.MetaDescription.Fields[i].QueryMode = false
+		}
+	}
+	return metaCopy
+}
 func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
 	isSimpleFieldWithSameTypeAsPk := f.IsSimple() && f.Type == m.Key.Type
 	isInnerLinkToMeta := f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner

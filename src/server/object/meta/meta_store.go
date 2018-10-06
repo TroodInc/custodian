@@ -18,20 +18,13 @@ type MetaStore struct {
 	syncer MetaDbSyncer
 }
 
-func (metaStore *MetaStore) UnmarshalJSON(r io.ReadCloser) (*Meta, error) {
+func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.ReadCloser) (*Meta, error) {
 	var metaObj MetaDescription
 	if e := json.NewDecoder(r).Decode(&metaObj); e != nil {
 		return nil, NewMetaError("", "unmarshal", ErrNotValid, e.Error())
 	}
-	return metaStore.NewMeta(&metaObj)
-}
-
-func (metaStore *MetaStore) unmarshalMeta(b []byte) (*Meta, error) {
-	var m MetaDescription
-	if e := json.Unmarshal(b, &m); e != nil {
-		return nil, e
-	}
-	return metaStore.NewMeta(&m)
+	// normalize description
+	return metaStore.NewMeta((&NormalizationService{}).Normalize(&metaObj))
 }
 
 func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
@@ -494,6 +487,7 @@ func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.Glo
 				if referencedMeta.FindField(fieldName) != nil {
 					continue
 				}
+				//automatically added outer field should only be available for querying
 				outerField := Field{
 					Name:           fieldName,
 					Type:           FieldTypeArray,
@@ -501,6 +495,8 @@ func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.Glo
 					LinkMeta:       currentMeta.Name,
 					OuterLinkField: field.Name,
 					Optional:       true,
+					QueryMode:      true,
+					RetrieveMode:   false,
 				}
 				referencedMeta.MetaDescription.Fields = append(
 					referencedMeta.MetaDescription.Fields,
@@ -511,7 +507,8 @@ func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.Glo
 						Field:          &outerField,
 						Meta:           referencedMeta,
 						LinkMeta:       currentMeta,
-						OuterLinkField: &field,},
+						OuterLinkField: &field,
+					},
 				)
 				metaStore.Update(transaction, referencedMeta.Name, referencedMeta, true)
 			}
