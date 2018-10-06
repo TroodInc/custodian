@@ -18,8 +18,6 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 	if ok, err := (&ValidationService{}).Validate(objectMetaDescription); !ok {
 		return nil, err
 	}
-	// normalize description
-	objectMetaDescription = (&NormalizationService{}).Normalize(objectMetaDescription)
 
 	//create object meta
 	objectMeta := &Meta{MetaDescription: objectMetaDescription}

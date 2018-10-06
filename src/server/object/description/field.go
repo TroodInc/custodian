@@ -206,6 +206,8 @@ type Field struct {
 	Optional       bool        `json:"optional"`
 	OnDelete       string      `json:"onDelete,omitempty"`
 	Def            interface{} `json:"default,omitempty"`
+	QueryMode      bool        `json:"queryMode,omitempty"`    //only for outer links, true if field should be used for querying
+	RetrieveMode   bool        `json:"retrieveMode,omitempty"` //only for outer links, true if field should be used for data retrieving
 }
 
 func (f *Field) IsSimple() bool {
