@@ -159,7 +159,7 @@ func (processor *Processor) GetMeta(transaction transactions.DbTransaction, obje
 	return objectMeta, nil
 }
 
-func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransaction, objectName string, recordData map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
+func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransaction, objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
 	// get Meta
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
@@ -230,7 +230,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 		recordSetNotificationPool.CaptureCurrentState()
 		recordSetNotificationPool.Push(user)
 	}
-	return recordData, nil
+	return NewRecord(objectMeta, recordData), nil
 }
 
 func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
@@ -323,7 +323,7 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 	return nil
 }
 
-func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecordData map[string]interface{}, err error) {
+func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecord *Record, err error) {
 	// get Meta
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
@@ -397,7 +397,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 		recordSetNotificationPool.Push(user)
 	}
 
-	return rootRecordSet.Records[0].Data, nil
+	return rootRecordSet.Records[0], nil
 }
 
 func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {

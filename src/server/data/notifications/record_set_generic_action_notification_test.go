@@ -55,9 +55,9 @@ var _ = Describe("Data", func() {
 		var aMetaObj *meta.Meta
 		var bMetaObj *meta.Meta
 		var cMetaObj *meta.Meta
-		var aRecordData map[string]interface{}
-		var bRecordData map[string]interface{}
-		var cRecordData map[string]interface{}
+		var aRecord *record.Record
+		var bRecord *record.Record
+		var cRecord *record.Record
 
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
@@ -159,7 +159,7 @@ var _ = Describe("Data", func() {
 
 		havingARecord := func(targetRecordObjectName string, targetRecordId float64) {
 			By("Having a record of A object")
-			aRecordData, err = dataProcessor.CreateRecord(
+			aRecord, err = dataProcessor.CreateRecord(
 				globalTransaction.DbTransaction,
 				aMetaObj.Name,
 				map[string]interface{}{"target_object": map[string]interface{}{"_object": targetRecordObjectName, "id": strconv.Itoa(int(targetRecordId))}},
@@ -170,13 +170,13 @@ var _ = Describe("Data", func() {
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"first_name": "Feodor"}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"first_name": "Feodor"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingCRecord := func() {
 			By("Having a record of C object")
-			cRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMetaObj.Name, map[string]interface{}{}, auth.User{})
+			cRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMetaObj.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -187,9 +187,9 @@ var _ = Describe("Data", func() {
 			havingObjectA()
 			havingBRecord()
 			havingCRecord()
-			havingARecord(cMetaObj.Name, cRecordData["id"].(float64))
+			havingARecord(cMetaObj.Name, cRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"]})}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk()})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(

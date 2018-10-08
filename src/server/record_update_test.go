@@ -144,11 +144,11 @@ var _ = Describe("Server", func() {
 			Context("and PUT request performed by URL with specified record ID with wrong id specified in body", func() {
 				updateData := map[string]interface{}{
 					"name": "SomeOtherName",
-					"id":   int(record["id"].(float64) + 1),
+					"id":   int(record.Data["id"].(float64) + 1),
 				}
 				encodedMetaData, _ := json.Marshal(updateData)
 
-				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, objectA.Name, int(record["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, objectA.Name, int(record.Data["id"].(float64)))
 
 				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
@@ -173,7 +173,7 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 
 			objectB := factoryObjectB(globalTransaction)
-			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord["id"]}, auth.User{})
+			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
 			Expect(err).To(BeNil())
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
@@ -181,11 +181,11 @@ var _ = Describe("Server", func() {
 			Context("and update request performed by URL with specified record ID with wrong id specified in body", func() {
 				updateData := map[string]interface{}{
 					"name": "B record new name",
-					"id":   bRecord["id"],
+					"id":   bRecord.Data["id"],
 				}
 				encodedMetaData, _ := json.Marshal(updateData)
 
-				url := fmt.Sprintf("%s/data/single/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
 
 				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")

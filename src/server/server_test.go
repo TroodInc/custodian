@@ -156,7 +156,7 @@ var _ = Describe("Server", func() {
 
 			Context("and DELETE request performed by URL with specified record ID", func() {
 
-				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, metaObj.Name, int(firstRecord["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, metaObj.Name, int(firstRecord.Data["id"].(float64)))
 				var request, _ = http.NewRequest("DELETE", url, bytes.NewBuffer([]byte{}))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
@@ -176,7 +176,7 @@ var _ = Describe("Server", func() {
 					}
 					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "", 1, callbackFunction)
 					Expect(matchedRecords).To(HaveLen(1))
-					Expect(matchedRecords[0]["id"]).To(Not(Equal(firstRecord["id"])))
+					Expect(matchedRecords[0]["id"]).To(Not(Equal(firstRecord.Data["id"])))
 				})
 			})
 		})

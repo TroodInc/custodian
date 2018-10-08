@@ -11,7 +11,6 @@ import (
 	"server/transactions"
 	"server/object/description"
 	"server/auth"
-	"server/data/record"
 	"server/data"
 	"server/data/errors"
 )
@@ -133,18 +132,18 @@ var _ = Describe("Record tree extractor", func() {
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
-		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecordData["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecordData["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
 		Expect(err).To(BeNil())
-		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
+
 		By("Building removal node for A record")
 		recordNode, err := new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 
@@ -166,18 +165,18 @@ var _ = Describe("Record tree extractor", func() {
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
-		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecordData["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecordData["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
 		Expect(err).To(BeNil())
-		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
+
 		By("Building removal node for A record")
 		_, err = new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 
@@ -194,18 +193,18 @@ var _ = Describe("Record tree extractor", func() {
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
-		aRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecordData, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecordData["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecordData["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
 		Expect(err).To(BeNil())
-		aRecord := &record.Record{Data: aRecordData, Meta: aMeta}
+
 		By("Building removal node for A record")
 		recordNode, err := new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 

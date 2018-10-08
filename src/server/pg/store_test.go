@@ -82,6 +82,6 @@ var _ = Describe("Store", func() {
 			"name": "Sergey",
 		}
 		record, _ := dataProcessor.CreateRecord(globalTransaction.DbTransaction, meta.Name, recordData, auth.User{})
-		Expect(record).To(HaveKey("gender"))
+		Expect(record.Data).To(HaveKey("gender"))
 	})
 })
