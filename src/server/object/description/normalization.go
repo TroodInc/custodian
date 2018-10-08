@@ -25,8 +25,7 @@ func (normalizationService *NormalizationService) NormalizeInnerFields(fields *[
 //set correct modes for outer field
 func (normalizationService *NormalizationService) NormalizeOuterFields(fields *[]Field) {
 	for i, field := range *fields {
-		if field.Type == FieldTypeArray ||
-			(field.Type == FieldTypeGeneric && field.LinkType == LinkTypeOuter) {
+		if field.LinkType == LinkTypeOuter {
 			(*fields)[i].QueryMode = true
 			(*fields)[i].RetrieveMode = true
 		}
