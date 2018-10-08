@@ -54,8 +54,12 @@ func (m *Meta) MarshalJSON() ([]byte, error) {
 func (m *Meta) InstanceForExport() *Meta {
 	metaCopy := &Meta{}
 	copier.Copy(metaCopy, m)
-	for i := range metaCopy.MetaDescription.Fields {
+	for i := len(metaCopy.MetaDescription.Fields) - 1; i >= 0; i-- {
 		if metaCopy.MetaDescription.Fields[i].LinkType == LinkTypeOuter {
+			if !metaCopy.MetaDescription.Fields[i].RetrieveMode {
+				metaCopy.MetaDescription.Fields = append(metaCopy.MetaDescription.Fields[:i], metaCopy.MetaDescription.Fields[i+1:]...)
+				continue
+			}
 			//false value interprets as zero value
 			metaCopy.MetaDescription.Fields[i].RetrieveMode = false
 			metaCopy.MetaDescription.Fields[i].QueryMode = false

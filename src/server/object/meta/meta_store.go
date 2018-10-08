@@ -375,6 +375,8 @@ func (metaStore *MetaStore) processGenericOuterLinkKeeping(transaction *transact
 						}
 					}
 					if !fieldIsBeingRenamed {
+						previousMetaField.RetrieveMode = false
+						previousMetaField.QueryMode = true
 						currentMeta.AddField(previousMetaField)
 					}
 				}
