@@ -418,8 +418,9 @@ var _ = Describe("Data", func() {
 	})
 
 	It("Can perform update of record with nested outer records of mixed types: new record, existing record`s PK and existing record`s new data at once", func() {
-		aMetaObj := havingObjectA()
+		havingObjectA()
 		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		aMetaObj := havingObjectAWithManuallySetOuterLink()
 
 		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())

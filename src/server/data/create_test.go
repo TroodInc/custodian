@@ -40,54 +40,107 @@ var _ = Describe("Create test", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	aMetaDescription := description.MetaDescription{
-		Name: "a",
-		Key:  "id",
-		Cas:  false,
-		Fields: []description.Field{
-			{
-				Name: "id",
-				Type: description.FieldTypeNumber,
-				Def: map[string]interface{}{
-					"func": "nextval",
+	havingObjectA := func() *meta.Meta {
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
 				},
-				Optional: true,
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
 			},
-			{
-				Name:     "name",
-				Type:     description.FieldTypeString,
-				Optional: true,
-			},
-		},
+		}
+		(&description.NormalizationService{}).Normalize(&aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, aMetaObj)
+		Expect(err).To(BeNil())
+		return aMetaObj
 	}
 
-	bMetaDescription := description.MetaDescription{
-		Name: "b",
-		Key:  "id",
-		Cas:  false,
-		Fields: []description.Field{
-			{
-				Name: "id",
-				Type: description.FieldTypeNumber,
-				Def: map[string]interface{}{
-					"func": "nextval",
+	havingObjectB := func() *meta.Meta {
+		bMetaDescription := description.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
 				},
-				Optional: true,
+				{
+					Name:     "a",
+					Type:     description.FieldTypeObject,
+					Optional: false,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "a",
+					OnDelete: description.OnDeleteCascade.ToVerbose(),
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
 			},
-			{
-				Name:     "a",
-				Type:     description.FieldTypeObject,
-				Optional: false,
-				LinkType: description.LinkTypeInner,
-				LinkMeta: "a",
-				OnDelete: description.OnDeleteCascade.ToVerbose(),
+		}
+		(&description.NormalizationService{}).Normalize(&bMetaDescription)
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, bMetaObj)
+		Expect(err).To(BeNil())
+		return bMetaObj
+	}
+
+	havingObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+				{
+					Name:           "b_set",
+					Type:           description.FieldTypeArray,
+					LinkType:       description.LinkTypeOuter,
+					OuterLinkField: "a",
+					LinkMeta:       "b",
+					Optional:       true,
+				},
 			},
-			{
-				Name:     "name",
-				Type:     description.FieldTypeString,
-				Optional: true,
-			},
-		},
+		}
+		(&description.NormalizationService{}).Normalize(&aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
+		Expect(err).To(BeNil())
+		return aMetaObj
 	}
 
 	It("can create a record containing null value of foreign key field", func() {
@@ -287,21 +340,14 @@ var _ = Describe("Create test", func() {
 	})
 
 	It("can create record with nested inner record at once", func() {
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
-		Expect(err).To(BeNil())
-
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
-		Expect(err).To(BeNil())
+		havingObjectA()
+		bMeta := havingObjectB()
 
 		bData := map[string]interface{}{
 			"a": map[string]interface{}{"name": "A record"},
 		}
 		user := auth.User{}
-		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, bData, user)
+		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, bData, user)
 		Expect(err).To(BeNil())
 		Expect(record.Data).To(HaveKey("a"))
 		aData := record.Data["a"].(map[string]interface{})
@@ -310,22 +356,16 @@ var _ = Describe("Create test", func() {
 	})
 
 	It("can create record with nested outer records at once", func() {
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
-		Expect(err).To(BeNil())
-
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
-		Expect(err).To(BeNil())
+		aMeta := havingObjectA()
+		havingObjectB()
+		aMeta = havingObjectAWithManuallySetOuterLinkToB()
 
 		aData := map[string]interface{}{
-			"name":   "A record",
+			"name":  "A record",
 			"b_set": []interface{}{map[string]interface{}{"name": "B record"}},
 		}
 		user := auth.User{}
-		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, aData, user)
+		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, aData, user)
 		Expect(err).To(BeNil())
 		Expect(record.Data).To(HaveKey("b_set"))
 		bSetData := record.Data["b_set"].([]interface{})
@@ -335,28 +375,22 @@ var _ = Describe("Create test", func() {
 	})
 
 	It("can create record with nested outer records of mixed types(both new and existing) at once", func() {
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
-		Expect(err).To(BeNil())
-
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
-		Expect(err).To(BeNil())
+		aMeta := havingObjectA()
+		bMeta := havingObjectB()
+		aMeta = havingObjectAWithManuallySetOuterLinkToB()
 
 		user := auth.User{}
-		anotherARecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, map[string]interface{}{}, user)
+		anotherARecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, user)
 
-		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "Existing B record", "a": anotherARecord.Data["id"]}, user)
+		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"name": "Existing B record", "a": anotherARecord.Data["id"]}, user)
 		Expect(err).To(BeNil())
 
 		aData := map[string]interface{}{
-			"name":   "A record",
-			"b_set": []interface{}{map[string]interface{}{"name": "B record"}, bRecord.Data["id"]},
+			"name":  "A record",
+			"b_set": []interface{}{map[string]interface{}{"name": "B record"}, bRecord.Pk()},
 		}
 
-		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaDescription.Name, aData, user)
+		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, aData, user)
 		Expect(err).To(BeNil())
 		Expect(record.Data).To(HaveKey("b_set"))
 		bSetData := record.Data["b_set"].([]interface{})

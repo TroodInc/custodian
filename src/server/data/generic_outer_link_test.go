@@ -45,7 +45,8 @@ var _ = Describe("Data", func() {
 	})
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
+		err := metaStore.Flush(globalTransaction)
+		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
@@ -192,6 +193,7 @@ var _ = Describe("Data", func() {
 		It("can create record with nested records referenced by outer generic link, referenced record does not exist", func() {
 			Describe("Having object A", havingObjectA)
 			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			havingObjectAWithGenericOuterLinkToB()
 
 			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{}}}
 			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", aRecordData, auth.User{})

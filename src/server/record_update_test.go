@@ -90,6 +90,46 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
+	factoryObjectAWithManuallySetOuterLinkToB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:           "b_set",
+					Type:           description.FieldTypeArray,
+					LinkType:       description.LinkTypeOuter,
+					LinkMeta:       "b",
+					OuterLinkField: "a",
+					Optional:       true,
+				},
+			},
+		}
+		(&description.NormalizationService{}).Normalize(&metaDescription)
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
 	factoryObjectB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b",
@@ -175,6 +215,8 @@ var _ = Describe("Server", func() {
 			objectB := factoryObjectB(globalTransaction)
 			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
 			Expect(err).To(BeNil())
+
+			factoryObjectAWithManuallySetOuterLinkToB(globalTransaction)
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 

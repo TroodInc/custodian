@@ -30,6 +30,9 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 	for i := 0; i < len(record.Meta.Fields); i++ {
 		fieldName := record.Meta.Fields[i].Name
 		fieldDescription := &record.Meta.Fields[i]
+		if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode {
+			continue
+		}
 
 		value, valueIsSet := record.Data[fieldName]
 		if !valueIsSet && !fieldDescription.Optional && record.IsPhantom() {
