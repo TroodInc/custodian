@@ -127,6 +127,46 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
+	factoryObjectAWithManuallySetOuterLinkToB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:           "b_set",
+					Type:           description.FieldTypeArray,
+					LinkType:       description.LinkTypeOuter,
+					LinkMeta:       "b",
+					OuterLinkField: "a",
+					Optional:       true,
+				},
+			},
+		}
+		(&description.NormalizationService{}).Normalize(&metaDescription)
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
 	It("creates record and outputs its data respecting depth", func() {
 		Context("having a record of given object", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
@@ -137,6 +177,7 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 
 			objectB := factoryObjectB(globalTransaction)
+			factoryObjectAWithManuallySetOuterLinkToB(globalTransaction)
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
