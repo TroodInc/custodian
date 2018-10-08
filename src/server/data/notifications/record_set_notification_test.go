@@ -54,8 +54,8 @@ var _ = Describe("Data", func() {
 		var err error
 		var aMetaObj *meta.Meta
 		var bMetaObj *meta.Meta
-		var aRecordData map[string]interface{}
-		var bRecordData map[string]interface{}
+		var aRecord *record.Record
+		var bRecord *record.Record
 
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
@@ -138,13 +138,13 @@ var _ = Describe("Data", func() {
 
 		havingARecord := func(bRecordId float64) {
 			By("Having a record of A object")
-			aRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", "b": bRecordId}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", "b": bRecordId}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -206,9 +206,9 @@ var _ = Describe("Data", func() {
 			havingObjectB()
 			havingObjectA()
 			havingBRecord()
-			havingARecord(bRecordData["id"].(float64))
+			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"], "last_name": "Kozlova"})}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Kozlova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -232,9 +232,9 @@ var _ = Describe("Data", func() {
 			havingObjectB()
 			havingObjectA()
 			havingBRecord()
-			havingARecord(bRecordData["id"].(float64))
+			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"], "last_name": "Ivanova"})}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -268,9 +268,9 @@ var _ = Describe("Data", func() {
 			havingObjectB()
 			havingObjectA()
 			havingBRecord()
-			havingARecord(bRecordData["id"].(float64))
+			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"], "last_name": "Ivanova"})}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -282,7 +282,7 @@ var _ = Describe("Data", func() {
 				dataProcessor.Get,
 			)
 
-			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
+			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecord.Data["id"].(float64))), auth.User{})
 
 			recordSetNotification.CaptureCurrentState()
 
@@ -295,9 +295,9 @@ var _ = Describe("Data", func() {
 			havingObjectB()
 			havingObjectA()
 			havingBRecord()
-			havingARecord(bRecordData["id"].(float64))
+			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecordData["id"], "last_name": "Ivanova"})}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -310,7 +310,7 @@ var _ = Describe("Data", func() {
 			)
 			recordSetNotification.CapturePreviousState()
 
-			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecordData["id"].(float64))), auth.User{})
+			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecord.Pk().(float64))), auth.User{})
 			recordSetNotification.CaptureCurrentState()
 			notificationsData := recordSetNotification.BuildNotificationsData(
 				recordSetNotification.PreviousState[0],

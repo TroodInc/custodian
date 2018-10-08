@@ -14,6 +14,7 @@ import (
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
 	"strconv"
+	"server/data/record"
 )
 
 var _ = Describe("Data", func() {
@@ -53,8 +54,8 @@ var _ = Describe("Data", func() {
 		var err error
 		var aMetaObj *meta.Meta
 		var bMetaObj *meta.Meta
-		var aRecordData map[string]interface{}
-		var bRecordData map[string]interface{}
+		var aRecord *record.Record
+		var bRecord *record.Record
 
 		havingObjectA := func(onDeleteStrategy description.OnDeleteStrategy) {
 			By("Having object A with action for 'create' defined")
@@ -137,13 +138,13 @@ var _ = Describe("Data", func() {
 
 		havingARecord := func(bRecordId float64) {
 			By("Having a record of A object")
-			aRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"b": bRecordId}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"b": bRecordId}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -151,12 +152,11 @@ var _ = Describe("Data", func() {
 			havingObjectB()
 			havingObjectA(description.OnDeleteCascade)
 			havingBRecord()
-			havingARecord(bRecordData["id"].(float64))
+			havingARecord(bRecord.Pk().(float64))
 
 			recordSetNotificationPool := NewRecordSetNotificationPool()
 
-			bPkey, _ := bMetaObj.Key.ValueAsString(bRecordData["id"])
-			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bPkey, 1)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bRecord.PkAsString(), 1)
 			Expect(err).To(BeNil())
 
 			//fill node
@@ -174,24 +174,24 @@ var _ = Describe("Data", func() {
 			Expect(notifications[0].Method).To(Equal(description.MethodRemove))
 			Expect(notifications[0].CurrentState[0].Meta.Name).To(Equal(aMetaObj.Name))
 			Expect(notifications[0].CurrentState[0].Records[0]).To(BeNil())
-			Expect(notifications[0].PreviousState[0].Records[0].Data["id"]).To(Equal(aRecordData["id"]))
+			Expect(notifications[0].PreviousState[0].Records[0].Data["id"]).To(Equal(aRecord.Pk()))
 
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
 			Expect(notifications[1].Method).To(Equal(description.MethodRemove))
 			Expect(notifications[1].CurrentState[0].Meta.Name).To(Equal(bMetaObj.Name))
 			Expect(notifications[1].CurrentState[0].Records[0]).To(BeNil())
-			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecordData["id"]))
+			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecord.Pk()))
 		})
 
 		It("makes correct notification messages on record removal with `setNull` remove", func() {
 			havingObjectB()
 			havingObjectA(description.OnDeleteSetNull)
 			havingBRecord()
-			havingARecord(bRecordData["id"].(float64))
+			havingARecord(bRecord.Pk().(float64))
 
 			recordSetNotificationPool := NewRecordSetNotificationPool()
 
-			bPkey, _ := bMetaObj.Key.ValueAsString(bRecordData["id"])
+			bPkey, _ := bMetaObj.Key.ValueAsString(bRecord.Pk())
 			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bPkey, 1)
 			Expect(err).To(BeNil())
 
@@ -202,7 +202,7 @@ var _ = Describe("Data", func() {
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, recordSetNotificationPool, dataProcessor)
 			Expect(err).To(BeNil())
 
-			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, bMetaObj.Name, strconv.Itoa(int(bRecordData["id"].(float64))), auth.User{})
+			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, bMetaObj.Name, strconv.Itoa(int(bRecord.Pk().(float64))), auth.User{})
 			notifications := recordSetNotificationPool.Notifications()
 
 			Expect(notifications).To(HaveLen(2))
@@ -212,14 +212,14 @@ var _ = Describe("Data", func() {
 			Expect(notifications[0].CurrentState[1].Meta.Name).To(Equal(aMetaObj.Name))
 			Expect(notifications[0].CurrentState).To(HaveLen(1))
 			Expect(notifications[0].CurrentState[1].Records[0]).To(Not(BeNil()))
-			Expect(notifications[0].PreviousState[1].Records[0].Data["id"]).To(Equal(aRecordData["id"]))
+			Expect(notifications[0].PreviousState[1].Records[0].Data["id"]).To(Equal(aRecord.Pk()))
 
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
 			Expect(notifications[1].Method).To(Equal(description.MethodRemove))
 			Expect(notifications[1].CurrentState[0].Meta.Name).To(Equal(bMetaObj.Name))
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
 			Expect(notifications[1].CurrentState[0].Records[0]).To(BeNil())
-			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecordData["id"]))
+			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecord.Pk()))
 		})
 	})
 })

@@ -232,7 +232,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			if recordData, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.Value, user); err != nil {
+			if record, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.Value, user); err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(err)
 			} else {
@@ -241,7 +241,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					depth = i
 				}
 				objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
-				pkValue, _ := objectMeta.Key.ValueAsString(recordData[objectMeta.Key.Name])
+				pkValue, _ := objectMeta.Key.ValueAsString(record.Data[objectMeta.Key.Name])
 				if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, depth);
 					err != nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
