@@ -427,6 +427,8 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(transaction *transacti
 						LinkMeta:       currentMeta.Name,
 						OuterLinkField: field.Name,
 						Optional:       true,
+						QueryMode:      true,
+						RetrieveMode:   false,
 					}
 					linkMeta.MetaDescription.Fields = append(
 						linkMeta.MetaDescription.Fields,
