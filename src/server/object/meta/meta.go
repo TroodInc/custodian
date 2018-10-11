@@ -6,7 +6,7 @@ import (
 	"utils"
 	. "server/object/description"
 	"server/transactions"
-	"github.com/jinzhu/copier"
+	"github.com/getlantern/deepcopy"
 )
 
 type Def interface{}
@@ -51,18 +51,19 @@ func (m *Meta) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.MetaDescription)
 }
 
-func (m *Meta) InstanceForExport() *Meta {
-	metaCopy := &Meta{}
-	copier.Copy(metaCopy, m)
-	for i := len(metaCopy.MetaDescription.Fields) - 1; i >= 0; i-- {
-		if metaCopy.MetaDescription.Fields[i].LinkType == LinkTypeOuter {
-			if !metaCopy.MetaDescription.Fields[i].RetrieveMode {
-				metaCopy.MetaDescription.Fields = append(metaCopy.MetaDescription.Fields[:i], metaCopy.MetaDescription.Fields[i+1:]...)
+func (m *Meta) DescriptionForExport() MetaDescription {
+	metaCopy := MetaDescription{}
+	deepcopy.Copy(&metaCopy, *m.MetaDescription)
+	for i := len(metaCopy.Fields) - 1; i >= 0; i-- {
+		if metaCopy.Fields[i].LinkType == LinkTypeOuter {
+			// exclude field supporting only query mode
+			if !metaCopy.Fields[i].RetrieveMode {
+				metaCopy.Fields = append(metaCopy.Fields[:i], metaCopy.Fields[i+1:]...)
 				continue
 			}
-			//false value interprets as zero value
-			metaCopy.MetaDescription.Fields[i].RetrieveMode = false
-			metaCopy.MetaDescription.Fields[i].QueryMode = false
+			//false value are interpreted as zero value
+			metaCopy.Fields[i].RetrieveMode = false
+			metaCopy.Fields[i].QueryMode = false
 		}
 	}
 	return metaCopy
