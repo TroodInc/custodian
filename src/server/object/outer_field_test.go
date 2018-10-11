@@ -44,8 +44,7 @@ var _ = Describe("Outer field", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	It("can create object with manually specified outer field, this field can be used both for querying and retrieving", func() {
-		By("having two objects: A and B")
+	havingAMeta := func() *meta.Meta {
 		aMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -64,7 +63,10 @@ var _ = Describe("Outer field", func() {
 		Expect(err).To(BeNil())
 		err = metaStore.Create(globalTransaction, aMetaObj)
 		Expect(err).To(BeNil())
+		return aMetaObj
+	}
 
+	havingBMeta := func() *meta.Meta {
 		bMetaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
@@ -90,9 +92,11 @@ var _ = Describe("Outer field", func() {
 		Expect(err).To(BeNil())
 		err = metaStore.Create(globalTransaction, bMetaObj)
 		Expect(err).To(BeNil())
+		return bMetaObj
+	}
 
-		By("object A containing outer field to B")
-		aMetaDescription = description.MetaDescription{
+	havingAMetaWithManuallySetBSetLink := func() *meta.Meta {
+		aMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -114,14 +118,25 @@ var _ = Describe("Outer field", func() {
 			},
 		}
 		(&description.NormalizationService{}).Normalize(&aMetaDescription)
-		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
 		Expect(err).To(BeNil())
+		return aMetaObj
+	}
+
+	It("can create object with manually specified outer field, this field can be used both for querying and retrieving", func() {
+		By("having two objects: A and B")
+		aMetaObj := havingAMeta()
+
+		havingBMeta()
+
+		By("object A containing outer field to B")
+		aMetaObj = havingAMetaWithManuallySetBSetLink()
 
 		// check meta fields
 		fieldName := "b_set"
-		aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name, true)
+		aMeta, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
 		Expect(aMeta.Fields[1].Name).To(Equal(fieldName))
@@ -132,52 +147,11 @@ var _ = Describe("Outer field", func() {
 
 	It("can create object with automatically added outer field, this field can be used for querying only", func() {
 		By("having two objects: A and B")
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
-		Expect(err).To(BeNil())
+		aMetaObj := havingAMeta()
 
-		bMetaDescription := description.MetaDescription{
-			Name: "b",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
-					Optional: false,
-				},
-			},
-		}
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
-		Expect(err).To(BeNil())
+		havingBMeta()
 
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+		aMetaObj, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, false)
 		Expect(err).To(BeNil())
 		bSetField := aMetaObj.FindField("b_set")
 		Expect(bSetField).NotTo(BeNil())
@@ -188,54 +162,12 @@ var _ = Describe("Outer field", func() {
 
 	It("can be marshaled to JSON omitting QueryMode and RetrieveMode values", func() {
 		By("having two objects: A and B")
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
-		Expect(err).To(BeNil())
-
-		bMetaDescription := description.MetaDescription{
-			Name: "b",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
-					Optional: false,
-				},
-			},
-		}
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
-		Expect(err).To(BeNil())
-
+		aMetaObj := havingAMeta()
+		havingBMeta()
+		havingAMetaWithManuallySetBSetLink()
 		// A meta contains automatically generated outer link to B
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name, false)
-		aMetaObjForExport := aMetaObj.InstanceForExport()
+		aMetaObj, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, false)
+		aMetaObjForExport := aMetaObj.DescriptionForExport()
 		encodedData, err := json.Marshal(aMetaObjForExport)
 		Expect(err).To(BeNil())
 		var decodedData map[string]interface{}
@@ -247,58 +179,16 @@ var _ = Describe("Outer field", func() {
 
 	It("replaces automatically added outer field with manually added", func() {
 		By("having two objects: A and B")
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
-		Expect(err).To(BeNil())
-
-		bMetaDescription := description.MetaDescription{
-			Name: "b",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
-					Optional: false,
-				},
-			},
-		}
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
-		Expect(err).To(BeNil())
+		aMetaObj := havingAMeta()
+		havingBMeta()
 
 		// A meta contains automatically generated outer link to B
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+		aMetaObj, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, false)
 		Expect(err).To(BeNil())
 		Expect(aMetaObj.FindField("b_set")).NotTo(BeNil())
 
 		//A meta updated with outer link to b
-		aMetaDescription = description.MetaDescription{
+		aMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
