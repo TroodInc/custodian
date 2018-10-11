@@ -97,7 +97,7 @@ func (record *Record) PkAsString() string {
 func (record *Record) IsPhantom() bool {
 	// probably not best solution to determine isPhantom value, but it requires DB access for each record otherwise
 	_, pkIsSet := record.Data[record.Meta.Key.Name]
-	return !pkIsSet || !record.Meta.Key.Field.Optional
+	return !pkIsSet
 }
 
 func NewRecord(meta *meta.Meta, data map[string]interface{}) *Record {
