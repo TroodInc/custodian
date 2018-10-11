@@ -65,7 +65,11 @@ func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 		if field.LinkMeta.Key.Field.Type == FieldTypeString {
 			return v, nil
 		} else {
-			return strconv.Atoi(v)
+			if f, err := strconv.ParseFloat(v, 64); err != nil {
+				return strconv.Atoi(v)
+			} else {
+				return f, nil
+			}
 		}
 	case FieldTypeArray:
 		return strconv.Atoi(v)
