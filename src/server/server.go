@@ -157,7 +157,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		} else {
 			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), true); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.InstanceForExport()})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
@@ -178,7 +178,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			}
 			if e := metaStore.Create(globalTransaction, metaObj); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.InstanceForExport()})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(e)
@@ -217,7 +217,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			}
 			if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.InstanceForExport()})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)
