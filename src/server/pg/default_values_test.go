@@ -403,7 +403,7 @@ var _ = Describe("PG MetaStore test", func() {
 				}
 				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", 1, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["datetime"]).To(Equal("2018-05-29T15:29:58.627755+05:00"))
+				Expect(matchedRecords[0]["datetime"]).To(Equal("2018-05-29T10:29:58.627755Z"))
 			})
 		})
 	})
