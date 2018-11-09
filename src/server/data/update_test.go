@@ -275,7 +275,6 @@ var _ = Describe("Data", func() {
 	})
 
 	havingObjectA := func() *meta.Meta {
-
 		aMetaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -337,6 +336,118 @@ var _ = Describe("Data", func() {
 		(&description.NormalizationService{}).Normalize(&bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(globalTransaction, metaObj)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
+	havingObjectC := func() *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+				{
+					Name:     "b",
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "b",
+					Optional: true,
+				},
+				{
+					Name:     "d",
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "d",
+					Optional: true,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, metaObj)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
+	havingObjectD := func() *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "d",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeString,
+					Optional: false,
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, metaObj)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
+	factoryObjectBWithManuallySetOuterLinkToC := func() *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+				{
+					Name:     "a",
+					Type:     description.FieldTypeObject,
+					Optional: true,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "a",
+					OnDelete: description.OnDeleteCascade.ToVerbose(),
+				},
+				{
+					Name:           "c_set",
+					Type:           description.FieldTypeArray,
+					LinkType:       description.LinkTypeOuter,
+					LinkMeta:       "c",
+					OuterLinkField: "b",
+					Optional:       true,
+				},
+			},
+		}
+		(&description.NormalizationService{}).Normalize(&metaDescription)
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
@@ -573,5 +684,45 @@ var _ = Describe("Data", func() {
 
 		_, err = dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
 		Expect(err).NotTo(BeNil())
+	})
+
+	It("Updates record with nested records with mixed values(both valuable and null)", func() {
+		aMetaObj := havingObjectA()
+		bMetaObj := havingObjectB(description.OnDeleteRestrict.ToVerbose())
+		dMetaObj := havingObjectD()
+		cMetaObj := havingObjectC()
+
+		factoryObjectBWithManuallySetOuterLinkToC()
+
+		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"name": "B record", "a": aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		cRecordWithNilA, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMetaObj.Name, map[string]interface{}{"name": "C record", "a": nil, "b": bRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		cRecordWithValuableA, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMetaObj.Name, map[string]interface{}{"name": "C record", "a": aRecord.Pk(), "b": bRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		dRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, dMetaObj.Name, map[string]interface{}{"id": "DRecord", "name": "DDDrecord"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		//anotherBRecord`s id is not set
+		bUpdateData := map[string]interface{}{
+			"id":   bRecord.Pk(),
+			"name": "Updated B name",
+			"c_set": []interface{}{
+				map[string]interface{}{"id": cRecordWithNilA.Pk(), "d": nil},
+				map[string]interface{}{"id": cRecordWithValuableA.Pk(), "d": dRecord.Pk()}, //new record`s data
+			},
+		}
+
+		bRecord, err = dataProcessor.UpdateRecord(globalTransaction.DbTransaction, bMetaObj.Name, bRecord.PkAsString(), bUpdateData, auth.User{})
+		Expect(err).To(BeNil())
+		Expect(bRecord.Data).To(HaveKeyWithValue("name", "Updated B name"))
+		Expect(bRecord.Data["c_set"].([]interface{})[0].(map[string]interface{})["d"]).To(BeNil())
+		Expect(bRecord.Data["c_set"].([]interface{})[1].(map[string]interface{})).To(HaveKeyWithValue("d", "DRecord"))
 	})
 })

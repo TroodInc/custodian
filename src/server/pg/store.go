@@ -344,7 +344,7 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 	rFields := tableFields(m)
 	updateInfo := dml_info.NewUpdateInfo(GetTableName(m), getFieldsColumnsNames(rFields), make([]string, 0), make([]string, 0))
 	updateFields := make([]string, 0, len(recordValues[0]))
-	vals := make([]func(interface{}) interface{}, 0, len(recordValues[0]))
+	valueExtractors := make([]func(interface{}) interface{}, 0, len(recordValues[0]))
 	currentColumnIndex := 0
 	var b bytes.Buffer
 	newBind := func(col string, columnIndex int) string {
@@ -360,19 +360,19 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 			currentColumnIndex++
 			updateFields = append(updateFields, fieldName)
 			updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))
-			vals = append(vals, identityVal)
+			valueExtractors = append(valueExtractors, identityVal)
 			//cas column
 		} else if fieldName == "cas" {
 
 			currentColumnIndex++
 			updateFields = append(updateFields, fieldName)
 			updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))
-			vals = append(vals, identityVal)
+			valueExtractors = append(valueExtractors, identityVal)
 
 			currentColumnIndex++
 			updateFields = append(updateFields, fieldName)
 			updateInfo.Values = append(updateInfo.Values, newBind(fieldName, currentColumnIndex))
-			vals = append(vals, increaseCasVal)
+			valueExtractors = append(valueExtractors, increaseCasVal)
 
 		} else {
 			switch val.(type) {
@@ -380,12 +380,12 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 				currentColumnIndex++
 				updateFields = append(updateFields, fieldName)
 				updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))
-				vals = append(vals, alinkVal)
+				valueExtractors = append(valueExtractors, alinkVal)
 			case types.DLink:
 				currentColumnIndex++
 				updateFields = append(updateFields, fieldName)
 				updateInfo.Values = append(updateInfo.Values, newBind(fieldName, currentColumnIndex))
-				vals = append(vals, dlinkVal)
+				valueExtractors = append(valueExtractors, dlinkVal)
 			case *types.GenericInnerLink:
 
 				currentColumnIndex++
@@ -396,12 +396,12 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 
 				updateFields = append(updateFields, fieldName)
 
-				vals = append(vals, genericInnerLinkValue)
+				valueExtractors = append(valueExtractors, genericInnerLinkValue)
 			default:
 				currentColumnIndex++
 				updateFields = append(updateFields, fieldName)
 				updateInfo.Values = append(updateInfo.Values, newBind(fieldName, currentColumnIndex))
-				vals = append(vals, identityVal)
+				valueExtractors = append(valueExtractors, identityVal)
 			}
 		}
 	}
@@ -424,7 +424,7 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 				if v, ok := recordValues[i][updateFields[j]]; !ok {
 					return NewDMLError(ErrInvalidArgument, "Different set of fields. Object #%d. All objects must have the same set of fields.", i)
 				} else {
-					value := vals[j](v)
+					value := valueExtractors[j](v)
 					if value == nil {
 						binds = append(binds, value)
 					} else {
