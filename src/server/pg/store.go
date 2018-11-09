@@ -448,7 +448,7 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 				updateNodes(recordValues[i], uo)
 			} else {
 				if dml, ok := err.(*DMLError); ok && dml.code == ErrNotFound {
-					return errors.NewDataError("", errors.ErrCasFailed, "Precondition failed on object #%d.", i)
+					return errors.NewDataError(m.Name, errors.ErrCasFailed, "Database has returned no rows. Probably CAS failed or record with such PK does not exist.", i)
 				} else {
 					return err
 				}
