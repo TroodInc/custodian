@@ -142,301 +142,364 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 	}
 
 	//object operations
-	app.router.GET(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
-		if metaList, _, err := metaStore.List(); err == nil {
-			js.push(map[string]interface{}{"status": "OK", "data": metaList})
-		} else {
-			js.pushError(err)
-		}
-	}))
-
-	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		//there is no need to retrieve list of objects when not modifying them
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
-			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
-		} else {
-			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), true); e == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
-			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
-			}
-		}
-	}))
-
-	app.router.PUT(cs.root+"/meta", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
-			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
-		} else {
-			metaObj, err := metaStore.UnmarshalIncomingJSON(r)
-			if err != nil {
-				js.pushError(err)
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				return
-			}
-			if e := metaStore.Create(globalTransaction, metaObj); e == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
-			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(e)
-			}
-		}
-	}))
-	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
-			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
-		} else {
-			if ok, e := metaStore.Remove(globalTransaction, p.ByName("name"), false); ok {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushEmpty()
-			} else {
-				if e != nil {
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(e)
+	app.router.GET(
+		cs.root+"/meta",
+		ProfilerMiddleware(
+			enableProfiler, CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
+				if metaList, _, err := metaStore.List(); err == nil {
+					js.push(map[string]interface{}{"status": "OK", "data": metaList})
 				} else {
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(&ServerError{Status: http.StatusNotFound, Code: ErrNotFound})
+					js.pushError(err)
 				}
-			}
-		}
-	}))
-	app.router.POST(cs.root+"/meta/:name", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
-			js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
-		} else {
-			metaObj, err := metaStore.UnmarshalIncomingJSON(r)
-			if err != nil {
-				js.pushError(err)
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				return
-			}
-			if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
-			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(err)
-			}
-		}
-	}))
+			},
+			),
+		),
+	)
+
+	app.router.GET(
+		cs.root+"/meta/:name",
+		ProfilerMiddleware(
+			enableProfiler, CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
+				//there is no need to retrieve list of objects when not modifying them
+				if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
+					js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
+				} else {
+					if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), true); e == nil {
+						globalTransactionManager.CommitTransaction(globalTransaction)
+						js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
+					} else {
+						globalTransactionManager.RollbackTransaction(globalTransaction)
+						js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
+					}
+				}
+			}),
+		),
+	)
+
+	app.router.PUT(
+		cs.root+"/meta",
+		ProfilerMiddleware(
+			enableProfiler, CreateJsonAction(func(r io.ReadCloser, js *JsonSink, _ httprouter.Params, q url.Values) {
+				metaDescriptionList, _, _ := metaStore.List()
+				if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
+					js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
+				} else {
+					metaObj, err := metaStore.UnmarshalIncomingJSON(r)
+					if err != nil {
+						js.pushError(err)
+						globalTransactionManager.RollbackTransaction(globalTransaction)
+						return
+					}
+					if e := metaStore.Create(globalTransaction, metaObj); e == nil {
+						globalTransactionManager.CommitTransaction(globalTransaction)
+						js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
+					} else {
+						globalTransactionManager.RollbackTransaction(globalTransaction)
+						js.pushError(e)
+					}
+				}
+			}),
+		),
+	)
+
+	app.router.DELETE(
+		cs.root+"/meta/:name",
+		ProfilerMiddleware(
+			enableProfiler, CreateJsonAction(func(_ io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
+				metaDescriptionList, _, _ := metaStore.List()
+				if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
+					js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
+				} else {
+					if ok, e := metaStore.Remove(globalTransaction, p.ByName("name"), false); ok {
+						globalTransactionManager.CommitTransaction(globalTransaction)
+						js.pushEmpty()
+					} else {
+						if e != nil {
+							globalTransactionManager.RollbackTransaction(globalTransaction)
+							js.pushError(e)
+						} else {
+							globalTransactionManager.RollbackTransaction(globalTransaction)
+							js.pushError(&ServerError{Status: http.StatusNotFound, Code: ErrNotFound})
+						}
+					}
+				}
+			}),
+		),
+	)
+	app.router.POST(
+		cs.root+"/meta/:name",
+		ProfilerMiddleware(
+			enableProfiler, CreateJsonAction(func(r io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values) {
+				metaDescriptionList, _, _ := metaStore.List()
+				if globalTransaction, err := globalTransactionManager.BeginTransaction(*metaDescriptionList); err != nil {
+					js.push(map[string]interface{}{"status": "FAIL", "error": err.Error()})
+				} else {
+					metaObj, err := metaStore.UnmarshalIncomingJSON(r)
+					if err != nil {
+						js.pushError(err)
+						globalTransactionManager.RollbackTransaction(globalTransaction)
+						return
+					}
+					if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
+						globalTransactionManager.CommitTransaction(globalTransaction)
+						js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
+					} else {
+						globalTransactionManager.RollbackTransaction(globalTransaction)
+						js.pushError(err)
+					}
+				}
+			}),
+		),
+	)
 
 	//RecordSetOperations operations
-	app.router.PUT(cs.root+"/data/single/:name", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
-		user := r.Context().Value("auth_user").(auth.User)
-		objectName := p.ByName("name")
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			if record, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.Value, user); err != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(err)
-			} else {
-				var depth = 1
-				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
-					depth = i
-				}
-				objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
-				pkValue, _ := objectMeta.Key.ValueAsString(record.Data[objectMeta.Key.Name])
-				if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, depth);
-					err != nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
+	app.router.PUT(
+		cs.root+"/data/single/:name",
+		ProfilerMiddleware(
+			enableProfiler, CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+				user := r.Context().Value("auth_user").(auth.User)
+				objectName := p.ByName("name")
+				if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 					sink.pushError(err)
 				} else {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushGeneric(record.Data)
-				}
-			}
-		}
-	}, false))
-
-	app.router.PUT(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
-		defer sink.Complete(nil)
-		user := request.Context().Value("auth_user").(auth.User)
-
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.PushError(err)
-		} else {
-
-			e := dataProcessor.BulkCreateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-				if obj, eof, e := stream.Next(); e != nil {
-					return nil, e
-				} else if eof {
-					return nil, nil
-				} else {
-					return obj, nil
-				}
-			}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
-			if e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.PushError(e)
-			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-			}
-		}
-	}))
-
-	app.router.GET(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			var depth = 2
-			if i, e := strconv.Atoi(q.Get("depth")); e == nil {
-				depth = i
-			}
-			if o, e := dataProcessor.Get(dbTransaction, p.ByName("name"), p.ByName("key"), depth); e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
-			} else {
-				if o == nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
-				} else {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushGeneric(o.Data)
-				}
-			}
-		}
-	}))
-
-	app.router.GET(cs.root+"/data/bulk/:name", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL) {
-		var count int
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.PushError(err)
-		} else {
-			defer sink.Complete(&count)
-			pq := make(url.Values)
-			if e := softParseQuery(pq, q.RawQuery); e != nil {
-				sink.PushError(e)
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-			} else {
-				var depth = 2
-				if i, e := strconv.Atoi(url.QueryEscape(pq.Get("depth"))); e == nil {
-					depth = i
-				}
-				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
-				if e != nil {
-					sink.PushError(e)
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-				} else {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-				}
-			}
-		}
-	}))
-
-	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
-
-		user := r.Context().Value("auth_user").(auth.User)
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			if removedData, e := dataProcessor.RemoveRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
-			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				sink.pushGeneric(removedData)
-			}
-		}
-	}, true))
-
-	app.router.DELETE(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.PushError(err)
-		} else {
-			defer sink.Complete(nil)
-			user := request.Context().Value("auth_user").(auth.User)
-			e := dataProcessor.BulkDeleteRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-				if obj, eof, e := stream.Next(); e != nil {
-					return nil, e
-				} else if eof {
-					return nil, nil
-				} else {
-					return obj, nil
-				}
-			}, user)
-			if e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.PushError(e)
-			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-			}
-		}
-	}))
-
-	app.router.POST(cs.root+"/data/single/:name/:key", CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			user := r.Context().Value("auth_user").(auth.User)
-			objectName := p.ByName("name")
-			recordPkValue := p.ByName("key")
-			//TODO: building record data respecting "depth" argument should be implemented inside dataProcessor
-			//also "FillRecordValues" also should be moved from Node struct
-			if recordData, e := dataProcessor.UpdateRecord(dbTransaction, objectName, recordPkValue, src.Value, user); e != nil {
-				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
-				} else {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(e)
-				}
-			} else {
-				if recordData != nil {
-					var depth = 1
-					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
-						depth = i
-					}
-					if recordData, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, depth);
-						err != nil {
+					if record, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.Value, user); err != nil {
 						dbTransactionManager.RollbackTransaction(dbTransaction)
 						sink.pushError(err)
 					} else {
-						dbTransactionManager.CommitTransaction(dbTransaction)
-						sink.pushGeneric(recordData.Data)
+						var depth = 1
+						if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+							depth = i
+						}
+						objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
+						pkValue, _ := objectMeta.Key.ValueAsString(record.Data[objectMeta.Key.Name])
+						if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, depth);
+							err != nil {
+							dbTransactionManager.RollbackTransaction(dbTransaction)
+							sink.pushError(err)
+						} else {
+							dbTransactionManager.CommitTransaction(dbTransaction)
+							sink.pushGeneric(record.Data)
+						}
 					}
+				}
+			}, false),
+		),
+	)
 
-				} else {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
-				}
-			}
-		}
-	}, false))
+	app.router.PUT(
+		cs.root+"/data/bulk/:name",
+		ProfilerMiddleware(
+			enableProfiler, CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
+				defer sink.Complete(nil)
+				user := request.Context().Value("auth_user").(auth.User)
 
-	app.router.POST(cs.root+"/data/bulk/:name", CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.PushError(err)
-		} else {
-			defer sink.Complete(nil)
-			user := request.Context().Value("auth_user").(auth.User)
-			e := dataProcessor.BulkUpdateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-				if obj, eof, e := stream.Next(); e != nil {
-					return nil, e
-				} else if eof {
-					return nil, nil
+				if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+					sink.PushError(err)
 				} else {
-					return obj, nil
+
+					e := dataProcessor.BulkCreateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
+						if obj, eof, e := stream.Next(); e != nil {
+							return nil, e
+						} else if eof {
+							return nil, nil
+						} else {
+							return obj, nil
+						}
+					}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
+					if e != nil {
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						sink.PushError(e)
+					} else {
+						dbTransactionManager.CommitTransaction(dbTransaction)
+					}
 				}
-			}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
-			if e != nil {
-				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.PushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
+			}),
+		),
+	)
+
+	app.router.GET(
+		cs.root+"/data/single/:name/:key", ProfilerMiddleware(
+			enableProfiler, CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values) {
+				if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+					sink.pushError(err)
 				} else {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.PushError(e)
+					var depth = 2
+					if i, e := strconv.Atoi(q.Get("depth")); e == nil {
+						depth = i
+					}
+					if o, e := dataProcessor.Get(dbTransaction, p.ByName("name"), p.ByName("key"), depth); e != nil {
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						sink.pushError(e)
+					} else {
+						if o == nil {
+							dbTransactionManager.RollbackTransaction(dbTransaction)
+							sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+						} else {
+							dbTransactionManager.CommitTransaction(dbTransaction)
+							sink.pushGeneric(o.Data)
+						}
+					}
 				}
+			}),
+		),
+	)
+
+	app.router.GET(
+		cs.root+"/data/bulk/:name",
+		ProfilerMiddleware(
+			enableProfiler, CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL) {
+				var count int
+				if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+					sink.PushError(err)
+				} else {
+					defer sink.Complete(&count)
+					pq := make(url.Values)
+					if e := softParseQuery(pq, q.RawQuery); e != nil {
+						sink.PushError(e)
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+					} else {
+						var depth = 2
+						if i, e := strconv.Atoi(url.QueryEscape(pq.Get("depth"))); e == nil {
+							depth = i
+						}
+						count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+						if e != nil {
+							sink.PushError(e)
+							dbTransactionManager.RollbackTransaction(dbTransaction)
+						} else {
+							dbTransactionManager.CommitTransaction(dbTransaction)
+						}
+					}
+				}
+			}),
+		),
+	)
+
+	app.router.DELETE(
+		cs.root+"/data/single/:name/:key",
+		ProfilerMiddleware(
+			enableProfiler, CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+				user := r.Context().Value("auth_user").(auth.User)
+				if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+					sink.pushError(err)
+				} else {
+					if removedData, e := dataProcessor.RemoveRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						sink.pushError(e)
+					} else {
+						dbTransactionManager.CommitTransaction(dbTransaction)
+						sink.pushGeneric(removedData)
+					}
+				}
+			}, true),
+		),
+	)
+
+	app.router.DELETE(
+		cs.root+"/data/bulk/:name",
+		ProfilerMiddleware(
+			enableProfiler, CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
+				if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+					sink.PushError(err)
+				} else {
+					defer sink.Complete(nil)
+					user := request.Context().Value("auth_user").(auth.User)
+					e := dataProcessor.BulkDeleteRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
+						if obj, eof, e := stream.Next(); e != nil {
+							return nil, e
+						} else if eof {
+							return nil, nil
+						} else {
+							return obj, nil
+						}
+					}, user)
+					if e != nil {
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						sink.PushError(e)
+					} else {
+						dbTransactionManager.CommitTransaction(dbTransaction)
+					}
+				}
+			}),
+		),
+	)
+
+	app.router.POST(
+		cs.root+"/data/single/:name/:key",
+		ProfilerMiddleware(
+			enableProfiler, CreateDualJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, r *http.Request) {
+				if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+					sink.pushError(err)
+				} else {
+					user := r.Context().Value("auth_user").(auth.User)
+					objectName := p.ByName("name")
+					recordPkValue := p.ByName("key")
+					//TODO: building record data respecting "depth" argument should be implemented inside dataProcessor
+					//also "FillRecordValues" also should be moved from Node struct
+					if recordData, e := dataProcessor.UpdateRecord(dbTransaction, objectName, recordPkValue, src.Value, user); e != nil {
+						if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
+							dbTransactionManager.RollbackTransaction(dbTransaction)
+							sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
+						} else {
+							dbTransactionManager.RollbackTransaction(dbTransaction)
+							sink.pushError(e)
+						}
+					} else {
+						if recordData != nil {
+							var depth = 1
+							if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+								depth = i
+							}
+							if recordData, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, depth);
+								err != nil {
+								dbTransactionManager.RollbackTransaction(dbTransaction)
+								sink.pushError(err)
+							} else {
+								dbTransactionManager.CommitTransaction(dbTransaction)
+								sink.pushGeneric(recordData.Data)
+							}
+
+						} else {
+							dbTransactionManager.RollbackTransaction(dbTransaction)
+							sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+						}
+					}
+				}
+			}, false),
+		),
+	)
+
+	app.router.POST(cs.root+"/data/bulk/:name", ProfilerMiddleware(
+		enableProfiler, CreateDualJsonStreamAction(func(stream *JsonStream, sink *JsonSinkStream, p httprouter.Params, request *http.Request) {
+			if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+				sink.PushError(err)
 			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
+				defer sink.Complete(nil)
+				user := request.Context().Value("auth_user").(auth.User)
+				e := dataProcessor.BulkUpdateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
+					if obj, eof, e := stream.Next(); e != nil {
+						return nil, e
+					} else if eof {
+						return nil, nil
+					} else {
+						return obj, nil
+					}
+				}, func(obj map[string]interface{}) error { return sink.PourOff(obj) }, user)
+				if e != nil {
+					if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						sink.PushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
+					} else {
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						sink.PushError(e)
+					}
+				} else {
+					dbTransactionManager.CommitTransaction(dbTransaction)
+				}
 			}
-		}
-	}))
+		}),
+	),
+	)
 
 	if enableProfiler {
 		app.router.Handler(http.MethodGet, "/debug/pprof/:item", http.DefaultServeMux)
@@ -461,46 +524,6 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		MaxHeaderBytes: 1 << 20,
 	}
 	return cs.s
-}
-
-//Creates an action to process an HTTP request in JSON format.
-//It takes an function to process request, which accepts JsonSource, JsonSink and PathSegments.
-func CreateDualJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, *http.Request), allowEmptyBody bool) func(http.ResponseWriter, *http.Request, httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		src, e := (*httpRequest)(r).asJsonSource()
-		if e != nil && !allowEmptyBody {
-			returnError(w, e)
-			return
-		}
-		sink, _ := asJsonSink(w)
-		f(src, sink, p, r)
-	}
-}
-
-func CreateDualJsonStreamAction(callbackFunction func(*JsonStream, *JsonSinkStream, httprouter.Params, *http.Request)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
-	return func(w http.ResponseWriter, request *http.Request, p httprouter.Params) {
-		stream, e := (*httpRequest)(request).asJsonStream()
-		if e != nil {
-			returnError(w, e)
-			return
-		}
-		sink, _ := AsJsonSinkStream(w)
-		callbackFunction(stream, sink, p, request)
-	}
-}
-
-func CreateJsonAction(f func(io.ReadCloser, *JsonSink, httprouter.Params, url.Values)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		sink, _ := asJsonSink(w)
-		f(r.Body, sink, p, r.URL.Query())
-	}
-}
-
-func CreateJsonStreamAction(f func(*JsonSinkStream, httprouter.Params, *url.URL)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
-		sink, _ := AsJsonSinkStream(w)
-		f(sink, p, r.URL)
-	}
 }
 
 //Returns an error to HTTP response in JSON format.
