@@ -300,8 +300,8 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 				}
 
 				expectedNode, ok := currentNode.ChildNodes[field.Name]
-				if field.Type == description.FieldTypeGeneric{
-					expectedNode =  &data.Node{
+				if field.Type == description.FieldTypeGeneric {
+					expectedNode = &data.Node{
 						KeyField:   linkedMeta.Key,
 						Meta:       linkedMeta,
 						ChildNodes: make(map[string]*data.Node),
@@ -496,9 +496,10 @@ func like(ctx *context, args []interface{}) (expr, error) {
 func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error) {
 	var b bytes.Buffer
 	sorts := st.rootNode.Sort()
+	sorts = append(sorts, rqlParser.Sort{By: root.Meta.Key.Name, Desc: false})
 	for i := range sorts {
-		f := root.Meta.FindField(sorts[i].By)
-		if f == nil {
+		fieldDescription := root.Meta.FindField(sorts[i].By)
+		if fieldDescription == nil {
 			return "", NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' field", root.Meta.Name, sorts[i].By)
 		}
 		b.WriteString(tableAlias)
