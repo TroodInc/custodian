@@ -920,4 +920,73 @@ var _ = Describe("Data", func() {
 			Expect(matchedRecords[0]["id"]).To(Equal(cRecord.Data["id"]))
 		})
 	})
+
+	It("always uses additional ordering by primary key", func() {
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		metaStore.Create(globalTransaction, aMetaObj)
+
+		_, err = dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			aMetaDescription.Name,
+			map[string]interface{}{"name": "Arecord"},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		aNilNameFirst, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			aMetaDescription.Name,
+			map[string]interface{}{"name": nil},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		aNilNameSecond, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			aMetaDescription.Name,
+			map[string]interface{}{"name": nil},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		records := make([]map[string]interface{}, 0)
+		callbackFunction := func(obj map[string]interface{}) error {
+			records = append(records, obj)
+			return nil
+		}
+		Context("query by date returns correct result", func() {
+			_, err = dataProcessor.GetBulk(
+				globalTransaction.DbTransaction,
+				aMetaDescription.Name,
+				"sort(+name)",
+				1,
+				callbackFunction,
+			)
+			Expect(err).To(BeNil())
+			Expect(records).To(HaveLen(3))
+			Expect(records[1]["id"]).To(Equal(aNilNameFirst.Data["id"]))
+			Expect(records[2]["id"]).To(Equal(aNilNameSecond.Data["id"]))
+		})
+	})
 })
