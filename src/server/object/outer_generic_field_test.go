@@ -43,7 +43,7 @@ var _ = Describe("Outer generic field", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	It("can create object with outer generic field", func() {
+	It("can create object with manually specified outer generic field", func() {
 		By("having two objects: A and B")
 		aMetaDescription := description.MetaDescription{
 			Name: "a",
@@ -132,17 +132,21 @@ var _ = Describe("Outer generic field", func() {
 				},
 			},
 		}
+		(&description.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
 		Expect(err).To(BeNil())
 
 		// check meta fields
-		aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name)
+		fieldName := "c_set"
+		aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
-		Expect(aMeta.Fields[1].Name).To(Equal("c_set"))
+		Expect(aMeta.Fields[1].Name).To(Equal(fieldName))
 		Expect(aMeta.Fields[1].LinkMeta.Name).To(Equal("c"))
+		Expect(aMeta.FindField(fieldName).QueryMode).To(BeTrue())
+		Expect(aMeta.FindField(fieldName).RetrieveMode).To(BeTrue())
 	})
 
 	It("Detects non-existing linked meta", func() {
@@ -248,7 +252,7 @@ var _ = Describe("Outer generic field", func() {
 
 	})
 
-	It("can remove generic field from object", func() {
+	It("can remove outer generic field from object", func() {
 		By("having object A")
 		aMetaDescription := description.MetaDescription{
 			Name: "a",
@@ -342,10 +346,9 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(globalTransaction, bMetaObj.Name, bMetaObj, true)
 		Expect(err).To(BeNil())
-
 	})
 
-	It("removes outer field if corresponding inner field is removed", func() {
+	It("removes outer generic field if corresponding inner generic field is removed", func() {
 		By("having object A")
 		aMetaDescription := description.MetaDescription{
 			Name: "a",
@@ -444,7 +447,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("outer link should be removed from object A")
 		// check meta fields
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name)
+		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMetaObj.Fields).To(HaveLen(1))
 		Expect(aMetaObj.Fields[0].Name).To(Equal("id"))
@@ -535,7 +538,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("outer link should be removed from object A")
 		// check meta fields
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name)
+		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMetaObj.Fields).To(HaveLen(1))
 		Expect(aMetaObj.Fields[0].Name).To(Equal("id"))
@@ -611,7 +614,7 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 		//
 
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name)
+		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 
 		Expect(aMetaObj.Fields).To(HaveLen(2))

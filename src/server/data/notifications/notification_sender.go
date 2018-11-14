@@ -5,6 +5,7 @@ import (
 	"server/noti"
 	"server/auth"
 	"server/object/description"
+	"strconv"
 )
 
 type notificationSender struct {
@@ -16,21 +17,23 @@ func newNotificationSender() *notificationSender {
 }
 
 func (notificationSender *notificationSender) push(recordSetNotification *RecordSetNotification, user auth.User) {
-	for actionIndex, action := range recordSetNotification.recordSet.Meta.Actions.Original {
-		if recordSetNotification.method == action.Method {
-			notificationChannel := notificationSender.getNotificationChannel(recordSetNotification.recordSet.Meta, recordSetNotification.method, &action)
-			for _, notificationObject := range recordSetNotification.BuildNotificationsData(actionIndex, user) {
-				notificationChannel <- noti.NewObjectEvent(notificationObject, recordSetNotification.isRoot)
-			}
+	for _, action := range recordSetNotification.Actions {
+		notificationChannel := notificationSender.getNotificationChannel(recordSetNotification.recordSet.Meta, recordSetNotification.Method, action)
+		for _, notificationObject := range recordSetNotification.BuildNotificationsData(
+			recordSetNotification.PreviousState[action.Id()],
+			recordSetNotification.CurrentState[action.Id()],
+			user,
+		) {
+			notificationChannel <- noti.NewObjectEvent(notificationObject, recordSetNotification.isRoot)
 		}
 	}
 }
 
 func (notificationSender *notificationSender) getNotificationChannel(meta *meta.Meta, method description.Method, action *description.Action) chan *noti.Event {
-	key := meta.Name + method.AsString()
+	key := meta.Name + method.AsString() + strconv.Itoa(action.Id())
 	notificationChannel, ok := notificationSender.notificationChannels[key]
 	if !ok {
-		notificationChannel = meta.Actions.NewNotificationChannel(method, action)
+		notificationChannel = meta.ActionSet.NewNotificationChannel(method, action)
 		notificationSender.notificationChannels[key] = notificationChannel
 	}
 	return notificationChannel

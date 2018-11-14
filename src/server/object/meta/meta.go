@@ -6,6 +6,7 @@ import (
 	"utils"
 	. "server/object/description"
 	"server/transactions"
+	"github.com/getlantern/deepcopy"
 )
 
 type Def interface{}
@@ -26,9 +27,9 @@ var notifierFactories = map[Protocol]noti.Factory{
 //Object metadata description.
 type Meta struct {
 	*MetaDescription
-	Key     *FieldDescription
-	Fields  []FieldDescription
-	Actions *ActionSet
+	Key       *FieldDescription
+	Fields    []FieldDescription
+	ActionSet *ActionSet
 }
 
 func (m *Meta) FindField(name string) *FieldDescription {
@@ -46,10 +47,27 @@ func (m *Meta) AddField(fieldDescription FieldDescription) *FieldDescription {
 	return nil
 }
 
-func (m Meta) MarshalJSON() ([]byte, error) {
+func (m *Meta) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.MetaDescription)
 }
 
+func (m *Meta) DescriptionForExport() MetaDescription {
+	metaCopy := MetaDescription{}
+	deepcopy.Copy(&metaCopy, *m.MetaDescription)
+	for i := len(metaCopy.Fields) - 1; i >= 0; i-- {
+		if metaCopy.Fields[i].LinkType == LinkTypeOuter {
+			// exclude field supporting only query mode
+			if !metaCopy.Fields[i].RetrieveMode {
+				metaCopy.Fields = append(metaCopy.Fields[:i], metaCopy.Fields[i+1:]...)
+				continue
+			}
+			//false value are interpreted as zero value
+			metaCopy.Fields[i].RetrieveMode = false
+			metaCopy.Fields[i].QueryMode = false
+		}
+	}
+	return metaCopy
+}
 func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
 	isSimpleFieldWithSameTypeAsPk := f.IsSimple() && f.Type == m.Key.Type
 	isInnerLinkToMeta := f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner

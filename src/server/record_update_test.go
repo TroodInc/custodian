@@ -46,7 +46,7 @@ var _ = Describe("Server", func() {
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup()
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(false)
 		recorder = httptest.NewRecorder()
 
 	})
@@ -86,6 +86,46 @@ var _ = Describe("Server", func() {
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(globalTransaction, metaObj)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
+	factoryObjectAWithManuallySetOuterLinkToB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:           "b_set",
+					Type:           description.FieldTypeArray,
+					LinkType:       description.LinkTypeOuter,
+					LinkMeta:       "b",
+					OuterLinkField: "a",
+					Optional:       true,
+				},
+			},
+		}
+		(&description.NormalizationService{}).Normalize(&metaDescription)
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
@@ -144,11 +184,11 @@ var _ = Describe("Server", func() {
 			Context("and PUT request performed by URL with specified record ID with wrong id specified in body", func() {
 				updateData := map[string]interface{}{
 					"name": "SomeOtherName",
-					"id":   int(record["id"].(float64) + 1),
+					"id":   int(record.Data["id"].(float64) + 1),
 				}
 				encodedMetaData, _ := json.Marshal(updateData)
 
-				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, objectA.Name, int(record["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, objectA.Name, int(record.Data["id"].(float64)))
 
 				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
@@ -173,19 +213,21 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 
 			objectB := factoryObjectB(globalTransaction)
-			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord["id"]}, auth.User{})
+			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
 			Expect(err).To(BeNil())
+
+			factoryObjectAWithManuallySetOuterLinkToB(globalTransaction)
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			Context("and update request performed by URL with specified record ID with wrong id specified in body", func() {
 				updateData := map[string]interface{}{
 					"name": "B record new name",
-					"id":   bRecord["id"],
+					"id":   bRecord.Data["id"],
 				}
 				encodedMetaData, _ := json.Marshal(updateData)
 
-				url := fmt.Sprintf("%s/data/single/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
 
 				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
@@ -193,9 +235,8 @@ var _ = Describe("Server", func() {
 				responseBody := recorder.Body.String()
 
 				Context("response should contain nested A record", func() {
-					Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
+					Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"b_set\":[1],\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
 				})
-
 			})
 		})
 	})

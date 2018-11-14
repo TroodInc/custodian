@@ -5,10 +5,10 @@ import (
 	"strings"
 )
 
-
 const (
 	genericFieldColumnTypeSuffix = "__type"
 	genericFieldColumnKeySuffix  = "__key"
+	reverseInnerLinkSuffix       = "_set"
 )
 
 func GetGenericFieldTypeColumnName(fieldName string) string {
@@ -39,4 +39,8 @@ func ReverseGenericFieldName(columnName string) string {
 		return strings.TrimSuffix(columnName, genericFieldColumnKeySuffix)
 	}
 	return ""
+}
+
+func ReverseInnerLinkName(metaName string) string {
+	return metaName + reverseInnerLinkSuffix
 }

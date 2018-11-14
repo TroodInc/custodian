@@ -5,12 +5,13 @@ import (
 	"server/data/types"
 	"server/data/errors"
 	"server/transactions"
+	"server/data/record"
 )
 
 type GenericInnerFieldValidator struct {
-	metaGetCallback func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error)
-	recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)
-	dbTransaction transactions.DbTransaction
+	metaGetCallback   func(transaction *transactions.GlobalTransaction, name string, useCache bool) (*meta.Meta, bool, error)
+	recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)
+	dbTransaction     transactions.DbTransaction
 }
 
 func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.FieldDescription, value interface{}) (*types.GenericInnerLink, error) {
@@ -46,7 +47,7 @@ func (validator *GenericInnerFieldValidator) validateObjectName(objectName inter
 }
 
 func (validator *GenericInnerFieldValidator) validateObject(objectName string, fieldDescription *meta.FieldDescription) (*meta.Meta, error) {
-	if objectMeta, _, err := validator.metaGetCallback(&transactions.GlobalTransaction{DbTransaction: validator.dbTransaction}, objectName); err != nil {
+	if objectMeta, _, err := validator.metaGetCallback(&transactions.GlobalTransaction{DbTransaction: validator.dbTransaction}, objectName, true); err != nil {
 		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Object '%s' referenced in '%s'`s value does not exist", fieldDescription.Name)
 	} else {
 		return objectMeta, nil
@@ -54,6 +55,9 @@ func (validator *GenericInnerFieldValidator) validateObject(objectName string, f
 }
 
 func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{}, fieldDescription *meta.FieldDescription) (interface{}, error) {
+	if pkValue == nil {
+		return nil, errors.GenericFieldPkIsNullError{}
+	}
 	var validatedPkValue interface{}
 	switch castPkValue := pkValue.(type) {
 	case float64, string:
@@ -82,6 +86,6 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 	}
 }
 
-func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) *GenericInnerFieldValidator {
+func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string, useCache bool) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *GenericInnerFieldValidator {
 	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback, dbTransaction: dbTransaction}
 }

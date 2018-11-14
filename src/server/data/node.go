@@ -43,7 +43,7 @@ func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMet
 	return castValue, err
 }
 
-func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, error) {
+func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, int, error) {
 	return sc.dm.GetRql(node, rqlNode, nil, sc.DbTransaction)
 }
 
@@ -165,6 +165,10 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 	//process regular links, skip generic child nodes
 	if node.Meta != nil {
 		for i, fieldDescription := range node.Meta.Fields {
+			//skip outer link which does not have retrieve mode set to true
+			if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode {
+				continue
+			}
 			var onlyLink = false
 			branches := make(map[string]*Node)
 			if node.Depth == depthLimit {

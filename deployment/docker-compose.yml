@@ -5,24 +5,20 @@ services:
     build:
       context: ../
       dockerfile: ./deployment/Dockerfile
-    env_file: ../.env
+      args:
+        DB_HOST: "postgres.custodian"
+        DB_USER: "custodian"
+        DB_PASSWORD: "custodian"
+        DB_PORT: "5432"
+        DB_NAME: "custodian"
+        DB_SSL_MODE: "disable"
     container_name: custodian
-    networks:
-      - test-network
 
   custodian_postgres:
-    image: postgres:9.6
+    image: postgres:10.5
     container_name: postgres.custodian
-    entrypoint: "docker-entrypoint.sh postgres -c \"idle_in_transaction_session_timeout=10000\""
     environment:
       LC_ALL: C.UTF-8
       POSTGRES_DB: custodian
       POSTGRES_USER: custodian
       POSTGRES_PASSWORD: custodian
-
-    networks:
-      - test-network
-
-networks:
-  test-network:
-    driver: bridge

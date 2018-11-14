@@ -12,23 +12,26 @@ import (
 )
 
 type RecordSetNotification struct {
-	recordSet     *record.RecordSet
-	isRoot        bool
-	method        description.Method
-	PreviousState []*record.RecordSet
-	CurrentState  []*record.RecordSet
-	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error
-	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)
-	dbTransaction transactions.DbTransaction
+	recordSet *record.RecordSet
+	isRoot    bool
+	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error)
+	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)
+	dbTransaction     transactions.DbTransaction
+	Actions           []*description.Action
+	Method            description.Method
+	PreviousState     map[int]*record.RecordSet
+	CurrentState      map[int]*record.RecordSet
 }
 
-func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) *RecordSetNotification {
+func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error), getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *RecordSetNotification {
+	actions := recordSet.Meta.ActionSet.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,
 		isRoot:             isRoot,
-		method:             method,
-		PreviousState:      make([]*record.RecordSet, len(recordSet.Meta.Actions.Original)), //for both arrays index is an corresponding
-		CurrentState:       make([]*record.RecordSet, len(recordSet.Meta.Actions.Original)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
+		Method:             method,
+		Actions:            actions,
+		PreviousState:      make(map[int]*record.RecordSet, len(actions)), //for both arrays index is an corresponding
+		CurrentState:       make(map[int]*record.RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
 		getRecordsCallback: getRecordsCallback,
 		getRecordCallback:  getRecordCallback,
 		dbTransaction:      dbTransaction,
@@ -44,42 +47,57 @@ func (notification *RecordSetNotification) CaptureCurrentState() {
 }
 
 func (notification *RecordSetNotification) ShouldBeProcessed() bool {
-	return len(notification.recordSet.Meta.Actions.Notifiers[notification.method]) > 0
+	return len(notification.recordSet.Meta.ActionSet.Notifiers[notification.Method]) > 0
 }
 
 //Build notification object for each record in recordSet for given action
-func (notification *RecordSetNotification) BuildNotificationsData(actionIndex int, user auth.User) []map[string]interface{} {
+func (notification *RecordSetNotification) BuildNotificationsData(previousState *record.RecordSet, currentState *record.RecordSet, user auth.User) []map[string]interface{} {
 	notifications := make([]map[string]interface{}, 0)
-	for i := range notification.PreviousState[actionIndex].DataSet {
+	for i := range previousState.Records {
+		var previousStateData map[string]interface{}
+		var currentStateData map[string]interface{}
+		if previousState.Records[i] != nil {
+			previousStateData = previousState.Records[i].Data
+		} else {
+			previousStateData = map[string]interface{}{}
+		}
+		if currentState.Records[i] != nil {
+			currentStateData = currentState.Records[i].Data
+		} else {
+			currentStateData = map[string]interface{}{}
+		}
 		notificationData := make(map[string]interface{})
-		notificationData["action"] = notification.method.AsString()
+		notificationData["action"] = notification.Method.AsString()
 		notificationData["object"] = notification.recordSet.Meta.Name
-		notificationData["previous"] = adaptRecordData(notification.PreviousState[actionIndex].DataSet[i])
-		notificationData["current"] = adaptRecordData(notification.CurrentState[actionIndex].DataSet[i])
+		notificationData["previous"] = adaptRecordData(previousStateData)
+		notificationData["current"] = adaptRecordData(currentStateData)
 		notificationData["user"] = user
 		notifications = append(notifications, notificationData)
 	}
 	return notifications
 }
 
-func (notification *RecordSetNotification) captureState(state []*record.RecordSet) {
+func (notification *RecordSetNotification) captureState(state map[int]*record.RecordSet) {
 	//capture state if recordSet has PKs defined, set empty map otherwise, because records cannot be retrieved
-	for i, action := range notification.recordSet.Meta.Actions.Original {
-		if notification.method == action.Method {
-			state[i] = &record.RecordSet{Meta: notification.recordSet.Meta, DataSet: make([]map[string]interface{}, 0)}
+	for _, action := range notification.Actions {
 
-			if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
-				recordsSink := func(recordData map[string]interface{}) error {
-					state[i].DataSet = append(state[i].DataSet, notification.buildRecordStateObject(recordData, &action, notification.getRecordsCallback))
-					return nil
-				}
-				//get data within current transaction
-				notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink)
+		state[action.Id()] = &record.RecordSet{Meta: notification.recordSet.Meta, Records: make([]*record.Record, 0)}
+
+		if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
+			recordsSink := func(recordData map[string]interface{}) error {
+
+				state[action.Id()].Records = append(
+					state[action.Id()].Records,
+					record.NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(recordData, action, notification.getRecordsCallback)),
+				)
+				return nil
 			}
-			//fill DataSet with empty values
-			if len(state[i].DataSet) == 0 {
-				state[i].DataSet = make([]map[string]interface{}, len(notification.recordSet.DataSet))
-			}
+			//get data within current transaction
+			notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink)
+		}
+		//fill DataSet with empty values
+		if len(state[action.Id()].Records) == 0 {
+			state[action.Id()].Records = make([]*record.Record, len(notification.recordSet.Records))
 		}
 	}
 }
@@ -87,8 +105,8 @@ func (notification *RecordSetNotification) captureState(state []*record.RecordSe
 func (notification *RecordSetNotification) getRecordsFilter() string {
 	hasKeys := false
 	filter := "in(" + notification.recordSet.Meta.Key.Name + ",("
-	for i, recordData := range notification.recordSet.DataSet {
-		if rawKeyValue, ok := recordData[notification.recordSet.Meta.Key.Name]; ok {
+	for i, record := range notification.recordSet.Records {
+		if rawKeyValue, ok := record.Data[notification.recordSet.Meta.Key.Name]; ok {
 			hasKeys = true
 			var keyValue string
 			switch value := rawKeyValue.(type) {
@@ -114,13 +132,13 @@ func (notification *RecordSetNotification) getRecordsFilter() string {
 }
 
 //Build object to use in notification
-func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) error) map[string]interface{} {
+func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error)) map[string]interface{} {
 
 	stateObject := make(map[string]interface{}, 0)
 
-	//	include values which are updated being updated/created
+	//	include values which are being updated/created
 	if action.Method != description.MethodRemove {
-		keys, _ := utils.GetMapKeysValues(notification.recordSet.DataSet[0])
+		keys, _ := utils.GetMapKeysValues(notification.recordSet.Records[0].Data)
 		for _, key := range keys {
 			if value, ok := recordData[key]; ok {
 				stateObject[key] = value
@@ -147,7 +165,7 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 	return stateObject
 }
 
-func getValue(targetRecord record.Record, getterConfig interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) interface{} {
+func getValue(targetRecord record.Record, getterConfig interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) interface{} {
 	switch getterValue := getterConfig.(type) {
 	case map[string]interface{}:
 		return getGenericValue(targetRecord, getterValue, transaction, getRecordCallback)
@@ -158,7 +176,7 @@ func getValue(targetRecord record.Record, getterConfig interface{}, transaction 
 }
 
 //get key value traversing down if needed
-func getSimpleValue(targetRecord record.Record, keyParts []string, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) interface{} {
+func getSimpleValue(targetRecord record.Record, keyParts []string, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) interface{} {
 	if len(keyParts) == 1 {
 		return targetRecord.Data[keyParts[0]]
 	} else {
@@ -177,8 +195,8 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, transaction t
 		nestedObjectMeta := targetRecord.Meta.FindField(keyPart).LinkMeta
 		if targetRecord.Data[keyPart] != nil {
 			keyValue, _ := nestedObjectMeta.Key.ValueAsString(rawKeyValue)
-			nestedRecordData, _ := getRecordCallback(transaction, nestedObjectMeta.Name, keyValue, 1, )
-			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, keyParts[1:], transaction, getRecordCallback)
+			nestedRecord, _ := getRecordCallback(transaction, nestedObjectMeta.Name, keyValue, 1, )
+			return getSimpleValue(*nestedRecord, keyParts[1:], transaction, getRecordCallback)
 		} else {
 			return nil
 		}
@@ -186,7 +204,7 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, transaction t
 }
 
 //get key value traversing down if needed
-func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error)) interface{} {
+func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) interface{} {
 	genericFieldName := getterConfig["field"].(string)
 
 	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), transaction, getRecordCallback, ).(map[string]interface{})
@@ -195,8 +213,8 @@ func getGenericValue(targetRecord record.Record, getterConfig map[string]interfa
 		if genericFieldValue[types.GenericInnerLinkObjectKey] == castObjectCase["object"] {
 			nestedObjectMeta := targetRecord.Meta.FindField(genericFieldName).LinkMetaList.GetByName(castObjectCase["object"].(string))
 			nestedObjectPk, _ := nestedObjectMeta.Key.ValueAsString(genericFieldValue[nestedObjectMeta.Key.Name])
-			nestedRecordData, _ := getRecordCallback(transaction, genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, 1)
-			return getSimpleValue(record.Record{Data: nestedRecordData, Meta: nestedObjectMeta}, strings.Split(castObjectCase["value"].(string), "."), transaction, getRecordCallback)
+			nestedRecord, _ := getRecordCallback(transaction, genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, 1)
+			return getSimpleValue(*nestedRecord, strings.Split(castObjectCase["value"].(string), "."), transaction, getRecordCallback)
 		}
 	}
 	return nil

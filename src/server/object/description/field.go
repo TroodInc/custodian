@@ -204,7 +204,10 @@ type Field struct {
 	LinkType       LinkType    `json:"linkType,omitempty"`
 	OuterLinkField string      `json:"outerLinkField,omitempty"`
 	Optional       bool        `json:"optional"`
+	OnDelete       string      `json:"onDelete,omitempty"`
 	Def            interface{} `json:"default,omitempty"`
+	QueryMode      bool        `json:"queryMode,omitempty"`    //only for outer links, true if field should be used for querying
+	RetrieveMode   bool        `json:"retrieveMode,omitempty"` //only for outer links, true if field should be used for data retrieving
 }
 
 func (f *Field) IsSimple() bool {

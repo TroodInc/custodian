@@ -1,9 +1,8 @@
-package meta
+package description
 
 import (
 	"utils"
 	"fmt"
-	"server/object/description"
 )
 
 type ValidationError struct {
@@ -17,16 +16,15 @@ func (err *ValidationError) Error() string {
 type ValidationService struct {
 }
 
-func (validationService *ValidationService) Validate(metaDescription *description.MetaDescription) (bool, error) {
+func (validationService *ValidationService) Validate(metaDescription *MetaDescription) (bool, error) {
 	if ok, err := validationService.checkFieldsDoesNotContainDuplicates(metaDescription.Fields); !ok {
 		return false, err
 	}
 	return true, nil
-
 }
 
 //check if meta contains fields with duplicated name
-func (validationService *ValidationService) checkFieldsDoesNotContainDuplicates(fields []description.Field) (bool, error) {
+func (validationService *ValidationService) checkFieldsDoesNotContainDuplicates(fields []Field) (bool, error) {
 	fieldNames := make([]string, 0)
 	for _, field := range fields {
 		if !utils.Contains(fieldNames, field.Name) {

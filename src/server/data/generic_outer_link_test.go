@@ -14,6 +14,7 @@ import (
 	"server/transactions/file_transaction"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
+	"server/data/record"
 )
 
 var _ = Describe("Data", func() {
@@ -44,14 +45,15 @@ var _ = Describe("Data", func() {
 	})
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
+		err := metaStore.Flush(globalTransaction)
+		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	Describe("Querying records by generic fields` values", func() {
 
-		var aRecord map[string]interface{}
-		var bRecord map[string]interface{}
+		var aRecord *record.Record
+		var bRecord *record.Record
 		var err error
 
 		havingObjectA := func() {
@@ -104,6 +106,7 @@ var _ = Describe("Data", func() {
 					},
 				},
 			}
+			(&description.NormalizationService{}).Normalize(&bMetaDescription)
 			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(globalTransaction, bMetaObj)
@@ -139,6 +142,7 @@ var _ = Describe("Data", func() {
 					},
 				},
 			}
+			(&description.NormalizationService{}).Normalize(&aMetaDescription)
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
 			_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
@@ -151,7 +155,7 @@ var _ = Describe("Data", func() {
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord["id"]}}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -163,11 +167,11 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord["id"].(float64))), 1)
+			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), 1)
 			Expect(err).To(BeNil())
-			bSet := aRecord["b_set"].([]interface{})
+			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
-			Expect(bSet).To(Equal([]interface{}{bRecord["id"].(float64)}))
+			Expect(bSet).To(Equal([]interface{}{bRecord.Data["id"].(float64)}))
 		})
 
 		It("can retrieve record with outer generic field as object", func() {
@@ -178,12 +182,56 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord["id"].(float64))), 3)
+			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), 3)
 			Expect(err).To(BeNil())
-			bSet := aRecord["b_set"].([]interface{})
+			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
 			targetValue := bSet[0].(map[string]interface{})["target"].(map[string]interface{})
 			Expect(targetValue[types.GenericInnerLinkObjectKey].(string)).To(Equal("a"))
+		})
+
+		It("can create record with nested records referenced by outer generic link, referenced record does not exist", func() {
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			havingObjectAWithGenericOuterLinkToB()
+
+			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{}}}
+			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", aRecordData, auth.User{})
+
+			Expect(err).To(BeNil())
+			Expect(aRecord.Data).To(HaveKey("b_set"))
+			Expect(aRecord.Data["b_set"]).To(HaveLen(1))
+			bSetData := aRecord.Data["b_set"].([]interface{})
+			Expect(bSetData[0]).To(BeAssignableToTypeOf(1.0))
+
+		})
+
+		It("can create record with nested records referenced by outer generic link, referenced record exists", func() {
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having object A with manually set outer link to B", havingObjectAWithGenericOuterLinkToB)
+
+			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{}, auth.User{})
+			Expect(err).To(BeNil())
+
+			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{"id": bRecord.Data["id"]}}}
+			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", aRecordData, auth.User{})
+
+			//check returned data
+			Expect(err).To(BeNil())
+			Expect(aRecord.Data).To(HaveKey("b_set"))
+			Expect(aRecord.Data["b_set"]).To(HaveLen(1))
+			bSetData := aRecord.Data["b_set"].([]interface{})
+			Expect(bSetData[0].(float64)).To(Equal(bRecord.Data["id"]))
+
+			//check queried data
+			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), 1)
+			Expect(err).To(BeNil())
+
+			Expect(aRecord.Data).To(HaveKey("b_set"))
+			Expect(aRecord.Data["b_set"]).To(HaveLen(1))
+			bSetData = aRecord.Data["b_set"].([]interface{})
+			Expect(bSetData[0].(float64)).To(Equal(bRecord.Data["id"]))
 		})
 	})
 })

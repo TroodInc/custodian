@@ -12,7 +12,7 @@ import (
 	"server/transactions"
 )
 
-type objectClassValidator func(Record) ([]Record, error)
+type objectClassValidator func(*Record) ([]*Record, error)
 
 type ExecuteContext interface {
 	Execute(operations []transactions.Operation) error
@@ -22,11 +22,11 @@ type ExecuteContext interface {
 
 type DataManager interface {
 	Db() (interface{})
-	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
+	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
 	GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
 	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
 	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
-	PrepareDeletes(n *DNode, keys []interface{}, dbTransaction transactions.DbTransaction) (transactions.Operation, []interface{}, error)
+	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *Processor) (error)
 	PrepareCreateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
 	PrepareUpdateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
 }
@@ -39,89 +39,6 @@ type Processor struct {
 
 func NewProcessor(m *meta.MetaStore, d DataManager) (*Processor, error) {
 	return &Processor{metaStore: m, dataManager: d, vCache: make(map[string]objectClassValidator)}, nil
-}
-
-type RecordUpdateTask struct {
-	Record       *Record
-	ShouldReturn bool
-}
-
-func (processor *Processor) getValidator(dbTransaction transactions.DbTransaction, vk string, preValidator func(pt2 *Record) (*Record, bool, error)) (objectClassValidator, error) {
-	//if v, ex := processor.vCache[vk]; ex {
-	//	return v, nil
-	//}
-	validator := func(t2 Record) ([]Record, error) {
-		preValidatedT2, mandatoryCheck, err := preValidator(&t2)
-		if err != nil {
-			return nil, err
-		}
-		if toCheck, e := NewValidationService(processor.metaStore, processor).Validate(dbTransaction, preValidatedT2, mandatoryCheck); e != nil {
-			return nil, e
-		} else {
-			return toCheck, nil
-		}
-	}
-	//processor.vCache[vk] = validator
-	return validator, nil
-
-}
-
-func (processor *Processor) flatten(objectMeta *meta.Meta, recordValues map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([]Record, error) {
-	tc := []Record{{objectMeta, recordValues}}
-	for tail := tc; len(tail) > 0; tail = tail[1:] {
-		if v, e := validatorFactory(tail[0].Meta.Name); e != nil {
-			return nil, e
-		} else if t, e := v(tail[0]); e != nil {
-			return nil, e
-		} else {
-			tc = append(tc, t...)
-			tail = append(tail, t...)
-		}
-	}
-	return tc, nil
-}
-
-func (processor *Processor) splitNestedRecordsByObjects(meta *meta.Meta, recordsData []map[string]interface{}, validatorFactory func(mn string) (objectClassValidator, error)) ([][]*RecordSet, error) {
-	var recordSetsSplitByLevels = [][]*RecordSet{{&RecordSet{meta, recordsData}}}
-
-	for currentLevel := recordSetsSplitByLevels[0]; currentLevel != nil; {
-		next := make(map[string]*RecordSet)
-		for tail := currentLevel; len(tail) > 0; tail = tail[1:] {
-			if validator, e := validatorFactory(tail[0].Meta.Name); e != nil {
-				return nil, e
-			} else {
-				for _, recordData := range tail[0].DataSet {
-					if nestedRecords, e := validator(Record{tail[0].Meta, recordData}); e != nil {
-						return nil, e
-					} else {
-						for _, record := range nestedRecords {
-							if recordSet, ok := next[record.Meta.Name]; ok {
-								recordSet.DataSet = append(recordSet.DataSet, record.Data)
-							} else {
-								next[record.Meta.Name] = &RecordSet{record.Meta, []map[string]interface{}{record.Data}}
-							}
-						}
-					}
-				}
-			}
-		}
-		if len(next) > 0 {
-			nextLevel := make([]*RecordSet, 0, len(next))
-			for _, pt2a := range next {
-				nextLevel = append(nextLevel, pt2a)
-			}
-			recordSetsSplitByLevels = append(recordSetsSplitByLevels, nextLevel)
-			currentLevel = nextLevel
-		} else {
-			currentLevel = nil
-		}
-	}
-	return recordSetsSplitByLevels, nil
-}
-
-func putValidator(t *Record) (*Record, bool, error) {
-	t.Data["cas"] = 1.0
-	return t, true, nil
 }
 
 type SearchContext struct {
@@ -139,8 +56,7 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	}
 	return false
 }
-
-func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, depth int) (map[string]interface{}, error) {
+func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, depth int) (*Record, error) {
 	if objectMeta, e := processor.GetMeta(transaction, objectClass); e != nil {
 		return nil, e
 	} else {
@@ -158,17 +74,17 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 				return nil, nil
 			} else {
 				recordData := recordData.(map[string]interface{})
-				return root.FillRecordValues(recordData, ctx), nil
+				return NewRecord(objectMeta, root.FillRecordValues(recordData, ctx)), nil
 			}
 		}
 	}
 }
 
-func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, sink func(map[string]interface{}) error) error {
-	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName); e != nil {
-		return e
+func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, sink func(map[string]interface{}) error) (int, error) {
+	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true); e != nil {
+		return 0, e
 	} else if !ok {
-		return errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
+		return 0, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction}
 		root := &Node{
@@ -186,19 +102,19 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
-			return errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
+			return 0, errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
 		}
 
-		records, e := root.ResolveByRql(searchContext, rqlNode)
+		records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
 
 		if e != nil {
-			return e
+			return recordsCount, e
 		}
 		for _, record := range records {
 			record = root.FillRecordValues(record, searchContext)
 			sink(record)
 		}
-		return nil
+		return recordsCount, nil
 	}
 }
 
@@ -232,17 +148,8 @@ func (dn *DNode) recursivelyFillOuterChildNodes() {
 	}
 }
 
-type tuple2d struct {
-	n    *DNode
-	keys []interface{}
-}
-
-func updateValidator(t *Record) (*Record, bool, error) {
-	return t, false, nil
-}
-
 func (processor *Processor) GetMeta(transaction transactions.DbTransaction, objectName string) (*meta.Meta, error) {
-	objectMeta, ok, err := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName)
+	objectMeta, ok, err := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true)
 	if err != nil {
 		return nil, err
 	}
@@ -252,9 +159,15 @@ func (processor *Processor) GetMeta(transaction transactions.DbTransaction, obje
 	return objectMeta, nil
 }
 
-func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransaction, objectName string, obj map[string]interface{}, user auth.User) (retObj map[string]interface{}, err error) {
+func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransaction, objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
 	// get Meta
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
+	if err != nil {
+		return nil, err
+	}
+
+	// extract processing node
+	recordProcessingNode, err := new(RecordProcessingTreeBuilder).Build(&Record{Meta: objectMeta, Data: recordData}, processor, dbTransaction)
 	if err != nil {
 		return nil, err
 	}
@@ -263,23 +176,51 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
-	// assemble records
-	records, e := processor.flatten(objectMeta, obj, func(mn string) (objectClassValidator, error) {
-		return processor.getValidator(dbTransaction, "put:"+mn, putValidator)
-	})
-	if e != nil {
-		return nil, e
-	}
+	//perform update
+	rootRecordSet, recordSetsOperations := recordProcessingNode.RecordSetOperations()
 
 	// create records
-	for i, record := range records {
-		if _, err := processor.createRecordSet(
-			dbTransaction,
-			&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
-			i == 0,
-			recordSetNotificationPool,
-		); err != nil {
-			return nil, err
+
+	for _, recordSetOperation := range recordSetsOperations {
+		isRoot := recordSetOperation.RecordSet == rootRecordSet
+		if recordSetOperation.Type == RecordOperationTypeCreate || isRoot {
+			if _, err := processor.createRecordSet(
+				dbTransaction,
+				recordSetOperation.RecordSet,
+				isRoot,
+				recordSetNotificationPool,
+			); err != nil {
+				return nil, err
+			}
+		} else if recordSetOperation.Type == RecordOperationTypeUpdate {
+			if _, err := processor.updateRecordSet(
+				dbTransaction,
+				recordSetOperation.RecordSet,
+				isRoot,
+				recordSetNotificationPool,
+			); err != nil {
+				return nil, err
+			}
+		} else if recordSetOperation.Type == RecordOperationTypeRemove {
+			for _, record := range recordSetOperation.RecordSet.Records {
+				recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+				if _, err := processor.RemoveRecord(
+					dbTransaction,
+					record.Meta.Name,
+					recordPkAsStr,
+					user,
+				); err != nil {
+					return nil, err
+				}
+			}
+
+		}
+	}
+
+	//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data
+	for _, recordSetOperation := range recordSetsOperations {
+		if recordSetOperation.Type != RecordOperationTypeRemove {
+			recordSetOperation.RecordSet.CollapseLinks()
 		}
 	}
 
@@ -289,7 +230,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 		recordSetNotificationPool.CaptureCurrentState()
 		recordSetNotificationPool.Push(user)
 	}
-	return obj, nil
+	return NewRecord(objectMeta, recordData), nil
 }
 
 func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
@@ -304,32 +245,73 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
-	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, false)
+	records, err := processor.consumeRecords(next, objectMeta, false)
 	if err != nil {
 		return err
 	}
 
-	//assemble RecordSets
-	recordSetsSplitByObject, e := processor.splitNestedRecordsByObjects(objectMeta, recordDataSet, func(mn string) (objectClassValidator, error) {
-		return processor.getValidator(dbTransaction, "put:"+mn, putValidator)
-	})
-	if e != nil {
-		return e
-	}
+	//assemble RecordSetOperations
+	var recordProcessingNode *RecordProcessingNode
+	rootRecordSets := make([] *RecordSet, 0)
+	for _, record := range records {
+		// extract processing node
+		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(record, processor, dbTransaction)
+		if err != nil {
+			return err
+		}
+		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
 
-	for i, recordSets := range recordSetsSplitByObject {
-		isRoot := i == 0
-		for _, recordSet := range recordSets {
-			if _, err := processor.createRecordSet(dbTransaction, recordSet, isRoot, recordSetNotificationPool); err != nil {
-				return err
+		for _, recordSetOperation := range recordSetOperations {
+			isRoot := recordSetOperation.RecordSet == rootRecordSet
+			if recordSetOperation.Type == RecordOperationTypeUpdate {
+				if _, err := processor.updateRecordSet(
+					dbTransaction,
+					recordSetOperation.RecordSet,
+					isRoot,
+					recordSetNotificationPool,
+				); err != nil {
+					return err
+				}
+			} else if recordSetOperation.Type == RecordOperationTypeCreate {
+				if _, err := processor.createRecordSet(
+					dbTransaction,
+					recordSetOperation.RecordSet,
+					isRoot,
+					recordSetNotificationPool,
+				); err != nil {
+					return err
+				}
+			} else if recordSetOperation.Type == RecordOperationTypeRemove {
+				for _, record := range recordSetOperation.RecordSet.Records {
+					recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+					if _, err := processor.RemoveRecord(
+						dbTransaction,
+						record.Meta.Name,
+						recordPkAsStr,
+						user,
+					); err != nil {
+						return err
+					}
+				}
+
+			}
+		}
+		rootRecordSets = append(rootRecordSets, rootRecordSet)
+
+		//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data
+		for _, recordSetOperation := range recordSetOperations {
+			if recordSetOperation.Type != RecordOperationTypeRemove {
+				recordSetOperation.RecordSet.CollapseLinks()
 			}
 		}
 	}
 
-	// feed created data to the sink
-	if err = processor.feedRecordSets(recordSetsSplitByObject[0], sink); err != nil {
+	if err != nil {
 		return err
 	}
+
+	// feed updated data to the sink
+	processor.feedRecordSets(rootRecordSets, sink)
 
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
@@ -341,7 +323,7 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 	return nil
 }
 
-func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecordData map[string]interface{}, err error) {
+func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecord *Record, err error) {
 	// get Meta
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
@@ -354,10 +336,8 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 		//recordData data must contain valid recordData`s PK value
 		recordData[objectMeta.Key.Name] = pkValue
 	}
-	// extract list of records from nested record data
-	records, err := processor.flatten(objectMeta, recordData, func(mn string) (objectClassValidator, error) {
-		return processor.getValidator(dbTransaction, "upd:"+mn, updateValidator)
-	})
+	// extract processing node
+	recordProcessingNode, err := new(RecordProcessingTreeBuilder).Build(&Record{Meta: objectMeta, Data: recordData}, processor, dbTransaction)
 	if err != nil {
 		return nil, err
 	}
@@ -367,37 +347,62 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
-	var rootRecordData map[string]interface{}
-	for i, record := range records {
-		isRoot := i == 0
+	rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
 
-		if recordSet, err := processor.updateRecordSet(
-			dbTransaction,
-			&RecordSet{Meta: record.Meta, DataSet: []map[string]interface{}{record.Data}},
-			isRoot,
-			recordSetNotificationPool,
-		); err != nil {
-			return nil, err
-		} else {
-			if isRoot {
-				rootRecordData = recordSet.DataSet[0]
+	for _, recordSetOperation := range recordSetOperations {
+		isRoot := recordSetOperation.RecordSet == rootRecordSet
+		if recordSetOperation.Type == RecordOperationTypeUpdate {
+			if _, err := processor.updateRecordSet(
+				dbTransaction,
+				recordSetOperation.RecordSet,
+				isRoot,
+				recordSetNotificationPool,
+			); err != nil {
+				return nil, err
 			}
+		} else if recordSetOperation.Type == RecordOperationTypeCreate {
+			if _, err := processor.createRecordSet(
+				dbTransaction,
+				recordSetOperation.RecordSet,
+				isRoot,
+				recordSetNotificationPool,
+			); err != nil {
+				return nil, err
+			}
+		} else if recordSetOperation.Type == RecordOperationTypeRemove {
+			for _, record := range recordSetOperation.RecordSet.Records {
+				recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+				if _, err := processor.RemoveRecord(
+					dbTransaction,
+					record.Meta.Name,
+					recordPkAsStr,
+					user,
+				); err != nil {
+					return nil, err
+				}
+			}
+
 		}
 	}
-
+	//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data
+	for _, recordSetOperation := range recordSetOperations {
+		if recordSetOperation.Type != RecordOperationTypeRemove {
+			recordSetOperation.RecordSet.CollapseLinks()
+		}
+	}
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
-		//capture updated state of all records in the pool
+		//capture updated state of all recordSetsSplitByObjects in the pool
 		recordSetNotificationPool.CaptureCurrentState()
 		recordSetNotificationPool.Push(user)
 	}
 
-	return rootRecordData, nil
+	return rootRecordSet.Records[0], nil
 }
 
 func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
 
-	// get Meta
+	//get Meta
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
@@ -408,29 +413,76 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
-	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, true)
+	records, err := processor.consumeRecords(next, objectMeta, true)
 	if err != nil {
 		return err
 	}
 
-	//assemble RecordSets
-	recordSetsSplitByObject, err := processor.splitNestedRecordsByObjects(objectMeta, recordDataSet, func(mn string) (objectClassValidator, error) { return processor.getValidator(dbTransaction, "upd:"+mn, updateValidator) })
-	if err != nil {
-		return err
-	}
+	//assemble RecordSetOperations
+	var recordProcessingNode *RecordProcessingNode
+	rootRecordSets := make([] *RecordSet, 0)
+	for _, record := range records {
+		// extract processing node
+		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(record, processor, dbTransaction)
+		if err != nil {
+			return err
+		}
+		//perform update
+		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
 
-	//perform update
-	for i, recordsSets := range recordSetsSplitByObject {
-		isRoot := i == 0
-		for _, recordSet := range recordsSets {
-			processor.updateRecordSet(dbTransaction, recordSet, isRoot, recordSetNotificationPool)
+		for _, recordSetOperation := range recordSetOperations {
+			isRoot := recordSetOperation.RecordSet == rootRecordSet
+			if recordSetOperation.Type == RecordOperationTypeUpdate {
+				if _, err := processor.updateRecordSet(
+					dbTransaction,
+					recordSetOperation.RecordSet,
+					isRoot,
+					recordSetNotificationPool,
+				); err != nil {
+					return err
+				}
+			} else if recordSetOperation.Type == RecordOperationTypeCreate {
+				if _, err := processor.createRecordSet(
+					dbTransaction,
+					recordSetOperation.RecordSet,
+					isRoot,
+					recordSetNotificationPool,
+				); err != nil {
+					return err
+				}
+			} else if recordSetOperation.Type == RecordOperationTypeRemove {
+				for _, record := range recordSetOperation.RecordSet.Records {
+					recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+					if _, err := processor.RemoveRecord(
+						dbTransaction,
+						record.Meta.Name,
+						recordPkAsStr,
+						user,
+					); err != nil {
+						return err
+					}
+				}
+
+			}
+		}
+		rootRecordSets = append(rootRecordSets, rootRecordSet)
+
+		//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data
+		for _, recordSetOperation := range recordSetOperations {
+			if recordSetOperation.Type != RecordOperationTypeRemove {
+				recordSetOperation.RecordSet.CollapseLinks()
+			}
 		}
 	}
 
-	// feed updated data to the sink
-	processor.feedRecordSets(recordSetsSplitByObject[0], sink)
+	if err != nil {
+		return err
+	}
 
-	// push notifications if needed
+	// feed updated data to the sink
+	processor.feedRecordSets(rootRecordSets, sink)
+
+	//push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
 		recordSetNotificationPool.CaptureCurrentState()
@@ -442,153 +494,87 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 }
 
 //TODO: Refactor this method similarly to UpdateRecord, so notifications could be tested properly, it should affect PrepareDeletes method
-func (processor *Processor) DeleteRecord(dbTransaction transactions.DbTransaction, objectName, key string, user auth.User) (isDeleted bool, err error) {
-	// get Meta
-	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
-	if err != nil {
-		return false, err
-	}
+func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransaction, objectName string, key string, user auth.User) (map[string]interface{}, error) {
+	var err error
 
 	//get pk
-	var pk interface{}
-	pk, err = objectMeta.Key.ValueFromString(key)
+	recordToRemove, err := processor.Get(dbTransaction, objectName, key, 1)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
-
-	//fill node
-	root := &DNode{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*DNode), Plural: false}
-	root.recursivelyFillOuterChildNodes()
+	if recordToRemove == nil {
+		return nil, &errors.DataError{"RecordNotFound", "Record not found", objectName}
+	}
 
 	// create notification pool
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
-	//prepare operation
-	var operation transactions.Operation
-	var keys []interface{}
-	operation, keys, err = processor.dataManager.PrepareDeletes(root, []interface{}{pk}, dbTransaction)
+	//fill node
+	removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
 	if err != nil {
-		return false, err
-	}
-	//process root records notificationSender
-
-	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, &RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: pk}}}, true, description.MethodRemove, processor.GetBulk, processor.Get)
-	if recordSetNotification.ShouldBeProcessed() {
-		recordSetNotification.CapturePreviousState()
-		recordSetNotificationPool.Add(recordSetNotification)
+		return nil, err
 	}
 
-	operations := []transactions.Operation{operation}
-	for t2d := []tuple2d{{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
-		for _, childNode := range t2d[0].n.ChildNodes {
-
-			//TODO: workaround should be fixed asap
-			if childNode.KeyField.Type == description.FieldTypeGeneric {
-				continue
-			}
-			//
-
-			if operation, keys, err = processor.dataManager.PrepareDeletes(childNode, t2d[0].keys, dbTransaction); err != nil {
-				return false, err
-			} else {
-				operations = append(operations, operation)
-				t2d = append(t2d, tuple2d{childNode, keys})
-
-				//process affected records notifications
-				for _, primaryKeyValue := range t2d[0].keys {
-
-					// create notification, capture current recordData state and Add notification to notification pool
-					recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, &RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{root.KeyField.Name: primaryKeyValue}}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
-					if recordSetNotification.ShouldBeProcessed() {
-						recordSetNotification.CapturePreviousState()
-						recordSetNotificationPool.Add(recordSetNotification)
-					}
-				}
-			}
-		}
-	}
-	for i := 0; i < len(operations)>>2; i++ {
-		operations[i], operations[len(operations)-1] = operations[len(operations)-1], operations[i]
-	}
-	err = dbTransaction.Execute(operations)
+	err = processor.dataManager.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool, processor)
 	if err != nil {
-		return false, err
+		return nil, err
 	}
 
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
-		recordSetNotificationPool.CaptureCurrentState()
 		recordSetNotificationPool.Push(user)
 	}
-
-	return true, nil
+	return removalRootNode.Data(), nil
 }
 
 //TODO: Refactor this method similarly to BulkUpdateRecords, so notifications could be tested properly, it should affect PrepareDeletes method
 func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), user auth.User) (err error) {
-
 	// get Meta
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
 	}
-
-	//prepare node
-	root := &DNode{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*DNode), Plural: false}
-	root.recursivelyFillOuterChildNodes()
+	//
 
 	// create notification pool
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
-	recordDataSet, err := processor.consumeRecordDataSet(next, objectMeta, true)
+	records, err := processor.consumeRecords(next, objectMeta, true)
 	if err != nil {
 		return err
 	}
-	keys := make([]interface{}, 0)
-	for _, recordData := range recordDataSet {
-		keys = append(keys, recordData[objectMeta.Key.Name])
-	}
+	for _, record := range records {
 
-	var op transactions.Operation
-	if op, keys, err = processor.dataManager.PrepareDeletes(root, keys, dbTransaction); err != nil {
-		return err
-	} else {
-		ops := []transactions.Operation{op}
-		for t2d := []tuple2d{tuple2d{root, keys}}; len(t2d) > 0; t2d = t2d[1:] {
-
-			for _, v := range t2d[0].n.ChildNodes {
-				if len(t2d[0].keys) > 0 {
-					if op, keys, err = processor.dataManager.PrepareDeletes(v, t2d[0].keys, dbTransaction); err != nil {
-						return err
-					} else {
-						for _, primaryKeyValue := range t2d[0].keys {
-
-							// create notification, capture current recordData state and Add notification to notification pool
-							recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, &RecordSet{Meta: root.Meta, DataSet: []map[string]interface{}{{v.KeyField.Name: primaryKeyValue}}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
-							if recordSetNotification.ShouldBeProcessed() {
-								recordSetNotification.CapturePreviousState()
-								recordSetNotificationPool.Add(recordSetNotification)
-							}
-
-						}
-
-						ops = append(ops, op)
-						t2d = append(t2d, tuple2d{v, keys})
-					}
-				}
-			}
-		}
-		for i := 0; i < len(ops)>>2; i++ {
-			ops[i], ops[len(ops)-1] = ops[len(ops)-1], ops[i]
-		}
-		if err = dbTransaction.Execute(ops); err != nil {
+		//get pk
+		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), 1)
+		if err != nil {
 			return err
 		}
+		if recordToRemove == nil {
+			return &errors.DataError{"RecordNotFound", "Record not found", objectName}
+		}
+
+		//fill node
+		removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
+		if err != nil {
+			return err
+		}
+
+		err = processor.dataManager.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool, processor)
+		if err != nil {
+			return err
+		}
+
+		// push notifications if needed
+		if recordSetNotificationPool.ShouldBeProcessed() {
+			//capture updated state of all records in the pool
+			recordSetNotificationPool.Push(user)
+		}
+
 	}
 
 	// push notifications if needed
@@ -602,8 +588,8 @@ func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTrans
 }
 
 //consume all records from callback function
-func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string]interface{}, error), objectMeta *meta.Meta, strictPkCheck bool) ([]map[string]interface{}, error) {
-	var recordDataSet = make([]map[string]interface{}, 0)
+func (processor *Processor) consumeRecords(nextCallback func() (map[string]interface{}, error), objectMeta *meta.Meta, strictPkCheck bool) ([]*Record, error) {
+	var records = make([]*Record, 0)
 	// collect records
 	for recordData, err := nextCallback(); err != nil || (recordData != nil); recordData, err = nextCallback() {
 		if err != nil {
@@ -616,15 +602,15 @@ func (processor *Processor) consumeRecordDataSet(nextCallback func() (map[string
 			}
 		}
 
-		recordDataSet = append(recordDataSet, recordData)
+		records = append(records, NewRecord(objectMeta, recordData))
 	}
-	return recordDataSet, nil
+	return records, nil
 }
 
 //feed recordSet`s data to the sink
 func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(map[string]interface{}) error) error {
 	for _, recordsSet := range recordSets {
-		for _, recordData := range recordsSet.DataSet {
+		for _, recordData := range recordsSet.Data() {
 			if err := sink(recordData); err != nil {
 				return err
 			}
@@ -635,6 +621,7 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 
 // perform update and return list of records
 func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
+	recordSet.PrepareData()
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, recordSet, isRoot, description.MethodUpdate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
@@ -644,7 +631,7 @@ func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransac
 
 	var operations = make([]transactions.Operation, 0)
 
-	if operation, e := processor.dataManager.PrepareUpdateOperation(recordSet.Meta, recordSet.DataSet); e != nil {
+	if operation, e := processor.dataManager.PrepareUpdateOperation(recordSet.Meta, recordSet.RawData()); e != nil {
 		return nil, e
 	} else {
 		operations = append(operations, operation)
@@ -653,14 +640,13 @@ func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransac
 	if e := dbTransaction.Execute(operations); e != nil {
 		return nil, e
 	}
-
-	recordSet.CollapseLinks()
-
+	recordSet.MergeData()
 	return recordSet, nil
 }
 
 // perform create and return list of records
 func (processor *Processor) createRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
+	recordSet.PrepareData()
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, recordSet, isRoot, description.MethodCreate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
@@ -670,7 +656,7 @@ func (processor *Processor) createRecordSet(dbTransaction transactions.DbTransac
 
 	var operations = make([]transactions.Operation, 0)
 
-	if operation, e := processor.dataManager.PrepareCreateOperation(recordSet.Meta, recordSet.DataSet); e != nil {
+	if operation, e := processor.dataManager.PrepareCreateOperation(recordSet.Meta, recordSet.RawData()); e != nil {
 		return nil, e
 	} else {
 		operations = append(operations, operation)
@@ -680,8 +666,6 @@ func (processor *Processor) createRecordSet(dbTransaction transactions.DbTransac
 	if e := dbTransaction.Execute(operations); e != nil {
 		return nil, e
 	}
-
-	recordSet.CollapseLinks()
-
+	recordSet.MergeData()
 	return recordSet, nil
 }

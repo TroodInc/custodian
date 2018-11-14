@@ -55,9 +55,9 @@ var _ = Describe("Data", func() {
 		var aMetaObj *meta.Meta
 		var bMetaObj *meta.Meta
 		var cMetaObj *meta.Meta
-		var aRecordData map[string]interface{}
-		var bRecordData map[string]interface{}
-		var cRecordData map[string]interface{}
+		var aRecord *record.Record
+		var bRecord *record.Record
+		var cRecord *record.Record
 
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
@@ -159,14 +159,10 @@ var _ = Describe("Data", func() {
 
 		havingARecord := func(targetRecordObjectName string, targetRecordId float64) {
 			By("Having a record of A object")
-			aRecordData, err = dataProcessor.CreateRecord(
+			aRecord, err = dataProcessor.CreateRecord(
 				globalTransaction.DbTransaction,
 				aMetaObj.Name,
-				map[string]interface{}{
-					"first_name":    "Veronika",
-					"last_name":     "Petrova",
-					"target_object": map[string]interface{}{"_object": targetRecordObjectName, "id": strconv.Itoa(int(targetRecordId))},
-				},
+				map[string]interface{}{"target_object": map[string]interface{}{"_object": targetRecordObjectName, "id": strconv.Itoa(int(targetRecordId))}},
 				auth.User{},
 			)
 			Expect(err).To(BeNil())
@@ -174,26 +170,26 @@ var _ = Describe("Data", func() {
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"first_name": "Feodor"}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"first_name": "Feodor"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingCRecord := func() {
 			By("Having a record of C object")
-			cRecordData, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMetaObj.Name, map[string]interface{}{}, auth.User{})
+			cRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMetaObj.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
-		It("propery captures generic field value if action config does not match its object", func() {
+		It("properly captures generic field value if action config does not match its object", func() {
 
 			havingObjectB()
 			havingObjectC()
 			havingObjectA()
 			havingBRecord()
 			havingCRecord()
-			havingARecord(cMetaObj.Name, cRecordData["id"].(float64))
+			havingARecord(cMetaObj.Name, cRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, DataSet: []map[string]interface{}{{"id": aRecordData["id"]}}}
+			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk()})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
@@ -208,9 +204,9 @@ var _ = Describe("Data", func() {
 			recordSetNotification.CaptureCurrentState()
 
 			//only last_name specified for recordSet, thus first_name should not be included in notification message
-			Expect(recordSetNotification.CurrentState[0].DataSet).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]).To(HaveLen(2))
-			Expect(recordSetNotification.CurrentState[0].DataSet[0]["target_value"]).To(BeNil())
+			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(2))
+			Expect(recordSetNotification.CurrentState[0].Records[0].Data["target_value"]).To(BeNil())
 		})
 	})
 })

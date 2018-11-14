@@ -46,7 +46,7 @@ var _ = Describe("Server", func() {
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup()
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(false)
 		recorder = httptest.NewRecorder()
 
 	})
@@ -127,6 +127,46 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
+	factoryObjectAWithManuallySetOuterLinkToB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:           "b_set",
+					Type:           description.FieldTypeArray,
+					LinkType:       description.LinkTypeOuter,
+					LinkMeta:       "b",
+					OuterLinkField: "a",
+					Optional:       true,
+				},
+			},
+		}
+		(&description.NormalizationService{}).Normalize(&metaDescription)
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
 	It("creates record and outputs its data respecting depth", func() {
 		Context("having a record of given object", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
@@ -137,13 +177,14 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 
 			objectB := factoryObjectB(globalTransaction)
+			factoryObjectAWithManuallySetOuterLinkToB(globalTransaction)
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			Context("and create request performed by URL with specified record ID with wrong id specified in body", func() {
 				createData := map[string]interface{}{
 					"name": "B record name",
-					"a":   aRecord["id"],
+					"a":    aRecord.Data["id"],
 				}
 				encodedMetaData, _ := json.Marshal(createData)
 
@@ -155,7 +196,7 @@ var _ = Describe("Server", func() {
 				responseBody := recorder.Body.String()
 
 				Context("response should contain nested A record", func() {
-					Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record name\"},\"status\":\"OK\"}"))
+					Expect(responseBody).To(Equal(`{"data":{"a":{"b_set":[1],"id":1,"name":"A record"},"id":1,"name":"B record name"},"status":"OK"}`))
 				})
 
 			})

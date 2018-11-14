@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"server/pg"
 
-	"server/data"
 	"bytes"
 	"encoding/json"
 	"utils"
@@ -20,6 +19,7 @@ import (
 	"server"
 	"server/object/description"
 	"server/auth"
+	"server/data"
 )
 
 var _ = Describe("Server", func() {
@@ -50,7 +50,7 @@ var _ = Describe("Server", func() {
 		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup()
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(false)
 		recorder = httptest.NewRecorder()
 
 	})
@@ -106,21 +106,22 @@ var _ = Describe("Server", func() {
 			}
 			Context("and valid HTTP request object", func() {
 				encodedMetaData, _ := json.Marshal(metaData)
+
 				var request, _ = http.NewRequest("PUT", fmt.Sprintf("%s/meta", appConfig.UrlPrefix), bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
 
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
-				Expect(responseBody).To(Equal("{\"status\":\"OK\"}"))
+				Expect(responseBody).To(Equal(`{"data":{"name":"person","key":"id","fields":[{"name":"id","type":"number","optional":true,"default":{"func":"nextval"}},{"name":"name","type":"string","optional":false},{"name":"gender","type":"string","optional":true},{"name":"cas","type":"number","optional":false}],"actions":[{"method":"create","protocol":"REST","args":["http://localhost:2000/create/contact"],"activeIfNotRoot":true,"includeValues":{"account__plan":"accountPlan","amount":"amount"}}],"cas":true},"status":"OK"}`))
 
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
 				Expect(err).To(BeNil())
 
-				meta, _, err := metaStore.Get(globalTransaction, "person")
+				meta, _, err := metaStore.Get(globalTransaction, "person", true)
 				Expect(err).To(BeNil())
-				Expect(meta.Actions.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
-				Expect(meta.Actions.Original[0].IncludeValues["amount"]).To(Equal("amount"))
+				Expect(meta.ActionSet.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
+				Expect(meta.ActionSet.Original[0].IncludeValues["amount"]).To(Equal("amount"))
 			})
 		})
 	})
@@ -155,7 +156,7 @@ var _ = Describe("Server", func() {
 
 			Context("and DELETE request performed by URL with specified record ID", func() {
 
-				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, metaObj.Name, int(firstRecord["id"].(float64)))
+				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, metaObj.Name, int(firstRecord.Data["id"].(float64)))
 				var request, _ = http.NewRequest("DELETE", url, bytes.NewBuffer([]byte{}))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
@@ -165,7 +166,7 @@ var _ = Describe("Server", func() {
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
 				Expect(err).To(BeNil())
 
-				Expect(responseBody).To(Equal("{\"status\":\"OK\"}"))
+				Expect(responseBody).To(Equal(`{"data":{"id":1},"status":"OK"}`))
 
 				Context("and the number of records should be equal to 1 and existing record is not deleted one", func() {
 					matchedRecords := []map[string]interface{}{}
@@ -175,7 +176,7 @@ var _ = Describe("Server", func() {
 					}
 					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "", 1, callbackFunction)
 					Expect(matchedRecords).To(HaveLen(1))
-					Expect(matchedRecords[0]["id"]).To(Not(Equal(firstRecord["id"])))
+					Expect(matchedRecords[0]["id"]).To(Not(Equal(firstRecord.Data["id"])))
 				})
 			})
 		})
