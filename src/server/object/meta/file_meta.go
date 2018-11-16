@@ -12,12 +12,12 @@ import (
 	. "server/object/description"
 )
 
-type FileMetaDriver struct {
+type FileMetaDescriptionSyncer struct {
 	dir string
 }
 
-func NewFileMetaDriver(d string) *FileMetaDriver {
-	return &FileMetaDriver{d}
+func NewFileMetaDescriptionSyncer(d string) *FileMetaDescriptionSyncer {
+	return &FileMetaDescriptionSyncer{d}
 }
 
 func closeFile(f *os.File) error {
@@ -70,7 +70,7 @@ func getMetaList(directory string, extension string) []string {
 	return metaList
 }
 
-func (fm *FileMetaDriver) List() (*[] *MetaDescription, bool, error) {
+func (fm *FileMetaDescriptionSyncer) List() (*[] *MetaDescription, bool, error) {
 	var metaList []*MetaDescription
 	for _, metaFileName := range getMetaList(fm.dir, "json") {
 		meta, _, _ := fm.Get(metaFileName)
@@ -79,7 +79,7 @@ func (fm *FileMetaDriver) List() (*[] *MetaDescription, bool, error) {
 	return &metaList, true, nil
 }
 
-func (fm *FileMetaDriver) Get(name string) (*MetaDescription, bool, error) {
+func (fm *FileMetaDescriptionSyncer) Get(name string) (*MetaDescription, bool, error) {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
 		logger.Debug("File '%s' of MetaDescription '%s' not found", metaFile, name)
@@ -102,7 +102,7 @@ func (fm *FileMetaDriver) Get(name string) (*MetaDescription, bool, error) {
 	return &meta, true, nil
 }
 
-func (fm *FileMetaDriver) Create(transaction transactions.MetaDescriptionTransaction, m MetaDescription) error {
+func (fm *FileMetaDescriptionSyncer) Create(transaction transactions.MetaDescriptionTransaction, m MetaDescription) error {
 	var metaFile = fm.getMetaFileName(m.Name)
 	if _, err := os.Stat(metaFile); err == nil {
 		logger.Debug("File '%s' of MetaDescription '%s' already exists: %s", metaFile, m.Name)
@@ -117,7 +117,7 @@ func (fm *FileMetaDriver) Create(transaction transactions.MetaDescriptionTransac
 	return nil
 }
 
-func (fm *FileMetaDriver) Remove(name string) (bool, error) {
+func (fm *FileMetaDescriptionSyncer) Remove(name string) (bool, error) {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
 		return false, NewMetaError(name, "meta_file_remove", ErrNotFound, "The MetaDescription '%s' not found", name)
@@ -130,7 +130,7 @@ func (fm *FileMetaDriver) Remove(name string) (bool, error) {
 	return true, nil
 }
 
-func (fm *FileMetaDriver) Update(name string, m MetaDescription) (bool, error) {
+func (fm *FileMetaDescriptionSyncer) Update(name string, m MetaDescription) (bool, error) {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
 		logger.Debug("Can't find file '%s' of MetaDescription '%s'", metaFile, name)
@@ -155,6 +155,6 @@ func (fm *FileMetaDriver) Update(name string, m MetaDescription) (bool, error) {
 	return true, nil
 }
 
-func (fm *FileMetaDriver) getMetaFileName(metaName string) string {
+func (fm *FileMetaDescriptionSyncer) getMetaFileName(metaName string) string {
 	return path.Join(fm.dir, metaName+".json")
 }

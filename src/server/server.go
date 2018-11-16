@@ -127,7 +127,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 	//Meta routes
 	syncer, err := pg.NewSyncer(cs.db)
 	dataManager, _ := syncer.NewDataManager()
-	fileMetaDriver := meta.NewFileMetaDriver("./")
+	fileMetaDriver := meta.NewFileMetaDescriptionSyncer("./")
 	metaStore := meta.NewStore(fileMetaDriver, syncer)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 

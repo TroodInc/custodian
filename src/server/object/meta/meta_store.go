@@ -13,7 +13,7 @@ import (
    Metadata store of objects persisted in DB.
 */
 type MetaStore struct {
-	drv    MetaDriver
+	drv    MetaDescriptionSyncer
 	cache  *MetaCache
 	syncer MetaDbSyncer
 }
@@ -534,6 +534,6 @@ func (metaStore *MetaStore) Flush(globalTransaction *transactions.GlobalTransact
 	return nil
 }
 
-func NewStore(md MetaDriver, mds MetaDbSyncer) *MetaStore {
+func NewStore(md MetaDescriptionSyncer, mds MetaDbSyncer) *MetaStore {
 	return &MetaStore{drv: md, syncer: mds, cache: NewCache()}
 }

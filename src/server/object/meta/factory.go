@@ -6,7 +6,7 @@ import (
 
 type MetaFactory struct {
 	builtMetas     map[string]*Meta
-	metaDriver     MetaDriver
+	metaDriver     MetaDescriptionSyncer
 	metasToResolve []*Meta
 }
 
@@ -200,6 +200,6 @@ func (metaFactory *MetaFactory) checkOuterLinks(objectMeta *Meta) error {
 	return nil
 }
 
-func NewMetaFactory(metaDriver MetaDriver) *MetaFactory {
+func NewMetaFactory(metaDriver MetaDescriptionSyncer) *MetaFactory {
 	return &MetaFactory{make(map[string]*Meta, 0), metaDriver, make([]*Meta, 0)}
 }

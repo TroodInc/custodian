@@ -24,7 +24,7 @@ import (
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder

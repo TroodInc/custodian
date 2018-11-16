@@ -35,6 +35,10 @@ func (e *DDLError) Json() []byte {
 	return j
 }
 
+func NewDdlError(code string, msg string, table string) *DDLError {
+	return &DDLError{code: code, msg: msg, table: table}
+}
+
 type TransactionNotBegunError struct {
 	msg string
 }

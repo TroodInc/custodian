@@ -80,7 +80,7 @@ func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
    Meta driver interface.
 */
 
-type MetaDriver interface {
+type MetaDescriptionSyncer interface {
 	List() (*[]*MetaDescription, bool, error)
 	Get(name string) (*MetaDescription, bool, error)
 	Create(fileTransaction transactions.MetaDescriptionTransaction, m MetaDescription) error

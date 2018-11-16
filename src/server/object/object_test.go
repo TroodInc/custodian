@@ -14,10 +14,10 @@ import (
 )
 
 var _ = Describe("File Meta driver", func() {
-	fileMetaDriver := meta.NewFileMetaDriver("./")
+	fileMetaDriver := meta.NewFileMetaDescriptionSyncer("./")
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers

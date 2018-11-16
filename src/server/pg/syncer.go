@@ -45,7 +45,7 @@ func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, m *meta.
 	if md, e = metaDdlFactory.Factory(m); e != nil {
 		return e
 	}
-	var ds DDLStmts
+	var ds DdlStatementSet
 	if ds, e = md.CreateScript(); e != nil {
 		return e
 	}
@@ -65,7 +65,7 @@ func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name str
 	if metaDdlFromDb, e = MetaDDLFromDB(tx.Tx, name); e != nil {
 		return e
 	}
-	var ds DDLStmts
+	var ds DdlStatementSet
 	if ds, e = metaDdlFromDb.DropScript(force); e != nil {
 		return e
 	}
@@ -96,7 +96,7 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentB
 	if metaDdlDiff, err = currentBusinessObjMeta.Diff(newBusinessObjMeta); err != nil {
 		return err
 	}
-	var ddlStatements DDLStmts
+	var ddlStatements DdlStatementSet
 	if ddlStatements, err = metaDdlDiff.Script(); err != nil {
 		return err
 	}
@@ -110,7 +110,7 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentB
 }
 
 //Calculates the difference between the given and the existing business object in the database
-func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaObj *meta.Meta) (DDLStmts, error) {
+func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaObj *meta.Meta) (DdlStatementSet, error) {
 	tx := transaction.(*PgTransaction)
 	metaDdlFactory := MetaDdlFactory{}
 	newMetaDdl, e := metaDdlFactory.Factory(metaObj)
