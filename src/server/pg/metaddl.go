@@ -238,7 +238,7 @@ func newFieldSeq(f *meta.FieldDescription, args []interface{}) (*Seq, error) {
 			return nil, err
 		}
 	} else {
-		return &Seq{Name: GetTableName(f.Meta) + "_" + f.Name + "_seq"}, nil
+		return &Seq{Name: GetTableName(f.Meta.Name) + "_" + f.Name + "_seq"}, nil
 	}
 }
 
@@ -718,9 +718,9 @@ func (m *MetaDDLDiff) Script() (DdlStatementSet, error) {
 
 const TableNamePrefix = "o_"
 
-func GetTableName(m *meta.Meta) string {
+func GetTableName(metaName string) string {
 	name := bytes.NewBufferString(TableNamePrefix)
-	name.WriteString(m.Name)
+	name.WriteString(metaName)
 	return name.String()
 }
 

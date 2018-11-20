@@ -13,7 +13,7 @@ import (
 	"database/sql"
 )
 
-var _ = Describe("'CreateObject' Migration Operation", func() {
+var _ = Describe("'RenameObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
@@ -27,7 +27,7 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	var metaDescription description.MetaDescription
+	var metaObj *meta.Meta
 
 	//setup transaction
 	BeforeEach(func() {
@@ -39,9 +39,10 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	//setup MetaDescription
+	//setup Meta
 	BeforeEach(func() {
-		metaDescription = description.MetaDescription{
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -55,6 +56,19 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 				},
 			},
 		}
+		Expect(err).To(BeNil())
+		//factory new Meta
+		metaObj, err = new(meta.MetaFactory).FactoryMeta(&metaDescription)
+		Expect(err).To(BeNil())
+
+		//sync its MetaDescription with MetaDescription storage
+		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, metaDescription)
+		Expect(err).To(BeNil())
+		//sync its MetaDescription with DB
+		err = syncer.CreateObj(globalTransaction.DbTransaction, metaObj)
+		Expect(err).To(BeNil())
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup teardown
@@ -66,24 +80,27 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	It("creates corresponding table in the database", func() {
+	It("renames corresponding table in the database", func() {
+		oldMetaName := metaObj.Name
+		newMetaName := "b"
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		//create Meta
-		operation := NewCreateObjectOperation(&metaDescription)
-		metaObj, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
 		//sync Meta with DB
+		operation := NewRenameObjectOperation(newMetaName)
 		err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
-		//ensure table has been created
-		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaObj.Name)
+		//ensure table has been renamed
+		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, newMetaName)
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
+
+		//ensure table with old name does not exist
+		oldMetaDdlFromDB, err := pg.MetaDDLFromDB(tx, oldMetaName)
+		Expect(err).NotTo(BeNil())
+		Expect(oldMetaDdlFromDB).To(BeNil())
 
 		globalTransactionManager.RollbackTransaction(globalTransaction)
 	})

@@ -277,7 +277,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			linkedMeta := ctx.getMetaToJoin(field, fieldPathParts[i:])
 			if linkedMeta != nil {
 				joinsCount++
-				exists := &Exists{Table: GetTableName(linkedMeta), Alias: alias + field.Name, RAlias: alias}
+				exists := &Exists{Table: GetTableName(linkedMeta.Name), Alias: alias + field.Name, RAlias: alias}
 				if field.OuterLinkField != nil {
 					exists.FK = field.OuterLinkField.Name
 					exists.RCol = linkedMeta.Key.Name

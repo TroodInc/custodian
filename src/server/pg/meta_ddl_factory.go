@@ -9,7 +9,7 @@ import (
 type MetaDdlFactory struct{}
 
 func (metaDdlFactory *MetaDdlFactory) Factory(m *meta.Meta) (*MetaDDL, error) {
-	var metaDdl = &MetaDDL{Table: GetTableName(m), Pk: m.Key.Name}
+	var metaDdl = &MetaDDL{Table: GetTableName(m.Name), Pk: m.Key.Name}
 	metaDdl.Columns = make([]Column, 0, )
 	metaDdl.IFKs = make([]IFK, 0)
 	metaDdl.OFKs = make([]OFK, 0)
@@ -75,7 +75,7 @@ func (metaDdlFactory *MetaDdlFactory) processInnerLinkField(field *meta.FieldDes
 
 	ifk := IFK{
 		FromColumn: field.Name,
-		ToTable:    GetTableName(field.LinkMeta),
+		ToTable:    GetTableName(field.LinkMeta.Name),
 		ToColumn:   field.LinkMeta.Key.Name,
 		OnDelete:   field.OnDelete.ToDbValue(),
 		Default:    column.Defval,
@@ -85,7 +85,7 @@ func (metaDdlFactory *MetaDdlFactory) processInnerLinkField(field *meta.FieldDes
 }
 
 func (metaDdlFactory *MetaDdlFactory) processOuterLinkField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
-	outerForeignKey := OFK{FromTable: GetTableName(field.LinkMeta), FromColumn: field.OuterLinkField.Name, ToTable: GetTableName(field.Meta), ToColumn: field.Meta.Key.Name}
+	outerForeignKey := OFK{FromTable: GetTableName(field.LinkMeta.Name), FromColumn: field.OuterLinkField.Name, ToTable: GetTableName(field.Meta.Name), ToColumn: field.Meta.Key.Name}
 	return nil, nil, &outerForeignKey, nil, nil
 }
 

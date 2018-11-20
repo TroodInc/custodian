@@ -123,7 +123,7 @@ var _ = Describe("Inner generic field", func() {
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		Expect(err).To(BeNil())
 
-		tableName := pg.GetTableName(metaObj)
+		tableName := pg.GetTableName(metaObj.Name)
 
 		reverser, err := pg.NewReverser(tx, tableName)
 		columns := make([]pg.Column, 0)
@@ -225,7 +225,7 @@ var _ = Describe("Inner generic field", func() {
 		//check database columns
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(metaObj)
+		tableName := pg.GetTableName(metaObj.Name)
 
 		reverser, err := pg.NewReverser(tx, tableName)
 		columns := make([]pg.Column, 0)

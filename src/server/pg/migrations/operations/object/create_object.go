@@ -10,6 +10,7 @@ import (
 	"server/migrations/operations/object"
 	"server/pg"
 	"fmt"
+	"server/object/description"
 )
 
 type CreateObjectOperation struct {
@@ -94,3 +95,7 @@ var parsedTemplate = template.Must(
 		template.Must(template.New("create_table").Funcs(ddlFuncs).Parse(createTableTemplate),
 		).Parse(columnsSubTemplate)).Parse(InnerFKSubTemplate),
 )
+
+func NewCreateObjectOperation(metaDescription *description.MetaDescription) *CreateObjectOperation {
+	return &CreateObjectOperation{object.CreateObjectOperation{MetaDescription: *metaDescription}}
+}
