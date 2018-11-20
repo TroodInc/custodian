@@ -72,6 +72,9 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 		Expect(metaObj).NotTo(BeNil())
 
+		//ensure MetaDescription has been save to file
+		metaDescription, _, err := metaDescriptionSyncer.Get(metaObj.Name)
+		Expect(metaDescription).NotTo(BeNil())
 		//clean up
 		metaDescriptionSyncer.Remove(metaDescription.Name)
 	})

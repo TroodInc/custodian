@@ -25,13 +25,13 @@ func (o *CreateObjectOperation) SyncDbDescription(metaObj *meta.Meta, transactio
 
 	var statementSet = pg.DdlStatementSet{}
 	for i, _ := range metaDdl.Seqs {
-		if statement, err := metaDdl.Seqs[i].DdlStatement(); err != nil {
+		if statement, err := metaDdl.Seqs[i].CreateDdlStatement(); err != nil {
 			return err
 		} else {
 			statementSet.Add(statement)
 		}
 	}
-	if statement, err := metaDdl.DdlStatement(); err != nil {
+	if statement, err := metaDdl.CreateTableDdlStatement(); err != nil {
 		return err
 	} else {
 		statementSet.Add(statement)
@@ -44,20 +44,6 @@ func (o *CreateObjectOperation) SyncDbDescription(metaObj *meta.Meta, transactio
 		}
 	}
 	return nil
-}
-
-func (o *CreateObjectOperation) SyncMetaDescription(_ *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
-	//factory new Meta
-	metaObj, err := new(meta.MetaFactory).FactoryMeta(&o.MetaDescription)
-	if err != nil {
-		return metaObj, nil
-	}
-	//sync its MetaDescription
-	if err = metaDescriptionSyncer.Create(transaction, *metaObj.MetaDescription); err != nil {
-		return nil, err
-	} else {
-		return metaObj, nil
-	}
 }
 
 //Auxilary template functions

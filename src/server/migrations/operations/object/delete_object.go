@@ -1,11 +1,17 @@
 package object
 
-import "server/migrations/operations"
+import (
+	"server/object/meta"
+	"server/transactions"
+)
 
-type DeleteObjectOperation struct {
-	FieldOperations []*operations.MigrationOperation
-}
+type DeleteObjectOperation struct{}
 
-func (o *DeleteObjectOperation) Sql() string {
-	return ""
+func (o *DeleteObjectOperation) SyncMetaDescription(metaObj *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
+	//sync its MetaDescription
+	if _, err := metaDescriptionSyncer.Remove(metaObj.Name); err != nil {
+		return nil, err
+	} else {
+		return nil, nil
+	}
 }

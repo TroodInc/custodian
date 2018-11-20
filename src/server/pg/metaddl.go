@@ -337,7 +337,7 @@ const (
 var parsedTemplCreateTable = template.Must(template.Must(template.Must(template.New("create_table_ddl").Funcs(ddlFuncs).Parse(templCreateTable)).Parse(templCreateTableColumns)).Parse(templCreateTableInnerFK))
 
 //Creates a DDL script to make a table based on the metadata
-func (md *MetaDDL) DdlStatement() (*DDLStmt, error) {
+func (md *MetaDDL) CreateTableDdlStatement() (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplCreateTable.Execute(&buffer, md); e != nil {
 		return nil, &DDLError{table: md.Table, code: ErrInternal, msg: e.Error()}
@@ -351,7 +351,7 @@ const templDropTable94 = `DROP TABLE "{{.Table}}" {{.Mode}};`
 var parsedTemplDropTable = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(templDropTable94))
 
 //Creates a DDL to drop a table
-func (md *MetaDDL) dropTableScript(force bool) (*DDLStmt, error) {
+func (md *MetaDDL) DropTableDdlStatement(force bool) (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	var mode string
 	if force {
@@ -491,7 +491,7 @@ const templCreateSeq94 = `CREATE SEQUENCE "{{.Name}}";`
 
 var parsedTemplCreateSeq = template.Must(template.New("add_seq").Funcs(ddlFuncs).Parse(templCreateSeq94))
 
-func (s *Seq) DdlStatement() (*DDLStmt, error) {
+func (s *Seq) CreateDdlStatement() (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplCreateSeq.Execute(&buffer, s); e != nil {
 		return nil, &DDLError{table: s.Name, code: ErrInternal, msg: e.Error()}
@@ -504,7 +504,7 @@ const templDropSeq94 = `DROP SEQUENCE "{{.Name}}";`
 
 var parsedTemplDropSeq = template.Must(template.New("drop_seq").Funcs(ddlFuncs).Parse(templDropSeq94))
 
-func (s *Seq) dropScript() (*DDLStmt, error) {
+func (s *Seq) DropDdlStatement() (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplDropSeq.Execute(&buffer, s); e != nil {
 		return nil, &DDLError{table: s.Name, code: ErrInternal, msg: e.Error()}
@@ -516,13 +516,13 @@ func (s *Seq) dropScript() (*DDLStmt, error) {
 func (md *MetaDDL) CreateScript() (DdlStatementSet, error) {
 	var stmts = DdlStatementSet{}
 	for i, _ := range md.Seqs {
-		if statement, err := md.Seqs[i].DdlStatement(); err != nil {
+		if statement, err := md.Seqs[i].CreateDdlStatement(); err != nil {
 			return nil, err
 		} else {
 			stmts.Add(statement)
 		}
 	}
-	if s, e := md.DdlStatement(); e != nil {
+	if s, e := md.CreateTableDdlStatement(); e != nil {
 		return nil, e
 	} else {
 		stmts.Add(s)
@@ -533,14 +533,14 @@ func (md *MetaDDL) CreateScript() (DdlStatementSet, error) {
 //Creates a full DDL to remove a table and foreign getColumnsToInsert refer to it
 func (md *MetaDDL) DropScript(force bool) (DdlStatementSet, error) {
 	var stmts = DdlStatementSet{}
-	if s, e := md.dropTableScript(force); e != nil {
+	if s, e := md.DropTableDdlStatement(force); e != nil {
 		return nil, e
 	} else {
 		stmts.Add(s)
 	}
 
 	for i, _ := range md.Seqs {
-		if s, e := md.Seqs[i].dropScript(); e != nil {
+		if s, e := md.Seqs[i].DropDdlStatement(); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)
@@ -672,14 +672,14 @@ func (m *MetaDDLDiff) Script() (DdlStatementSet, error) {
 		}
 	}
 	for i, _ := range m.SeqsRem {
-		if s, e := m.SeqsRem[i].dropScript(); e != nil {
+		if s, e := m.SeqsRem[i].DropDdlStatement(); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)
 		}
 	}
 	for i, _ := range m.SeqsAdd {
-		if s, e := m.SeqsAdd[i].DdlStatement(); e != nil {
+		if s, e := m.SeqsAdd[i].CreateDdlStatement(); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)
@@ -707,7 +707,7 @@ func (m *MetaDDLDiff) Script() (DdlStatementSet, error) {
 		}
 	}
 	/*for i, _ := range m.OFKsAdd {
-		if s, e := m.OFKsAdd[i].DdlStatement(); e != nil {
+		if s, e := m.OFKsAdd[i].CreateTableDdlStatement(); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)
