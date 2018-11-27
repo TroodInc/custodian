@@ -79,28 +79,10 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 		return nil, err
 	}
 	//return full record
-	if !node.OnlyLink {
-		if node.IsOfGenericType() {
-			obj[types.GenericInnerLinkObjectKey] = objectMeta.Name
-		}
-		return obj, nil
-	} else {
-		//return pk only
-		if keyStr, err := node.keyAsString(obj, objectMeta); err != nil {
-			return nil, err
-		} else {
-			if pkValue, err := objectMeta.Key.ValueFromString(keyStr); err != nil {
-				return nil, err
-			} else {
-				if node.IsOfGenericType() {
-					return map[string]interface{}{types.GenericInnerLinkObjectKey: objectMeta.Name, objectMeta.Key.Name: pkValue}, nil
-				} else {
-					return pkValue, nil
-				}
-
-			}
-		}
+	if node.IsOfGenericType() {
+		obj[types.GenericInnerLinkObjectKey] = objectMeta.Name
 	}
+	return obj, nil
 }
 
 func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]interface{}, error) {

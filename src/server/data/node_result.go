@@ -14,6 +14,12 @@ type ResultNode struct {
 func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNode, error) {
 	childNodeResults := make([]ResultNode, 0)
 	for _, childNode := range resultNode.node.ChildNodes {
+
+		//if the current level equals to depth limit, only outer links(ie plural nodes) should be resolved
+		if !childNode.plural && resultNode.node.Depth == ctx.depthLimit {
+			continue
+		}
+
 		if childNode.plural && childNode.IsOfRegularType() {
 			k := resultNode.values[childNode.Meta.Key.Name]
 			if arr, e := childNode.ResolveRegularPlural(ctx, k); e != nil {
@@ -34,8 +40,10 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 				return nil, e
 			} else if arr != nil {
 				resultNode.values[childNode.LinkField.Name] = arr
-				for _, m := range arr {
-					if childNode.Depth < ctx.depthLimit {
+
+				//add node for resolving
+				if !childNode.OnlyLink && childNode.Depth < ctx.depthLimit {
+					for _, m := range arr {
 						childNodeResults = append(childNodeResults, ResultNode{childNode, m.(map[string]interface{})})
 					}
 				}
