@@ -21,6 +21,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 		}
 
 		if childNode.plural && childNode.IsOfRegularType() && !ctx.omitOuters {
+
 			k := resultNode.values[childNode.Meta.Key.Name]
 			if arr, e := childNode.ResolveRegularPlural(ctx, k); e != nil {
 				return nil, e
