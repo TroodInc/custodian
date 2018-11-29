@@ -151,7 +151,7 @@ func (validationService *ValidationService) validateArray(dbTransaction transact
 				}
 				return nil
 			}
-			validationService.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, 1, callbackFunction)
+			validationService.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, 1, true, callbackFunction)
 		}
 		if len(recordsToRemove) > 0 {
 			if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteRestrict {
