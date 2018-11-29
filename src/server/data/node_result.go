@@ -77,7 +77,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 					childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(resolvedValue.(map[string]interface{})[types.GenericInnerLinkObjectKey].(string))
 					childNode.Meta = childNodeLinkMeta
 					childNode.KeyField = childNodeLinkMeta.Key
-					childNode.RecursivelyFillChildNodes(ctx.depthLimit - childNode.Depth)
+					childNode.RecursivelyFillChildNodes(ctx.depthLimit)
 				}
 
 				if !childNode.OnlyLink {

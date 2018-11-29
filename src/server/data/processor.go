@@ -73,8 +73,7 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 			} else if recordData == nil {
 				return nil, nil
 			} else {
-				recordData := recordData.(map[string]interface{})
-				return NewRecord(objectMeta, root.FillRecordValues(recordData, ctx)), nil
+				return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
 			}
 		}
 	}

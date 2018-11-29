@@ -459,6 +459,72 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 		}
 
+		havingObjectD := func() {
+			By("having object D with ")
+			dMetaDescription := description.MetaDescription{
+				Name: "d",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:     "a",
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: "a",
+					},
+				},
+			}
+			dMetaObj, err := metaStore.NewMeta(&dMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, dMetaObj)
+			Expect(err).To(BeNil())
+		}
+
+		havingObjectAWithOuterLinkToD := func() {
+			By("having object A with outer link to D")
+			aMetaDescription := description.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:     "name",
+						Type:     description.FieldTypeString,
+						Optional: false,
+					},
+					{
+						Name:           "d_set",
+						Type:           description.FieldTypeArray,
+						LinkType:       description.LinkTypeOuter,
+						LinkMeta:       "d",
+						OuterLinkField: "a",
+						RetrieveMode:   true,
+						Optional:       true,
+					},
+				},
+			}
+			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, false)
+			Expect(err).To(BeNil())
+		}
+
 		havingObjectBWithGenericLinkToA := func() {
 
 			By("B contains generic inner field")
@@ -602,6 +668,30 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("target"))
 			Expect(bRecord.Data["target"]).To(BeNil())
+		})
+
+		It("can retrieve record with generic value respecting specified depth", func() {
+			havingObjectA()
+			havingObjectD()
+			havingObjectAWithOuterLinkToD()
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having a record of object A", havingARecordOfObjectA)
+
+			_, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction, "d", map[string]interface{}{"a": aRecord.Pk()}, auth.User{},
+			)
+			Expect(err).To(BeNil())
+
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{
+				"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]},
+			}, auth.User{})
+			Expect(err).To(BeNil())
+
+			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), 2)
+			Expect(err).To(BeNil())
+
+			_, ok := bRecord.Data["target"].(map[string]interface{})["d_set"].([]interface{})
+			Expect(ok).To(BeTrue())
 		})
 	})
 
