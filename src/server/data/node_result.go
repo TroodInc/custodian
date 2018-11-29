@@ -20,7 +20,8 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			continue
 		}
 
-		if childNode.plural && childNode.IsOfRegularType() {
+		if childNode.plural && childNode.IsOfRegularType() && !ctx.omitOuters {
+
 			k := resultNode.values[childNode.Meta.Key.Name]
 			if arr, e := childNode.ResolveRegularPlural(ctx, k); e != nil {
 				return nil, e
@@ -34,7 +35,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			} else {
 				delete(resultNode.values, childNode.LinkField.Name)
 			}
-		} else if childNode.plural && childNode.IsOfGenericType() {
+		} else if childNode.plural && childNode.IsOfGenericType() && !ctx.omitOuters {
 			pkValue := resultNode.values[childNode.Meta.Key.Name]
 			if arr, e := childNode.ResolveGenericPlural(ctx, pkValue, resultNode.node.Meta); e != nil {
 				return nil, e
@@ -77,7 +78,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 					childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(resolvedValue.(map[string]interface{})[types.GenericInnerLinkObjectKey].(string))
 					childNode.Meta = childNodeLinkMeta
 					childNode.KeyField = childNodeLinkMeta.Key
-					childNode.RecursivelyFillChildNodes(ctx.depthLimit - childNode.Depth)
+					childNode.RecursivelyFillChildNodes(ctx.depthLimit)
 				}
 
 				if !childNode.OnlyLink {

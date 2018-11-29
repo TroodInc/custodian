@@ -596,7 +596,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), 2)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), 2, false)
 		Expect(err).To(BeNil())
 		Expect(record.Data).To(HaveKey("b_set"))
 		bSetData = record.Data["b_set"].([]interface{})
@@ -605,7 +605,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check B record is deleted
 		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, 1)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, 1, false)
 		Expect(err).To(BeNil())
 		Expect(record).To(BeNil())
 	})
@@ -644,7 +644,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), 2)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), 2, false)
 		Expect(err).To(BeNil())
 		Expect(record.Data).To(HaveKey("b_set"))
 		bSetData = record.Data["b_set"].([]interface{})
@@ -653,7 +653,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check B record is not deleted
 		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, 1)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, 1, false)
 		Expect(err).To(BeNil())
 		Expect(record).NotTo(BeNil())
 	})

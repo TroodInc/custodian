@@ -14,8 +14,8 @@ import (
 type RecordSetNotification struct {
 	recordSet *record.RecordSet
 	isRoot    bool
-	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error)
-	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)
+	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error)
+	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)
 	dbTransaction     transactions.DbTransaction
 	Actions           []*description.Action
 	Method            description.Method
@@ -23,7 +23,7 @@ type RecordSetNotification struct {
 	CurrentState      map[int]*record.RecordSet
 }
 
-func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error), getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) *RecordSetNotification {
+func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error), getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) *RecordSetNotification {
 	actions := recordSet.Meta.ActionSet.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,
@@ -93,7 +93,7 @@ func (notification *RecordSetNotification) captureState(state map[int]*record.Re
 				return nil
 			}
 			//get data within current transaction
-			notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, recordsSink)
+			notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, 1, true, recordsSink)
 		}
 		//fill DataSet with empty values
 		if len(state[action.Id()].Records) == 0 {
@@ -132,7 +132,7 @@ func (notification *RecordSetNotification) getRecordsFilter() string {
 }
 
 //Build object to use in notification
-func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, sink func(map[string]interface{}) error) (int,error)) map[string]interface{} {
+func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error)) map[string]interface{} {
 
 	stateObject := make(map[string]interface{}, 0)
 
@@ -165,7 +165,7 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 	return stateObject
 }
 
-func getValue(targetRecord record.Record, getterConfig interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) interface{} {
+func getValue(targetRecord record.Record, getterConfig interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) interface{} {
 	switch getterValue := getterConfig.(type) {
 	case map[string]interface{}:
 		return getGenericValue(targetRecord, getterValue, transaction, getRecordCallback)
@@ -176,7 +176,7 @@ func getValue(targetRecord record.Record, getterConfig interface{}, transaction 
 }
 
 //get key value traversing down if needed
-func getSimpleValue(targetRecord record.Record, keyParts []string, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) interface{} {
+func getSimpleValue(targetRecord record.Record, keyParts []string, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) interface{} {
 	if len(keyParts) == 1 {
 		return targetRecord.Data[keyParts[0]]
 	} else {
@@ -195,7 +195,7 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, transaction t
 		nestedObjectMeta := targetRecord.Meta.FindField(keyPart).LinkMeta
 		if targetRecord.Data[keyPart] != nil {
 			keyValue, _ := nestedObjectMeta.Key.ValueAsString(rawKeyValue)
-			nestedRecord, _ := getRecordCallback(transaction, nestedObjectMeta.Name, keyValue, 1, )
+			nestedRecord, _ := getRecordCallback(transaction, nestedObjectMeta.Name, keyValue, 1, false)
 			return getSimpleValue(*nestedRecord, keyParts[1:], transaction, getRecordCallback)
 		} else {
 			return nil
@@ -204,7 +204,7 @@ func getSimpleValue(targetRecord record.Record, keyParts []string, transaction t
 }
 
 //get key value traversing down if needed
-func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int) (*record.Record, error)) interface{} {
+func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) interface{} {
 	genericFieldName := getterConfig["field"].(string)
 
 	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), transaction, getRecordCallback, ).(map[string]interface{})
@@ -213,7 +213,7 @@ func getGenericValue(targetRecord record.Record, getterConfig map[string]interfa
 		if genericFieldValue[types.GenericInnerLinkObjectKey] == castObjectCase["object"] {
 			nestedObjectMeta := targetRecord.Meta.FindField(genericFieldName).LinkMetaList.GetByName(castObjectCase["object"].(string))
 			nestedObjectPk, _ := nestedObjectMeta.Key.ValueAsString(genericFieldValue[nestedObjectMeta.Key.Name])
-			nestedRecord, _ := getRecordCallback(transaction, genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, 1)
+			nestedRecord, _ := getRecordCallback(transaction, genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, 1, false)
 			return getSimpleValue(*nestedRecord, strings.Split(castObjectCase["value"].(string), "."), transaction, getRecordCallback)
 		}
 	}
