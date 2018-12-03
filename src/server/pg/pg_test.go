@@ -419,7 +419,7 @@ var _ = Describe("PG MetaStore test", func() {
 			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", 1)
+			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", 1,false)
 			Expect(err).To(BeNil())
 			Expect(record.Data["order"]).To(Equal("value"))
 

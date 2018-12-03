@@ -242,7 +242,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 				}
 				objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
 				pkValue, _ := objectMeta.Key.ValueAsString(record.Data[objectMeta.Key.Name])
-				if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, depth);
+				if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, depth, false);
 					err != nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(err)
@@ -288,7 +288,13 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			if i, e := strconv.Atoi(q.Get("depth")); e == nil {
 				depth = i
 			}
-			if o, e := dataProcessor.Get(dbTransaction, p.ByName("name"), p.ByName("key"), depth); e != nil {
+
+			var omitOuters = false
+			if len(q.Get("omit_outers")) > 0 {
+				omitOuters = true
+			}
+
+			if o, e := dataProcessor.Get(dbTransaction, p.ByName("name"), p.ByName("key"), depth, omitOuters); e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
@@ -318,7 +324,13 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 				if i, e := strconv.Atoi(url.QueryEscape(pq.Get("depth"))); e == nil {
 					depth = i
 				}
-				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), pq.Get("q"), depth, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+
+				var omitOuters = false
+				if len(pq.Get("omit_outers")) > 0 {
+					omitOuters = true
+				}
+
+				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), pq.Get("q"), depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
 				if e != nil {
 					sink.PushError(e)
 					dbTransactionManager.RollbackTransaction(dbTransaction)
@@ -392,7 +404,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
 						depth = i
 					}
-					if recordData, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, depth);
+					if recordData, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, depth, false);
 						err != nil {
 						dbTransactionManager.RollbackTransaction(dbTransaction)
 						sink.pushError(err)

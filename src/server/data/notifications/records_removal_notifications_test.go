@@ -156,7 +156,7 @@ var _ = Describe("Data", func() {
 
 			recordSetNotificationPool := NewRecordSetNotificationPool()
 
-			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bRecord.PkAsString(), 1)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bRecord.PkAsString(), 1, false)
 			Expect(err).To(BeNil())
 
 			//fill node
@@ -192,7 +192,7 @@ var _ = Describe("Data", func() {
 			recordSetNotificationPool := NewRecordSetNotificationPool()
 
 			bPkey, _ := bMetaObj.Key.ValueAsString(bRecord.Pk())
-			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bPkey, 1)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bPkey, 1, false)
 			Expect(err).To(BeNil())
 
 			//fill node

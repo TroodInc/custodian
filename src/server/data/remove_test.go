@@ -103,11 +103,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
-		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1)
+		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1, false)
 		Expect(record).To(BeNil())
 
 		//check B record does not exist
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1, false)
 		Expect(record).To(BeNil())
 
 		//check removed data tree
@@ -180,11 +180,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
-		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1)
+		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1, false)
 		Expect(record).To(BeNil())
 
 		//check B record exists
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1, false)
 		Expect(record).To(Not(BeNil()))
 		Expect(record.Data["a"]).To(BeNil())
 
@@ -325,11 +325,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
-		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1)
+		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1, false)
 		Expect(record).To(BeNil())
 
 		//check B record exists, but generic field value has null value
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1, false)
 		Expect(record).To(Not(BeNil()))
 		Expect(record.Data).To(HaveKey("target_object"))
 		Expect(record.Data["target_object"]).To(BeNil())
@@ -407,11 +407,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
-		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1)
+		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, 1, false)
 		Expect(record).To(BeNil())
 
 		//check B record does not exist
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, 1, false)
 		Expect(record).To(BeNil())
 
 		//check removed data tree
