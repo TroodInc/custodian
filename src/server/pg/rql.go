@@ -445,6 +445,9 @@ func (ctx *context) sqlOpSimple(op string) sqlOp {
 }
 
 func in(ctx *context, args []interface{}) (expr, error) {
+	if len(args) == 1 {
+		args = append(args, "")
+	}
 	if len(args) < 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected exactly one argument for '%s' rql function but found '%d'", "in", len(args))
 	}
