@@ -14,7 +14,14 @@ type ResultNode struct {
 func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNode, error) {
 	childNodeResults := make([]ResultNode, 0)
 	for _, childNode := range resultNode.node.ChildNodes {
-		if childNode.plural && childNode.IsOfRegularType() {
+
+		//if the current level equals to depth limit, only outer links(ie plural nodes) should be resolved
+		if !childNode.plural && resultNode.node.Depth == ctx.depthLimit {
+			continue
+		}
+
+		if childNode.plural && childNode.IsOfRegularType() && !ctx.omitOuters {
+
 			k := resultNode.values[childNode.Meta.Key.Name]
 			if arr, e := childNode.ResolveRegularPlural(ctx, k); e != nil {
 				return nil, e
@@ -28,14 +35,16 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			} else {
 				delete(resultNode.values, childNode.LinkField.Name)
 			}
-		} else if childNode.plural && childNode.IsOfGenericType() {
+		} else if childNode.plural && childNode.IsOfGenericType() && !ctx.omitOuters {
 			pkValue := resultNode.values[childNode.Meta.Key.Name]
 			if arr, e := childNode.ResolveGenericPlural(ctx, pkValue, resultNode.node.Meta); e != nil {
 				return nil, e
 			} else if arr != nil {
 				resultNode.values[childNode.LinkField.Name] = arr
-				for _, m := range arr {
-					if childNode.Depth < ctx.depthLimit {
+
+				//add node for resolving
+				if !childNode.OnlyLink && childNode.Depth < ctx.depthLimit {
+					for _, m := range arr {
 						childNodeResults = append(childNodeResults, ResultNode{childNode, m.(map[string]interface{})})
 					}
 				}
@@ -69,7 +78,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 					childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(resolvedValue.(map[string]interface{})[types.GenericInnerLinkObjectKey].(string))
 					childNode.Meta = childNodeLinkMeta
 					childNode.KeyField = childNodeLinkMeta.Key
-					childNode.RecursivelyFillChildNodes(ctx.depthLimit - childNode.Depth)
+					childNode.RecursivelyFillChildNodes(ctx.depthLimit)
 				}
 
 				if !childNode.OnlyLink {

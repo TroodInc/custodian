@@ -45,6 +45,7 @@ type SearchContext struct {
 	depthLimit    int
 	dm            DataManager
 	lazyPath      string
+	omitOuters    bool
 	DbTransaction transactions.DbTransaction
 }
 
@@ -56,14 +57,14 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	}
 	return false
 }
-func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, depth int) (*Record, error) {
+func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*Record, error) {
 	if objectMeta, e := processor.GetMeta(transaction, objectClass); e != nil {
 		return nil, e
 	} else {
 		if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
 			return nil, e
 		} else {
-			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction}
+			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
 
 			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
 			root.RecursivelyFillChildNodes(ctx.depthLimit)
@@ -73,20 +74,19 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 			} else if recordData == nil {
 				return nil, nil
 			} else {
-				recordData := recordData.(map[string]interface{})
-				return NewRecord(objectMeta, root.FillRecordValues(recordData, ctx)), nil
+				return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
 			}
 		}
 	}
 }
 
-func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, sink func(map[string]interface{}) error) (int, error) {
+func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
 	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true); e != nil {
 		return 0, e
 	} else if !ok {
 		return 0, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
-		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction}
+		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
 		root := &Node{
 			KeyField:   businessObject.Key,
 			Meta:       businessObject,
@@ -498,7 +498,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 	var err error
 
 	//get pk
-	recordToRemove, err := processor.Get(dbTransaction, objectName, key, 1)
+	recordToRemove, err := processor.Get(dbTransaction, objectName, key, 1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -550,7 +550,7 @@ func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTrans
 	for _, record := range records {
 
 		//get pk
-		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), 1)
+		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), 1, false)
 		if err != nil {
 			return err
 		}
