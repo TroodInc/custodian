@@ -1,7 +1,6 @@
 package field
 
 import (
-	"server/object/description"
 	"server/object/meta"
 	"server/transactions"
 	"server/migrations"
@@ -9,7 +8,7 @@ import (
 )
 
 type AddFieldOperation struct {
-	Field *description.Field
+	Field *meta.FieldDescription
 }
 
 func (o *AddFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
@@ -18,7 +17,7 @@ func (o *AddFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transaction 
 	}
 
 	metaDescription := metaObj.MetaDescription.Clone()
-	metaDescription.Fields = append(metaDescription.Fields, *o.Field)
+	metaDescription.Fields = append(metaDescription.Fields, *o.Field.Field)
 
 	//factory new Meta
 	metaObj, err := new(meta.MetaFactory).FactoryMeta(metaDescription)

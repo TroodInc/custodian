@@ -21,6 +21,10 @@ type DDLStmt struct {
 	time int
 }
 
+func NewDdlStatement(name string, code string) *DDLStmt {
+	return &DDLStmt{Name: name, Code: code}
+}
+
 //Collection of the DDL statements
 type DdlStatementSet []*DDLStmt
 

@@ -26,16 +26,10 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 	// enqueue it for resolving
 	metaFactory.enqueueForResolving(objectMeta)
 
-	//start resolving enqueued Metas
-	for {
-		if currentMeta := metaFactory.popMetaToResolve(); currentMeta != nil {
-			if err := metaFactory.resolveMeta(currentMeta); err != nil {
-				return nil, err
-			}
-		} else {
-			break
-		}
+	if err := metaFactory.resolveEnqueued(); err != nil {
+		return nil, err
 	}
+
 	if err := metaFactory.checkOuterLinks(objectMeta); err != nil {
 		return nil, err
 	}
@@ -43,7 +37,20 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 		return nil, err
 	}
 	return objectMeta, nil
+}
 
+func (metaFactory *MetaFactory) resolveEnqueued() error {
+	//recursively resolve meta
+	for {
+		if currentMeta := metaFactory.popMetaToResolve(); currentMeta != nil {
+			if err := metaFactory.resolveMeta(currentMeta); err != nil {
+				return err
+			}
+		} else {
+			break
+		}
+	}
+	return nil
 }
 
 // fill Meta with all required attributes
@@ -101,6 +108,19 @@ func (metaFactory *MetaFactory) buildMeta(metaName string) (metaObj *Meta, shoul
 	metaFactory.builtMetas[metaName] = metaObj
 	return metaObj, true, nil
 
+}
+
+func (metaFactory *MetaFactory) FactoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
+	//public method to factory field and resolve metas
+	fieldDescription, err := metaFactory.factoryFieldDescription(field, objectMeta)
+	if err != nil {
+		return nil, err
+	} else {
+		if err := metaFactory.resolveEnqueued(); err != nil {
+			return nil, err
+		}
+		return fieldDescription, nil
+	}
 }
 
 //factory field description by provided Field

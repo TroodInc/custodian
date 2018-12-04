@@ -15,7 +15,7 @@ func (metaDdlFactory *MetaDdlFactory) Factory(m *meta.Meta) (*MetaDDL, error) {
 	metaDdl.OFKs = make([]OFK, 0)
 	metaDdl.Seqs = make([]Seq, 0)
 	for _, field := range m.Fields {
-		if columns, ifk, ofk, seq, err := metaDdlFactory.processField(&field); err != nil {
+		if columns, ifk, ofk, seq, err := metaDdlFactory.FactoryFieldProperties(&field); err != nil {
 			return nil, err
 		} else {
 			metaDdl.Columns = append(metaDdl.Columns, columns...)
@@ -33,9 +33,9 @@ func (metaDdlFactory *MetaDdlFactory) Factory(m *meta.Meta) (*MetaDDL, error) {
 	return metaDdl, nil
 }
 
-func (metaDdlFactory *MetaDdlFactory) processField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
+func (metaDdlFactory *MetaDdlFactory) FactoryFieldProperties(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
 	if field.IsSimple() {
-		return metaDdlFactory.processSimpleField(field)
+		return metaDdlFactory.factorySimpleFieldProperties(field)
 	} else if field.Type == description.FieldTypeObject && field.LinkType == description.LinkTypeInner {
 		return metaDdlFactory.processInnerLinkField(field)
 	} else if field.LinkType == description.LinkTypeOuter {
@@ -50,7 +50,7 @@ func (metaDdlFactory *MetaDdlFactory) processField(field *meta.FieldDescription)
 	return nil, nil, nil, nil, nil
 }
 
-func (metaDdlFactory *MetaDdlFactory) processSimpleField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
+func (metaDdlFactory *MetaDdlFactory) factorySimpleFieldProperties(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
 	column, err := metaDdlFactory.factoryBlankColumn(field)
 	if err != nil {
 		return nil, nil, nil, nil, err
