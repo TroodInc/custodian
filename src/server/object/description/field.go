@@ -13,6 +13,7 @@ const (
 	FieldTypeBool
 	FieldTypeArray
 	FieldTypeObject
+	FieldTypeObjects
 	FieldTypeDateTime
 	FieldTypeDate
 	FieldTypeTime
@@ -31,6 +32,8 @@ func AsFieldType(s string) (FieldType, bool) {
 		return FieldTypeArray, true
 	case "object":
 		return FieldTypeObject, true
+	case "objects":
+		return FieldTypeObjects, true
 	case "generic":
 		return FieldTypeGeneric, true
 	case "datetime":
@@ -56,6 +59,8 @@ func (fieldType FieldType) String() (string, bool) {
 		return "array", true
 	case FieldTypeObject:
 		return "object", true
+	case FieldTypeObjects:
+		return "objects", true
 	case FieldTypeDateTime:
 		return "datetime", true
 	case FieldTypeDate:
@@ -87,6 +92,9 @@ func (fieldType FieldType) AssertType(i interface{}) bool {
 	case FieldTypeObject:
 		_, ok := i.(map[string]interface{})
 		return ok
+	case FieldTypeObjects:
+		_, ok := i.([]interface{})
+		return ok
 	default:
 		return false
 	}
@@ -117,6 +125,11 @@ func (fieldType FieldType) TypeAsserter() func(interface{}) bool {
 	case FieldTypeObject:
 		return func(i interface{}) bool {
 			_, ok := i.(map[string]interface{})
+			return ok
+		}
+	case FieldTypeObjects:
+		return func(i interface{}) bool {
+			_, ok := i.([]interface{})
 			return ok
 		}
 	default:
