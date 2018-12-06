@@ -86,6 +86,10 @@ func (metaStore *MetaStore) Create(transaction *transactions.GlobalTransaction, 
 			metaStore.addReversedOuterGenericFields(transaction, nil, objectMeta)
 			//add corresponding outer field
 			metaStore.addReversedOuterFields(transaction, nil, objectMeta)
+			//create through object if needed
+			if err := metaStore.createThroughMeta(transaction, objectMeta); err != nil {
+				return err
+			}
 
 			//invalidate cache
 			metaStore.cache.Invalidate()
@@ -101,28 +105,33 @@ func (metaStore *MetaStore) Create(transaction *transactions.GlobalTransaction, 
 }
 
 // Updates an existing object metadata.
-func (metaStore *MetaStore) Update(globalTransaction *transactions.GlobalTransaction, name string, newBusinessObj *Meta, keepOuter bool) (bool, error) {
-	if currentBusinessObj, ok, err := metaStore.Get(globalTransaction, name, false); err == nil {
+func (metaStore *MetaStore) Update(globalTransaction *transactions.GlobalTransaction, name string, newMetaObj *Meta, keepOuter bool) (bool, error) {
+	if currentMetaObj, ok, err := metaStore.Get(globalTransaction, name, false); err == nil {
 		if keepOuter {
-			metaStore.processGenericOuterLinkKeeping(globalTransaction, currentBusinessObj, newBusinessObj)
+			metaStore.processGenericOuterLinkKeeping(globalTransaction, currentMetaObj, newMetaObj)
 		}
 		// remove possible outer links before main update processing
 
-		metaStore.processInnerLinksRemoval(globalTransaction, currentBusinessObj, newBusinessObj)
-		metaStore.processGenericInnerLinksRemoval(globalTransaction, currentBusinessObj, newBusinessObj)
+		metaStore.processInnerLinksRemoval(globalTransaction, currentMetaObj, newMetaObj)
+		metaStore.processGenericInnerLinksRemoval(globalTransaction, currentMetaObj, newMetaObj)
 
-		ok, e := metaStore.drv.Update(name, *newBusinessObj.MetaDescription)
+		ok, e := metaStore.drv.Update(name, *newMetaObj.MetaDescription)
 
 		if e != nil || !ok {
 			return ok, e
 		}
 
-		if updateError := metaStore.syncer.UpdateObj(globalTransaction.DbTransaction, currentBusinessObj, newBusinessObj); updateError == nil {
+		if updateError := metaStore.syncer.UpdateObj(globalTransaction.DbTransaction, currentMetaObj, newMetaObj); updateError == nil {
 			//add corresponding outer generic fields
-			metaStore.addReversedOuterGenericFields(globalTransaction, currentBusinessObj, newBusinessObj)
+			metaStore.addReversedOuterGenericFields(globalTransaction, currentMetaObj, newMetaObj)
 
 			//add corresponding outer field
-			metaStore.addReversedOuterFields(globalTransaction, currentBusinessObj, newBusinessObj)
+			metaStore.addReversedOuterFields(globalTransaction, currentMetaObj, newMetaObj)
+
+			//create through object if needed
+			if err := metaStore.createThroughMeta(globalTransaction, newMetaObj); err != nil {
+				return false, err
+			}
 
 			//invalidate cache
 			metaStore.cache.Invalidate()
@@ -130,13 +139,13 @@ func (metaStore *MetaStore) Update(globalTransaction *transactions.GlobalTransac
 			return true, nil
 		} else {
 			//rollback to the previous version
-			rollbackError := metaStore.syncer.UpdateObjTo(globalTransaction.DbTransaction, currentBusinessObj)
+			rollbackError := metaStore.syncer.UpdateObjTo(globalTransaction.DbTransaction, currentMetaObj)
 			if rollbackError != nil {
 				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
 				return false, updateError
 
 			}
-			_, rollbackError = metaStore.drv.Update(name, *currentBusinessObj.MetaDescription)
+			_, rollbackError = metaStore.drv.Update(name, *currentMetaObj.MetaDescription)
 			if rollbackError != nil {
 				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
 				return false, updateError
@@ -158,6 +167,7 @@ func (metaStore *MetaStore) Remove(transaction *transactions.GlobalTransaction, 
 	//remove related links from the database
 	metaStore.removeRelatedOuterLinks(transaction, meta)
 	metaStore.removeRelatedInnerLinks(transaction, meta)
+	metaStore.removeRelatedObjectsFieldAndThroughMeta(transaction, meta)
 
 	//remove related generic links from the database
 	metaStore.removeRelatedGenericOuterLinks(transaction, meta)
@@ -280,19 +290,18 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(transaction *transact
 					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
 				} else {
 					objectNeedsUpdate = true
-					if fieldIsTargetGenericInnerLink {
-						indexOfTargetMeta := utils.IndexOf(fieldDescription.Field.LinkMetaList, targetMeta.Name)
+					indexOfTargetMeta := utils.IndexOf(fieldDescription.Field.LinkMetaList, targetMeta.Name)
 
-						//alter field
-						field := objectMeta.MetaDescription.Fields[i]
-						field.LinkMetaList = append(field.LinkMetaList[:indexOfTargetMeta], field.LinkMetaList[indexOfTargetMeta+1:]...)
-						objectMetaFields = append(objectMetaFields, field)
+					//alter field
+					field := objectMeta.MetaDescription.Fields[i]
+					field.LinkMetaList = append(field.LinkMetaList[:indexOfTargetMeta], field.LinkMetaList[indexOfTargetMeta+1:]...)
+					objectMetaFields = append(objectMetaFields, field)
 
-						//alter field description
-						fieldDescription := objectMeta.Fields[i]
-						fieldDescription.LinkMetaList.RemoveByName(targetMeta.Name)
-						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, fieldDescription)
-					}
+					//alter field description
+					fieldDescription := objectMeta.Fields[i]
+					fieldDescription.LinkMetaList.RemoveByName(targetMeta.Name)
+					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, fieldDescription)
+
 				}
 			}
 			// it means that related object should be updated
@@ -303,6 +312,45 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(transaction *transact
 			}
 		}
 	}
+}
+
+//Remove inner fields linking to given Meta
+func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(transaction *transactions.GlobalTransaction, targetMeta *Meta) error {
+	metaDescriptionList, _, _ := metaStore.List()
+	for _, objectMetaDescription := range *metaDescriptionList {
+
+		if targetMeta.Name != objectMetaDescription.Name {
+			objectMeta, _, _ := metaStore.Get(transaction, objectMetaDescription.Name, false)
+			objectMetaFields := make([]Field, 0)
+			objectMetaFieldDescriptions := make([]FieldDescription, 0)
+			objectNeedsUpdate := false
+
+			for i, fieldDescription := range objectMeta.Fields {
+				//omit orphan fields
+				fieldIsObjectsLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObjects
+
+				if !fieldIsObjectsLink {
+					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
+					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+				} else {
+					objectNeedsUpdate = true
+					if _, err := metaStore.Remove(transaction, fieldDescription.LinkThrough.Name, true); err != nil {
+						return err
+					}
+				}
+			}
+
+			// means that related object should be updated
+			if objectNeedsUpdate {
+				objectMeta.Fields = objectMetaFieldDescriptions
+				objectMeta.MetaDescription.Fields = objectMetaFields
+				if _, err := metaStore.Update(transaction, objectMeta.Name, objectMeta, true); err != nil {
+					return err
+				}
+			}
+		}
+	}
+	return nil
 }
 
 // compare current object`s version to the version is being updated and remove outer links
@@ -518,6 +566,18 @@ func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.Glo
 			}
 		}
 	}
+}
+
+//create through meta if it does not exist
+func (metaStore *MetaStore) createThroughMeta(transaction *transactions.GlobalTransaction, meta *Meta) error {
+	for _, field := range meta.Fields {
+		if field.Type == FieldTypeObjects {
+			if _, _, err := metaStore.Get(transaction, field.LinkThrough.Name, false); err != nil {
+				return metaStore.Create(transaction, field.LinkThrough)
+			}
+		}
+	}
+	return nil
 }
 
 // Updates an existing object metadata.
