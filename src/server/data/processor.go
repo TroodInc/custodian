@@ -67,7 +67,7 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
 
 			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
-			root.RecursivelyFillChildNodes(ctx.depthLimit)
+			root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
 
 			if recordData, e := root.Resolve(ctx, pk); e != nil {
 				return nil, e
@@ -97,7 +97,7 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 			Parent:     nil,
 			Type:       NodeTypeRegular,
 		}
-		root.RecursivelyFillChildNodes(searchContext.depthLimit)
+		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))

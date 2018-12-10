@@ -20,6 +20,13 @@ const (
 	FieldTypeGeneric
 )
 
+type FieldMode int
+
+const (
+	FieldModeRetrieve FieldMode = iota + 1
+	FieldModeQuery
+)
+
 func AsFieldType(s string) (FieldType, bool) {
 	switch s {
 	case "string":

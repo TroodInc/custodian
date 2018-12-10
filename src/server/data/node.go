@@ -143,12 +143,12 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 	}
 }
 
-func (node *Node) fillDirectChildNodes(depthLimit int) {
+func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode) {
 	//process regular links, skip generic child nodes
 	if node.Meta != nil {
 		for i, fieldDescription := range node.Meta.Fields {
 			//skip outer link which does not have retrieve mode set to true
-			if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode {
+			if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode && fieldMode != description.FieldModeQuery {
 				continue
 			}
 			var onlyLink = false
@@ -214,8 +214,8 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 	}
 }
 
-func (node *Node) RecursivelyFillChildNodes(depthLimit int) {
-	node.fillDirectChildNodes(depthLimit)
+func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode description.FieldMode) {
+	node.fillDirectChildNodes(depthLimit, fieldMode)
 	if node.IsOfGenericType() {
 		return
 	}
@@ -228,7 +228,7 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int) {
 	for ; len(nodesToProcess) > 0; nodesToProcess = nodesToProcess[1:] {
 		if !nodesToProcess[0].OnlyLink {
 			if nodesToProcess[0].IsOfRegularType() || (nodesToProcess[0].IsOfGenericType() && nodesToProcess[0].plural) {
-				nodesToProcess[0].fillDirectChildNodes(depthLimit)
+				nodesToProcess[0].fillDirectChildNodes(depthLimit, fieldMode)
 				processedNodesNames[nodesToProcess[0].Meta.Name] = true
 				for _, childNode := range nodesToProcess[0].ChildNodes {
 					//generic fields` meta could not be resolved without fields value
