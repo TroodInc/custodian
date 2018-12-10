@@ -265,7 +265,7 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 		if len(excludeIdFilters) > 0 {
 			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.Meta.Name, record.PkAsString(), fieldDescription.LinkMeta.Name, excludeIdFilters)
 			callbackFunction := func(obj map[string]interface{}) error {
-				recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkMeta, obj))
+				recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkThrough, obj))
 				return nil
 			}
 			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, 1, true, callbackFunction)
