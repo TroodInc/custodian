@@ -213,7 +213,16 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 					return nil, err
 				}
 			}
-
+		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+			for i, record := range recordSetOperation.RecordSet.Records {
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				if err != nil {
+					return nil, err
+				} else {
+					retrievedRecord.Links = record.Links
+					recordSetOperation.RecordSet.Records[i] = retrievedRecord
+				}
+			}
 		}
 	}
 

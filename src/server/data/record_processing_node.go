@@ -7,10 +7,11 @@ import (
 
 //represents list of RecordSetOperations which are queued on the same level
 type RecordProcessingNode struct {
-	Record        *record.Record
-	ProcessBefore []*RecordProcessingNode
-	ProcessAfter  []*RecordProcessingNode
-	RemoveBefore  []*RecordProcessingNode
+	Record         *record.Record
+	ProcessBefore  []*RecordProcessingNode
+	ProcessAfter   []*RecordProcessingNode
+	RemoveBefore   []*RecordProcessingNode
+	RetrieveBefore []*RecordProcessingNode
 }
 
 //return records in order of processing
@@ -20,6 +21,13 @@ func (r *RecordProcessingNode) RecordSetOperations() (*record.RecordSet, []*Reco
 }
 
 func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*RecordOperation) []*RecordOperation {
+	for _, recordProcessingNode := range r.RetrieveBefore {
+		recordOperations = append(
+			recordOperations,
+			&RecordOperation{Record: recordProcessingNode.Record, Type: RecordOperationTypeRetrive},
+		)
+	}
+
 	for _, recordProcessingNode := range r.RemoveBefore {
 		recordOperations = append(
 			recordOperations,
