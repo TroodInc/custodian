@@ -12,6 +12,7 @@ import (
 	"server/transactions/file_transaction"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
+	"fmt"
 )
 
 var _ = Describe("Create test", func() {
@@ -106,6 +107,35 @@ var _ = Describe("Create test", func() {
 		return bMetaObj
 	}
 
+	havingObjectC := func() *meta.Meta {
+		cMetaDescription := description.MetaDescription{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+			},
+		}
+		(&description.NormalizationService{}).Normalize(&cMetaDescription)
+		cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, cMetaObj)
+		Expect(err).To(BeNil())
+		return cMetaObj
+	}
+
 	havingObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
 		aMetaDescription := description.MetaDescription{
 			Name: "a",
@@ -132,6 +162,41 @@ var _ = Describe("Create test", func() {
 					OuterLinkField: "a",
 					LinkMeta:       "b",
 					Optional:       true,
+				},
+			},
+		}
+		(&description.NormalizationService{}).Normalize(&aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		Expect(err).To(BeNil())
+		_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
+		Expect(err).To(BeNil())
+		return aMetaObj
+	}
+
+	havingObjectAWithObjectsLinkToB := func() *meta.Meta {
+		aMetaDescription := description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+				{
+					Name:     "cs",
+					Type:     description.FieldTypeObjects,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "c",
 				},
 			},
 		}
@@ -403,5 +468,69 @@ var _ = Describe("Create test", func() {
 		existingBRecordData := bSetData[1].(map[string]interface{})
 		Expect(existingBRecordData["id"]).To(BeAssignableToTypeOf(1.0))
 		Expect(existingBRecordData["name"].(string)).To(Equal("Existing B record"))
+	})
+
+	It("can create record with nested records within 'Objects' field at once", func() {
+		aMeta := havingObjectA()
+		havingObjectC()
+		aMeta = havingObjectAWithObjectsLinkToB()
+
+		aData := map[string]interface{}{
+			"name": "A record",
+			"cs":   []interface{}{map[string]interface{}{"name": "C record"}},
+		}
+		user := auth.User{}
+
+		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, aData, user)
+
+		//check returned data
+		Expect(err).To(BeNil())
+		Expect(record.Data).To(HaveKey("cs"))
+		csData := record.Data["cs"].([]interface{})
+		Expect(csData).To(HaveLen(1))
+		cRecordData := csData[0].(map[string]interface{})
+		Expect(cRecordData["id"]).To(BeAssignableToTypeOf(1.0))
+
+		//ensure through object record has been created
+		filter := fmt.Sprintf("eq(%s,%s)", aMeta.Name, record.PkAsString())
+		matchedRecords := make([]map[string]interface{}, 0)
+		callbackFunction := func(obj map[string]interface{}) error {
+			matchedRecords = append(matchedRecords, obj)
+			return nil
+		}
+		dataProcessor.GetBulk(globalTransaction.DbTransaction, aMeta.FindField("cs").LinkThrough.Name, filter, 1, true, callbackFunction)
+		Expect(matchedRecords).To(HaveLen(1))
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
+
+	It("can create record with nested records within 'Objects' field at once with data of mixed type(both new and existing)", func() {
+		aMeta := havingObjectA()
+		cMeta := havingObjectC()
+		aMeta = havingObjectAWithObjectsLinkToB()
+
+		user := auth.User{}
+
+		existingCRecord, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction,
+			cMeta.Name,
+			map[string]interface{}{"name": "Existing C record"},
+			user,
+		)
+
+		aData := map[string]interface{}{
+			"name": "A record",
+			"cs": []interface{}{
+				map[string]interface{}{"name": "C record"},
+				existingCRecord.Pk(),
+			},
+		}
+		record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, aData, user)
+		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
+		Expect(record.Data).To(HaveKey("cs"))
+		csData := record.Data["cs"].([]interface{})
+		Expect(csData).To(HaveLen(2))
+		existingCRecordData := csData[1].(map[string]interface{})
+		Expect(existingCRecordData[cMeta.Key.Name]).To(Equal(existingCRecord.Pk()))
 	})
 })

@@ -213,7 +213,16 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 					return nil, err
 				}
 			}
-
+		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+			for i, record := range recordSetOperation.RecordSet.Records {
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				if err != nil {
+					return nil, err
+				} else {
+					retrievedRecord.Links = record.Links
+					recordSetOperation.RecordSet.Records[i] = retrievedRecord
+				}
+			}
 		}
 	}
 
@@ -382,6 +391,16 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 				}
 			}
 
+		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+			for i, record := range recordSetOperation.RecordSet.Records {
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				if err != nil {
+					return nil, err
+				} else {
+					retrievedRecord.Links = record.Links
+					recordSetOperation.RecordSet.Records[i] = retrievedRecord
+				}
+			}
 		}
 	}
 	//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data

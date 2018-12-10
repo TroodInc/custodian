@@ -43,6 +43,9 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 	if err := metaFactory.setOuterLinks(objectMeta); err != nil {
 		return nil, err
 	}
+	if err := metaFactory.setObjectsLinks(objectMeta); err != nil {
+		return nil, err
+	}
 	return objectMeta, nil
 
 }
@@ -136,7 +139,7 @@ func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, 
 		},
 	}
 	//set outer link to the current field
-	field.OuterLinkField = fields[1].OuterLinkField
+	field.OuterLinkField = fields[1].Name
 	//
 	metaDescription := NewMetaDescription(metaName, "id", fields, []Action{}, false)
 	metaObj = &Meta{MetaDescription: metaDescription}
@@ -175,7 +178,7 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 		}
 	}
 
-	if field.Type == FieldTypeObjects {
+	if field.Type == FieldTypeObjects && field.LinkType == LinkTypeInner {
 
 		var shouldBuild bool
 		if fieldDescription.LinkThrough, shouldBuild = metaFactory.buildThroughMeta(&field, objectMeta); err != nil {
@@ -233,6 +236,21 @@ func (metaFactory *MetaFactory) setOuterLinks(objectMeta *Meta) error {
 				continue
 			}
 			field.OuterLinkField = field.LinkMeta.FindField(field.Field.OuterLinkField)
+		}
+	}
+	return nil
+}
+
+//check outer links for each processed Metal
+func (metaFactory *MetaFactory) setObjectsLinks(objectMeta *Meta) error {
+	for _, currentObjectMeta := range metaFactory.builtMetas {
+		//processing outer links
+		for i, _ := range currentObjectMeta.Fields {
+			field := &currentObjectMeta.Fields[i]
+			if field.Type != FieldTypeObjects {
+				continue
+			}
+			field.OuterLinkField = field.LinkThrough.FindField(field.Field.OuterLinkField)
 		}
 	}
 	return nil
