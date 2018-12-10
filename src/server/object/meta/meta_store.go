@@ -167,7 +167,7 @@ func (metaStore *MetaStore) Remove(transaction *transactions.GlobalTransaction, 
 	//remove related links from the database
 	metaStore.removeRelatedOuterLinks(transaction, meta)
 	metaStore.removeRelatedInnerLinks(transaction, meta)
-	metaStore.removeRelatedObjectsFieldAndThroughMeta(transaction, meta)
+	metaStore.removeRelatedObjectsFieldAndThroughMeta(transaction, force, meta)
 
 	//remove related generic links from the database
 	metaStore.removeRelatedGenericOuterLinks(transaction, meta)
@@ -315,7 +315,7 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(transaction *transact
 }
 
 //Remove inner fields linking to given Meta
-func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(transaction *transactions.GlobalTransaction, targetMeta *Meta) error {
+func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(transaction *transactions.GlobalTransaction, keepMeta bool, targetMeta *Meta) error {
 	metaDescriptionList, _, _ := metaStore.List()
 	for _, objectMetaDescription := range *metaDescriptionList {
 
@@ -334,8 +334,10 @@ func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(transaction 
 					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
 				} else {
 					objectNeedsUpdate = true
-					if _, err := metaStore.Remove(transaction, fieldDescription.LinkThrough.Name, true); err != nil {
-						return err
+					if !keepMeta {
+						if _, err := metaStore.Remove(transaction, fieldDescription.LinkThrough.Name, true); err != nil {
+							return err
+						}
 					}
 				}
 			}
