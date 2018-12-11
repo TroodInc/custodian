@@ -6,6 +6,8 @@ import (
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"server/data/types"
 	"server/object/description"
+	"strings"
+	"fmt"
 )
 
 type NodeType int
@@ -144,7 +146,6 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 }
 
 func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]interface{}, error) {
-	var fields []*meta.FieldDescription = nil
 	if node.OnlyLink {
 		//get a field which points to parent object
 		linkField := node.Meta.FindField(node.LinkField.Meta.Name)
@@ -159,23 +160,36 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 			}
 			return result, nil
 		}
-	}
-	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{node.KeyField.Name: key}, sc.DbTransaction); err != nil {
-		return nil, err
 	} else {
+		keyStr, _ := node.LinkField.Meta.Key.ValueAsString(key)
+		//query records of LinkMeta by LinkThrough`s field
+		//Eg: for record of object A with ID 56 which has "Objects" relation to B called "bs" filter will look like this:
+		//eq(b__s_set.a,56)
+		//and querying is performed by B meta
+		filter := fmt.Sprintf("eq(%s.%s,%s)", node.LinkField.LinkThrough.ReverseOuterField(node.LinkField.LinkMeta.Name).Name, node.LinkField.Meta.Name, keyStr)
+		searchContext := SearchContext{depthLimit: 1, dm: sc.dm, lazyPath: "/custodian/data/bulk", DbTransaction: sc.DbTransaction, omitOuters: sc.omitOuters}
+		root := &Node{
+			KeyField:   node.LinkField.LinkMeta.Key,
+			Meta:       node.LinkField.LinkMeta,
+			ChildNodes: make(map[string]*Node),
+			Depth:      1,
+			OnlyLink:   false,
+			plural:     false,
+			Parent:     nil,
+			Type:       NodeTypeRegular,
+		}
+		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+
+		parser := rqlParser.NewParser()
+		rqlNode, err := parser.Parse(strings.NewReader(filter))
+		if err != nil {
+			return nil, err
+		}
+		records, _, err := root.ResolveByRql(searchContext, rqlNode)
+
 		result := make([]interface{}, len(records), len(records))
-		if node.OnlyLink {
-			for i, record := range records {
-				if keyValue, err := node.keyAsNativeType(record, node.Meta); err != nil {
-					return nil, err
-				} else {
-					result[i] = keyValue
-				}
-			}
-		} else {
-			for i, obj := range records {
-				result[i] = obj
-			}
+		for i, data := range records {
+			result[i] = data
 		}
 		return result, nil
 	}
