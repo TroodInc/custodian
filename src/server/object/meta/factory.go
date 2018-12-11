@@ -32,6 +32,14 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 		if currentMeta := metaFactory.popMetaToResolve(); currentMeta != nil {
 			if err := metaFactory.resolveMeta(currentMeta); err != nil {
 				return nil, err
+			} else {
+				//TODO: actions like "checkOuterLinks", "setOuterLinks", "setObjectsLinks" should be performed for each
+				//meta regardless of whether meta is root or not, thus operations made in this case section duplicate
+				//operations for root meta. This behaviour should be fixed and tested to ensure no circular resolving
+				//happens
+				if err := metaFactory.setOuterLinks(objectMeta); err != nil {
+					return nil, err
+				}
 			}
 		} else {
 			break

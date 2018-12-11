@@ -143,6 +143,44 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 	}
 }
 
+func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]interface{}, error) {
+	var fields []*meta.FieldDescription = nil
+	if node.OnlyLink {
+		//get a field which points to parent object
+		linkField := node.Meta.FindField(node.LinkField.Meta.Name)
+		//specify field, which value should be retrieved
+		fields := []*meta.FieldDescription{node.KeyField}
+		if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{linkField.Name: key}, sc.DbTransaction); err != nil {
+			return nil, err
+		} else {
+			result := make([]interface{}, len(records), len(records))
+			for i, data := range records {
+				result[i] = data[node.KeyField.Name]
+			}
+			return result, nil
+		}
+	}
+	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{node.KeyField.Name: key}, sc.DbTransaction); err != nil {
+		return nil, err
+	} else {
+		result := make([]interface{}, len(records), len(records))
+		if node.OnlyLink {
+			for i, record := range records {
+				if keyValue, err := node.keyAsNativeType(record, node.Meta); err != nil {
+					return nil, err
+				} else {
+					result[i] = keyValue
+				}
+			}
+		} else {
+			for i, obj := range records {
+				result[i] = obj
+			}
+		}
+		return result, nil
+	}
+}
+
 func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode) {
 	//process regular links, skip generic child nodes
 	if node.Meta != nil {
@@ -170,11 +208,22 @@ func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.Fie
 					Type:       NodeTypeRegular,
 				}
 			} else if fieldDescription.Type == description.FieldTypeArray && fieldDescription.LinkType == description.LinkTypeOuter {
-
 				node.ChildNodes[fieldDescription.Name] = &Node{
 					LinkField:  &node.Meta.Fields[i],
 					KeyField:   fieldDescription.OuterLinkField,
 					Meta:       fieldDescription.LinkMeta,
+					ChildNodes: branches,
+					Depth:      node.Depth + 1,
+					OnlyLink:   onlyLink,
+					plural:     true,
+					Parent:     node,
+					Type:       NodeTypeRegular,
+				}
+			} else if fieldDescription.Type == description.FieldTypeObjects {
+				node.ChildNodes[fieldDescription.Name] = &Node{
+					LinkField:  &node.Meta.Fields[i],
+					KeyField:   fieldDescription.LinkThrough.FindField(fieldDescription.LinkMeta.Name),
+					Meta:       fieldDescription.LinkThrough,
 					ChildNodes: branches,
 					Depth:      node.Depth + 1,
 					OnlyLink:   onlyLink,
