@@ -131,7 +131,7 @@ var _ = Describe("Data", func() {
 		})
 	})
 
-	It("can outputs by 'Objects' field values respecting specified depth value set to 2", func() {
+	FIt("can outputs by 'Objects' field values respecting specified depth value set to 2", func() {
 		Context("having an object with outer link to another object", func() {
 			aMetaDescription := description.MetaDescription{
 				Name: "a",
