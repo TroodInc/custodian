@@ -43,19 +43,21 @@ func (jsonSinkStream *JsonSinkStream) PushError(e error) {
 	jsonSinkStream.status = "FAILED"
 	switch e := e.(type) {
 	case *ServerError:
-		jsonSinkStream.httpStatus = e.Status
+		jsonSinkStream.rw.WriteHeader(e.Status)
 		jsonSinkStream.err = e.Json()
-		return
+		jsonSinkStream.rw.Write(e.Json())
 	case JsonError:
-		jsonSinkStream.httpStatus = http.StatusBadRequest
+		jsonSinkStream.rw.WriteHeader(http.StatusBadRequest)
 		jsonSinkStream.err = e.Json()
-		return
+		jsonSinkStream.rw.Write(e.Json())
 	default:
-		jsonSinkStream.httpStatus = http.StatusInternalServerError
 		err := ServerError{Status: http.StatusInternalServerError, Code: ErrInternalServerError, Msg: e.Error()}
 		jsonSinkStream.err = err.Json()
-		return
+		//header should be wrote before body
+		jsonSinkStream.rw.WriteHeader(http.StatusInternalServerError)
+		jsonSinkStream.rw.Write(err.Json())
 	}
+
 }
 
 func (jsonSinkStream *JsonSinkStream) Complete(totalCount *int) {

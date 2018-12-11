@@ -6,6 +6,8 @@ import (
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"server/data/types"
 	"server/object/description"
+	"strings"
+	"fmt"
 )
 
 type NodeType int
@@ -143,12 +145,62 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 	}
 }
 
-func (node *Node) fillDirectChildNodes(depthLimit int) {
+func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]interface{}, error) {
+	if node.OnlyLink {
+		//get a field which points to parent object
+		linkField := node.Meta.FindField(node.LinkField.Meta.Name)
+		//specify field, which value should be retrieved
+		fields := []*meta.FieldDescription{node.KeyField}
+		if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{linkField.Name: key}, sc.DbTransaction); err != nil {
+			return nil, err
+		} else {
+			result := make([]interface{}, len(records), len(records))
+			for i, data := range records {
+				result[i] = data[node.KeyField.Name]
+			}
+			return result, nil
+		}
+	} else {
+		keyStr, _ := node.LinkField.Meta.Key.ValueAsString(key)
+		//query records of LinkMeta by LinkThrough`s field
+		//Eg: for record of object A with ID 56 which has "Objects" relation to B called "bs" filter will look like this:
+		//eq(b__s_set.a,56)
+		//and querying is performed by B meta
+		filter := fmt.Sprintf("eq(%s.%s,%s)", node.LinkField.LinkThrough.ReverseOuterField(node.LinkField.LinkMeta.Name).Name, node.LinkField.Meta.Name, keyStr)
+		searchContext := SearchContext{depthLimit: 1, dm: sc.dm, lazyPath: "/custodian/data/bulk", DbTransaction: sc.DbTransaction, omitOuters: sc.omitOuters}
+		root := &Node{
+			KeyField:   node.LinkField.LinkMeta.Key,
+			Meta:       node.LinkField.LinkMeta,
+			ChildNodes: make(map[string]*Node),
+			Depth:      1,
+			OnlyLink:   false,
+			plural:     false,
+			Parent:     nil,
+			Type:       NodeTypeRegular,
+		}
+		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+
+		parser := rqlParser.NewParser()
+		rqlNode, err := parser.Parse(strings.NewReader(filter))
+		if err != nil {
+			return nil, err
+		}
+		records, _, err := root.ResolveByRql(searchContext, rqlNode)
+
+		result := make([]interface{}, len(records), len(records))
+		for i, data := range records {
+			result[i] = data
+		}
+		return result, nil
+	}
+}
+
+func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode) {
 	//process regular links, skip generic child nodes
 	if node.Meta != nil {
 		for i, fieldDescription := range node.Meta.Fields {
 			//skip outer link which does not have retrieve mode set to true
-			if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode {
+			if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode && fieldMode != description.FieldModeQuery {
 				continue
 			}
 			var onlyLink = false
@@ -170,11 +222,22 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 					Type:       NodeTypeRegular,
 				}
 			} else if fieldDescription.Type == description.FieldTypeArray && fieldDescription.LinkType == description.LinkTypeOuter {
-
 				node.ChildNodes[fieldDescription.Name] = &Node{
 					LinkField:  &node.Meta.Fields[i],
 					KeyField:   fieldDescription.OuterLinkField,
 					Meta:       fieldDescription.LinkMeta,
+					ChildNodes: branches,
+					Depth:      node.Depth + 1,
+					OnlyLink:   onlyLink,
+					plural:     true,
+					Parent:     node,
+					Type:       NodeTypeRegular,
+				}
+			} else if fieldDescription.Type == description.FieldTypeObjects {
+				node.ChildNodes[fieldDescription.Name] = &Node{
+					LinkField:  &node.Meta.Fields[i],
+					KeyField:   fieldDescription.LinkThrough.FindField(fieldDescription.LinkMeta.Name),
+					Meta:       fieldDescription.LinkThrough,
 					ChildNodes: branches,
 					Depth:      node.Depth + 1,
 					OnlyLink:   onlyLink,
@@ -214,8 +277,8 @@ func (node *Node) fillDirectChildNodes(depthLimit int) {
 	}
 }
 
-func (node *Node) RecursivelyFillChildNodes(depthLimit int) {
-	node.fillDirectChildNodes(depthLimit)
+func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode description.FieldMode) {
+	node.fillDirectChildNodes(depthLimit, fieldMode)
 	if node.IsOfGenericType() {
 		return
 	}
@@ -228,7 +291,7 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int) {
 	for ; len(nodesToProcess) > 0; nodesToProcess = nodesToProcess[1:] {
 		if !nodesToProcess[0].OnlyLink {
 			if nodesToProcess[0].IsOfRegularType() || (nodesToProcess[0].IsOfGenericType() && nodesToProcess[0].plural) {
-				nodesToProcess[0].fillDirectChildNodes(depthLimit)
+				nodesToProcess[0].fillDirectChildNodes(depthLimit, fieldMode)
 				processedNodesNames[nodesToProcess[0].Meta.Name] = true
 				for _, childNode := range nodesToProcess[0].ChildNodes {
 					//generic fields` meta could not be resolved without fields value

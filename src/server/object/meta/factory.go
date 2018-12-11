@@ -2,6 +2,7 @@ package meta
 
 import (
 	. "server/object/description"
+	"fmt"
 )
 
 type MetaFactory struct {
@@ -31,6 +32,14 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 		if currentMeta := metaFactory.popMetaToResolve(); currentMeta != nil {
 			if err := metaFactory.resolveMeta(currentMeta); err != nil {
 				return nil, err
+			} else {
+				//TODO: actions like "checkOuterLinks", "setOuterLinks", "setObjectsLinks" should be performed for each
+				//meta regardless of whether meta is root or not, thus operations made in this case section duplicate
+				//operations for root meta. This behaviour should be fixed and tested to ensure no circular resolving
+				//happens
+				if err := metaFactory.setOuterLinks(objectMeta); err != nil {
+					return nil, err
+				}
 			}
 		} else {
 			break
@@ -40,6 +49,9 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 		return nil, err
 	}
 	if err := metaFactory.setOuterLinks(objectMeta); err != nil {
+		return nil, err
+	}
+	if err := metaFactory.setObjectsLinks(objectMeta); err != nil {
 		return nil, err
 	}
 	return objectMeta, nil
@@ -103,6 +115,46 @@ func (metaFactory *MetaFactory) buildMeta(metaName string) (metaObj *Meta, shoul
 
 }
 
+func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, ) (metaObj *Meta, shouldBuild bool) {
+	metaName := fmt.Sprintf("%s__%s", ownerMeta.Name, field.LinkMeta)
+
+	if metaObj, ok := metaFactory.builtMetas[metaName]; ok {
+		return metaObj, false
+	}
+
+	fields := []Field{
+		{
+			Name: "id",
+			Type: FieldTypeNumber,
+			Def: map[string]interface{}{
+				"func": "nextval",
+			},
+			Optional: true,
+		},
+		{
+			Name:     ownerMeta.Name,
+			Type:     FieldTypeObject,
+			LinkMeta: ownerMeta.Name,
+			LinkType: LinkTypeInner,
+			Optional: false,
+		},
+		{
+			Name:     field.LinkMeta,
+			Type:     FieldTypeObject,
+			LinkMeta: field.LinkMeta,
+			LinkType: LinkTypeInner,
+			Optional: false,
+		},
+	}
+	//set outer link to the current field
+	field.OuterLinkField = fields[1].Name
+	//
+	metaDescription := NewMetaDescription(metaName, "id", fields, []Action{}, false)
+	metaObj = &Meta{MetaDescription: metaDescription}
+	return metaObj, true
+
+}
+
 //factory field description by provided Field
 func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
 	var err error
@@ -133,6 +185,18 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 			metaFactory.enqueueForResolving(fieldDescription.LinkMeta)
 		}
 	}
+
+	if field.Type == FieldTypeObjects && field.LinkType == LinkTypeInner {
+
+		var shouldBuild bool
+		if fieldDescription.LinkThrough, shouldBuild = metaFactory.buildThroughMeta(&field, objectMeta); err != nil {
+			return nil, err
+		}
+		if shouldBuild {
+			metaFactory.enqueueForResolving(fieldDescription.LinkThrough)
+		}
+	}
+
 	if len(field.LinkMetaList) > 0 {
 		for _, metaName := range field.LinkMetaList {
 			if linkMeta, shouldBuild, err := metaFactory.buildMeta(metaName); err != nil {
@@ -180,6 +244,21 @@ func (metaFactory *MetaFactory) setOuterLinks(objectMeta *Meta) error {
 				continue
 			}
 			field.OuterLinkField = field.LinkMeta.FindField(field.Field.OuterLinkField)
+		}
+	}
+	return nil
+}
+
+//check outer links for each processed Metal
+func (metaFactory *MetaFactory) setObjectsLinks(objectMeta *Meta) error {
+	for _, currentObjectMeta := range metaFactory.builtMetas {
+		//processing outer links
+		for i, _ := range currentObjectMeta.Fields {
+			field := &currentObjectMeta.Fields[i]
+			if field.Type != FieldTypeObjects {
+				continue
+			}
+			field.OuterLinkField = field.LinkThrough.FindField(field.Field.OuterLinkField)
 		}
 	}
 	return nil

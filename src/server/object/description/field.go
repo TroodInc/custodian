@@ -13,10 +13,18 @@ const (
 	FieldTypeBool
 	FieldTypeArray
 	FieldTypeObject
+	FieldTypeObjects
 	FieldTypeDateTime
 	FieldTypeDate
 	FieldTypeTime
 	FieldTypeGeneric
+)
+
+type FieldMode int
+
+const (
+	FieldModeRetrieve FieldMode = iota + 1
+	FieldModeQuery
 )
 
 func AsFieldType(s string) (FieldType, bool) {
@@ -31,6 +39,8 @@ func AsFieldType(s string) (FieldType, bool) {
 		return FieldTypeArray, true
 	case "object":
 		return FieldTypeObject, true
+	case "objects":
+		return FieldTypeObjects, true
 	case "generic":
 		return FieldTypeGeneric, true
 	case "datetime":
@@ -56,6 +66,8 @@ func (fieldType FieldType) String() (string, bool) {
 		return "array", true
 	case FieldTypeObject:
 		return "object", true
+	case FieldTypeObjects:
+		return "objects", true
 	case FieldTypeDateTime:
 		return "datetime", true
 	case FieldTypeDate:
@@ -87,6 +99,9 @@ func (fieldType FieldType) AssertType(i interface{}) bool {
 	case FieldTypeObject:
 		_, ok := i.(map[string]interface{})
 		return ok
+	case FieldTypeObjects:
+		_, ok := i.([]interface{})
+		return ok
 	default:
 		return false
 	}
@@ -117,6 +132,11 @@ func (fieldType FieldType) TypeAsserter() func(interface{}) bool {
 	case FieldTypeObject:
 		return func(i interface{}) bool {
 			_, ok := i.(map[string]interface{})
+			return ok
+		}
+	case FieldTypeObjects:
+		return func(i interface{}) bool {
+			_, ok := i.([]interface{})
 			return ok
 		}
 	default:
@@ -199,8 +219,8 @@ func (lt LinkType) MarshalJSON() ([]byte, error) {
 type Field struct {
 	Name           string      `json:"name"`
 	Type           FieldType   `json:"type"`
-	LinkMeta       string      `json:"linkMeta,omitempty"`     //only for array and objects
-	LinkMetaList   []string    `json:"linkMetaList,omitempty"` //only for array and objects
+	LinkMeta       string      `json:"linkMeta,omitempty"`     //only for array and "object"
+	LinkMetaList   []string    `json:"linkMetaList,omitempty"` //only for array and "object"
 	LinkType       LinkType    `json:"linkType,omitempty"`
 	OuterLinkField string      `json:"outerLinkField,omitempty"`
 	Optional       bool        `json:"optional"`
@@ -208,8 +228,9 @@ type Field struct {
 	Def            interface{} `json:"default,omitempty"`
 	QueryMode      bool        `json:"queryMode,omitempty"`    //only for outer links, true if field should be used for querying
 	RetrieveMode   bool        `json:"retrieveMode,omitempty"` //only for outer links, true if field should be used for data retrieving
+	LinkThrough    string      `json:"linkThrough,omitempty"`  //only for "objects" field
 }
 
 func (f *Field) IsSimple() bool {
-	return f.Type != FieldTypeObject && f.Type != FieldTypeArray && f.Type != FieldTypeGeneric
+	return f.Type != FieldTypeObject && f.Type != FieldTypeArray && f.Type != FieldTypeGeneric && f.Type != FieldTypeObjects
 }

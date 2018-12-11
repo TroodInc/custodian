@@ -5,9 +5,10 @@ import "server/data/record"
 type RecordOperationType int
 
 const (
-	RecordOperationTypeCreate RecordOperationType = iota + 1
+	RecordOperationTypeCreate  RecordOperationType = iota + 1
 	RecordOperationTypeUpdate
 	RecordOperationTypeRemove
+	RecordOperationTypeRetrive
 )
 
 type RecordOperation struct {
