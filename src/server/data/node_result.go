@@ -21,19 +21,33 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 		}
 
 		if childNode.plural && childNode.IsOfRegularType() && !ctx.omitOuters {
-
-			k := resultNode.values[childNode.Meta.Key.Name]
-			if arr, e := childNode.ResolveRegularPlural(ctx, k); e != nil {
-				return nil, e
-			} else if arr != nil {
-				resultNode.values[childNode.LinkField.Name] = arr
-				for _, m := range arr {
-					if !childNode.OnlyLink {
-						childNodeResults = append(childNodeResults, ResultNode{childNode, m.(map[string]interface{})})
+			keyValue := resultNode.values[childNode.Meta.Key.Name]
+			if childNode.LinkField.Type != description.FieldTypeObjects {
+				if arr, e := childNode.ResolveRegularPlural(ctx, keyValue); e != nil {
+					return nil, e
+				} else if arr != nil {
+					resultNode.values[childNode.LinkField.Name] = arr
+					for _, m := range arr {
+						if !childNode.OnlyLink {
+							childNodeResults = append(childNodeResults, ResultNode{childNode, m.(map[string]interface{})})
+						}
 					}
+				} else {
+					delete(resultNode.values, childNode.LinkField.Name)
 				}
 			} else {
-				delete(resultNode.values, childNode.LinkField.Name)
+				if arr, e := childNode.ResolvePluralObjects(ctx, keyValue); e != nil {
+					return nil, e
+				} else if arr != nil {
+					resultNode.values[childNode.LinkField.Name] = arr
+					if !childNode.OnlyLink {
+						for _, m := range arr {
+							childNodeResults = append(childNodeResults, ResultNode{childNode, m.(map[string]interface{})})
+						}
+					}
+				} else {
+					delete(resultNode.values, childNode.LinkField.Name)
+				}
 			}
 		} else if childNode.plural && childNode.IsOfGenericType() && !ctx.omitOuters {
 			pkValue := resultNode.values[childNode.Meta.Key.Name]

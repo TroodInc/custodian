@@ -252,10 +252,8 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 	fieldPathParts := strings.Split(fieldPath, ".")
 
 	for i := 0; i < len(fieldPathParts); i++ {
-		//dynamically build child nodes if current node does not have them
-		if len(currentNode.ChildNodes) == 0 {
-			currentNode.RecursivelyFillChildNodes(currentNode.Depth+1, description.FieldModeQuery)
-		}
+		//dynamically build child nodes for Query mode
+		currentNode.RecursivelyFillChildNodes(currentNode.Depth+1, description.FieldModeQuery)
 
 		field := currentMeta.FindField(fieldPathParts[i])
 
