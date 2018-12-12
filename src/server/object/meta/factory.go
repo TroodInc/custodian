@@ -75,9 +75,9 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 
 	//check PK field
 	if currentMeta.Key = currentMeta.FindField(currentMeta.MetaDescription.Key); currentMeta.Key == nil {
-		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The specified key '%s' Field not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
+		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The specified key '%s' NewField not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
 	} else if !currentMeta.Key.IsSimple() {
-		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The key Field '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
+		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The key NewField '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
 	}
 
 	// check CAS
@@ -123,7 +123,7 @@ func (metaFactory *MetaFactory) FactoryFieldDescription(field Field, objectMeta 
 	}
 }
 
-//factory field description by provided Field
+//factory field description by provided NewField
 func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
 	var err error
 	var onDeleteStrategy OnDeleteStrategy
@@ -212,9 +212,9 @@ func (metaFactory *MetaFactory) checkOuterLinks(objectMeta *Meta) error {
 			continue
 		}
 		if outerLinkField := field.LinkMeta.FindField(field.Field.OuterLinkField); outerLinkField == nil {
-			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. Meta '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
+			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "NewField '%s' has incorrect outer link. Meta '%s' has no NewField '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
 		} else if !outerLinkField.canBeLinkTo(field.Meta) {
-			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, outerLinkField.Name, outerLinkField.Meta.Name, field.Meta.Name)
+			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "NewField '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, outerLinkField.Name, outerLinkField.Meta.Name, field.Meta.Name)
 		}
 	}
 	return nil

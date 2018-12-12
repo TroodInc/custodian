@@ -16,7 +16,7 @@ type GenericInnerFieldValidator struct {
 
 func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.FieldDescription, value interface{}) (*types.GenericInnerLink, error) {
 	if castValue, ok := value.(map[string]interface{}); !ok {
-		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldDescription.Name)
+		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "NewField '%s' has a wrong type", fieldDescription.Name)
 	} else {
 		if objectName, err := validator.validateObjectName(castValue[types.GenericInnerLinkObjectKey], fieldDescription); err != nil {
 			return nil, err

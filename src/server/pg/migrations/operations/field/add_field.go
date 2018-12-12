@@ -3,13 +3,12 @@ package field
 import (
 	"server/object/meta"
 	"server/transactions"
-	"text/template"
 	"database/sql"
 	"server/migrations/operations/field"
 	"server/pg"
 	"fmt"
-	"bytes"
 	"logger"
+	"server/pg/migrations/operations/statement_factories"
 )
 
 type AddFieldOperation struct {
@@ -29,7 +28,7 @@ func (o *AddFieldOperation) SyncDbDescription(metaObj *meta.Meta, transaction tr
 		return err
 	}
 
-	if err := o.addColumnStatements(&statementSet, &columns, metaObj); err != nil {
+	if err := o.addColumnStatements(&statementSet, columns, metaObj); err != nil {
 		return err
 	}
 
@@ -47,79 +46,43 @@ func (o *AddFieldOperation) SyncDbDescription(metaObj *meta.Meta, transaction tr
 	return nil
 }
 
-//sequence
 func (o *AddFieldOperation) addSequenceStatement(statementSet *pg.DdlStatementSet, sequence *pg.Seq) error {
 	if sequence == nil {
 		return nil
 	}
-
-	var buffer bytes.Buffer
-
-	if e := parsedTemplateCreateSeq.Execute(&buffer, sequence); e != nil {
-		return pg.NewDdlError(pg.ErrInternal, e.Error(), sequence.Name)
+	if statement, err := new(statement_factories.SequenceStatementFactory).FactoryCreateStatement(sequence); err != nil {
+		return err
+	} else {
+		statementSet.Add(statement)
+		return nil
 	}
-	statementSet.Add(pg.NewDdlStatement(fmt.Sprintf("create_seq#%s", sequence.Name), buffer.String()))
-	return nil
 }
 
-const createSequenceTemplate = `CREATE SEQUENCE "{{.Name}}";`
-
-var parsedTemplateCreateSeq = template.Must(template.New("add_seq").Parse(createSequenceTemplate))
-//
-
-// column
-func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns *[]pg.Column, metaObj *meta.Meta) error {
-	var buffer bytes.Buffer
-
+func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaObj *meta.Meta) error {
+	statementFactory := new(statement_factories.ColumnStatementFactory)
 	tableName := pg.GetTableName(metaObj.Name)
-	for _, column := range *columns {
-		buffer.Reset()
-		if err := parsedAddTableColumnTemplate.Execute(&buffer, map[string]interface{}{
-			"Table": tableName,
-			"dot":   column}); err != nil {
-			return pg.NewDdlError(pg.ErrExecutingDDL, err.Error(), pg.GetTableName(metaObj.Name))
+	for _, column := range columns {
+		statement, err := statementFactory.FactoryAddStatement(tableName, column)
+		if err != nil {
+			return err
 		}
-		name := fmt.Sprintf("add_table_column#%s.%s", tableName, column.Name)
-		statementSet.Add(pg.NewDdlStatement(name, buffer.String()))
+		statementSet.Add(statement)
 	}
 	return nil
 }
-
-const addTableColumnTemplate = `ALTER TABLE "{{.Table}}" ADD COLUMN "{{.dot.Name}}" {{.dot.Typ.DdlType}}{{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}};`
-
-var parsedAddTableColumnTemplate = template.Must(template.New("add_table_column").Parse(addTableColumnTemplate))
-
-//Constraint
-const addInnerFkConstraintTemplate = `
-	ALTER TABLE "{{.Table}}" 
-	ADD CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} 
-	FOREIGN KEY ("{{.dot.FromColumn}}") 
-	REFERENCES "{{.dot.ToTable}}" ("{{.dot.ToColumn}}") 
-	ON DELETE {{.dot.OnDelete}} 
-	{{if eq .dot.OnDelete "SET DEFAULT" }} 
-		{{ .dot.Default }} 
-	{{end}};
-`
-
-var parsedAddInnerFkConstraintTemplate = template.Must(template.New("add_ifk").Parse(addInnerFkConstraintTemplate))
 
 func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaObj *meta.Meta) error {
 	if ifk == nil {
 		return nil
 	}
-
-	var buffer bytes.Buffer
+	statementFactory := new(statement_factories.ConstraintStatementFactory)
 	tableName := pg.GetTableName(metaObj.Name)
 
-	name := fmt.Sprintf("add_ifk#%s_%s_%s_%s", tableName, ifk.FromColumn, ifk.ToTable, ifk.ToColumn)
-
-	if e := parsedAddInnerFkConstraintTemplate.Execute(&buffer, map[string]interface{}{
-		"Table": tableName,
-		"dot":   ifk}); e != nil {
-		return pg.NewDdlError(tableName, pg.ErrInternal, e.Error())
+	statement, err := statementFactory.FactoryCreateStatement(tableName, ifk)
+	if err != nil {
+		return err
 	}
-	statementSet.Add(pg.NewDdlStatement(name, buffer.String()))
-
+	statementSet.Add(statement)
 	return nil
 }
 

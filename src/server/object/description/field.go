@@ -133,7 +133,7 @@ func (fieldType *FieldType) UnmarshalJSON(b []byte) error {
 		*fieldType = assumedFieldType
 		return nil
 	} else {
-		return NewMetaDescriptionError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect Field type: %str", str)
+		return NewMetaDescriptionError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect NewField type: %str", str)
 	}
 }
 

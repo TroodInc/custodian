@@ -101,7 +101,7 @@ func (validationService *ValidationService) Validate(dbTransaction transactions.
 				if _, ok := value.(ALink); ok {
 					break
 				} else if value != nil {
-					return nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldName)
+					return nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "NewField '%s' has a wrong type", fieldName)
 				}
 			}
 		}

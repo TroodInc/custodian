@@ -9,5 +9,5 @@ import (
 
 func TestField(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Field Suite")
+	RunSpecs(t, "NewField Suite")
 }
