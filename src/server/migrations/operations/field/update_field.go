@@ -34,3 +34,7 @@ func (o *UpdateFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transacti
 
 	return new(meta.MetaFactory).FactoryMeta(metaDescription)
 }
+
+func NewUpdateFieldOperation(currentField *meta.FieldDescription, newField *meta.FieldDescription) *UpdateFieldOperation {
+	return &UpdateFieldOperation{CurrentField: currentField, NewField: newField}
+}

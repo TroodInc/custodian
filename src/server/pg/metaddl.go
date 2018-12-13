@@ -214,7 +214,11 @@ var ddlFuncs = template.FuncMap{"dict": dictionary}
 func valToDdl(v interface{}) (string, error) {
 	switch v := v.(type) {
 	case string:
-		return fmt.Sprintf(`'%s'`, v), nil
+		if len(v) > 0 {
+			return fmt.Sprintf(`'%s'`, v), nil
+		} else {
+			return "", nil
+		}
 	case int:
 		return strconv.Itoa(v), nil
 	case uint:
