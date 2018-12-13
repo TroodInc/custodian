@@ -32,18 +32,21 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 	var metaObj *meta.Meta
 	var fieldToUpdate description.Field
 
-	BeforeEach(func() {
+	flushDb := func() {
 		//Flush meta/database
-		var err error
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
+		err = metaStore.Flush(globalTransaction)
+		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
+	}
 
-	Describe("'Direct' case for simple field", func() {
+	Describe("Simple field case", func() {
+
+		BeforeEach(flushDb)
+		AfterEach(flushDb)
 		//setup MetaObj
-		BeforeEach(func() {
+		JustBeforeEach(func() {
 			//"Direct" case
 			metaDescription = &description.MetaDescription{
 				Name: "a",
@@ -69,6 +72,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			}
 			//create Meta
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
 			operation := object.NewCreateObjectOperation(metaDescription)
 			//sync Meta
 			metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
@@ -87,7 +91,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
-		It("changes column type", func() {
+		FIt("changes column type", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -107,10 +111,10 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
 
-			globalTransactionManager.RollbackTransaction(globalTransaction)
+			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
-		It("changes nullability flag", func() {
+		FIt("changes nullability flag", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -130,7 +134,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Optional).To(BeFalse())
 
-			globalTransactionManager.RollbackTransaction(globalTransaction)
+			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("changes name", func() {
@@ -153,7 +157,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("updated-name"))
 
-			globalTransactionManager.RollbackTransaction(globalTransaction)
+			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("drops default value", func() {
@@ -178,7 +182,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(1))
 
-			globalTransactionManager.RollbackTransaction(globalTransaction)
+			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("does all things described above at once", func() {
@@ -210,7 +214,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			//Default has been dropped
 			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal(""))
 
-			globalTransactionManager.RollbackTransaction(globalTransaction)
+			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("creates default value and sequence", func() {
@@ -251,8 +255,106 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
 
-			globalTransactionManager.RollbackTransaction(globalTransaction)
+			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 	})
 
+	Describe("Inner FK field case", func() {
+		//setup MetaObj
+		BeforeEach(func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			//Meta B
+			bMetaDescription := &description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "number",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+				},
+			}
+			operation := object.NewCreateObjectOperation(bMetaDescription)
+			//sync Meta & DB
+			bMetaObj, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			err = operation.SyncDbDescription(bMetaObj, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+			//Meta A
+			metaDescription = &description.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "b",
+						Type:     description.FieldTypeObject,
+						LinkMeta: bMetaObj.Name,
+						LinkType: description.LinkTypeInner,
+					},
+				},
+			}
+			//create Meta
+			operation = object.NewCreateObjectOperation(metaDescription)
+			//sync Meta
+			metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			//sync DB
+			err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+			//
+
+			// clone a field
+			field := metaObj.FindField("b").Field
+			err = deepcopy.Copy(&fieldToUpdate, *field)
+			Expect(err).To(BeNil())
+			Expect(fieldToUpdate).NotTo(BeNil())
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("changes IFK name if field is renamed", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			//modify field
+			fieldToUpdate.Name = "b_link"
+			newFieldDescription, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryFieldDescription(fieldToUpdate, metaObj)
+			Expect(err).To(BeNil())
+
+			//apply operation
+			fieldOperation := NewUpdateFieldOperation(metaObj.FindField("b"), newFieldDescription)
+			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+
+			//check that field`s type has changed
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaObj.Name)
+			Expect(err).To(BeNil())
+			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("b_link"))
+			Expect(metaDdlFromDB.IFKs).To(HaveLen(1))
+			Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("b_link"))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+	})
 })

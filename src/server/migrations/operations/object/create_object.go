@@ -12,7 +12,8 @@ type CreateObjectOperation struct {
 
 func (o *CreateObjectOperation) SyncMetaDescription(_ *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	//factory new Meta
-	metaObj, err := new(meta.MetaFactory).FactoryMeta(&o.MetaDescription)
+
+	metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&o.MetaDescription)
 	if err != nil {
 		return metaObj, nil
 	}

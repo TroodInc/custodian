@@ -69,13 +69,15 @@ func (o *UpdateFieldOperation) factorySequenceStatements(statementSet *pg.DdlSta
 		}
 		statementSet.Add(statement)
 	} else {
-		//	sequence is being renamed due to field renaming
-		if currentSequence.Name != newSequence.Name {
-			statement, err := statementFactory.FactoryRenameStatement(currentSequence, newSequence)
-			if err != nil {
-				return err
+		if currentSequence != nil && newSequence != nil {
+			//	sequence is being renamed due to field renaming
+			if currentSequence.Name != newSequence.Name {
+				statement, err := statementFactory.FactoryRenameStatement(currentSequence, newSequence)
+				if err != nil {
+					return err
+				}
+				statementSet.Add(statement)
 			}
-			statementSet.Add(statement)
 		}
 	}
 	return nil

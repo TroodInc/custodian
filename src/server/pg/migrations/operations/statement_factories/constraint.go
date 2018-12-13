@@ -32,7 +32,7 @@ const addInnerFkConstraintTemplate = `
 	ALTER TABLE "{{.Table}}" 
 	ADD CONSTRAINT fk_{{.Ifk.FromColumn}}_{{.Ifk.ToTable}}_{{.Ifk.ToColumn}} 
 	FOREIGN KEY ("{{.Ifk.FromColumn}}") 
-	REFERENCES "{{.Ifk.ToTable}}" ("{{.dot.ToColumn}}") 
+	REFERENCES "{{.Ifk.ToTable}}" ("{{.Ifk.ToColumn}}") 
 	ON DELETE {{.Ifk.OnDelete}} 
 	{{if eq .Ifk.OnDelete "SET DEFAULT" }} 
 		{{ .Ifk.Default }} 
