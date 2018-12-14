@@ -41,6 +41,18 @@ func (m *Meta) FindField(name string) *FieldDescription {
 	return nil
 }
 
+func (m *Meta) ReverseOuterField(innerFieldName string) *FieldDescription {
+	innerField := m.FindField(innerFieldName)
+	for _, field := range innerField.LinkMeta.Fields {
+		if field.Type == FieldTypeArray && field.LinkType == LinkTypeOuter {
+			if field.OuterLinkField.Name == innerField.Name && field.LinkMeta.Name == m.Name {
+				return &field
+			}
+		}
+	}
+	return nil
+}
+
 func (m *Meta) AddField(fieldDescription FieldDescription) *FieldDescription {
 	m.Fields = append(m.Fields, fieldDescription)
 	m.MetaDescription.Fields = append(m.MetaDescription.Fields, *fieldDescription.Field)

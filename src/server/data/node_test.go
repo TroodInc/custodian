@@ -136,7 +136,7 @@ var _ = Describe("Node", func() {
 					OnlyLink:   false,
 					Parent:     nil,
 				}
-				node.RecursivelyFillChildNodes(100)
+				node.RecursivelyFillChildNodes(100, description.FieldModeRetrieve)
 				Expect(node.ChildNodes["c"].ChildNodes["b"].ChildNodes["a"].ChildNodes).To(HaveLen(0))
 			})
 		})

@@ -67,7 +67,7 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
 
 			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
-			root.RecursivelyFillChildNodes(ctx.depthLimit)
+			root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
 
 			if recordData, e := root.Resolve(ctx, pk); e != nil {
 				return nil, e
@@ -97,7 +97,7 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 			Parent:     nil,
 			Type:       NodeTypeRegular,
 		}
-		root.RecursivelyFillChildNodes(searchContext.depthLimit)
+		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
@@ -213,7 +213,16 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 					return nil, err
 				}
 			}
-
+		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+			for i, record := range recordSetOperation.RecordSet.Records {
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				if err != nil {
+					return nil, err
+				} else {
+					retrievedRecord.Links = record.Links
+					recordSetOperation.RecordSet.Records[i] = retrievedRecord
+				}
+			}
 		}
 	}
 
@@ -382,6 +391,16 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 				}
 			}
 
+		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+			for i, record := range recordSetOperation.RecordSet.Records {
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				if err != nil {
+					return nil, err
+				} else {
+					retrievedRecord.Links = record.Links
+					recordSetOperation.RecordSet.Records[i] = retrievedRecord
+				}
+			}
 		}
 	}
 	//it is important to CollapseLinks after all operations done, because intermediate calls may use inconsistent data

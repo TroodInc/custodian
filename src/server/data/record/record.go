@@ -10,15 +10,22 @@ type Record struct {
 	Meta    *meta.Meta
 	Data    map[string]interface{}
 	RawData map[string]interface{}
+	Links   []*types.LazyLink
 }
 
 //replace links with their records` values
 func (record *Record) CollapseLinks() {
+	//TODO: all Links should be placed into Record.Links, links in Record`s data
 	for k, v := range record.Data {
 		switch link := v.(type) {
-		case types.ALink:
+		case types.LazyLink:
 			if link.IsOuter {
 				if link.Field.Type == description.FieldTypeArray {
+					if a, prs := link.Obj[link.Field.Name]; !prs || a == nil {
+						link.Obj[link.Field.Name] = make([]interface{}, link.NeighboursCount)
+					}
+					(link.Obj[link.Field.Name]).([]interface{})[link.Index] = record.Data
+				} else if link.Field.Type == description.FieldTypeObjects {
 					if a, prs := link.Obj[link.Field.Name]; !prs || a == nil {
 						link.Obj[link.Field.Name] = make([]interface{}, link.NeighboursCount)
 					}
@@ -45,13 +52,24 @@ func (record *Record) CollapseLinks() {
 			}
 		}
 	}
+	//
+	for _, link := range record.Links {
+		//cases:
+		//1. Link is a reference to a record, which owns this one within "Objects" field
+		if link.IsOuter {
+			if a, prs := link.Obj[link.Field.Name]; !prs || a == nil {
+				link.Obj[link.Field.Name] = make([]interface{}, link.NeighboursCount)
+			}
+			(link.Obj[link.Field.Name]).([]interface{})[link.Index] = record.Data
+		}
+	}
 }
 
 //fill data with values RawData, which contains actual data after DB operations
 func (record *Record) MergeData() {
 	for k := range record.RawData {
 		if value, ok := record.Data[k]; ok {
-			if _, ok := value.(types.ALink); ok {
+			if _, ok := value.(types.LazyLink); ok {
 				continue
 			}
 			if _, ok := value.(*types.AGenericInnerLink); ok {
@@ -67,7 +85,7 @@ func (record *Record) PrepareData() {
 	record.RawData = map[string]interface{}{}
 	for k, v := range record.Data {
 		switch link := v.(type) {
-		case types.ALink:
+		case types.LazyLink:
 			if link.IsOuter {
 				record.RawData[k] = link.Obj[link.Field.LinkMeta.Key.Name]
 			} else {
@@ -101,5 +119,7 @@ func (record *Record) IsPhantom() bool {
 }
 
 func NewRecord(meta *meta.Meta, data map[string]interface{}) *Record {
-	return &Record{Meta: meta, Data: data, RawData: nil}
+	record := &Record{Meta: meta, Data: data, RawData: nil}
+	record.Links = make([]*types.LazyLink, 0)
+	return record
 }

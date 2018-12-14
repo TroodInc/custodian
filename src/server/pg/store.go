@@ -110,7 +110,7 @@ func tableFields(m *meta.Meta) []*meta.FieldDescription {
 	fields := make([]*meta.FieldDescription, 0)
 	l := len(m.Fields)
 	for i := 0; i < l; i++ {
-		if m.Fields[i].LinkType != description.LinkTypeOuter {
+		if m.Fields[i].LinkType != description.LinkTypeOuter && m.Fields[i].Type != description.FieldTypeObjects {
 			fields = append(fields, &m.Fields[i])
 		}
 	}
@@ -244,7 +244,7 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 	for fieldName, rv := range dbObj {
 		if val, ok := nodes[fieldName]; ok {
 			switch val := val.(type) {
-			case types.ALink:
+			case types.LazyLink:
 				continue
 			case types.DLink:
 				val.Id = rv
@@ -287,7 +287,7 @@ func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, ex
 			values = append(values, castValue.Pk)
 			processedColumns = append(processedColumns, meta.GetGenericFieldTypeColumnName(fieldName))
 			processedColumns = append(processedColumns, meta.GetGenericFieldKeyColumnName(fieldName))
-		case types.ALink:
+		case types.LazyLink:
 			values = append(values, castValue.Obj[castValue.Field.Meta.Key.Name])
 			processedColumns = append(processedColumns, fieldName)
 		case types.DLink:
@@ -309,7 +309,7 @@ func emptyOperation(dbTransaction transactions.DbTransaction) error {
 }
 
 func alinkVal(v interface{}) interface{} {
-	al := v.(types.ALink)
+	al := v.(types.LazyLink)
 	return al.Obj[al.Field.Meta.Key.Name]
 }
 
@@ -376,7 +376,7 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 
 		} else {
 			switch val.(type) {
-			case types.ALink:
+			case types.LazyLink:
 				currentColumnIndex++
 				updateFields = append(updateFields, fieldName)
 				updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))

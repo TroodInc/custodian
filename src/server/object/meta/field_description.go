@@ -13,6 +13,7 @@ type FieldDescription struct {
 	OuterLinkField *FieldDescription
 	LinkMetaList   *MetaList
 	OnDelete       OnDeleteStrategy
+	LinkThrough    *Meta
 }
 
 func (f *FieldDescription) Default() Def {
@@ -126,5 +127,4 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 	default:
 		return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal, "Unknown NewField type '%s'", f.Type)
 	}
-
 }

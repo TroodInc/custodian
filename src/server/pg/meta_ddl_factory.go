@@ -40,6 +40,8 @@ func (metaDdlFactory *MetaDdlFactory) FactoryFieldProperties(field *meta.FieldDe
 		return metaDdlFactory.processInnerLinkField(field)
 	} else if field.LinkType == description.LinkTypeOuter {
 		return metaDdlFactory.processOuterLinkField(field)
+	} else if field.Type == description.FieldTypeObjects {
+		return metaDdlFactory.processObjectsInnerLinkField(field)
 	} else if field.Type == description.FieldTypeGeneric && field.LinkType == description.LinkTypeInner {
 		return metaDdlFactory.processGenericInnerLinkField(field)
 	} else {
@@ -82,6 +84,11 @@ func (metaDdlFactory *MetaDdlFactory) processInnerLinkField(field *meta.FieldDes
 	}
 
 	return []Column{*column}, &ifk, nil, metaDdlFactory.factorySequence(field), nil
+}
+
+func (metaDdlFactory *MetaDdlFactory) processObjectsInnerLinkField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {
+	outerForeignKey := OFK{FromTable: GetTableName(field.LinkThrough.Name), FromColumn: field.Field.OuterLinkField, ToTable: GetTableName(field.Meta.Name), ToColumn: field.Meta.Key.Name}
+	return nil, nil, &outerForeignKey, nil, nil
 }
 
 func (metaDdlFactory *MetaDdlFactory) processOuterLinkField(field *meta.FieldDescription) ([]Column, *IFK, *OFK, *Seq, error) {

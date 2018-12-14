@@ -1083,4 +1083,95 @@ var _ = Describe("Data", func() {
 			Expect(matchedRecords[0]).NotTo(HaveKey("payments"))
 		})
 	})
+
+	It("can query by 'Objects' field values", func() {
+		Context("having an object with outer link to another object", func() {
+			aMetaDescription := description.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "name",
+						Type: description.FieldTypeString,
+					},
+				},
+			}
+			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, aMetaObj)
+			Expect(err).To(BeNil())
+
+			bMetaDescription := description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "as",
+						Type:     description.FieldTypeObjects,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: "a",
+						Optional: true,
+					},
+				},
+			}
+			bMetaObject, err := metaStore.NewMeta(&bMetaDescription)
+			Expect(err).To(BeNil())
+			metaStore.Create(globalTransaction, bMetaObject)
+
+			aRecordName := "Some-A-record"
+			//create B record with A record
+			bRecord, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction,
+				bMetaObject.Name,
+				map[string]interface{}{
+					"as": []interface{}{
+						map[string]interface{}{
+							"name": aRecordName,
+						},
+					},
+				},
+				auth.User{},
+			)
+			Expect(err).To(BeNil())
+
+			//create B record which should not be in query result
+			_, err = dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction,
+				bMetaObject.Name,
+				map[string]interface{}{},
+				auth.User{},
+			)
+			Expect(err).To(BeNil())
+
+			//
+			matchedRecords := []map[string]interface{}{}
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+			_, err = dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObject.Name, fmt.Sprintf("eq(as.name,%s)", aRecordName), 2, true, callbackFunction)
+			Expect(err).To(BeNil())
+
+			Expect(matchedRecords).To(HaveLen(1))
+			Expect(matchedRecords[0]["id"]).To(Equal(bRecord.Pk()))
+		})
+	})
 })

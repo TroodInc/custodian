@@ -16,3 +16,7 @@ func (md *MetaDescription) Clone() *MetaDescription {
 	deepcopy.Copy(metaDescription, md)
 	return metaDescription
 }
+
+func NewMetaDescription(name string, key string, fields []Field, actions []Action, cas bool) *MetaDescription {
+	return &MetaDescription{Name: name, Key: key, Fields: fields, Actions: actions, Cas: cas}
+}

@@ -2,6 +2,7 @@ package meta
 
 import (
 	. "server/object/description"
+	"fmt"
 )
 
 type MetaFactory struct {
@@ -36,6 +37,9 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 	if err := metaFactory.setOuterLinks(objectMeta); err != nil {
 		return nil, err
 	}
+	if err := metaFactory.setObjectsLinks(objectMeta); err != nil {
+		return nil, err
+	}
 	return objectMeta, nil
 }
 
@@ -45,6 +49,14 @@ func (metaFactory *MetaFactory) resolveEnqueued() error {
 		if currentMeta := metaFactory.popMetaToResolve(); currentMeta != nil {
 			if err := metaFactory.resolveMeta(currentMeta); err != nil {
 				return err
+			} else {
+				//TODO: actions like "checkOuterLinks", "setOuterLinks", "setObjectsLinks" should be performed for each
+				//meta regardless of whether meta is root or not, thus operations made in this case section duplicate
+				//operations for root meta. This behaviour should be fixed and tested to ensure no circular resolving
+				//happens
+				if err := metaFactory.setOuterLinks(currentMeta); err != nil {
+					return err
+				}
 			}
 		} else {
 			break
@@ -75,9 +87,9 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 
 	//check PK field
 	if currentMeta.Key = currentMeta.FindField(currentMeta.MetaDescription.Key); currentMeta.Key == nil {
-		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The specified key '%s' NewField not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
+		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The specified key '%s' Field not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
 	} else if !currentMeta.Key.IsSimple() {
-		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The key NewField '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
+		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The key Field '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
 	}
 
 	// check CAS
@@ -124,6 +136,47 @@ func (metaFactory *MetaFactory) FactoryFieldDescription(field Field, objectMeta 
 }
 
 //factory field description by provided NewField
+func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, ) (metaObj *Meta, shouldBuild bool) {
+	metaName := fmt.Sprintf("%s__%s", ownerMeta.Name, field.LinkMeta)
+
+	if metaObj, ok := metaFactory.builtMetas[metaName]; ok {
+		return metaObj, false
+	}
+
+	fields := []Field{
+		{
+			Name: "id",
+			Type: FieldTypeNumber,
+			Def: map[string]interface{}{
+				"func": "nextval",
+			},
+			Optional: true,
+		},
+		{
+			Name:     ownerMeta.Name,
+			Type:     FieldTypeObject,
+			LinkMeta: ownerMeta.Name,
+			LinkType: LinkTypeInner,
+			Optional: false,
+		},
+		{
+			Name:     field.LinkMeta,
+			Type:     FieldTypeObject,
+			LinkMeta: field.LinkMeta,
+			LinkType: LinkTypeInner,
+			Optional: false,
+		},
+	}
+	//set outer link to the current field
+	field.OuterLinkField = fields[1].Name
+	//
+	metaDescription := NewMetaDescription(metaName, "id", fields, []Action{}, false)
+	metaObj = &Meta{MetaDescription: metaDescription}
+	return metaObj, true
+
+}
+
+//factory field description by provided Field
 func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
 	var err error
 	var onDeleteStrategy OnDeleteStrategy
@@ -153,6 +206,18 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 			metaFactory.enqueueForResolving(fieldDescription.LinkMeta)
 		}
 	}
+
+	if field.Type == FieldTypeObjects && field.LinkType == LinkTypeInner {
+
+		var shouldBuild bool
+		if fieldDescription.LinkThrough, shouldBuild = metaFactory.buildThroughMeta(&field, objectMeta); err != nil {
+			return nil, err
+		}
+		if shouldBuild {
+			metaFactory.enqueueForResolving(fieldDescription.LinkThrough)
+		}
+	}
+
 	if len(field.LinkMetaList) > 0 {
 		for _, metaName := range field.LinkMetaList {
 			if linkMeta, shouldBuild, err := metaFactory.buildMeta(metaName); err != nil {
@@ -205,6 +270,21 @@ func (metaFactory *MetaFactory) setOuterLinks(objectMeta *Meta) error {
 	return nil
 }
 
+//check outer links for each processed Metal
+func (metaFactory *MetaFactory) setObjectsLinks(objectMeta *Meta) error {
+	for _, currentObjectMeta := range metaFactory.builtMetas {
+		//processing outer links
+		for i, _ := range currentObjectMeta.Fields {
+			field := &currentObjectMeta.Fields[i]
+			if field.Type != FieldTypeObjects {
+				continue
+			}
+			field.OuterLinkField = field.LinkThrough.FindField(field.Field.OuterLinkField)
+		}
+	}
+	return nil
+}
+
 func (metaFactory *MetaFactory) checkOuterLinks(objectMeta *Meta) error {
 	for i, _ := range objectMeta.Fields {
 		field := &objectMeta.Fields[i]
@@ -212,9 +292,9 @@ func (metaFactory *MetaFactory) checkOuterLinks(objectMeta *Meta) error {
 			continue
 		}
 		if outerLinkField := field.LinkMeta.FindField(field.Field.OuterLinkField); outerLinkField == nil {
-			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "NewField '%s' has incorrect outer link. Meta '%s' has no NewField '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
+			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. Meta '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
 		} else if !outerLinkField.canBeLinkTo(field.Meta) {
-			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "NewField '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, outerLinkField.Name, outerLinkField.Meta.Name, field.Meta.Name)
+			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, outerLinkField.Name, outerLinkField.Meta.Name, field.Meta.Name)
 		}
 	}
 	return nil

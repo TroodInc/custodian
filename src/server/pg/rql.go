@@ -252,6 +252,9 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 	fieldPathParts := strings.Split(fieldPath, ".")
 
 	for i := 0; i < len(fieldPathParts); i++ {
+		//dynamically build child nodes for Query mode
+		currentNode.RecursivelyFillChildNodes(currentNode.Depth+1, description.FieldModeQuery)
+
 		field := currentMeta.FindField(fieldPathParts[i])
 
 		if field == nil {
@@ -270,6 +273,15 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 				expression.WriteString(fmt.Sprintf("='%s'", fieldPathParts[i]))
 				expression.WriteString(" AND ")
 			}
+		} else if field.Type == description.FieldTypeObjects {
+			//query which uses "Objects" field has to be replaced with query using LinkThrough
+			//eg: object A has "Objects" relation "bs" which references B. Query like eq(bs.name,Fedor) will be replace
+			//with query eq(a__b_set.b.name,Fedor) and processed in the common way
+			outerField := field.LinkThrough.ReverseOuterField(field.Meta.Name).Name
+			throughObjectFieldName := field.LinkMeta.Name
+			fieldPathParts = append(fieldPathParts[:i], append([]string{outerField, throughObjectFieldName}, fieldPathParts[i+1:]...)...)
+			i--
+			continue
 		}
 
 		//fieldPathParts[len(fieldPathParts)-1] != types.GenericInnerLinkObjectKey
@@ -312,14 +324,9 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 					}
 				}
 				if !ok {
-					return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' branch", linkedMeta.Name, field.Name)
+					return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' branch", currentNode.Meta.Name, field.Name)
 				}
 				currentNode = expectedNode
-
-				//dynamically build child nodes if not built yet
-				if len(currentNode.ChildNodes) == 0 {
-					currentNode.RecursivelyFillChildNodes(currentNode.Depth + 1)
-				}
 
 				currentMeta = linkedMeta
 				alias = exists.Alias
@@ -445,6 +452,9 @@ func (ctx *context) sqlOpSimple(op string) sqlOp {
 }
 
 func in(ctx *context, args []interface{}) (expr, error) {
+	if len(args) == 1 {
+		args = append(args, "")
+	}
 	if len(args) < 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected exactly one argument for '%s' rql function but found '%d'", "in", len(args))
 	}
