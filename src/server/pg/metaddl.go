@@ -732,7 +732,7 @@ func GetTableName(metaName string) string {
 	return name.String()
 }
 
-var seqNameParseRe = regexp.MustCompile("nextval\\('(.*)'::regclass\\)")
+var seqNameParseRe = regexp.MustCompile("nextval\\('(?:\"?)(.*?)(?:\"?)'::regclass\\)")
 
 func MetaDDLFromDB(tx *sql.Tx, name string) (*MetaDDL, error) {
 	md := &MetaDDL{Table: TableNamePrefix + name}

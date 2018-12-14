@@ -23,7 +23,7 @@ func (o *RenameObjectOperation) SyncMetaDescription(metaObj *meta.Meta, transact
 	//create new one
 	metaDescriptionSyncer.Create(transaction, *metaDescription)
 
-	return new(meta.MetaFactory).FactoryMeta(metaDescription)
+	return meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 }
 
 func (o *RenameObjectOperation) validate(metaObj *meta.Meta, metaDescriptionSyncer meta.MetaDescriptionSyncer) error {

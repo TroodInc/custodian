@@ -13,10 +13,9 @@ import (
 	"server/pg/migrations/operations/object"
 	"database/sql"
 	"github.com/getlantern/deepcopy"
-	"server/migrations/operations/field"
 )
 
-var _ = FDescribe("'AddField' Migration Operation", func() {
+var _ = Describe("'AddField' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
@@ -40,11 +39,11 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
+	BeforeEach(flushDb)
+	AfterEach(flushDb)
 
 	Describe("Simple field case", func() {
 
-		BeforeEach(flushDb)
-		AfterEach(flushDb)
 		//setup MetaObj
 		JustBeforeEach(func() {
 			//"Direct" case
@@ -91,7 +90,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
-		FIt("changes column type", func() {
+		It("changes column type", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -104,6 +103,8 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			fieldOperation := NewUpdateFieldOperation(metaObj.FindField("number"), newFieldDescription)
 			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
 
 			//check that field`s type has changed
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
@@ -114,7 +115,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
-		FIt("changes nullability flag", func() {
+		It("changes nullability flag", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -126,6 +127,8 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaObj.FindField("number"), newFieldDescription)
 			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			//check that field`s type has changed
@@ -150,6 +153,8 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			fieldOperation := NewUpdateFieldOperation(metaObj.FindField("number"), newFieldDescription)
 			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
 
 			//check that field`s type has changed
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
@@ -172,6 +177,8 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaObj.FindField("number"), newFieldDescription)
 			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			//check that field`s default value has been dropped
@@ -197,6 +204,8 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			fieldOperation := NewUpdateFieldOperation(metaObj.FindField("number"), newFieldDescription)
 
 			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
@@ -229,9 +238,7 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			fieldOperation := NewUpdateFieldOperation(metaObj.FindField("number"), newFieldDescription)
 			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
-
-			metaFieldOperation := field.NewUpdateFieldOperation(metaObj.FindField("number"), newFieldDescription)
-			metaObj, err = metaFieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			metaObj, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//
 
@@ -245,6 +252,8 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			//apply operation
 			fieldOperation = NewUpdateFieldOperation(metaObj.FindField("number"), newFieldDescription)
 			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			//check that field`s default value has been dropped
@@ -344,6 +353,8 @@ var _ = FDescribe("'AddField' Migration Operation", func() {
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaObj.FindField("b"), newFieldDescription)
 			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			//check that field`s type has changed

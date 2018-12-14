@@ -20,7 +20,7 @@ func (o *AddFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transaction 
 	metaDescription.Fields = append(metaDescription.Fields, *o.Field.Field)
 
 	//factory new Meta
-	metaObj, err := new(meta.MetaFactory).FactoryMeta(metaDescription)
+	metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 	if err != nil {
 		return metaObj, nil
 	}
@@ -31,7 +31,7 @@ func (o *AddFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transaction 
 		return metaObj, nil
 	}
 
-	return new(meta.MetaFactory).FactoryMeta(metaDescription)
+	return meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 }
 
 func (o *AddFieldOperation) validate(metaObj *meta.Meta) error {

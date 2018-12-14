@@ -58,7 +58,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		}
 		Expect(err).To(BeNil())
 		//factory new Meta
-		metaObj, err = new(meta.MetaFactory).FactoryMeta(&metaDescription)
+		metaObj, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		//sync its MetaDescription
 		err = syncer.CreateObj(globalTransaction.DbTransaction, metaObj)

@@ -15,15 +15,15 @@ func (o *UpdateFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transacti
 
 	//replace field
 	for i, field := range metaDescription.Fields {
-		if field.Name == o.NewField.Name {
+		if field.Name == o.CurrentField.Name {
 			metaDescription.Fields[i] = *o.NewField.Field
 		}
 	}
 
 	//factory new Meta
-	metaObj, err := new(meta.MetaFactory).FactoryMeta(metaDescription)
+	metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 	if err != nil {
-		return metaObj, nil
+		return nil, err
 	}
 	//sync its MetaDescription
 	if _, err = metaDescriptionSyncer.Update(metaObj.Name, *metaObj.MetaDescription); err != nil {
@@ -31,8 +31,6 @@ func (o *UpdateFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transacti
 	} else {
 		return metaObj, nil
 	}
-
-	return new(meta.MetaFactory).FactoryMeta(metaDescription)
 }
 
 func NewUpdateFieldOperation(currentField *meta.FieldDescription, newField *meta.FieldDescription) *UpdateFieldOperation {

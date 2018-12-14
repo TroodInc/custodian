@@ -11,7 +11,7 @@ type ColumnStatementFactory struct{}
 
 func (csm *ColumnStatementFactory) FactoryAddStatement(tableName string, column pg.Column) (*pg.DDLStmt, error) {
 	var buffer bytes.Buffer
-	context := map[string]string{"Table": tableName, "Column": column.Name}
+	context := map[string]interface{}{"Table": tableName, "Column": column}
 	if e := parsedAddTableColumnTemplate.Execute(&buffer, context); e != nil {
 		return nil, pg.NewDdlError(pg.ErrInternal, e.Error(), tableName)
 	}

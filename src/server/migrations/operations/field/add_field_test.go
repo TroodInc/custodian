@@ -55,7 +55,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			},
 		}
 		var err error
-		objectMeta, err = new(meta.MetaFactory).FactoryMeta(&metaDescription)
+		objectMeta, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *objectMeta.MetaDescription)
 		Expect(err).To(BeNil())

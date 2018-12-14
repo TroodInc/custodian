@@ -60,7 +60,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			},
 		}
 		var err error
-		objectMeta, err = new(meta.MetaFactory).FactoryMeta(&metaDescription)
+		objectMeta, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *objectMeta.MetaDescription)
 		Expect(err).To(BeNil())
@@ -91,7 +91,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		Expect(metaDescription.Fields).To(HaveLen(2))
 		Expect(metaDescription.Fields[1].Name).To(Equal("name"))
 
-		objectMeta, err = new(meta.MetaFactory).FactoryMeta(metaDescription)
+		objectMeta, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 		Expect(objectMeta.FindField("name").Optional).To(BeFalse())
 		Expect(objectMeta.FindField("name").Def).To(BeNil())
