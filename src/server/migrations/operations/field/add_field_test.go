@@ -75,7 +75,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		field := description.Field{Name: "new_field", Type: description.FieldTypeString, Optional: true}
 		fieldDescription, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryFieldDescription(field, objectMeta)
 
-		operation := AddFieldOperation{Field: fieldDescription}
+		operation := NewAddFieldOperation(fieldDescription)
 		objectMeta, err := operation.SyncMetaDescription(objectMeta, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(objectMeta).NotTo(BeNil())

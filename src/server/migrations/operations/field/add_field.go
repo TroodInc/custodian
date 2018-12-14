@@ -40,3 +40,7 @@ func (o *AddFieldOperation) validate(metaObj *meta.Meta) error {
 	}
 	return nil
 }
+
+func NewAddFieldOperation(field *meta.FieldDescription) *AddFieldOperation {
+	return &AddFieldOperation{Field: field}
+}
