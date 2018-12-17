@@ -18,6 +18,15 @@ func (csm *ColumnStatementFactory) FactoryAddStatement(tableName string, column 
 	return pg.NewDdlStatement(fmt.Sprintf("add_column#%s", tableName), buffer.String()), nil
 }
 
+func (csm *ColumnStatementFactory) FactoryDropStatement(tableName string, column pg.Column) (*pg.DDLStmt, error) {
+	var buffer bytes.Buffer
+	context := map[string]interface{}{"Table": tableName, "Column": column}
+	if e := parsedDropColumnTemplate.Execute(&buffer, context); e != nil {
+		return nil, pg.NewDdlError(pg.ErrInternal, e.Error(), tableName)
+	}
+	return pg.NewDdlStatement(fmt.Sprintf("drop_column#%s", tableName), buffer.String()), nil
+}
+
 func (csm *ColumnStatementFactory) FactoryRenameStatement(tableName string, currentColumn pg.Column, newColumn pg.Column) (*pg.DDLStmt, error) {
 	var buffer bytes.Buffer
 	context := map[string]string{"Table": tableName, "CurrentName": currentColumn.Name, "NewName": newColumn.Name}
@@ -79,3 +88,7 @@ const addTableColumnTemplate = `
 	{{if .Column.Defval}} DEFAULT {{.Column.Defval}}{{end}};`
 
 var parsedAddTableColumnTemplate = template.Must(template.New("add_table_column").Parse(addTableColumnTemplate))
+
+const dropColumnTemplate = `ALTER TABLE "{{.Table}}" DROP COLUMN "{{.Column.Name}}";`
+
+var parsedDropColumnTemplate = template.Must(template.New("drop_table_column").Parse(dropColumnTemplate))
