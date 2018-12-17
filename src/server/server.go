@@ -8,6 +8,7 @@ import (
 	"server/object/meta"
 	"server/pg"
 	"server/auth"
+	"server/abac"
 	"github.com/julienschmidt/httprouter"
 	"io"
 	"mime"
@@ -26,6 +27,8 @@ import (
 	. "server/errors"
 	. "server/streams"
 	_ "net/http/pprof"
+	"fmt"
+	"os"
 )
 
 type CustodianApp struct {
@@ -54,6 +57,53 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if user, err := app.authenticator.Authenticate(req); err == nil {
 
 		ctx := context.WithValue(req.Context(), "auth_user", user)
+
+		resolver := abac.GetTroodABACResolver(map[string]interface{} {
+			"sbj": user,
+			"ctx": req,
+		},)
+
+		handled, opts, _ := app.router.Lookup(req.Method, req.RequestURI)
+
+		if handled != nil {
+			var res = opts.ByName("name")
+			var action = ""
+
+			splited := strings.Split(req.RequestURI, "/")
+
+			if res != "" {
+				if splited[2] == "meta" {
+					action = "meta_" + req.Method
+				} else if splited[2] == "data" {
+					action = "data_" + splited[3] + "_" + req.Method
+				}
+			} else {
+				if splited[2] == "meta" {
+					res = "meta"
+				} else {
+					res = "*"
+				}
+
+				action = req.Method
+			}
+
+			rules := abac.GetAttributeByPath(user.ABAC[os.Getenv("SERVICE_DOMAIN")], res + "." + action)
+
+			if rules != nil {
+				for _, rule := range rules.([]interface{}) {
+					fmt.Println(rule)
+					result, filters  := resolver.EvaluateRule(rule.(map[string]interface{}))
+
+					if result {
+						ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
+						break
+					} else {
+						returnError(w, auth.NewError("Access restricted by ABAC access rule"))
+						return
+					}
+				}
+			}
+		}
 
 		app.router.ServeHTTP(w, req.WithContext(ctx))
 	} else {
@@ -353,7 +403,17 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					omitOuters = true
 				}
 
-				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), pq.Get("q"), depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+				auth_filters := request.Context().Value("auth_filters");
+				user_filters := pq.Get("q")
+
+				var filters = ""
+				if auth_filters != nil && user_filters != "" {
+					filters = auth_filters.(string) + "," + user_filters
+				} else if user_filters != "" {
+					filters = user_filters
+				}
+
+				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters , depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
 				if e != nil {
 					sink.PushError(e)
 					dbTransactionManager.RollbackTransaction(dbTransaction)
