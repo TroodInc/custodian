@@ -1,24 +1,17 @@
 package object
 
 import (
-	"server/object/description"
 	"server/object/meta"
 	"server/transactions"
 )
 
 type CreateObjectOperation struct {
-	description.MetaDescription
 }
 
-func (o *CreateObjectOperation) SyncMetaDescription(_ *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
-	//factory new Meta
+func (o *CreateObjectOperation) SyncMetaDescription(metaObj *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 
-	metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&o.MetaDescription)
-	if err != nil {
-		return metaObj, nil
-	}
 	//sync its MetaDescription
-	if err = metaDescriptionSyncer.Create(transaction, *metaObj.MetaDescription); err != nil {
+	if err := metaDescriptionSyncer.Create(transaction, *metaObj.MetaDescription); err != nil {
 		return nil, err
 	} else {
 		return metaObj, nil

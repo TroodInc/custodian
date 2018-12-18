@@ -27,7 +27,7 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	var metaDescription description.MetaDescription
+	var metaDescription *description.MetaDescription
 
 	//setup transaction
 	BeforeEach(func() {
@@ -41,7 +41,7 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = description.MetaDescription{
+		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -71,8 +71,11 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//create Meta
-		operation := NewCreateObjectOperation(&metaDescription)
-		metaObj, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		Expect(err).To(BeNil())
+
+		operation := NewCreateObjectOperation()
+		metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		//sync Meta with DB

@@ -72,9 +72,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			//create Meta
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
-			operation := object.NewCreateObjectOperation(metaDescription)
+			operation := object.NewCreateObjectOperation()
 			//sync Meta
-			metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+
+			metaObj, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+			Expect(err).To(BeNil())
+
+			metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//sync DB
 			err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
@@ -153,10 +157,14 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					},
 				},
 			}
-			operation := object.NewCreateObjectOperation(bMetaDescription)
+			operation := object.NewCreateObjectOperation()
 			//sync Meta & DB
-			bMetaObj, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 			Expect(err).To(BeNil())
+
+			bMetaObj, err = operation.SyncMetaDescription(bMetaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+
 			err = operation.SyncDbDescription(bMetaObj, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
 			//Meta A
@@ -180,10 +188,12 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					},
 				},
 			}
+			metaObj, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+			Expect(err).To(BeNil())
 			//create Meta
-			operation = object.NewCreateObjectOperation(metaDescription)
+			operation = object.NewCreateObjectOperation()
 			//sync Meta
-			metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//sync DB
 			err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)

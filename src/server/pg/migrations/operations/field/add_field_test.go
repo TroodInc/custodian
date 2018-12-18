@@ -26,7 +26,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var metaDescription description.MetaDescription
+	var metaDescription *description.MetaDescription
 
 	flushDb := func() {
 		//Flush meta/database
@@ -43,7 +43,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = description.MetaDescription{
+		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -64,9 +64,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//create Meta
-		operation := object.NewCreateObjectOperation(&metaDescription)
+		operation := object.NewCreateObjectOperation()
+		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		Expect(err).To(BeNil())
 
-		metaObj, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
@@ -101,8 +103,12 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//create Meta
-		operation := object.NewCreateObjectOperation(&metaDescription)
-		metaObj, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		operation := object.NewCreateObjectOperation()
+
+		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		Expect(err).To(BeNil())
+
+		metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
@@ -141,14 +147,17 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//create Meta
-		operation := object.NewCreateObjectOperation(&metaDescription)
-		metaObj, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		Expect(err).To(BeNil())
+
+		operation := object.NewCreateObjectOperation()
+		metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 
 		//create linked Meta obj
-		linkedMetaDescription := description.MetaDescription{
+		linkedMetaDescription := &description.MetaDescription{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
@@ -162,9 +171,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 				},
 			},
 		}
-		linkedMetaOperation := object.NewCreateObjectOperation(&linkedMetaDescription)
-		linkedMetaObj, err := linkedMetaOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		linkedMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(linkedMetaDescription)
 		Expect(err).To(BeNil())
+
+		linkedMetaOperation := object.NewCreateObjectOperation()
+		linkedMetaObj, err = linkedMetaOperation.SyncMetaDescription(linkedMetaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+
 		err = linkedMetaOperation.SyncDbDescription(linkedMetaObj, globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 

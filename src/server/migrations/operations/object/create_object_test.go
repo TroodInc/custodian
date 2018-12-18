@@ -26,7 +26,7 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	var metaDescription description.MetaDescription
+	var metaDescription *description.MetaDescription
 
 	//setup transaction
 	BeforeEach(func() {
@@ -40,7 +40,7 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = description.MetaDescription{
+		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -67,8 +67,12 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 	It("stores MetaDescription to file", func() {
 
-		operation := CreateObjectOperation{metaDescription}
-		metaObj, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		operation := CreateObjectOperation{}
+
+		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		Expect(err).To(BeNil())
+
+		metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(metaObj).NotTo(BeNil())
 

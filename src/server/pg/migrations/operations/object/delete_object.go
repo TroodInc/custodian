@@ -52,3 +52,7 @@ func (o *DeleteObjectOperation) SyncDbDescription(metaObj *meta.Meta, transactio
 const dropTableTemplate = `DROP TABLE "{{.Table}}" {{.Mode}};`
 
 var parsedDropTableTemplate = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(dropTableTemplate))
+
+func NewDeleteObjectOperation() *DeleteObjectOperation {
+	return &DeleteObjectOperation{}
+}

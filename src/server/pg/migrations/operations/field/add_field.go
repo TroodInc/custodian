@@ -13,6 +13,7 @@ import (
 
 type AddFieldOperation struct {
 	field.AddFieldOperation
+
 }
 
 func (o *AddFieldOperation) SyncDbDescription(metaObj *meta.Meta, transaction transactions.DbTransaction) (err error) {
