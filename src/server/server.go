@@ -18,7 +18,7 @@ import (
 	"strings"
 	"time"
 	"context"
-	//"github.com/getsentry/raven-go"
+	"github.com/getsentry/raven-go"
 	"server/transactions"
 	"server/transactions/file_transaction"
 	pg_transactions "server/pg/transactions"
@@ -488,27 +488,27 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		app.router.Handler(http.MethodGet, "/debug/pprof/:item", http.DefaultServeMux)
 	}
 
-	//app.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
-	//	user := r.Context().Value("auth_user").(auth.User)
-	//	raven.SetUserContext(&raven.User{ID: strconv.Itoa(user.Id), Username: user.Login})
-	//	raven.SetHttpContext(raven.NewHttp(r))
-	//	if err, ok := err.(error); ok {
-	//		raven.CaptureErrorAndWait(err, nil)
-	//		raven.ClearContext()
-	//
-	//		//rollback set transactions
-	//		if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
-	//			dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
-	//		}
-	//
-	//		if globalTransaction := r.Context().Value("global_transaction"); globalTransaction != nil {
-	//			globalTransactionManager.RollbackTransaction(globalTransaction.(*transactions.GlobalTransaction))
-	//		}
-	//		//
-	//
-	//		returnError(w, err.(error))
-	//	}
-	//}
+	app.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
+		user := r.Context().Value("auth_user").(auth.User)
+		raven.SetUserContext(&raven.User{ID: strconv.Itoa(user.Id), Username: user.Login})
+		raven.SetHttpContext(raven.NewHttp(r))
+		if err, ok := err.(error); ok {
+			raven.CaptureErrorAndWait(err, nil)
+			raven.ClearContext()
+
+			//rollback set transactions
+			if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
+				dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
+			}
+
+			if globalTransaction := r.Context().Value("global_transaction"); globalTransaction != nil {
+				globalTransactionManager.RollbackTransaction(globalTransaction.(*transactions.GlobalTransaction))
+			}
+			//
+
+			returnError(w, err.(error))
+		}
+	}
 
 	cs.s = &http.Server{
 		Addr:           cs.addr + ":" + cs.port,
