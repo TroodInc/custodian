@@ -250,22 +250,42 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 		}
 	}
 
-	//get records which are not presented in data
-	if !record.IsPhantom() {
-		excludeIdFilters := ""
-		for _, record := range recordsToProcess {
-			if pkValue, ok := record.Data[fieldDescription.LinkMeta.Name].(interface{}); ok {
-				idAsString, _ := fieldDescription.LinkMeta.Key.ValueAsString(pkValue)
-				if len(excludeIdFilters) != 0 {
-					excludeIdFilters += ","
-				}
-				excludeIdFilters += idAsString
+	beingAddedIds := ""
+
+	for _, record := range recordsToProcess {
+		if pkValue, ok := record.Data[fieldDescription.LinkMeta.Name].(interface{}); ok {
+			idAsString, _ := fieldDescription.LinkMeta.Key.ValueAsString(pkValue)
+			if len(beingAddedIds) != 0 {
+				beingAddedIds += ","
 			}
+			beingAddedIds += idAsString
 		}
-		if len(excludeIdFilters) > 0 {
-			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.Meta.Name, record.PkAsString(), fieldDescription.LinkMeta.Name, excludeIdFilters)
+	}
+
+	//get records which are not presented in data and should be removed from m2m relation
+	if !record.IsPhantom() {
+		if len(beingAddedIds) > 0 {
+			filter := fmt.Sprintf("eq(%s,%s),not(in(%s,(%s)))", fieldDescription.Meta.Name, record.PkAsString(), fieldDescription.LinkMeta.Name, beingAddedIds)
 			callbackFunction := func(obj map[string]interface{}) error {
 				recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkThrough, obj))
+				return nil
+			}
+			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, 1, true, callbackFunction)
+		}
+	}
+	//get records which are already attached and remove them from list of records to process
+	if !record.IsPhantom() {
+		if len(beingAddedIds) > 0 {
+			filter := fmt.Sprintf("eq(%s,%s),in(%s,(%s))", fieldDescription.Meta.Name, record.PkAsString(), fieldDescription.LinkMeta.Name, beingAddedIds)
+			callbackFunction := func(obj map[string]interface{}) error {
+				removedCount := 0
+				for i := range recordsToProcess {
+					j := i - removedCount
+					if recordsToProcess[j].Data[fieldDescription.LinkMeta.Name] == obj[fieldDescription.LinkMeta.Name] {
+						recordsToProcess = append(recordsToProcess[:j], recordsToProcess[j+1:]...)
+						removedCount++
+					}
+				}
 				return nil
 			}
 			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, 1, true, callbackFunction)
