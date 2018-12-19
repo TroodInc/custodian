@@ -45,7 +45,7 @@ func (metaStore *MetaStore) List() (*[]*MetaDescription, bool, error) {
 }
 
 /*
-   Retrives object metadata from the underlying store.
+   Retrieves object metadata from the underlying store.
 */
 func (metaStore *MetaStore) Get(transaction *transactions.GlobalTransaction, name string, useCache bool) (*Meta, bool, error) {
 	//try to get meta from cache

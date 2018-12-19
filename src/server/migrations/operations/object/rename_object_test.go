@@ -57,9 +57,9 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		metaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
-		operation := CreateObjectOperation{}
+		operation := CreateObjectOperation{Meta: metaOjb}
 
-		metaObj, err = operation.SyncMetaDescription(metaOjb, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(metaObj).NotTo(BeNil())
 	})
@@ -74,21 +74,26 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	})
 
 	It("renames metaDescription`s file", func() {
-		previousObjectName := metaObj.Name
-		operation := RenameObjectOperation{"b"}
-		metaObj, err := operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		updatedMetaDescription := metaObj.MetaDescription.Clone()
+		updatedMetaDescription.Name = "b"
+		updatedMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(updatedMetaDescription)
+		Expect(err).To(BeNil())
+
+		operation := RenameObjectOperation{Meta: updatedMetaObj}
+		updatedMetaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(metaObj).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file
-		metaDescription, _, err := metaDescriptionSyncer.Get(metaObj.Name)
+		metaDescription, _, err := metaDescriptionSyncer.Get(updatedMetaObj.Name)
 		Expect(metaDescription).NotTo(BeNil())
 		//ensure previous MetaDescription does not exist
-		metaDescription, _, err = metaDescriptionSyncer.Get(previousObjectName)
+		metaDescription, _, err = metaDescriptionSyncer.Get(metaObj.Name)
 		Expect(metaDescription).To(BeNil())
 
 		//clean up
-		metaDescriptionSyncer.Remove(metaObj.Name)
+		_, err = metaDescriptionSyncer.Remove(updatedMetaObj.Name)
+		Expect(err).To(BeNil())
 	})
 
 	It("does not rename metaDescription if new name clashes with the existing one", func() {
@@ -110,13 +115,13 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		bMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 		Expect(err).To(BeNil())
 
-		createOperation := CreateObjectOperation{}
-		bMetaObj, err := createOperation.SyncMetaDescription(bMetaOjb, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		createOperation := CreateObjectOperation{Meta: bMetaOjb}
+		bMetaObj, err := createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(metaObj).NotTo(BeNil())
 
 		//
-		renameOperation := RenameObjectOperation{bMetaObj.Name}
+		renameOperation := RenameObjectOperation{bMetaObj}
 		renamedMetaObj, err := renameOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 
 		// Ensure migration has not been applied

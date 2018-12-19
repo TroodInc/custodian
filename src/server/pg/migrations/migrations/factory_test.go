@@ -66,12 +66,13 @@ var _ = Describe("Migration Factory", func() {
 		//create Meta
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		operation := object.NewCreateObjectOperation()
 		//sync Meta
 		metaObj, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
-		metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		operation := object.NewCreateObjectOperation(metaObj)
+
+		metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//sync DB
 		err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)

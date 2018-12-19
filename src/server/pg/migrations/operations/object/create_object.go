@@ -16,10 +16,10 @@ type CreateObjectOperation struct {
 	object.CreateObjectOperation
 }
 
-func (o *CreateObjectOperation) SyncDbDescription(metaObj *meta.Meta, transaction transactions.DbTransaction) (err error) {
+func (o *CreateObjectOperation) SyncDbDescription(_ *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
-	if metaDdl, err = new(pg.MetaDdlFactory).Factory(metaObj); err != nil {
+	if metaDdl, err = new(pg.MetaDdlFactory).Factory(o.Meta); err != nil {
 		return err
 	}
 
@@ -40,7 +40,7 @@ func (o *CreateObjectOperation) SyncDbDescription(metaObj *meta.Meta, transactio
 	for _, statement := range statementSet {
 		logger.Debug("Creating object in DB: %syncer\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
-			return pg.NewDdlError(metaObj.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+			return pg.NewDdlError(o.Meta.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
 		}
 	}
 	return nil
@@ -95,6 +95,6 @@ var parsedTemplate = template.Must(
 		).Parse(columnsSubTemplate)).Parse(InnerFKSubTemplate),
 )
 
-func NewCreateObjectOperation() *CreateObjectOperation {
-	return &CreateObjectOperation{object.CreateObjectOperation{}}
+func NewCreateObjectOperation(metaObj *meta.Meta) *CreateObjectOperation {
+	return &CreateObjectOperation{object.CreateObjectOperation{Meta: metaObj}}
 }

@@ -26,6 +26,9 @@ import (
 	. "server/errors"
 	. "server/streams"
 	_ "net/http/pprof"
+	migrations_description "server/migrations/description"
+	"server/pg/migrations/migrations"
+	"server/pg/migrations/managers"
 )
 
 type CustodianApp struct {
@@ -127,12 +130,12 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 	//Meta routes
 	syncer, err := pg.NewSyncer(cs.db)
 	dataManager, _ := syncer.NewDataManager()
-	fileMetaDriver := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(fileMetaDriver, syncer)
+	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 
 	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(fileMetaDriver.Remove, fileMetaDriver.Create)
+	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
@@ -482,6 +485,39 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 				defer sink.Complete(nil)
 			}
 		}
+	}))
+
+	app.router.POST(cs.root+"/migration/apply", CreateJsonAction(func(r io.ReadCloser, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
+			globalTransactionManager.RollbackTransaction(globalTransaction)
+			js.pushError(err)
+			return
+		} else {
+			migrationDescription, err := new(migrations_description.MigrationDescription).Unmarshal(r)
+			if err != nil {
+				globalTransactionManager.RollbackTransaction(globalTransaction)
+				js.pushError(err)
+				return
+			}
+
+			migration, err := migrations.NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+			if err != nil {
+				globalTransactionManager.RollbackTransaction(globalTransaction)
+				js.pushError(err)
+				return
+			}
+
+			migrationManager := managers.NewMigrationManager(dataManager, metaDescriptionSyncer)
+			updatedMeta, err := migrationManager.Run(migration, globalTransaction, )
+			if err != nil {
+				globalTransactionManager.RollbackTransaction(globalTransaction)
+				js.pushError(err)
+				return
+			}
+			globalTransactionManager.CommitTransaction(globalTransaction)
+			js.push(map[string]interface{}{"status": "OK", "data": updatedMeta.DescriptionForExport()})
+		}
+
 	}))
 
 	if enableProfiler {

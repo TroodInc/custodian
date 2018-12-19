@@ -8,37 +8,72 @@ import (
 	"logger"
 	"server/transactions"
 	"fmt"
-	"text/template"
-	"bytes"
+	"server/pg/migrations/operations/statement_factories"
 )
 
 type RenameObjectOperation struct {
 	object.RenameObjectOperation
 }
 
-func (o *RenameObjectOperation) SyncDbDescription(metaObj *meta.Meta, transaction transactions.DbTransaction) (err error) {
+func (o *RenameObjectOperation) SyncDbDescription(metaObjToApply *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	//rename table
-	var buffer bytes.Buffer
-	tableName := pg.GetTableName(metaObj.Name)
-	newTableName := pg.GetTableName(o.NewName)
-	if e := parsedRenameTableTemplate.Execute(&buffer, map[string]string{"Table": tableName, "NewName": newTableName}); e != nil {
-		return pg.NewDdlError(tableName, pg.ErrInternal, e.Error())
-	}
-	statement := pg.DDLStmt{Name: "rename_table#" + tableName, Code: buffer.String()}
+	var statementSet = pg.DdlStatementSet{}
 
-	logger.Debug("Renaming object in DB: %syncer\n", statement.Code)
-	if _, err = tx.Exec(statement.Code); err != nil {
-		return pg.NewDdlError(metaObj.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+	err = o.factoryTableStatements(&statementSet, metaObjToApply.Name, o.Meta.Name)
+	if err != nil {
+		return err
 	}
+
+	for i := range metaObjToApply.Fields {
+		currentField := metaObjToApply.Fields[i]
+		newField := o.Meta.FindField(currentField.Name)
+
+		_, _, _, newSequence, err := new(pg.MetaDdlFactory).FactoryFieldProperties(newField)
+		if err != nil {
+			return err
+		}
+		_, _, _, currentSequence, err := new(pg.MetaDdlFactory).FactoryFieldProperties(&currentField)
+		if err != nil {
+			return err
+		}
+		if newSequence != nil && currentSequence != nil && newSequence.Name != currentSequence.Name {
+			o.factorySequenceStatements(&statementSet, currentSequence, newSequence)
+		}
+	}
+
+	for _, statement := range statementSet {
+		logger.Debug("Renaming object: %s\n", statement.Code)
+		if _, err = tx.Exec(statement.Code); err != nil {
+			return pg.NewDdlError(metaObjToApply.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+		}
+	}
+
 	return nil
 }
 
-const renameTableTemplate = `ALTER TABLE "{{.Table}}" RENAME TO {{.NewName}};`
+func (o *RenameObjectOperation) factoryTableStatements(statementSet *pg.DdlStatementSet, currentName string, newName string) error {
+	statementFactory := new(statement_factories.TableStatementFactory)
+	statement, err := statementFactory.FactoryRenameStatement(pg.GetTableName(currentName), pg.GetTableName(newName))
+	if err != nil {
+		return err
+	}
+	statementSet.Add(statement)
+	return nil
+}
 
-var parsedRenameTableTemplate = template.Must(template.New("rename_table").Funcs(ddlFuncs).Parse(renameTableTemplate))
+func (o *RenameObjectOperation) factorySequenceStatements(statementSet *pg.DdlStatementSet, currentSequence *pg.Seq, newSequence *pg.Seq) error {
+	statementFactory := new(statement_factories.SequenceStatementFactory)
+	statement, err := statementFactory.FactoryRenameStatement(currentSequence, newSequence)
+	if err != nil {
+		return err
+	}
+	statementSet.Add(statement)
 
-func NewRenameObjectOperation(newName string) *RenameObjectOperation {
-	return &RenameObjectOperation{RenameObjectOperation: object.RenameObjectOperation{NewName: newName}}
+	return nil
+}
+
+func NewRenameObjectOperation(metaObj *meta.Meta) *RenameObjectOperation {
+	return &RenameObjectOperation{RenameObjectOperation: object.RenameObjectOperation{Meta: metaObj}}
 }

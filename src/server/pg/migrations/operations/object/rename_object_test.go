@@ -82,18 +82,23 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 
 	It("renames corresponding table in the database", func() {
 		oldMetaName := metaObj.Name
-		newMetaName := "b"
+
+		newMetaDescription := metaObj.MetaDescription.Clone()
+		newMetaDescription.Name = "b"
+		newMeta, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(newMetaDescription)
+		Expect(err).To(BeNil())
+
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
 		//sync Meta with DB
-		operation := NewRenameObjectOperation(newMetaName)
+		operation := NewRenameObjectOperation(newMeta)
 		err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
 		//ensure table has been renamed
-		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, newMetaName)
+		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, newMeta.Name)
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 

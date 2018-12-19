@@ -74,8 +74,8 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
-		operation := NewCreateObjectOperation()
-		metaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		operation := NewCreateObjectOperation(metaObj)
+		metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		//sync Meta with DB

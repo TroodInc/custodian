@@ -39,9 +39,17 @@ func (of *OperationFactory) Factory(operationDescription *description.MigrationO
 		}
 		return field.NewUpdateFieldOperation(currentField, newField), nil
 	case description.CreateObjectOperation:
-		return object.NewCreateObjectOperation(), nil
+		metaObj, err := of.metaFactory.FactoryMeta(&operationDescription.MetaDescription)
+		if err != nil {
+			return nil, err
+		}
+		return object.NewCreateObjectOperation(metaObj), nil
 	case description.RenameObjectOperation:
-		return object.NewRenameObjectOperation(operationDescription.MetaDescription.Name), nil
+		metaObj, err := of.metaFactory.FactoryMeta(&operationDescription.MetaDescription)
+		if err != nil {
+			return nil, err
+		}
+		return object.NewRenameObjectOperation(metaObj), nil
 	case description.DeleteObjectOperation:
 		return object.NewDeleteObjectOperation(), nil
 	}
