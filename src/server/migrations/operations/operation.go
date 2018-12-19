@@ -6,7 +6,7 @@ import (
 )
 
 type MigrationOperation interface {
-	SyncDbDescription(*meta.Meta, transactions.DbTransaction) (err error)
+	SyncDbDescription(metaToApplyTo *meta.Meta, dbTransaction transactions.DbTransaction) (err error)
 	SyncMetaDescription(*meta.Meta, transactions.MetaDescriptionTransaction, meta.MetaDescriptionSyncer) (*meta.Meta, error)
 }
 

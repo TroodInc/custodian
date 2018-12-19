@@ -16,7 +16,7 @@ type UpdateFieldOperation struct {
 	field.UpdateFieldOperation
 }
 
-func (o *UpdateFieldOperation) SyncDbDescription(metaObj *meta.Meta, transaction transactions.DbTransaction) (err error) {
+func (o *UpdateFieldOperation) SyncDbDescription(metaToApplyTo *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	newColumns, newIfk, _, newSequence, err := new(pg.MetaDdlFactory).FactoryFieldProperties(o.NewField)
@@ -34,18 +34,18 @@ func (o *UpdateFieldOperation) SyncDbDescription(metaObj *meta.Meta, transaction
 		return err
 	}
 	//columns
-	if err := o.factoryColumnsStatements(&statementSet, currentColumns, newColumns, metaObj); err != nil {
+	if err := o.factoryColumnsStatements(&statementSet, currentColumns, newColumns, metaToApplyTo); err != nil {
 		return err
 	}
 	//constraint
-	if err := o.factoryConstraintStatement(&statementSet, currentIfk, newIfk, metaObj); err != nil {
+	if err := o.factoryConstraintStatement(&statementSet, currentIfk, newIfk, metaToApplyTo); err != nil {
 		return err
 	}
 
 	for _, statement := range statementSet {
 		logger.Debug("Updating field in DB: %s\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
-			return pg.NewDdlError(metaObj.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+			return pg.NewDdlError(metaToApplyTo.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
 		}
 	}
 

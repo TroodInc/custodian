@@ -50,7 +50,7 @@ var _ = Describe("Server", func() {
 		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(false)
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
 		recorder = httptest.NewRecorder()
 
 	})

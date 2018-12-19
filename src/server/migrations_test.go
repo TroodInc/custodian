@@ -38,7 +38,7 @@ var _ = Describe("Server", func() {
 
 	BeforeEach(func() {
 		//setup server
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(false)
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
 		recorder = httptest.NewRecorder()
 	})
 
@@ -199,4 +199,325 @@ var _ = Describe("Server", func() {
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
+
+	It("Can delete object by application of migration", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		//Create A object
+		aMetaDescription := &description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+
+		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		Expect(err).To(BeNil())
+
+		createOperation := object.NewCreateObjectOperation(aMetaOjb)
+		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		Expect(err).To(BeNil())
+
+		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		Expect(err).To(BeNil())
+		//apply migration
+
+		migrationDescriptionData := map[string]interface{}{
+			"id":        "jsdf7823",
+			"applyTo":   "a",
+			"dependsOn": []string{},
+			"operations": []map[string]interface{}{
+				{
+					"type": "deleteObject",
+					"object": map[string]interface{}{
+						"name": "a",
+						"key":  "id",
+						"cas":  false,
+						"fields": []map[string]interface{}{
+							{
+								"name": "id",
+								"type": description.FieldTypeNumber,
+								"default": map[string]interface{}{
+									"func": "nextval",
+								},
+							},
+						},
+					},
+				},
+			},
+		}
+
+		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
+
+		url := fmt.Sprintf("%s/migration/apply", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+
+		//check response status
+		Expect(body["status"]).To(Equal("OK"))
+		//ensure meta has been renamed
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		dMeta, _, err := metaStore.Get(globalTransaction, "d", false)
+		Expect(dMeta).To(BeNil())
+		Expect(err).NotTo(BeNil())
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
+
+	It("Can add field by application of migration", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		//Create A object
+		aMetaDescription := &description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+
+		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		Expect(err).To(BeNil())
+
+		createOperation := object.NewCreateObjectOperation(aMetaOjb)
+		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		Expect(err).To(BeNil())
+
+		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		Expect(err).To(BeNil())
+		//apply migration
+
+		migrationDescriptionData := map[string]interface{}{
+			"id":        "qsGsd7823",
+			"applyTo":   "a",
+			"dependsOn": []string{},
+			"operations": []map[string]interface{}{
+				{
+					"type": "addField",
+					"field": map[string]interface{}{
+						"name":    "new-field",
+						"type":    "string",
+						"default": "some-default",
+					},
+				},
+			},
+		}
+
+		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
+
+		url := fmt.Sprintf("%s/migration/apply", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+
+		//check response status
+		Expect(body["status"]).To(Equal("OK"))
+		//ensure meta has been renamed
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		Expect(err).To(BeNil())
+
+		Expect(aMeta.Fields).To(HaveLen(2))
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
+
+	It("Can rename field by application of migration", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		//Create A object
+		aMetaDescription := &description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name: "some_field",
+					Type: description.FieldTypeString,
+					Def:  "def-string",
+				},
+			},
+		}
+
+		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		Expect(err).To(BeNil())
+
+		createOperation := object.NewCreateObjectOperation(aMetaOjb)
+		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		Expect(err).To(BeNil())
+
+		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		Expect(err).To(BeNil())
+		//apply migration
+
+		migrationDescriptionData := map[string]interface{}{
+			"id":        "q3sdfsgd7823",
+			"applyTo":   "a",
+			"dependsOn": []string{},
+			"operations": []map[string]interface{}{
+				{
+					"type": "updateField",
+					"field": map[string]interface{}{
+						"previousName": "some_field",
+						"name":         "some_new_field",
+						"type":         "string",
+						"default":      "some-default",
+					},
+				},
+			},
+		}
+
+		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
+
+		url := fmt.Sprintf("%s/migration/apply", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+
+		//check response status
+		Expect(body["status"]).To(Equal("OK"))
+		//ensure meta has been renamed
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		Expect(err).To(BeNil())
+
+		Expect(aMeta.Fields).To(HaveLen(2))
+		Expect(aMeta.FindField("some_new_field")).NotTo(BeNil())
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
+
+	It("Can remove field by application of migration", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		//Create A object
+		aMetaDescription := &description.MetaDescription{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name: "some_field",
+					Type: description.FieldTypeString,
+					Def:  "def-string",
+				},
+			},
+		}
+
+		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		Expect(err).To(BeNil())
+
+		createOperation := object.NewCreateObjectOperation(aMetaOjb)
+		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		Expect(err).To(BeNil())
+
+		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		Expect(err).To(BeNil())
+		//apply migration
+
+		migrationDescriptionData := map[string]interface{}{
+			"id":        "q3sdfsgd7823",
+			"applyTo":   "a",
+			"dependsOn": []string{},
+			"operations": []map[string]interface{}{
+				{
+					"type": "removeField",
+					"field": map[string]interface{}{
+						"name":    "some_field",
+						"type":    "string",
+						"default": "some-default",
+					},
+				},
+			},
+		}
+
+		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
+
+		url := fmt.Sprintf("%s/migration/apply", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+
+		//check response status
+		Expect(body["status"]).To(Equal("OK"))
+		//ensure meta has been renamed
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		Expect(err).To(BeNil())
+
+		Expect(aMeta.Fields).To(HaveLen(1))
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
+
 })

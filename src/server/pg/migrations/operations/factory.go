@@ -33,9 +33,9 @@ func (of *OperationFactory) Factory(operationDescription *description.MigrationO
 		if err != nil {
 			return nil, err
 		}
-		currentField := metaObj.FindField(operationDescription.Field.Name)
+		currentField := metaObj.FindField(operationDescription.Field.PreviousName)
 		if currentField == nil {
-			return nil, migrations.NewMigrationError(fmt.Sprintf("meta %s has no field %s", metaObj.Name, operationDescription.Field.Name))
+			return nil, migrations.NewMigrationError(fmt.Sprintf("meta %s has no field %s", metaObj.Name, operationDescription.Field.PreviousName))
 		}
 		return field.NewUpdateFieldOperation(currentField, newField), nil
 	case description.CreateObjectOperation:
