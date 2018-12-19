@@ -29,6 +29,7 @@ import (
 	migrations_description "server/migrations/description"
 	"server/pg/migrations/migrations"
 	"server/pg/migrations/managers"
+	"utils"
 )
 
 type CustodianApp struct {
@@ -123,7 +124,7 @@ func (cs *CustodianServer) SetAuth(s string) {
 	cs.auth_url = s
 }
 
-func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
+func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	app := GetApp(cs)
 
@@ -515,34 +516,45 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 				return
 			}
 			globalTransactionManager.CommitTransaction(globalTransaction)
-			js.push(map[string]interface{}{"status": "OK", "data": updatedMeta.DescriptionForExport()})
+
+			//response data
+			var responseData map[string]interface{}
+			if updatedMeta != nil {
+				responseData = map[string]interface{}{"status": "OK", "data": updatedMeta.DescriptionForExport()}
+			} else {
+				responseData = map[string]interface{}{"status": "OK"}
+			}
+
+			js.push(map[string]interface{}{"status": "OK", "data": responseData})
 		}
 
 	}))
 
-	if enableProfiler {
+	if config.EnableProfiler {
 		app.router.Handler(http.MethodGet, "/debug/pprof/:item", http.DefaultServeMux)
 	}
 
-	app.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
-		user := r.Context().Value("auth_user").(auth.User)
-		raven.SetUserContext(&raven.User{ID: strconv.Itoa(user.Id), Username: user.Login})
-		raven.SetHttpContext(raven.NewHttp(r))
-		if err, ok := err.(error); ok {
-			raven.CaptureErrorAndWait(err, nil)
-			raven.ClearContext()
+	if !config.DisableSafePanicHandler {
+		app.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
+			user := r.Context().Value("auth_user").(auth.User)
+			raven.SetUserContext(&raven.User{ID: strconv.Itoa(user.Id), Username: user.Login})
+			raven.SetHttpContext(raven.NewHttp(r))
+			if err, ok := err.(error); ok {
+				raven.CaptureErrorAndWait(err, nil)
+				raven.ClearContext()
 
-			//rollback set transactions
-			if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
+				//rollback set transactions
+				if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
+					dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
+				}
+
+				if globalTransaction := r.Context().Value("global_transaction"); globalTransaction != nil {
+					globalTransactionManager.RollbackTransaction(globalTransaction.(*transactions.GlobalTransaction))
+				}
+				//
+
+				returnError(w, err.(error))
 			}
-
-			if globalTransaction := r.Context().Value("global_transaction"); globalTransaction != nil {
-				globalTransactionManager.RollbackTransaction(globalTransaction.(*transactions.GlobalTransaction))
-			}
-			//
-
-			returnError(w, err.(error))
 		}
 	}
 
