@@ -1,4 +1,4 @@
-package keepers
+package managers
 
 import (
 	. "github.com/onsi/ginkgo"
@@ -9,13 +9,15 @@ import (
 	"database/sql"
 	"server/migrations/migrations"
 	"server/migrations/description"
+	"server/object/meta"
 )
 
-var _ = FDescribe("Migrations's keeper", func() {
+var _ = Describe("MigrationManager", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 
 	dataManager, _ := syncer.NewDataManager()
+	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 	//transaction managers
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 
@@ -23,7 +25,7 @@ var _ = FDescribe("Migrations's keeper", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
-		_, err = NewMigrationHouseKeeper(dataManager).ensureHistoryTableExists(dbTransaction)
+		_, err = NewMigrationManager(dataManager, metaDescriptionSyncer).ensureHistoryTableExists(dbTransaction)
 		Expect(err).To(BeNil())
 
 		metaDdl, err := pg.MetaDDLFromDB(dbTransaction.Transaction().(*sql.Tx), historyMetaName)
@@ -42,7 +44,7 @@ var _ = FDescribe("Migrations's keeper", func() {
 		migrationUid := "c1be598d"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{Id: migrationUid}}
 
-		migrationHistoryId, err := NewMigrationHouseKeeper(dataManager).RecordAppliedMigration(migration, dbTransaction)
+		migrationHistoryId, err := NewMigrationManager(dataManager, metaDescriptionSyncer).recordAppliedMigration(migration, dbTransaction)
 		Expect(err).To(BeNil())
 
 		Expect(migrationHistoryId).To(Equal("1"))
@@ -56,12 +58,12 @@ var _ = FDescribe("Migrations's keeper", func() {
 		migrationUid := "c1be598d"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{Id: migrationUid}}
 
-		_, err = NewMigrationHouseKeeper(dataManager).RecordAppliedMigration(migration, dbTransaction)
+		_, err = NewMigrationManager(dataManager, metaDescriptionSyncer).recordAppliedMigration(migration, dbTransaction)
 		Expect(err).To(BeNil())
 
-		_, err = NewMigrationHouseKeeper(dataManager).RecordAppliedMigration(migration, dbTransaction)
+		_, err = NewMigrationManager(dataManager, metaDescriptionSyncer).recordAppliedMigration(migration, dbTransaction)
 		Expect(err).NotTo(BeNil())
-		
+
 		dbTransactionManager.RollbackTransaction(dbTransaction)
 	})
 })

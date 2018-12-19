@@ -1,4 +1,4 @@
-package keepers_test
+package managers_test
 
 import (
 	"testing"
@@ -7,7 +7,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-func TestKeepers(t *testing.T) {
+func TestManagers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Keepers Suite")
+	RunSpecs(t, "Managers Suite")
 }
