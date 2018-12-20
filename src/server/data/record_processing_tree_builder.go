@@ -20,7 +20,7 @@ func (r *RecordProcessingTreeBuilder) Build(record *record.Record, processor *Pr
 
 func (r *RecordProcessingTreeBuilder) buildNode(recordProcessingNode *RecordProcessingNode, processor *Processor, dbTransaction transactions.DbTransaction) error {
 	var err error
-	if recordProcessingNode.ProcessBefore, recordProcessingNode.ProcessAfter, recordProcessingNode.RemoveBefore, err = NewValidationService(processor.metaStore, processor).Validate(dbTransaction, recordProcessingNode.Record); err != nil {
+	if recordProcessingNode.RetrieveBefore, recordProcessingNode.ProcessBefore, recordProcessingNode.ProcessAfter, recordProcessingNode.RemoveBefore, err = NewValidationService(processor.metaStore, processor).Validate(dbTransaction, recordProcessingNode.Record); err != nil {
 		return err
 	} else {
 		for _, childRecordProcessingNode := range recordProcessingNode.ProcessBefore {
