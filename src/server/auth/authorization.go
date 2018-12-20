@@ -24,6 +24,7 @@ type User struct {
 	Login 	string	`json:"login"`
 	Status 	string	`json:"status"`
 	Role 	string	`json:"role"`
+	ABAC 	map[string]interface{}  `json:"abac"`
 }
 
 func NewError(text string) error {
