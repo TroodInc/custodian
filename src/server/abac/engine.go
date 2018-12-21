@@ -65,11 +65,9 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 
 		fmt.Println("ABAC:  evaluating ", operand, operator, value)
 
-
+		var flt interface{} = nil
 		if is_filter {
-			f := makeFilter(operand.(string), value)
-			fmt.Println("ABAC:  adding filter ", f)
-			filters = append(filters, f)
+			flt = makeFilter(operand.(string), value)
 		} else {
 			if operator_func, ok := operations[operator]; ok {
 				result, _ = operator_func(value, operand)
@@ -77,11 +75,15 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 
 			if operator_func, ok := aggregation[operator]; ok {
 				if operator == "in" {
-					result, _ = operator_func(value.([]interface{}), operand)
+					result, flt = operator_func(value.([]interface{}), operand)
 				} else {
-					result, _ = operator_func(value.([]interface{}), this)
+					result, flt = operator_func(value.([]interface{}), this)
 				}
 			}
+		}
+
+		if flt != nil {
+			filters = append(filters, flt.(string))
 		}
 	}
 	return result, filters
@@ -170,16 +172,18 @@ func operatorAnd(value []interface{}, resolver interface{}) (bool, interface{}) 
 
 func operatorOr(value []interface{}, resolver interface{}) (bool, interface{}) {
 	var filters []string
+	var result = false
 	for _, condition := range value {
 		r := resolver.(*TroodABACResolver)
 		res, flt := r.evaluateCondition(condition.(map[string]interface{}))
 		filters = append(filters, flt...)
 
 		if res {
-			return res, filters
+			result = true
 		}
 	}
-	return false, nil
+
+	return result, "or(" + strings.Join(filters, ",") + ")"
 }
 
 func cleanupType(value interface{}) interface{}{
