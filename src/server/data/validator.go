@@ -261,6 +261,9 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 			beingAddedIds += idAsString
 		}
 	}
+	if len(beingAddedIds) > 0 {
+		beingAddedIds = beingAddedIds[:len(beingAddedIds)-1]
+	}
 
 	//get records which are not presented in data and should be removed from m2m relation
 	if !record.IsPhantom() {
