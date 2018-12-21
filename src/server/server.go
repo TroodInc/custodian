@@ -94,6 +94,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					fmt.Println("ABAC:  matched rule", rule)
 					result, filters  := resolver.EvaluateRule(rule.(map[string]interface{}))
 
+					fmt.Println("ABAC:  filters ", filters)
 					if result {
 						ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
 						break
@@ -411,6 +412,8 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					filters = auth_filters.(string) + "," + user_filters
 				} else if user_filters != "" {
 					filters = user_filters
+				} else if auth_filters != nil {
+					filters = auth_filters.(string)
 				}
 
 				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters , depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
