@@ -66,7 +66,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		handled, opts, _ := app.router.Lookup(req.Method, req.RequestURI)
 
 		if handled != nil {
-			var res = opts.ByName("name")
+			var res = strings.Split(opts.ByName("name"), "?")[0]
 			var action = ""
 
 			splited := strings.Split(req.RequestURI, "/")
@@ -91,7 +91,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			if rules != nil {
 				for _, rule := range rules.([]interface{}) {
-					fmt.Println(rule)
+					fmt.Println("ABAC:  matched rule", rule)
 					result, filters  := resolver.EvaluateRule(rule.(map[string]interface{}))
 
 					if result {

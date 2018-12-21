@@ -63,8 +63,12 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 
 		operand, value, is_filter := this.reveal(operand, value)
 
+		fmt.Println("ABAC:  evaluating ", operand, operator, value)
+
+
 		if is_filter {
 			f := makeFilter(operand.(string), value)
+			fmt.Println("ABAC:  adding filter ", f)
 			filters = append(filters, f)
 		} else {
 			if operator_func, ok := operations[operator]; ok {
