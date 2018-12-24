@@ -761,7 +761,7 @@ var _ = Describe("Data", func() {
 		Expect(bRecord.Data["c_set"].([]interface{})[1].(map[string]interface{})).To(HaveKeyWithValue("d", "DRecord"))
 	})
 
-	It("Processes delete logic for records within 'Objects' relation which are not presented in update data.", func() {
+	It("Processes delete logic for records within 'Objects' relation which are not presented in update data. Case 1: uniform type of data(list of ids)", func() {
 		havingObjectA()
 		dMetaObj := havingObjectD()
 		aMetaObj := havingObjectAWithObjectsLinkToD()
@@ -786,6 +786,34 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 		Expect(updatedARecord.Data).To(HaveKey("ds"))
 		Expect(updatedARecord.Data["ds"]).To(HaveLen(1))
+		Expect(updatedARecord.Data["ds"].([]interface{})[0].(map[string]interface{})["id"]).To(Equal(anotherDRecord.Pk()))
+	})
+
+	It("Processes delete logic for records within 'Objects' relation which are not presented in update data. Case 2: mixed type of data", func() {
+		havingObjectA()
+		dMetaObj := havingObjectD()
+		aMetaObj := havingObjectAWithObjectsLinkToD()
+
+		dRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, dMetaObj.Name, map[string]interface{}{"name": "D record", "id": "rec"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"name": "A record", "ds": []interface{}{dRecord.Pk()}}, auth.User{})
+		Expect(err).To(BeNil())
+
+		anotherDRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, dMetaObj.Name, map[string]interface{}{"name": "Another D record", "id": "another-rec"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		//anotherBRecord`s id is not set
+		aUpdateData := map[string]interface{}{
+			"id":   aRecord.Pk(),
+			"name": "Updated A name",
+			"ds":   []interface{}{anotherDRecord.Pk(), map[string]interface{}{"name": "D record", "id": "rec"}},
+		}
+
+		updatedARecord, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+		Expect(err).To(BeNil())
+		Expect(updatedARecord.Data).To(HaveKey("ds"))
+		Expect(updatedARecord.Data["ds"]).To(HaveLen(2))
 		Expect(updatedARecord.Data["ds"].([]interface{})[0].(map[string]interface{})["id"]).To(Equal(anotherDRecord.Pk()))
 	})
 })
