@@ -255,14 +255,13 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 	for _, record := range recordsToProcess {
 		if pkValue, ok := record.Data[fieldDescription.LinkMeta.Name].(interface{}); ok {
 			idAsString, _ := fieldDescription.LinkMeta.Key.ValueAsString(pkValue)
-			if len(beingAddedIds) != 0 {
-				beingAddedIds += ","
+			if idAsString != "" {
+				if len(beingAddedIds) != 0 {
+					beingAddedIds += ","
+				}
+				beingAddedIds += idAsString
 			}
-			beingAddedIds += idAsString
 		}
-	}
-	if len(beingAddedIds) > 0 {
-		beingAddedIds = beingAddedIds[:len(beingAddedIds)-1]
 	}
 
 	//get records which are not presented in data and should be removed from m2m relation
