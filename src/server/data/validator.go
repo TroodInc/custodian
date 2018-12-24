@@ -261,7 +261,7 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 			beingAddedIds += idAsString
 		}
 	}
-	if len(beingAddedIds) > 0 {
+	if len(beingAddedIds) > 0 && beingAddedIds[len(beingAddedIds)-1] == ',' {
 		beingAddedIds = beingAddedIds[:len(beingAddedIds)-1]
 	}
 
