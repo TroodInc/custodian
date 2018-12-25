@@ -125,5 +125,23 @@ var _ = Describe("Abac Engine", func() {
 			result, _ := resolver.evaluateCondition(condition)
 			Expect(result).To(BeTrue())
 		})
+
+		It("must evaluate and or condition", func() {
+			condition := json_to_condition(`{
+                "or": [
+					{"obj.executor.account": "sbj.id"},
+					{"obj.responsible.account": "sbj.id"}
+                ],
+				"sbj.role": "admin"}`)
+			result, _ := resolver.evaluateCondition(condition)
+			Expect(result).To(BeTrue())
+
+		})
+
+		It("must evaluate wildcard value", func() {
+			condition := json_to_condition(`{"sbj.role": "*"}`)
+			result, _ := resolver.evaluateCondition(condition)
+			Expect(result).To(BeTrue())
+		})
 	})
 })

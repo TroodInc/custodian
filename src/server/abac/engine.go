@@ -51,7 +51,7 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 	var filters []string
 
 	result := true
-	operator := "eq"
+	var operator string
 
 	for operand, value := range condition {
 		switch value.(type) {
@@ -59,6 +59,8 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 			for operator, value = range value.(map[string]interface{}) { break }
 		case []interface{}:
 			operator = operand
+		default:
+			operator = "eq"
 		}
 
 		operand, value, is_filter := this.reveal(operand, value)
@@ -70,7 +72,7 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 			flt = makeFilter(operand.(string), value)
 		} else {
 			if operator_func, ok := operations[operator]; ok {
-				result, _ = operator_func(value, operand)
+				result, _ = operator_func(operand, value)
 			}
 
 			if operator_func, ok := aggregation[operator]; ok {
@@ -124,6 +126,10 @@ func (this *TroodABACResolver) reveal(operand interface{}, value interface{}) (i
 }
 
 func operatorExact(operand interface{}, value interface{}) (bool, interface{}) {
+	if value == "*" {
+		return true, nil
+	}
+
 	return cleanupType(operand) == cleanupType(value), nil
 }
 
