@@ -99,7 +99,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 						ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
 						break
 					} else {
-						returnError(w, auth.NewError("Access restricted by ABAC access rule"))
+						returnError(w, abac.NewError("Access restricted by ABAC access rule"))
 						return
 					}
 				}
