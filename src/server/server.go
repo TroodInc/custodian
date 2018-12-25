@@ -635,6 +635,9 @@ func returnError(w http.ResponseWriter, e error) {
 		responseData["error"] = e.Serialize()
 		w.WriteHeader(e.Status)
 	case *auth.AuthError:
+		w.WriteHeader(http.StatusUnauthorized)
+		responseData["error"] = e.Serialize()
+	case *abac.AccessError:
 		w.WriteHeader(http.StatusForbidden)
 		responseData["error"] = e.Serialize()
 	case JsonError:

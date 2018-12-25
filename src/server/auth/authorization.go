@@ -42,7 +42,7 @@ func (this *AuthError) Error () string {
 
 func (this *AuthError) Serialize () map[string]string {
 	return map[string]string{
-		"code": "403",
+		"code": "401",
 		"msg":  this.s,
 	}
 }
