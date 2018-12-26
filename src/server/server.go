@@ -97,7 +97,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 					fmt.Println("ABAC:  filters ", filters)
 					if res {
-						if len(filters) > 1 {
+						if len(filters) > 0 {
 							ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
 						}
 						result = true
