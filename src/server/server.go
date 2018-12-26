@@ -97,7 +97,9 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 					fmt.Println("ABAC:  filters ", filters)
 					if res {
-						ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
+						if len(filters) > 1 {
+							ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
+						}
 						result = true
 						break
 					}
@@ -408,7 +410,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					omitOuters = true
 				}
 
-				auth_filters := request.Context().Value("auth_filters");
+				auth_filters := request.Context().Value("auth_filters")
 				user_filters := pq.Get("q")
 
 				var filters = ""
