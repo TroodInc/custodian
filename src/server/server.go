@@ -90,18 +90,22 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			rules := abac.GetAttributeByPath(user.ABAC[os.Getenv("SERVICE_DOMAIN")], res + "." + action)
 
 			if rules != nil {
+				result := false
 				for _, rule := range rules.([]interface{}) {
 					fmt.Println("ABAC:  matched rule", rule)
-					result, filters  := resolver.EvaluateRule(rule.(map[string]interface{}))
+					res, filters  := resolver.EvaluateRule(rule.(map[string]interface{}))
 
 					fmt.Println("ABAC:  filters ", filters)
-					if result {
+					if res {
 						ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
+						result = true
 						break
-					} else {
-						returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-						return
 					}
+				}
+
+				if !result {
+					returnError(w, abac.NewError("Access restricted by ABAC access rule"))
+					return
 				}
 			}
 		}
