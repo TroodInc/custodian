@@ -253,7 +253,6 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 
 	for i := 0; i < len(fieldPathParts); i++ {
 		//dynamically build child nodes for Query mode
-		currentNode.RecursivelyFillChildNodes(currentNode.Depth+1, description.FieldModeQuery)
 
 		field := currentMeta.FindField(fieldPathParts[i])
 
@@ -286,6 +285,8 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 
 		//fieldPathParts[len(fieldPathParts)-1] != types.GenericInnerLinkObjectKey
 		if i != len(fieldPathParts)-1 {
+			currentNode.RecursivelyFillChildNodes(currentNode.Depth+1, description.FieldModeQuery)
+
 			linkedMeta := ctx.getMetaToJoin(field, fieldPathParts[i:])
 			if linkedMeta != nil {
 				joinsCount++
