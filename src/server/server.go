@@ -414,11 +414,11 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 				user_filters := pq.Get("q")
 
 				var filters = ""
-				if auth_filters != nil && user_filters != "" {
+				if auth_filters != "" && user_filters != "" {
 					filters = auth_filters.(string) + "," + user_filters
 				} else if user_filters != "" {
 					filters = user_filters
-				} else if auth_filters != nil {
+				} else if auth_filters != "" {
 					filters = auth_filters.(string)
 				}
 
