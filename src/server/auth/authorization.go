@@ -24,6 +24,8 @@ type User struct {
 	Login 	string	`json:"login"`
 	Status 	string	`json:"status"`
 	Role 	string	`json:"role"`
+	ABAC 	map[string]interface{}  `json:"abac"`
+	LinkedObject map[string]interface{}  `json:"linked_object"`
 }
 
 func NewError(text string) error {
@@ -40,7 +42,7 @@ func (this *AuthError) Error () string {
 
 func (this *AuthError) Serialize () map[string]string {
 	return map[string]string{
-		"code": "403",
+		"code": "401",
 		"msg":  this.s,
 	}
 }
