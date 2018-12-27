@@ -244,8 +244,9 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 
 	var expression bytes.Buffer
 	alias := ctx.tblAlias
-	currentNode := ctx.root
-	currentMeta := ctx.root.Meta
+
+	currentNode := ctx.root.Clone()
+	currentMeta := currentNode.Meta
 	joinsCount := 0
 
 	//split fieldPath into separate fieldPathParts
