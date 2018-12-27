@@ -342,3 +342,17 @@ func (node *Node) IsOfGenericType() bool {
 func (node *Node) IsOfRegularType() bool {
 	return node.Type == NodeTypeRegular
 }
+
+func (node *Node) Clone() *Node {
+	return &Node{
+		LinkField:  node.LinkField,
+		Meta:       node.Meta,
+		ChildNodes: make(map[string]*Node, 0),
+		Depth:      node.Depth,
+		OnlyLink:   node.OnlyLink,
+		plural:     node.plural,
+		Parent:     node.Parent,
+		MetaList:   node.MetaList,
+		Type:       node.Type,
+	}
+}
