@@ -78,16 +78,16 @@ func (ctx *context) addBind(v interface{}) string {
 }
 
 type Exists struct {
-	Table  string
-	Alias  string
-	FK     string
-	RAlias string
-	RCol   string
+	Table            string
+	Alias            string
+	FK               string
+	RightTableAlias  string
+	RightTableColumn string
+	GenericTypeField string
+	GenericType      string
 }
 
-const (
-	templExists = `SELECT 1 FROM {{.Table}} {{.Alias}} WHERE {{.Alias}}.{{.FK}}={{.RAlias}}.{{.RCol}}`
-)
+const templExists = `SELECT 1 FROM {{.Table}} {{.Alias}} WHERE {{.Alias}}.{{.FK}}={{.RightTableAlias}}.{{.RightTableColumn}}{{if .GenericTypeField}}::text{{end}}{{if .GenericTypeField }} AND {{.Alias}}.{{.GenericTypeField}}='{{.GenericType}}' {{end}}`
 
 var parsedTemplExists = template.Must(template.New("dml_rql_exists").Parse(templExists))
 
@@ -263,14 +263,16 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 		// do it only if the current iteration is not that last, because the target field for the query can have the
 		// "LinkMeta"
 		if field.Type == description.FieldTypeGeneric {
-			//apply filtering by generic fields _object value and skip the next iteration
-			i++
-			if fieldPathParts[i] != types.GenericInnerLinkObjectKey {
-				expression.WriteString(alias)
-				expression.WriteRune('.')
-				expression.WriteString(meta.GetGenericFieldTypeColumnName(field.Name))
-				expression.WriteString(fmt.Sprintf("='%s'", fieldPathParts[i]))
-				expression.WriteString(" AND ")
+			if field.LinkType == description.LinkTypeInner {
+				//apply filtering by generic fields _object value and skip the next iteration
+				i++
+				if fieldPathParts[i] != types.GenericInnerLinkObjectKey {
+					expression.WriteString(alias)
+					expression.WriteRune('.')
+					expression.WriteString(meta.GetGenericFieldTypeColumnName(field.Name))
+					expression.WriteString(fmt.Sprintf("='%s'", fieldPathParts[i]))
+					expression.WriteString(" AND ")
+				}
 			}
 		} else if field.Type == description.FieldTypeObjects {
 			//query which uses "Objects" field has to be replaced with query using LinkThrough
@@ -290,18 +292,24 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			linkedMeta := ctx.getMetaToJoin(field, fieldPathParts[i:])
 			if linkedMeta != nil {
 				joinsCount++
-				exists := &Exists{Table: GetTableName(linkedMeta), Alias: alias + field.Name, RAlias: alias}
+				//fill in all the options required for join operation
+				exists := &Exists{Table: GetTableName(linkedMeta), Alias: alias + field.Name, RightTableAlias: alias}
 				if field.OuterLinkField != nil {
-					exists.FK = field.OuterLinkField.Name
-					exists.RCol = linkedMeta.Key.Name
+					exists.RightTableColumn = linkedMeta.Key.Name
+					if field.Type == description.FieldTypeGeneric {
+						exists.FK = meta.GetGenericFieldKeyColumnName(field.OuterLinkField.Name)
+						exists.GenericTypeField = meta.GetGenericFieldTypeColumnName(field.OuterLinkField.Name)
+						exists.GenericType = currentMeta.Name
+					} else {
+						exists.FK = field.OuterLinkField.Name
+					}
 				} else {
-
 					if field.Type == description.FieldTypeGeneric {
 						//cast object PK to string, because join is performed by generic __id field, which has string type
 						exists.FK = linkedMeta.Key.Name + "::text"
-						exists.RCol = meta.GetGenericFieldKeyColumnName(field.Name)
+						exists.RightTableColumn = meta.GetGenericFieldKeyColumnName(field.Name)
 					} else {
-						exists.RCol = field.Name
+						exists.RightTableColumn = field.Name
 						exists.FK = linkedMeta.Key.Name
 					}
 				}
@@ -314,14 +322,16 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 
 				expectedNode, ok := currentNode.ChildNodes[field.Name]
 				if field.Type == description.FieldTypeGeneric {
-					expectedNode = &data.Node{
-						KeyField:   linkedMeta.Key,
-						Meta:       linkedMeta,
-						ChildNodes: make(map[string]*data.Node),
-						Depth:      1,
-						OnlyLink:   false,
-						Parent:     nil,
-						Type:       data.NodeTypeRegular,
+					if field.LinkType == description.LinkTypeInner {
+						expectedNode = &data.Node{
+							KeyField:   linkedMeta.Key,
+							Meta:       linkedMeta,
+							ChildNodes: make(map[string]*data.Node),
+							Depth:      1,
+							OnlyLink:   false,
+							Parent:     nil,
+							Type:       data.NodeTypeRegular,
+						}
 					}
 				}
 				if !ok {
@@ -368,7 +378,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 //eg: queryPath is "target.a.name" and field is generic, then A meta should be returned
 //regular field case is straightforward
 func (ctx *context) getMetaToJoin(fieldDescription *meta.FieldDescription, queryPath []string) *meta.Meta {
-	if fieldDescription.Type == description.FieldTypeGeneric {
+	if fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner {
 		return fieldDescription.LinkMetaList.GetByName(queryPath[0])
 	} else {
 		return fieldDescription.LinkMeta
