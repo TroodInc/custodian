@@ -58,10 +58,10 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		ctx := context.WithValue(req.Context(), "auth_user", user)
 
-		resolver := abac.GetTroodABACResolver(map[string]interface{} {
+		resolver := abac.GetTroodABACResolver(map[string]interface{}{
 			"sbj": user,
 			"ctx": req,
-		},)
+		}, )
 
 		handled, opts, _ := app.router.Lookup(req.Method, req.RequestURI)
 
@@ -87,18 +87,18 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				action = req.Method
 			}
 
-			rules := abac.GetAttributeByPath(user.ABAC[os.Getenv("SERVICE_DOMAIN")], res + "." + action)
+			rules := abac.GetAttributeByPath(user.ABAC[os.Getenv("SERVICE_DOMAIN")], res+"."+action)
 
 			if rules != nil {
 				result := false
 				for _, rule := range rules.([]interface{}) {
 					fmt.Println("ABAC:  matched rule", rule)
-					res, filters  := resolver.EvaluateRule(rule.(map[string]interface{}))
+					res, filter := resolver.EvaluateRule(rule.(map[string]interface{}))
 
-					fmt.Println("ABAC:  filters ", filters)
+					fmt.Println("ABAC:  filters ", filter)
 					if res {
-						if len(filters) > 0 {
-							ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
+						if filter != nil {
+							ctx = context.WithValue(ctx, "auth_filter", filter)
 						}
 						result = true
 						break
@@ -379,6 +379,18 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
 				} else {
+					auth_filter := request.Context().Value("auth_filter")
+					if auth_filter != nil {
+						ok, err := auth_filter.(*abac.FilterExpression).Evaluate(o, dbTransaction, dataProcessor.Get)
+						if err != nil {
+							sink.pushError(err)
+						}
+						if !ok {
+							sink.pushError(abac.NewError("Permission denied"))
+							dbTransactionManager.RollbackTransaction(dbTransaction)
+							return
+						}
+					}
 					dbTransactionManager.CommitTransaction(dbTransaction)
 					sink.pushGeneric(o.Data)
 				}
@@ -410,19 +422,19 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					omitOuters = true
 				}
 
-				auth_filters := request.Context().Value("auth_filters")
+				auth_filter := request.Context().Value("auth_filter")
 				user_filters := pq.Get("q")
 
 				var filters = ""
-				if auth_filters != nil && user_filters != "" {
-					filters = auth_filters.(string) + "," + user_filters
+				if auth_filter != nil && user_filters != "" {
+					filters = auth_filter.(*abac.FilterExpression).String() + "," + user_filters
 				} else if user_filters != "" {
 					filters = user_filters
-				} else if auth_filters != nil {
-					filters = auth_filters.(string)
+				} else if auth_filter != nil {
+					filters = auth_filter.(*abac.FilterExpression).String()
 				}
 
-				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters , depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
 				if e != nil {
 					sink.PushError(e)
 					dbTransactionManager.RollbackTransaction(dbTransaction)
@@ -471,7 +483,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			}, user)
 			if e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.PushError(e)
+				defer sink.PushError(e)
 			} else {
 				defer sink.Complete(nil)
 				dbTransactionManager.CommitTransaction(dbTransaction)
