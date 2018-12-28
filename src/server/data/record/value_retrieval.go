@@ -8,6 +8,7 @@ import (
 )
 
 //TODO: Current interface looks a bit ugly because of "getRecordCallback" argument, it should be replaced somehow
+//Also it should handle errors of getting values by wrong attributes
 func (record *Record) GetValue(getterConfig interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*Record, error)) interface{} {
 	switch getterValue := getterConfig.(type) {
 	case map[string]interface{}:

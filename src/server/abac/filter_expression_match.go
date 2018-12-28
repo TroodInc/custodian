@@ -1,17 +1,15 @@
 package abac
 
 import (
-	"server/data/record"
-	"server/transactions"
 	"strings"
 	"fmt"
 )
 
-func evaluateFilterExpression(filterExpression *FilterExpression, record *record.Record, dbTransaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) (bool, error) {
+func matchFilterExpression(filterExpression *FilterExpression, recordValues map[string]interface{}) (bool, error) {
 	if filterExpression.Operator == andOperator {
 		result := true
 		for _, childFilterExpression := range filterExpression.Value.([]*FilterExpression) {
-			childResult, err := evaluateFilterExpression(childFilterExpression, record, dbTransaction, getRecordCallback)
+			childResult, err := matchFilterExpression(childFilterExpression, recordValues)
 			if err != nil {
 				return false, err
 			}
@@ -19,9 +17,9 @@ func evaluateFilterExpression(filterExpression *FilterExpression, record *record
 		}
 		return result, nil
 	} else if filterExpression.Operator == orOperator {
-		result := true
+		result := false
 		for _, childFilterExpression := range filterExpression.Value.([]*FilterExpression) {
-			childResult, err := evaluateFilterExpression(childFilterExpression, record, dbTransaction, getRecordCallback)
+			childResult, err := matchFilterExpression(childFilterExpression, recordValues)
 			if err != nil {
 				return false, err
 			}
@@ -29,26 +27,23 @@ func evaluateFilterExpression(filterExpression *FilterExpression, record *record
 		}
 		return result, nil
 	} else if filterExpression.Operator == inOperator {
-		value := record.GetValue(filterExpression.Operand, dbTransaction, getRecordCallback)
 		possibleValues := strings.Split(filterExpression.Value.(string), ",")
 		for _, possibleValue := range possibleValues {
-			if valueToString(possibleValue) == valueToString(value) {
+			if valueToString(possibleValue) == valueToString(recordValues[filterExpression.Operand]) {
 				return true, nil
 			}
 		}
 		return false, nil
 	} else if filterExpression.Operator == eqOperator {
-		value := record.GetValue(filterExpression.Operand, dbTransaction, getRecordCallback)
-		return valueToString(filterExpression.Value) == valueToString(value), nil
+		return valueToString(filterExpression.Value) == valueToString(recordValues[filterExpression.Operand]), nil
 	} else if filterExpression.Operator == notOperator {
-		childResult, err := evaluateFilterExpression(filterExpression.Value.(*FilterExpression), record, dbTransaction, getRecordCallback)
+		childResult, err := matchFilterExpression(filterExpression.Value.(*FilterExpression), recordValues)
 		if err != nil {
 			return false, err
 		}
 		return !childResult, nil
 	} else if filterExpression.Operator == ltOperator {
-		recordValue := record.GetValue(filterExpression.Operand, dbTransaction, getRecordCallback)
-		castRecordValue, err := valueToFloat(recordValue)
+		castRecordValue, err := valueToFloat(recordValues[filterExpression.Operand])
 		if err != nil {
 			return false, NewFilterValidationError(fmt.Sprintln("Failed to cast record value: ", filterExpression.Operand, err.(*FilterValidationError).msg))
 		}
@@ -61,8 +56,7 @@ func evaluateFilterExpression(filterExpression *FilterExpression, record *record
 
 		return castRecordValue < castRuleValue, nil
 	} else if filterExpression.Operator == gtOperator {
-		recordValue := record.GetValue(filterExpression.Operand, dbTransaction, getRecordCallback)
-		castRecordValue, err := valueToFloat(recordValue)
+		castRecordValue, err := valueToFloat(recordValues[filterExpression.Operand])
 		if err != nil {
 			return false, NewFilterValidationError(fmt.Sprintln("Failed to cast record value: ", filterExpression.Operand, err.(*FilterValidationError).msg))
 		}
@@ -78,12 +72,32 @@ func evaluateFilterExpression(filterExpression *FilterExpression, record *record
 	panic(fmt.Sprintln("Unknown type of filter specified: ", filterExpression.Operator))
 }
 
+func getReferencedAttributes(filterExpression *FilterExpression) []string {
+	attributes := make([]string, 0)
+	if filterExpression.Operator == andOperator || filterExpression.Operator == orOperator {
+		for _, childFilterExpression := range filterExpression.Value.([]*FilterExpression) {
+			attributes = append(attributes, getReferencedAttributes(childFilterExpression)...)
+		}
+		return attributes
+	} else if filterExpression.Operator == inOperator || filterExpression.Operator == eqOperator || filterExpression.Operator == ltOperator || filterExpression.Operator == gtOperator {
+		return []string{filterExpression.Operand}
+	} else if filterExpression.Operator == notOperator {
+		return getReferencedAttributes(filterExpression.Value.(*FilterExpression))
+	}
+	panic(fmt.Sprintln("Unknown type of filter specified: ", filterExpression.Operator))
+}
+
 func valueToString(value interface{}) string {
+	if value == nil {
+		return ""
+	}
 	switch castValue := value.(type) {
 	case float64:
 		return fmt.Sprintf("%f", castValue)
-	case uint64:
+	case int:
 		return fmt.Sprintf("%f", float64(castValue))
+	case string:
+		return castValue
 	default:
 		return value.(string)
 	}
@@ -93,7 +107,7 @@ func valueToFloat(value interface{}) (float64, error) {
 	switch castValue := value.(type) {
 	case float64:
 		return castValue, nil
-	case uint64:
+	case int:
 		return float64(castValue), nil
 	default:
 		return 0, NewFilterValidationError("Attempted to cast non-numeric value to float64")

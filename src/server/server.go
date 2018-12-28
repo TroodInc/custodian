@@ -29,6 +29,7 @@ import (
 	_ "net/http/pprof"
 	"fmt"
 	"os"
+	"server/data/record"
 )
 
 type CustodianApp struct {
@@ -379,9 +380,9 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
 				} else {
-					auth_filter := request.Context().Value("auth_filter")
+					auth_filter := request.Context().Value("auth_filter").(*abac.FilterExpression)
 					if auth_filter != nil {
-						ok, err := auth_filter.(*abac.FilterExpression).Evaluate(o, dbTransaction, dataProcessor.Get)
+						ok, err := auth_filter.Match(record.PopulateRecordValues(auth_filter.ReferencedAttributes(), o, dbTransaction, dataProcessor.Get))
 						if err != nil {
 							sink.pushError(err)
 						}

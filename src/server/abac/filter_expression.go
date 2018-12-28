@@ -3,8 +3,6 @@ package abac
 import (
 	"strings"
 	"fmt"
-	"server/data/record"
-	"server/transactions"
 )
 
 type FilterExpression struct {
@@ -29,6 +27,12 @@ func (fe *FilterExpression) String() string {
 	}
 }
 
-func (fe *FilterExpression) Evaluate(record *record.Record, dbTransaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) (bool, error) {
-	return evaluateFilterExpression(fe, record, dbTransaction, getRecordCallback)
+//matches the filter expression against the given record values
+func (fe *FilterExpression) Match(recordValues map[string]interface{}) (bool, error) {
+	return matchFilterExpression(fe, recordValues)
+}
+
+//returns all record`s attributes referenced in filter
+func (fe *FilterExpression) ReferencedAttributes() []string {
+	return getReferencedAttributes(fe)
 }
