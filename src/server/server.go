@@ -38,18 +38,9 @@ type CustodianApp struct {
 }
 
 func GetApp(cs *CustodianServer) *CustodianApp {
-	var authenticator auth.Authenticator
-	if cs.auth_url != "" {
-		authenticator = &auth.TroodAuthenticator{
-			cs.auth_url,
-		}
-	} else {
-		authenticator = &auth.EmptyAuthenticator{}
-	}
-
 	return &CustodianApp{
-		httprouter.New(),
-		authenticator,
+		router:        httprouter.New(),
+		authenticator: cs.authenticator,
 	}
 }
 
@@ -64,13 +55,13 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			"ctx": req,
 		}, )
 
-		handled, opts, _ := app.router.Lookup(req.Method, req.RequestURI)
+		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
-		if handled != nil {
+		if handler != nil {
 			var res = strings.Split(opts.ByName("name"), "?")[0]
 			var action = ""
 
-			splited := strings.Split(req.RequestURI, "/")
+			splited := strings.Split(req.URL.Path, "/")
 
 			if res != "" {
 				if splited[2] == "meta" {
@@ -152,6 +143,7 @@ type CustodianServer struct {
 	s                *http.Server
 	db               string
 	auth_url         string
+	authenticator    auth.Authenticator
 }
 
 func New(host, port, urlPrefix, databaseConnectionOptions string) *CustodianServer {
@@ -174,12 +166,25 @@ func (cs *CustodianServer) SetDb(d string) {
 	cs.db = d
 }
 
-func (cs *CustodianServer) SetAuth(s string) {
+func (cs *CustodianServer) SetAuthUrl(s string) {
 	cs.auth_url = s
 }
 
-func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
+func (cs *CustodianServer) SetAuthenticator(authenticator auth.Authenticator) {
+	cs.authenticator = authenticator
+}
 
+//TODO: "enableProfiler" option should be configured like other options
+func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
+	if cs.authenticator == nil {
+		if cs.auth_url != "" {
+			cs.authenticator = &auth.TroodAuthenticator{
+				cs.auth_url,
+			}
+		} else {
+			cs.authenticator = &auth.EmptyAuthenticator{}
+		}
+	}
 	app := GetApp(cs)
 
 	//Meta routes
@@ -380,9 +385,10 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
 				} else {
-					auth_filter := request.Context().Value("auth_filter").(*abac.FilterExpression)
+					auth_filter := request.Context().Value("auth_filter")
 					if auth_filter != nil {
-						ok, err := auth_filter.Match(record.PopulateRecordValues(auth_filter.ReferencedAttributes(), o, dbTransaction, dataProcessor.Get))
+						filterExpression := auth_filter.(*abac.FilterExpression)
+						ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), o, dbTransaction, dataProcessor.Get))
 						if err != nil {
 							sink.pushError(err)
 						}
@@ -453,10 +459,34 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
+			objectName := p.ByName("name")
+			recordPkValue := p.ByName("key")
 			//set transaction to the context
 			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
 
-			if removedData, e := dataProcessor.RemoveRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
+			//process access check
+			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, 1, true)
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(dbTransaction)
+				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+			} else {
+				auth_filter := r.Context().Value("auth_filter")
+				if auth_filter != nil {
+					filterExpression := auth_filter.(*abac.FilterExpression)
+					ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), recordToUpdate, dbTransaction, dataProcessor.Get))
+					if err != nil {
+						sink.pushError(err)
+					}
+					if !ok {
+						sink.pushError(abac.NewError("Permission denied"))
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						return
+					}
+				}
+			}
+			//end access check
+
+			if removedData, e := dataProcessor.RemoveRecord(dbTransaction, objectName, recordPkValue, user); e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
@@ -501,9 +531,32 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			user := r.Context().Value("auth_user").(auth.User)
 			objectName := p.ByName("name")
 			recordPkValue := p.ByName("key")
+
+			//process access check
+			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, 1, true)
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(dbTransaction)
+				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+			} else {
+				auth_filter := r.Context().Value("auth_filter")
+				if auth_filter != nil {
+					filterExpression := auth_filter.(*abac.FilterExpression)
+					ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), recordToUpdate, dbTransaction, dataProcessor.Get))
+					if err != nil {
+						sink.pushError(err)
+					}
+					if !ok {
+						sink.pushError(abac.NewError("Permission denied"))
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						return
+					}
+				}
+			}
+			//end access check
+
 			//TODO: building record data respecting "depth" argument should be implemented inside dataProcessor
 			//also "FillRecordValues" also should be moved from Node struct
-			if recordData, e := dataProcessor.UpdateRecord(dbTransaction, objectName, recordPkValue, src.Value, user); e != nil {
+			if updatedRecord, e := dataProcessor.UpdateRecord(dbTransaction, objectName, recordPkValue, src.Value, user); e != nil {
 				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
@@ -512,7 +565,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					sink.pushError(e)
 				}
 			} else {
-				if recordData != nil {
+				if updatedRecord != nil {
 					var depth = 1
 					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
 						depth = i

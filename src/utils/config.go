@@ -40,6 +40,7 @@ func getRealWorkingDirectory() string {
 
 }
 
+//get Application configuration based on dotenv
 func GetConfig() *AppConfig {
 
 	godotenv.Load(getRealWorkingDirectory() + "/.env")
