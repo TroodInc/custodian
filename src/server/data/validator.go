@@ -266,14 +266,16 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 
 	//get records which are not presented in data and should be removed from m2m relation
 	if !record.IsPhantom() {
+		filter := fmt.Sprintf("eq(%s,%s)", fieldDescription.Meta.Name, record.PkAsString())
 		if len(beingAddedIds) > 0 {
-			filter := fmt.Sprintf("eq(%s,%s),not(in(%s,(%s)))", fieldDescription.Meta.Name, record.PkAsString(), fieldDescription.LinkMeta.Name, beingAddedIds)
-			callbackFunction := func(obj map[string]interface{}) error {
-				recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkThrough, obj))
-				return nil
-			}
-			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, 1, true, callbackFunction)
+			excludeFilter := fmt.Sprintf("not(in(%s,(%s)))", fieldDescription.LinkMeta.Name, beingAddedIds)
+			filter = fmt.Sprintln(filter, ",", excludeFilter)
 		}
+		callbackFunction := func(obj map[string]interface{}) error {
+			recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkThrough, obj))
+			return nil
+		}
+		vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, 1, true, callbackFunction)
 	}
 	//get records which are already attached and remove them from list of records to process
 	if !record.IsPhantom() {

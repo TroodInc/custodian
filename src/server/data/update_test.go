@@ -816,4 +816,33 @@ var _ = Describe("Data", func() {
 		Expect(updatedARecord.Data["ds"]).To(HaveLen(2))
 		Expect(updatedARecord.Data["ds"].([]interface{})[0].(map[string]interface{})["id"]).To(Equal(anotherDRecord.Pk()))
 	})
+
+	It("Processes delete logic for records within 'Objects' relation if empty list is specified", func() {
+		havingObjectA()
+		dMetaObj := havingObjectD()
+		aMetaObj := havingObjectAWithObjectsLinkToD()
+
+		dRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, dMetaObj.Name, map[string]interface{}{"name": "D record", "id": "rec"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"name": "A record", "ds": []interface{}{dRecord.Pk()}}, auth.User{})
+		Expect(err).To(BeNil())
+
+		//anotherBRecord`s id is not set
+		aUpdateData := map[string]interface{}{
+			"id":   aRecord.Pk(),
+			"name": "Updated A name",
+			"ds":   []interface{}{},
+		}
+
+		_, err = dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+		Expect(err).To(BeNil())
+
+		aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), 1, false)
+		Expect(err).To(BeNil())
+
+		Expect(aRecord.Data).To(HaveKey("ds"))
+		Expect(aRecord.Data["ds"]).To(HaveLen(0))
+	})
+
 })
