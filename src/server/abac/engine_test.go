@@ -161,5 +161,11 @@ var _ = Describe("Abac Engine", func() {
 			Expect(filterExpressions[0].Value.([]*FilterExpression)[1].Operand).To(Equal("responsible.account"))
 			Expect(filterExpressions[0].Value.([]*FilterExpression)[1].Value.(int)).To(Equal(10))
 		})
+
+		It("Returns nil if there are no suitable rules to build filter expression", func() {
+			condition := json_to_condition(`{"sbj.role": "admin"}`)
+			_, filterExpression := resolver.EvaluateRule(map[string]interface{}{"rule": condition})
+			Expect(filterExpression).To(BeNil())
+		})
 	})
 })
