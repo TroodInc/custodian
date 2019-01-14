@@ -44,14 +44,9 @@ func init() {
 //For more information see https://godoc.org/github.com/lib/pq
 //
 //Setup example: ./custodian -d "host=infra-pdb01 user=custodian password=custodian dbname=custodian_test sslmode=disable"
-
-//TODO: The application has 2 ways of configuration now: command line arguments and dotenv file
-//it should be unified somehow
 func main() {
-	//instantiate Server with default configuration
 	var srv = server.New("", "8080", "/custodian", "")
 
-	//apply command-line-specified options if there are some
 	var opts = map[string]OptsDesc{
 		"-a": {1, func(p []string) error {
 			srv.SetAddr(p[0])
@@ -70,7 +65,7 @@ func main() {
 			return nil
 		}},
 		"--auth": {1, func(p []string) error {
-			srv.SetAuthUrl(p[0])
+			srv.SetAuth(p[0])
 			return nil
 		}},
 	}
@@ -89,7 +84,6 @@ func main() {
 		}
 	}
 
-	//get AppConfig
 	appConfig := utils.GetConfig()
 	log.Println("Custodian server started.")
 	srv.Setup(appConfig.EnableProfiler).ListenAndServe()
