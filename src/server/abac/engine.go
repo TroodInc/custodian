@@ -7,29 +7,35 @@ import (
 	"reflect"
 )
 
-type Resolver interface {
-
-}
+type Resolver interface {}
 
 type TroodABACResolver struct {
 	datasource map[string]interface{}
 }
 
-var operations map[string]func(interface{}, interface{})(bool, interface{})
-var aggregation map[string]func([]interface{}, interface{})(bool, interface{})
+const andOperator = "and"
+const orOperator = "or"
+const inOperator = "in"
+const eqOperator = "eq"
+const notOperator = "not"
+const ltOperator = "lt"
+const gtOperator = "gt"
+
+var operations map[string]func(interface{}, interface{}) (bool, interface{})
+var aggregation map[string]func([]interface{}, interface{}) (bool, *FilterExpression)
 
 func GetTroodABACResolver(datasource map[string]interface{}) TroodABACResolver {
-	operations = map[string]func(interface{}, interface{})(bool, interface{}) {
-		"eq": operatorExact,
-		"not": operatorNot,
-		"lt": operatorLt,
-		"gt": operatorGt,
+	operations = map[string]func(interface{}, interface{}) (bool, interface{}){
+		eqOperator:  operatorExact,
+		notOperator: operatorNot,
+		ltOperator:  operatorLt,
+		gtOperator:  operatorGt,
 	}
 
-	aggregation = map[string]func([]interface{}, interface{})(bool, interface{}) {
-		"in": operatorIn,
-		"and": operatorAnd,
-		"or": operatorOr,
+	aggregation = map[string]func([]interface{}, interface{}) (bool, *FilterExpression){
+		inOperator:  operatorIn,
+		andOperator: operatorAnd,
+		orOperator:  operatorOr,
 	}
 
 	return TroodABACResolver{
@@ -37,18 +43,17 @@ func GetTroodABACResolver(datasource map[string]interface{}) TroodABACResolver {
 	}
 }
 
-
-func (this *TroodABACResolver) EvaluateRule(rule map[string]interface{}) (bool, []string) {
+func (this *TroodABACResolver) EvaluateRule(rule map[string]interface{}) (bool, *FilterExpression) {
 	condition := rule["rule"].(map[string]interface{})
 	result, filters := this.evaluateCondition(condition)
 
 	// todo: handle defaults and other edge cases
 
-	return result, filters
+	return result, &FilterExpression{Operator: andOperator, Operand: "", Value: filters}
 }
 
-func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{}) (bool, []string ) {
-	var filters []string
+func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{}) (bool, []*FilterExpression) {
+	var filters []*FilterExpression
 
 	result := true
 	var operator string
@@ -56,18 +61,20 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 	for operand, value := range condition {
 		switch value.(type) {
 		case map[string]interface{}:
-			for operator, value = range value.(map[string]interface{}) { break }
+			for operator, value = range value.(map[string]interface{}) {
+				break
+			}
 		case []interface{}:
 			operator = operand
 		default:
-			operator = "eq"
+			operator = eqOperator
 		}
 
 		operand, value, is_filter := this.reveal(operand, value)
 
 		fmt.Println("ABAC:  evaluating ", operand, operator, value)
 
-		var flt interface{} = nil
+		var flt *FilterExpression
 		if is_filter {
 			flt = makeFilter(operand.(string), value)
 		} else {
@@ -76,7 +83,7 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 			}
 
 			if operator_func, ok := aggregation[operator]; ok {
-				if operator == "in" {
+				if operator == inOperator {
 					result, flt = operator_func(value.([]interface{}), operand)
 				} else {
 					result, flt = operator_func(value.([]interface{}), this)
@@ -85,21 +92,23 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 		}
 
 		if flt != nil {
-			filters = append(filters, flt.(string))
+			filters = append(filters, flt)
 		}
 	}
 	return result, filters
 }
 
-func makeFilter(operand string, value interface{}) (string){
-	operator := "eq"
+func makeFilter(operand string, value interface{}) *FilterExpression {
+	operator := eqOperator
 
 	switch value.(type) {
 	case map[string]interface{}:
-		for operator, value = range value.(map[string]interface{}) { break }
+		for operator, value = range value.(map[string]interface{}) {
+			break
+		}
 	}
 
-	return fmt.Sprint(operator, "(", operand, ",", value, ")")
+	return &FilterExpression{Operator: operator, Operand: operand, Value: value}
 }
 
 func (this *TroodABACResolver) reveal(operand interface{}, value interface{}) (interface{}, interface{}, bool) {
@@ -115,7 +124,7 @@ func (this *TroodABACResolver) reveal(operand interface{}, value interface{}) (i
 		operand = GetAttributeByPath(this.datasource[splited[0]], splited[1])
 	}
 
- 	if v, ok := value.(string); ok {
+	if v, ok := value.(string); ok {
 		splited := strings.SplitN(v, ".", 2)
 		if splited[0] == "sbj" || splited[0] == "ctx" {
 			value = GetAttributeByPath(this.datasource[splited[0]], splited[1])
@@ -137,7 +146,7 @@ func operatorNot(operand interface{}, value interface{}) (bool, interface{}) {
 	return operand != value, nil
 }
 
-func operatorIn(value []interface{}, operand interface{}) (bool, interface{}) {
+func operatorIn(value []interface{}, operand interface{}) (bool, *FilterExpression) {
 	for _, v := range value {
 		if v == operand {
 			return true, nil
@@ -154,15 +163,15 @@ func operatorLt(value interface{}, operand interface{}) (bool, interface{}) {
 	return f_operand < f_value, nil
 }
 
-func operatorGt(value interface{}, operand interface{}) (bool, interface{}){
+func operatorGt(value interface{}, operand interface{}) (bool, interface{}) {
 	f_value := value.(float64)
 	f_operand := operand.(float64)
 
 	return f_operand > f_value, nil
 }
 
-func operatorAnd(value []interface{}, resolver interface{}) (bool, interface{}) {
-	var filters []string
+func operatorAnd(value []interface{}, resolver interface{}) (bool, *FilterExpression) {
+	var filters []*FilterExpression
 
 	for _, condition := range value {
 		r := resolver.(*TroodABACResolver)
@@ -173,11 +182,12 @@ func operatorAnd(value []interface{}, resolver interface{}) (bool, interface{}) 
 			return false, nil
 		}
 	}
-	return true, "and(" + strings.Join(filters, ",") + ")"
+	return true, &FilterExpression{Operator: andOperator, Operand: "", Value: filters}
+
 }
 
-func operatorOr(value []interface{}, resolver interface{}) (bool, interface{}) {
-	var filters []string
+func operatorOr(value []interface{}, resolver interface{}) (bool, *FilterExpression) {
+	var filters []*FilterExpression
 	var result = false
 	for _, condition := range value {
 		r := resolver.(*TroodABACResolver)
@@ -189,10 +199,10 @@ func operatorOr(value []interface{}, resolver interface{}) (bool, interface{}) {
 		}
 	}
 
-	return result, "or(" + strings.Join(filters, ",") + ")"
+	return result, &FilterExpression{Operator: orOperator, Operand: "", Value: filters}
 }
 
-func cleanupType(value interface{}) interface{}{
+func cleanupType(value interface{}) interface{} {
 	v := reflect.ValueOf(value)
 
 	floatType := reflect.TypeOf(float64(0))
@@ -204,7 +214,7 @@ func cleanupType(value interface{}) interface{}{
 }
 
 func GetAttributeByPath(obj interface{}, path string) interface{} {
-	attributes := strings.Split(path,".")
+	attributes := strings.Split(path, ".")
 	for _, key := range attributes {
 		switch obj.(type) {
 		case map[string]interface{}:
