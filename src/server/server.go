@@ -95,10 +95,10 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					fmt.Println("ABAC:  matched rule", rule)
 					res, filters  := resolver.EvaluateRule(rule.(map[string]interface{}))
 
-					fmt.Println("ABAC:  filters ", filters)
 					if res {
-						if len(filters) > 0 {
-							ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
+						if filter != nil {
+							fmt.Println("ABAC:  filters ", filter)
+							ctx = context.WithValue(ctx, "auth_filter", filter)
 						}
 						result = true
 						break
