@@ -7,7 +7,7 @@ import (
 	"reflect"
 )
 
-type Resolver interface {}
+type Resolver interface{}
 
 type TroodABACResolver struct {
 	datasource map[string]interface{}
@@ -48,8 +48,11 @@ func (this *TroodABACResolver) EvaluateRule(rule map[string]interface{}) (bool, 
 	result, filters := this.evaluateCondition(condition)
 
 	// todo: handle defaults and other edge cases
-
-	return result, &FilterExpression{Operator: andOperator, Operand: "", Value: filters}
+	if len(filters) > 0 {
+		return result, &FilterExpression{Operator: andOperator, Operand: "", Value: filters}
+	} else {
+		return result, nil
+	}
 }
 
 func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{}) (bool, []*FilterExpression) {
