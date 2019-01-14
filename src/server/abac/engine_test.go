@@ -144,28 +144,4 @@ var _ = Describe("Abac Engine", func() {
 			Expect(result).To(BeTrue())
 		})
 	})
-
-	Describe("Building filter expression", func() {
-		It("Can parse rule and build correct filter expression", func() {
-			condition := json_to_condition(`{
-                "or": [
-					{"obj.executor.account": "sbj.id"},
-					{"obj.responsible.account": "sbj.id"}
-                ],
-				"sbj.role": "admin"}`)
-			_, filterExpressions := resolver.evaluateCondition(condition)
-			Expect(filterExpressions).To(HaveLen(1))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)).To(HaveLen(2))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[0].Operand).To(Equal("executor.account"))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[0].Value.(int)).To(Equal(10))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[1].Operand).To(Equal("responsible.account"))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[1].Value.(int)).To(Equal(10))
-		})
-
-		It("Returns nil if there are no suitable rules to build filter expression", func() {
-			condition := json_to_condition(`{"sbj.role": "admin"}`)
-			_, filterExpression := resolver.EvaluateRule(map[string]interface{}{"rule": condition})
-			Expect(filterExpression).To(BeNil())
-		})
-	})
 })
