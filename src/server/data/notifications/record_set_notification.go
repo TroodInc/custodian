@@ -5,6 +5,7 @@ import (
 	"strconv"
 	"utils"
 	"server/auth"
+	"strings"
 	"server/data/types"
 	"server/object/description"
 	"server/transactions"
@@ -147,10 +148,10 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 		//copy entire record data if it is being removed
 		stateObject = utils.CloneMap(recordData)
 	}
-	currentRecord := record.NewRecord(notification.recordSet.Meta, recordData)
+
 	//include values listed in IncludeValues
 	for alias, getterConfig := range action.IncludeValues {
-		stateObject[alias] = currentRecord.GetValue(getterConfig, notification.dbTransaction, notification.getRecordCallback)
+		stateObject[alias] = getValue(record.Record{Data: recordData, Meta: notification.recordSet.Meta}, getterConfig, notification.dbTransaction, notification.getRecordCallback)
 		//remove key if alias is not equal to actual getterConfig and stateObject already
 		// contains value under the getterConfig key, that is getterConfig key should be replaced with alias
 
@@ -162,6 +163,62 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 		}
 	}
 	return stateObject
+}
+
+func getValue(targetRecord record.Record, getterConfig interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) interface{} {
+	switch getterValue := getterConfig.(type) {
+	case map[string]interface{}:
+		return getGenericValue(targetRecord, getterValue, transaction, getRecordCallback)
+	case string:
+		return getSimpleValue(targetRecord, strings.Split(getterValue, "."), transaction, getRecordCallback)
+	}
+	return ""
+}
+
+//get key value traversing down if needed
+func getSimpleValue(targetRecord record.Record, keyParts []string, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) interface{} {
+	if len(keyParts) == 1 {
+		return targetRecord.Data[keyParts[0]]
+	} else {
+		keyPart := keyParts[0]
+		rawKeyValue := targetRecord.Data[keyPart]
+		nestedObjectField := targetRecord.Meta.FindField(keyPart)
+
+		//case of retrieving value or PK of generic field
+		if nestedObjectField.Type == description.FieldTypeGeneric && len(keyParts) == 2 {
+			if genericFieldValue, ok := rawKeyValue.(map[string]interface{}); ok {
+				return genericFieldValue[keyParts[1]]
+			}
+		}
+
+		//nested linked record case
+		nestedObjectMeta := targetRecord.Meta.FindField(keyPart).LinkMeta
+		if targetRecord.Data[keyPart] != nil {
+			keyValue, _ := nestedObjectMeta.Key.ValueAsString(rawKeyValue)
+			nestedRecord, _ := getRecordCallback(transaction, nestedObjectMeta.Name, keyValue, 1, false)
+			return getSimpleValue(*nestedRecord, keyParts[1:], transaction, getRecordCallback)
+		} else {
+			return nil
+		}
+	}
+}
+
+//get key value traversing down if needed
+func getGenericValue(targetRecord record.Record, getterConfig map[string]interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) interface{} {
+	genericFieldName := getterConfig["field"].(string)
+
+	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), transaction, getRecordCallback, ).(map[string]interface{})
+	for _, objectCase := range getterConfig["cases"].([]interface{}) {
+		castObjectCase := objectCase.(map[string]interface{})
+		if genericFieldValue[types.GenericInnerLinkObjectKey] == castObjectCase["object"] {
+			nestedObjectMeta := targetRecord.Meta.FindField(genericFieldName).LinkMetaList.GetByName(castObjectCase["object"].(string))
+			nestedObjectPk, _ := nestedObjectMeta.Key.ValueAsString(genericFieldValue[nestedObjectMeta.Key.Name])
+			nestedRecord, _ := getRecordCallback(transaction, genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, 1, false)
+			return getSimpleValue(*nestedRecord, strings.Split(castObjectCase["value"].(string), "."), transaction, getRecordCallback)
+		}
+	}
+	return nil
+
 }
 
 func adaptRecordData(recordData map[string]interface{}) map[string]interface{} {
