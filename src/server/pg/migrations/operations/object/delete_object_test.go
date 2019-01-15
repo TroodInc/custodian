@@ -27,7 +27,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	var metaObj *meta.Meta
+	var metaDescription *description.MetaDescription
 
 	//setup transaction
 	BeforeEach(func() {
@@ -39,10 +39,10 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	//setup Meta
+	//setup MetaDescription
 	BeforeEach(func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		metaDescription := description.MetaDescription{
+		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -57,11 +57,8 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 			},
 		}
 		Expect(err).To(BeNil())
-		//factory new Meta
-		metaObj, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&metaDescription)
-		Expect(err).To(BeNil())
 		//sync its MetaDescription
-		err = syncer.CreateObj(globalTransaction.DbTransaction, metaObj)
+		err = syncer.CreateObj(globalTransaction.DbTransaction, metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -80,9 +77,9 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		//remove Meta from DB
-		metaName := metaObj.Name
-		err = new(DeleteObjectOperation).SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+		//remove MetaDescription from DB
+		metaName := metaDescription.Name
+		err = new(DeleteObjectOperation).SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)

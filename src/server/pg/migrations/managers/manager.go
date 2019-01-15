@@ -10,11 +10,13 @@ import (
 	"server/migrations/migrations"
 	pg_migrations "server/pg/migrations"
 	"fmt"
+	migrations_description "server/migrations/description"
 )
 
 const historyMetaName = "__custodian_objects_migration_history__"
 
 type MigrationManager struct {
+	metaStore             *meta.MetaStore
 	dataManager           *pg.DataManager
 	metaDescriptionSyncer meta.MetaDescriptionSyncer
 }
@@ -68,7 +70,7 @@ func (mm *MigrationManager) ensureHistoryTableExists(transaction transactions.Db
 	}
 
 	if doesNotExist {
-		if err = object.NewCreateObjectOperation(historyMeta).SyncDbDescription(nil, transaction); err != nil {
+		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, transaction, mm.metaDescriptionSyncer); err != nil {
 			return nil, err
 		}
 	}
@@ -128,7 +130,18 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 	return meta.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func (mm *MigrationManager) Run(migration *migrations.Migration, globalTransaction *transactions.GlobalTransaction) (updatedMeta *meta.Meta, err error) {
+func (mm *MigrationManager) Run(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMeta *description.MetaDescription, err error) {
+	migration, err := migrations.NewMigrationFactory(mm.metaStore, globalTransaction, mm.metaDescriptionSyncer).Factory(migrationDescription)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, spawnedMigrationDescription := range migration.RunBefore {
+		if _, err := mm.Run(spawnedMigrationDescription, globalTransaction, false); err != nil { //do not record applied spawned migrations, because of their ephemeral nature
+			return nil, err
+		}
+	}
+
 	if err := mm.canApplyMigration(migration, globalTransaction.DbTransaction); err != nil {
 		return nil, err
 	}
@@ -139,7 +152,7 @@ func (mm *MigrationManager) Run(migration *migrations.Migration, globalTransacti
 		if err != nil {
 			return nil, err
 		} else {
-			err := operation.SyncDbDescription(metaToApply, globalTransaction.DbTransaction)
+			err := operation.SyncDbDescription(metaToApply, globalTransaction.DbTransaction, mm.metaDescriptionSyncer)
 			if err != nil {
 				return nil, err
 			}
@@ -148,7 +161,18 @@ func (mm *MigrationManager) Run(migration *migrations.Migration, globalTransacti
 		metaToApply = updatedMeta
 	}
 
-	_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
+	for _, spawnedMigrationDescription := range migration.RunAfter {
+		if _, err := mm.Run(spawnedMigrationDescription, globalTransaction, false); err != nil { //do not record applied spawned migrations, because of their ephemeral nature
+			return nil, err
+		}
+	}
+
+	if shouldRecord {
+		_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
+		if err != nil {
+			return nil, err
+		}
+	}
 
 	return updatedMeta, nil
 }
@@ -158,9 +182,9 @@ func (mm *MigrationManager) DropHistory(transaction transactions.DbTransaction) 
 	if err != nil {
 		return err
 	}
-	return object.NewDeleteObjectOperation().SyncDbDescription(historyMeta, transaction)
+	return object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.metaDescriptionSyncer)
 }
 
-func NewMigrationManager(manager *pg.DataManager, syncer meta.MetaDescriptionSyncer) *MigrationManager {
-	return &MigrationManager{dataManager: manager, metaDescriptionSyncer: syncer}
+func NewMigrationManager(metaStore *meta.MetaStore, manager *pg.DataManager, syncer meta.MetaDescriptionSyncer) *MigrationManager {
+	return &MigrationManager{metaStore: metaStore, dataManager: manager, metaDescriptionSyncer: syncer}
 }

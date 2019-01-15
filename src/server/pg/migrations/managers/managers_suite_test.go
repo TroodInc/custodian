@@ -9,5 +9,5 @@ import (
 
 func TestManagers(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Managers Suite")
+	RunSpecs(t, "PG Migration Manager Suite")
 }

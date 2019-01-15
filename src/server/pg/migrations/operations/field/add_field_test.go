@@ -63,33 +63,26 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		//create Meta
+		operation := object.NewCreateObjectOperation(metaDescription)
 
-		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		operation := object.NewCreateObjectOperation(metaObj)
-
-		metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
-		err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//
 
 		field := description.Field{Name: "new_field", Type: description.FieldTypeString, Optional: true}
-		fieldDescription, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryFieldDescription(field, metaObj)
-		Expect(err).To(BeNil())
-		fieldOperation := NewAddFieldOperation(fieldDescription)
+		fieldOperation := NewAddFieldOperation(&field)
 
-		err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		//
-		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaObj.Name)
+		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Columns).To(HaveLen(2))
@@ -104,17 +97,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		//create Meta
-		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-		Expect(err).To(BeNil())
+		operation := object.NewCreateObjectOperation(metaDescription)
 
-		operation := object.NewCreateObjectOperation(metaObj)
-
-		metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		//sync Meta with DB
+		//sync MetaDescription with DB
 
 		//
 		field := description.Field{
@@ -126,16 +115,15 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			},
 		}
 
-		fieldDescription, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryFieldDescription(field, metaObj)
-		fieldOperation := NewAddFieldOperation(fieldDescription)
-		err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+		fieldOperation := NewAddFieldOperation(&field)
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		//
-		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaObj.Name)
+		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
@@ -148,17 +136,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		//create Meta
-		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		operation := object.NewCreateObjectOperation(metaDescription)
+		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		operation := object.NewCreateObjectOperation(metaObj)
-		metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction)
-		Expect(err).To(BeNil())
-
-		//create linked Meta obj
+		//create linked MetaDescription obj
 		linkedMetaDescription := &description.MetaDescription{
 			Name: "b",
 			Key:  "id",
@@ -173,14 +157,12 @@ var _ = Describe("'AddField' Migration Operation", func() {
 				},
 			},
 		}
-		linkedMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(linkedMetaDescription)
+
+		linkedMetaOperation := object.NewCreateObjectOperation(linkedMetaDescription)
+		linkedMetaDescription, err = linkedMetaOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		linkedMetaOperation := object.NewCreateObjectOperation(linkedMetaObj)
-		linkedMetaObj, err = linkedMetaOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
-		err = linkedMetaOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		err = linkedMetaOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		//Run field operations
@@ -188,29 +170,27 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Name:     "link_to_a",
 			Type:     description.FieldTypeObject,
 			LinkType: description.LinkTypeInner,
-			LinkMeta: linkedMetaObj.Name,
+			LinkMeta: linkedMetaDescription.Name,
 			Optional: false,
 			OnDelete: description.OnDeleteCascadeVerbose,
 		}
 
-		fieldDescription, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryFieldDescription(field, metaObj)
-		Expect(err).To(BeNil())
-		fieldOperation := NewAddFieldOperation(fieldDescription)
+		fieldOperation := NewAddFieldOperation(&field)
 
-		err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		//Check constraint
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		//
-		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaObj.Name)
+		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.IFKs).To(HaveLen(1))
-		Expect(metaDdlFromDB.IFKs[0].ToTable).To(Equal(pg.GetTableName(linkedMetaObj.Name)))
-		Expect(metaDdlFromDB.IFKs[0].ToColumn).To(Equal(linkedMetaObj.Key.Name))
+		Expect(metaDdlFromDB.IFKs[0].ToTable).To(Equal(pg.GetTableName(linkedMetaDescription.Name)))
+		Expect(metaDdlFromDB.IFKs[0].ToColumn).To(Equal(linkedMetaDescription.Key))
 		Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("link_to_a"))
 		Expect(metaDdlFromDB.IFKs[0].OnDelete).To(Equal(description.OnDeleteCascadeDb))
 

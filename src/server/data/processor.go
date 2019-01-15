@@ -160,7 +160,7 @@ func (processor *Processor) GetMeta(transaction transactions.DbTransaction, obje
 }
 
 func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransaction, objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
-	// get Meta
+	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return nil, err
@@ -243,7 +243,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 }
 
 func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
-	// get Meta
+	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
@@ -333,7 +333,7 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 }
 
 func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecord *Record, err error) {
-	// get Meta
+	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return nil, err
@@ -421,7 +421,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 
 func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
 
-	//get Meta
+	//get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
@@ -550,7 +550,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 
 //TODO: Refactor this method similarly to BulkUpdateRecords, so notifications could be tested properly, it should affect PrepareDeletes method
 func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), user auth.User) (err error) {
-	// get Meta
+	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err

@@ -1,7 +1,6 @@
 package field
 
 import (
-	"server/object/meta"
 	"server/transactions"
 	"database/sql"
 	"server/migrations/operations/field"
@@ -10,20 +9,22 @@ import (
 	"logger"
 	"server/pg/migrations/operations/statement_factories"
 	"server/pg/migrations"
+	"server/object/description"
+	"server/object/meta"
 )
 
 type UpdateFieldOperation struct {
 	field.UpdateFieldOperation
 }
 
-func (o *UpdateFieldOperation) SyncDbDescription(metaToApplyTo *meta.Meta, transaction transactions.DbTransaction) (err error) {
+func (o *UpdateFieldOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
-	newColumns, newIfk, _, newSequence, err := new(pg.MetaDdlFactory).FactoryFieldProperties(o.NewField)
+	newColumns, newIfk, _, newSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.NewField, metaDescription)
 	if err != nil {
 		return err
 	}
-	currentColumns, currentIfk, _, currentSequence, err := new(pg.MetaDdlFactory).FactoryFieldProperties(o.CurrentField)
+	currentColumns, currentIfk, _, currentSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.CurrentField, metaDescription)
 	if err != nil {
 		return err
 	}
@@ -34,18 +35,18 @@ func (o *UpdateFieldOperation) SyncDbDescription(metaToApplyTo *meta.Meta, trans
 		return err
 	}
 	//columns
-	if err := o.factoryColumnsStatements(&statementSet, currentColumns, newColumns, metaToApplyTo); err != nil {
+	if err := o.factoryColumnsStatements(&statementSet, currentColumns, newColumns, metaDescription); err != nil {
 		return err
 	}
 	//constraint
-	if err := o.factoryConstraintStatement(&statementSet, currentIfk, newIfk, metaToApplyTo); err != nil {
+	if err := o.factoryConstraintStatement(&statementSet, currentIfk, newIfk, metaDescription); err != nil {
 		return err
 	}
 
 	for _, statement := range statementSet {
 		logger.Debug("Updating field in DB: %s\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
-			return pg.NewDdlError(metaToApplyTo.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+			return pg.NewDdlError(metaDescription.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
 		}
 	}
 
@@ -84,9 +85,9 @@ func (o *UpdateFieldOperation) factorySequenceStatements(statementSet *pg.DdlSta
 }
 
 // column
-func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStatementSet, currentColumns []pg.Column, newColumns []pg.Column, metaObj *meta.Meta) error {
+func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStatementSet, currentColumns []pg.Column, newColumns []pg.Column, metaDescription *description.MetaDescription) error {
 	statementFactory := new(statement_factories.ColumnStatementFactory)
-	tableName := pg.GetTableName(o.NewField.Meta.Name)
+	tableName := pg.GetTableName(metaDescription.Name)
 	if len(currentColumns) != len(newColumns) {
 		return migrations.NewPgMigrationError("Update column migration cannot be done with difference numbers of columns")
 	} else {
@@ -136,9 +137,9 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 	return nil
 }
 
-func (o *UpdateFieldOperation) factoryConstraintStatement(statementSet *pg.DdlStatementSet, currentIfk *pg.IFK, newIfk *pg.IFK, metaObj *meta.Meta) error {
+func (o *UpdateFieldOperation) factoryConstraintStatement(statementSet *pg.DdlStatementSet, currentIfk *pg.IFK, newIfk *pg.IFK, metaDescription *description.MetaDescription) error {
 	statementFactory := new(statement_factories.ConstraintStatementFactory)
-	tableName := pg.GetTableName(o.NewField.Meta.Name)
+	tableName := pg.GetTableName(metaDescription.Name)
 	if currentIfk != nil {
 		statement, err := statementFactory.FactoryDropStatement(tableName, currentIfk)
 		if err != nil {
@@ -156,6 +157,6 @@ func (o *UpdateFieldOperation) factoryConstraintStatement(statementSet *pg.DdlSt
 	return nil
 }
 
-func NewUpdateFieldOperation(currentField *meta.FieldDescription, newField *meta.FieldDescription) *UpdateFieldOperation {
+func NewUpdateFieldOperation(currentField *description.Field, newField *description.Field) *UpdateFieldOperation {
 	return &UpdateFieldOperation{field.UpdateFieldOperation{CurrentField: currentField, NewField: newField}}
 }

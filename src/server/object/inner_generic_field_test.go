@@ -165,7 +165,7 @@ var _ = Describe("Inner generic field", func() {
 				},
 			},
 		}
-		By("Meta should not be created")
+		By("MetaDescription should not be created")
 		_, err = metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(Not(BeNil()))
 	})

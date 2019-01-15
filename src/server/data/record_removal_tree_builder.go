@@ -60,7 +60,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 				for _, relatedRecord := range relatedRecords {
 					newRecordNode := NewRecordRemovalNode(
 						record.NewRecord(field.LinkMeta, relatedRecord),
-						&field.OuterLinkField.OnDelete,
+						field.OuterLinkField.OnDeleteStrategy(),
 						recordNode,
 						field.OuterLinkField,
 					)

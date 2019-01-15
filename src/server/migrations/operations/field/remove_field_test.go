@@ -26,7 +26,7 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	var objectMeta *meta.Meta
+	var metaDescription *description.MetaDescription
 
 	//setup transaction
 	BeforeEach(func() {
@@ -39,7 +39,7 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription := description.MetaDescription{
+		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -60,9 +60,7 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 			},
 		}
 		var err error
-		objectMeta, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&metaDescription)
-		Expect(err).To(BeNil())
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *objectMeta.MetaDescription)
+		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
 	})
 
@@ -76,8 +74,8 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 	})
 
 	It("removes a field from metaDescription`s file", func() {
-		operation := NewRemoveFieldOperation(objectMeta.FindField("name"))
-		objectMeta, err := operation.SyncMetaDescription(objectMeta, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		operation := NewRemoveFieldOperation(metaDescription.FindField("name"))
+		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(objectMeta).NotTo(BeNil())
 

@@ -13,7 +13,7 @@ import (
 	"server/transactions"
 )
 
-var _ = Describe("File Meta driver", func() {
+var _ = Describe("File MetaDescription driver", func() {
 	fileMetaDriver := meta.NewFileMetaDescriptionSyncer("./")
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)

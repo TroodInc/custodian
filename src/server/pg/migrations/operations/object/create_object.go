@@ -1,7 +1,6 @@
 package object
 
 import (
-	"server/object/meta"
 	"server/transactions"
 	"text/template"
 	"errors"
@@ -10,16 +9,18 @@ import (
 	"server/migrations/operations/object"
 	"server/pg"
 	"fmt"
+	"server/object/description"
+	"server/object/meta"
 )
 
 type CreateObjectOperation struct {
 	object.CreateObjectOperation
 }
 
-func (o *CreateObjectOperation) SyncDbDescription(_ *meta.Meta, transaction transactions.DbTransaction) (err error) {
+func (o *CreateObjectOperation) SyncDbDescription(_ *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
-	if metaDdl, err = new(pg.MetaDdlFactory).Factory(o.Meta); err != nil {
+	if metaDdl, err = pg.NewMetaDdlFactory(syncer).Factory(o.MetaDescription); err != nil {
 		return err
 	}
 
@@ -40,7 +41,7 @@ func (o *CreateObjectOperation) SyncDbDescription(_ *meta.Meta, transaction tran
 	for _, statement := range statementSet {
 		logger.Debug("Creating object in DB: %syncer\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
-			return pg.NewDdlError(o.Meta.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+			return pg.NewDdlError(o.MetaDescription.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
 		}
 	}
 	return nil
@@ -95,6 +96,6 @@ var parsedTemplate = template.Must(
 		).Parse(columnsSubTemplate)).Parse(InnerFKSubTemplate),
 )
 
-func NewCreateObjectOperation(metaObj *meta.Meta) *CreateObjectOperation {
-	return &CreateObjectOperation{object.CreateObjectOperation{Meta: metaObj}}
+func NewCreateObjectOperation(metaDescription *description.MetaDescription) *CreateObjectOperation {
+	return &CreateObjectOperation{object.CreateObjectOperation{MetaDescription: metaDescription}}
 }

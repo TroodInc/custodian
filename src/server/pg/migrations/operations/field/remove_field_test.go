@@ -27,7 +27,6 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
-	var metaObj *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -69,20 +68,16 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					},
 				},
 			}
-			//create Meta
+			//create MetaDescription
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
-			//sync Meta
 
-			metaObj, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-			Expect(err).To(BeNil())
+			operation := object.NewCreateObjectOperation(metaDescription)
 
-			operation := object.NewCreateObjectOperation(metaObj)
-
-			metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//sync DB
-			err = operation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//
 			globalTransactionManager.CommitTransaction(globalTransaction)
@@ -94,15 +89,15 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//apply operation
-			fieldOperation := NewRemoveFieldOperation(metaObj.FindField("number"))
-			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			fieldOperation := NewRemoveFieldOperation(metaDescription.FindField("number"))
+			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
-			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			//check that field has been removed
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaObj.Name)
+			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns).To(HaveLen(1))
 
@@ -114,15 +109,15 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//apply operation
-			fieldOperation := NewRemoveFieldOperation(metaObj.FindField("number"))
-			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			fieldOperation := NewRemoveFieldOperation(metaDescription.FindField("number"))
+			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
-			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			//check that field`s default value has been dropped
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaObj.Name)
+			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(1))
@@ -135,7 +130,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		//setup MetaObj
 		BeforeEach(func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			//Meta B
+			//MetaDescription B
 			bMetaDescription := &description.MetaDescription{
 				Name: "b",
 				Key:  "id",
@@ -158,18 +153,14 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					},
 				},
 			}
-			//sync Meta & DB
-			bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+			operation := object.NewCreateObjectOperation(bMetaDescription)
+
+			bMetaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
-			operation := object.NewCreateObjectOperation(bMetaObj)
-
-			bMetaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			err = operation.SyncDbDescription(bMetaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
-
-			err = operation.SyncDbDescription(bMetaObj, globalTransaction.DbTransaction)
-			Expect(err).To(BeNil())
-			//Meta A
+			//MetaDescription A
 			metaDescription = &description.MetaDescription{
 				Name: "a",
 				Key:  "id",
@@ -185,20 +176,18 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					{
 						Name:     "b",
 						Type:     description.FieldTypeObject,
-						LinkMeta: bMetaObj.Name,
+						LinkMeta: bMetaDescription.Name,
 						LinkType: description.LinkTypeInner,
 					},
 				},
 			}
-			metaObj, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-			Expect(err).To(BeNil())
-			//create Meta
-			operation = object.NewCreateObjectOperation(metaObj)
-			//sync Meta
-			metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			//create MetaDescription
+			operation = object.NewCreateObjectOperation(metaDescription)
+			//sync MetaDescription
+			metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//sync DB
-			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//
 
@@ -210,15 +199,15 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//apply operation
-			fieldOperation := NewRemoveFieldOperation(metaObj.FindField("b"))
-			err = fieldOperation.SyncDbDescription(metaObj, globalTransaction.DbTransaction)
+			fieldOperation := NewRemoveFieldOperation(metaDescription.FindField("b"))
+			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
-			_, err = fieldOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			//check that IFK has been dropped
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaObj.Name)
+			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			Expect(err).To(BeNil())

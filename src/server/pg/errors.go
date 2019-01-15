@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Meta DDL errors
+// MetaDescription DDL errors
 const (
 	ErrUnsupportedColumnType = "unsuported_column_type"
 	ErrUnsupportedLinkType   = "unsuported_link_type"

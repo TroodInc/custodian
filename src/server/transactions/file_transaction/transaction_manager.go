@@ -20,14 +20,14 @@ func (fm *FileMetaDescriptionTransactionManager) CommitTransaction(transaction M
 		transaction.SetState(Committed)
 		return nil
 	} else {
-		return &TransactionError{"Meta driver is not in pending state"}
+		return &TransactionError{"MetaDescription driver is not in pending state"}
 	}
 
 }
 
 func (fm *FileMetaDescriptionTransactionManager) RollbackTransaction(transaction MetaDescriptionTransaction) (error) {
 	if transaction.State() != Pending {
-		return &TransactionError{"Meta driver is not in pending state"}
+		return &TransactionError{"MetaDescription driver is not in pending state"}
 	}
 	//remove created meta
 	for _, metaName := range transaction.CreatedMetaNameList() {

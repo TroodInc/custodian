@@ -11,7 +11,7 @@ type MetaFactory struct {
 	metasToResolve []*Meta
 }
 
-// factory Meta by provided MetaDescription
+// factory MetaDescription by provided MetaDescription
 func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescription) (*Meta, error) {
 	metaFactory.reset()
 
@@ -65,12 +65,12 @@ func (metaFactory *MetaFactory) resolveEnqueued() error {
 	return nil
 }
 
-// fill Meta with all required attributes
+// fill MetaDescription with all required attributes
 func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 	//factory fields
 	currentMeta.Fields = make([]FieldDescription, 0, len(currentMeta.MetaDescription.Fields))
 	for _, field := range currentMeta.MetaDescription.Fields {
-		//field description factory may require to build another Meta, this Meta will be enqueued and processed
+		//field description factory may require to build another MetaDescription, this MetaDescription will be enqueued and processed
 		if fieldDescription, err := metaFactory.factoryFieldDescription(field, currentMeta); err != nil {
 			return err
 		} else {
@@ -87,9 +87,9 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 
 	//check PK field
 	if currentMeta.Key = currentMeta.FindField(currentMeta.MetaDescription.Key); currentMeta.Key == nil {
-		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The specified key '%s' Field not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
+		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "MetaDescription '%s' is incorrect. The specified key '%s' Field not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
 	} else if !currentMeta.Key.IsSimple() {
-		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' is incorrect. The key Field '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
+		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "MetaDescription '%s' is incorrect. The key Field '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
 	}
 
 	// check CAS
@@ -99,14 +99,14 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 				return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "The filed 'cas' specified in the MetaDescription '%s' as CAS must be type of 'number'", currentMeta.MetaDescription.Cas, currentMeta.MetaDescription.Name)
 			}
 		} else {
-			return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "Meta '%s' has CAS defined but the filed 'cas' it refers to is absent", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Cas)
+			return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "MetaDescription '%s' has CAS defined but the filed 'cas' it refers to is absent", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Cas)
 		}
 	}
 	return nil
 
 }
 
-// get Meta by name and determine if it should be built
+// get MetaDescription by name and determine if it should be built
 func (metaFactory *MetaFactory) buildMeta(metaName string) (metaObj *Meta, shouldBuild bool, err error) {
 	if metaObj, ok := metaFactory.builtMetas[metaName]; ok {
 		return metaObj, false, nil
@@ -179,13 +179,6 @@ func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, 
 //factory field description by provided Field
 func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
 	var err error
-	var onDeleteStrategy OnDeleteStrategy
-	if field.Type == FieldTypeObject || (field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner) {
-		onDeleteStrategy, err = GetOnDeleteStrategyByVerboseName(field.OnDelete)
-		if err != nil {
-			return nil, NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Failed to validate %s's onDelete strategy. %s", field.Name, err.Error())
-		}
-	}
 
 	fieldDescription := FieldDescription{
 		Field:          &field,
@@ -193,7 +186,6 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 		LinkMeta:       nil,
 		OuterLinkField: nil,
 		LinkMetaList:   &MetaList{},
-		OnDelete:       onDeleteStrategy,
 	}
 
 	if field.LinkMeta != "" {
@@ -233,7 +225,7 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 	return &fieldDescription, nil
 }
 
-//enqueue Meta to build
+//enqueue MetaDescription to build
 func (metaFactory *MetaFactory) enqueueForResolving(objectMeta *Meta) {
 	metaFactory.metasToResolve = append(metaFactory.metasToResolve, objectMeta)
 }
@@ -244,7 +236,7 @@ func (metaFactory *MetaFactory) reset() {
 	metaFactory.metasToResolve = make([]*Meta, 0)
 }
 
-//get actual Meta to build
+//get actual MetaDescription to build
 func (metaFactory *MetaFactory) popMetaToResolve() *Meta {
 	var metaToBuild *Meta
 	if len(metaFactory.metasToResolve) > 0 {
@@ -292,7 +284,7 @@ func (metaFactory *MetaFactory) checkOuterLinks(objectMeta *Meta) error {
 			continue
 		}
 		if outerLinkField := field.LinkMeta.FindField(field.Field.OuterLinkField); outerLinkField == nil {
-			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. Meta '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
+			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. MetaDescription '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
 		} else if !outerLinkField.canBeLinkTo(field.Meta) {
 			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, outerLinkField.Name, outerLinkField.Meta.Name, field.Meta.Name)
 		}

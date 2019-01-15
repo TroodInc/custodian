@@ -12,29 +12,7 @@ type FieldDescription struct {
 	LinkMeta       *Meta
 	OuterLinkField *FieldDescription
 	LinkMetaList   *MetaList
-	OnDelete       OnDeleteStrategy
 	LinkThrough    *Meta
-}
-
-func (f *FieldDescription) Default() Def {
-	switch t := f.Field.Def.(type) {
-	case string:
-		return DefConstStr{t}
-	case float64:
-		return DefConstFloat{t}
-	case int:
-		return DefConstInt{t}
-	case bool:
-		return DefConstBool{t}
-	case map[string]interface{}:
-		var args []interface{}
-		if a, ok := t["args"]; ok {
-			args = a.([]interface{})
-		}
-		return DefExpr{Func: t["func"].(string), Args: args}
-	default:
-		return nil
-	}
 }
 
 func (f *FieldDescription) IsValueTypeValid(v interface{}) bool {
@@ -127,4 +105,17 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 	default:
 		return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal, "Unknown NewField type '%s'", f.Type)
 	}
+}
+
+func (f *FieldDescription) ReverseOuterField() *FieldDescription {
+	if f.Type == FieldTypeObject && f.LinkType == LinkTypeInner {
+		for _, field := range f.LinkMeta.Fields {
+			if field.Type == FieldTypeArray && field.LinkType == LinkTypeOuter {
+				if field.OuterLinkField.Name == f.Name && field.LinkMeta.Name == f.Meta.Name {
+					return &field
+				}
+			}
+		}
+	}
+	return nil
 }
