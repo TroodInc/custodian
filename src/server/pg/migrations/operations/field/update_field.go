@@ -4,11 +4,11 @@ import (
 	"server/transactions"
 	"database/sql"
 	"server/migrations/operations/field"
+	"server/migrations"
 	"server/pg"
 	"fmt"
 	"logger"
 	"server/pg/migrations/operations/statement_factories"
-	"server/pg/migrations"
 	"server/object/description"
 	"server/object/meta"
 )
@@ -89,7 +89,7 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 	statementFactory := new(statement_factories.ColumnStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
 	if len(currentColumns) != len(newColumns) {
-		return migrations.NewPgMigrationError("Update column migration cannot be done with difference numbers of columns")
+		return migrations.NewMigrationError("Update column migration cannot be done with difference numbers of columns")
 	} else {
 		var currentColumn pg.Column
 		var newColumn pg.Column

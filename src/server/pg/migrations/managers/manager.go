@@ -8,7 +8,7 @@ import (
 	"server/object/description"
 	"server/pg/migrations/operations/object"
 	"server/migrations/migrations"
-	pg_migrations "server/pg/migrations"
+	_migrations "server/migrations"
 	"fmt"
 	migrations_description "server/migrations/description"
 )
@@ -92,7 +92,7 @@ func (mm *MigrationManager) canApplyMigration(migration *migrations.Migration, t
 	if len(result) == 0 {
 		return nil
 	} else {
-		return pg_migrations.NewPgMigrationError(
+		return _migrations.NewMigrationError(
 			fmt.Sprintf("Migration with ID '%s' has already been applied", migration.Id),
 		)
 	}
@@ -145,20 +145,30 @@ func (mm *MigrationManager) Run(migrationDescription *migrations_description.Mig
 	if err := mm.canApplyMigration(migration, globalTransaction.DbTransaction); err != nil {
 		return nil, err
 	}
-	metaToApply := migration.ApplyTo
+
+	var metaDescriptionToApply *description.MetaDescription
+
+	//metaDescription should be retrieved again because it may mutate during runBefore migrations(eg automatically added outer link was removed)
+	if migration.ApplyTo != nil {
+		metaDescriptionToApply, _, err = mm.metaDescriptionSyncer.Get(migration.ApplyTo.Name)
+		if err != nil {
+			return nil, err
+		}
+	}
+
 	for _, operation := range migration.Operations {
 		//metaToApply should mutate only within iterations, not inside iteration
-		updatedMetaDescription, err = operation.SyncMetaDescription(metaToApply, globalTransaction.MetaDescriptionTransaction, mm.metaDescriptionSyncer)
+		updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, globalTransaction.MetaDescriptionTransaction, mm.metaDescriptionSyncer)
 		if err != nil {
 			return nil, err
 		} else {
-			err := operation.SyncDbDescription(metaToApply, globalTransaction.DbTransaction, mm.metaDescriptionSyncer)
+			err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction.DbTransaction, mm.metaDescriptionSyncer)
 			if err != nil {
 				return nil, err
 			}
 		}
 		//mutate metaToApply
-		metaToApply = updatedMetaDescription
+		metaDescriptionToApply = updatedMetaDescription
 	}
 
 	for _, spawnedMigrationDescription := range migration.RunAfter {

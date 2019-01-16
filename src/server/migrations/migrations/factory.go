@@ -77,11 +77,14 @@ func (mf *MigrationFactory) factoryNormalizationMigrations(metaDescription *obje
 		} else {
 			runAfter = append(runAfter, childRunAfter...)
 		}
+
 		if childRunAfter, err := mf.factoryAddOuterLinkMigrationsForNewField(metaDescription.Name, concreteOperation.Field); err != nil {
 			return nil, nil, err
 		} else {
 			runAfter = append(runAfter, childRunAfter...)
 		}
+
+		runBefore = append(runBefore, mf.factoryRemoveAutomaticallyAddedOuterField(metaDescription, concreteOperation.Field)...)
 		return runBefore, runAfter, nil
 	case *field.UpdateFieldOperation:
 		return mf.factoryAddGenericOuterLinkMigrationsForUpdatedField(metaDescription.Name, concreteOperation.CurrentField, concreteOperation.NewField)
@@ -190,6 +193,34 @@ func (mf *MigrationFactory) factoryUpdateOuterLinkMigrationsForMeta(currentMetaD
 		}
 	}
 	return spawnedMigrations, nil
+}
+
+//if an outer link field is explicitly specified and automatically created outer field exists
+//this existing field should be removed first
+func (mf *MigrationFactory) factoryRemoveAutomaticallyAddedOuterField(metaDescription *object_description.MetaDescription, fieldToAdd *object_description.Field) []*description.MigrationDescription {
+	var existingOuterField *object_description.Field
+	if fieldToAdd.LinkType == object_description.LinkTypeOuter {
+		for i, field := range metaDescription.Fields {
+			if field.OuterLinkField == fieldToAdd.OuterLinkField && field.LinkMeta == fieldToAdd.LinkMeta {
+				if field.Type == fieldToAdd.Type {
+					existingOuterField = &metaDescription.Fields[i]
+				}
+			}
+		}
+	}
+	if existingOuterField != nil {
+		removeFieldOperationDescription := description.MigrationOperationDescription{
+			Type:  description.RemoveFieldOperation,
+			Field: description.MigrationFieldDescription{Field: *existingOuterField, PreviousName: ""},
+		}
+		return []*description.MigrationDescription{
+			{
+				ApplyTo:    metaDescription.Name,
+				Operations: []description.MigrationOperationDescription{removeFieldOperationDescription},
+			},
+		}
+	}
+	return []*description.MigrationDescription{}
 }
 
 func (mf *MigrationFactory) factoryRemoveOuterLinkMigrationsForMeta(metaDescription *object_description.MetaDescription) []*description.MigrationDescription {

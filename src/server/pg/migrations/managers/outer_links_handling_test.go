@@ -131,6 +131,82 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			Expect(err).To(BeNil())
 		})
 
+		It("replaces automatically added reverse outer link with explicitly specified new one", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			bMetaDescription := description.NewMetaDescription(
+				"b",
+				"id",
+				[]description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "a",
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: "a",
+						Optional: false,
+					},
+				},
+				nil,
+				false,
+			)
+
+			migrationDescription := &migrations_description.MigrationDescription{
+				Id:        "some-unique-id",
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: [] migrations_description.MigrationOperationDescription{
+					{
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: *bMetaDescription,
+					},
+				},
+			}
+
+			_, err = migrationManager.Run(migrationDescription, globalTransaction, false)
+			Expect(err).To(BeNil())
+
+			aMetaDescription, _, err := metaDescriptionSyncer.Get("a")
+			Expect(err).To(BeNil())
+			Expect(aMetaDescription.FindField("b_set")).NotTo(BeNil())
+
+			migrationDescription = &migrations_description.MigrationDescription{
+				Id:        "some-unique-id",
+				ApplyTo:   "a",
+				DependsOn: nil,
+				Operations: [] migrations_description.MigrationOperationDescription{
+					{
+						Type: migrations_description.AddFieldOperation,
+						Field: migrations_description.MigrationFieldDescription{
+							Field: description.Field{
+								Name:           "explicitly_set_b_set",
+								Type:           description.FieldTypeArray,
+								LinkType:       description.LinkTypeOuter,
+								OuterLinkField: "a",
+								LinkMeta:       "b",
+							},
+						},
+					},
+				},
+			}
+
+			updatedAMetaDescription, err := migrationManager.Run(migrationDescription, globalTransaction, false)
+
+			Expect(err).To(BeNil())
+
+			Expect(updatedAMetaDescription.FindField("b_set")).To(BeNil())
+			Expect(updatedAMetaDescription.FindField("explicitly_set_b_set")).NotTo(BeNil())
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
 		Context("having object B", func() {
 			var bMetaDescription *description.MetaDescription
 			BeforeEach(func() {
