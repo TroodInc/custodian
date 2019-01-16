@@ -339,107 +339,107 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				Expect(aMetaObj.FindField("bb_set").LinkMeta.Name).To(Equal("bb"))
 			})
 			//
-			//It("removes generic outer links if object which owns inner generic link is being deleted", func() {
-			//	globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			//	Expect(err).To(BeNil())
-			//
-			//	field := description.Field{
-			//		Name:         "target_object",
-			//		Type:         description.FieldTypeGeneric,
-			//		LinkType:     description.LinkTypeInner,
-			//		LinkMetaList: []string{"a"},
-			//		Optional:     false,
-			//	}
-			//
-			//	migrationDescription := &migrations_description.MigrationDescription{
-			//		Id:        "some-unique-id",
-			//		ApplyTo:   bMetaDescription.Name,
-			//		DependsOn: nil,
-			//		Operations: [] migrations_description.MigrationOperationDescription{
-			//			{
-			//				Type:  migrations_description.AddFieldOperation,
-			//				Field: migrations_description.MigrationFieldDescription{Field: field},
-			//			},
-			//		},
-			//	}
-			//
-			//	_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer).Run(migrationDescription, globalTransaction, false)
-			//	Expect(err).To(BeNil())
-			//
-			//	migrationDescription = &migrations_description.MigrationDescription{
-			//		Id:        "some-unique-id",
-			//		ApplyTo:   bMetaDescription.Name,
-			//		DependsOn: nil,
-			//		Operations: [] migrations_description.MigrationOperationDescription{
-			//			{
-			//				Type:            migrations_description.DeleteObjectOperation,
-			//				MetaDescription: *bMetaDescription,
-			//			},
-			//		},
-			//	}
-			//
-			//	migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-			//	Expect(err).To(BeNil())
-			//
-			//	err = globalTransactionManager.CommitTransaction(globalTransaction)
-			//	Expect(err).To(BeNil())
-			//
-			//	Expect(migration.RunBefore).To(HaveLen(1))
-			//	Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
-			//	Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-			//	Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
-			//})
-			//
-			//It("removes generic outer links if inner generic link is being removed", func() {
-			//	globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			//	Expect(err).To(BeNil())
-			//
-			//	field := description.Field{
-			//		Name:         "target_object",
-			//		Type:         description.FieldTypeGeneric,
-			//		LinkType:     description.LinkTypeInner,
-			//		LinkMetaList: []string{"a"},
-			//		Optional:     false,
-			//	}
-			//
-			//	migrationDescription := &migrations_description.MigrationDescription{
-			//		Id:        "some-unique-id",
-			//		ApplyTo:   bMetaDescription.Name,
-			//		DependsOn: nil,
-			//		Operations: [] migrations_description.MigrationOperationDescription{
-			//			{
-			//				Type:  migrations_description.AddFieldOperation,
-			//				Field: migrations_description.MigrationFieldDescription{Field: field},
-			//			},
-			//		},
-			//	}
-			//
-			//	_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer).Run(migrationDescription, globalTransaction, false)
-			//	Expect(err).To(BeNil())
-			//
-			//	migrationDescription = &migrations_description.MigrationDescription{
-			//		Id:        "some-unique-id",
-			//		ApplyTo:   bMetaDescription.Name,
-			//		DependsOn: nil,
-			//		Operations: [] migrations_description.MigrationOperationDescription{
-			//			{
-			//				Type:  migrations_description.RemoveFieldOperation,
-			//				Field: migrations_description.MigrationFieldDescription{Field: field},
-			//			},
-			//		},
-			//	}
-			//
-			//	migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-			//	Expect(err).To(BeNil())
-			//
-			//	err = globalTransactionManager.CommitTransaction(globalTransaction)
-			//	Expect(err).To(BeNil())
-			//
-			//	Expect(migration.RunBefore).To(HaveLen(1))
-			//	Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
-			//	Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-			//	Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
-			//})
+			It("removes generic outer links if object which owns inner generic link is being deleted", func() {
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+
+				field := description.Field{
+					Name:         "target_object",
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
+					LinkMetaList: []string{"a"},
+					Optional:     false,
+				}
+
+				migrationDescription := &migrations_description.MigrationDescription{
+					Id:        "some-unique-id",
+					ApplyTo:   bMetaDescription.Name,
+					DependsOn: nil,
+					Operations: [] migrations_description.MigrationOperationDescription{
+						{
+							Type:  migrations_description.AddFieldOperation,
+							Field: migrations_description.MigrationFieldDescription{Field: field},
+						},
+					},
+				}
+
+				_, err = migrationManager.Run(migrationDescription, globalTransaction, false)
+				Expect(err).To(BeNil())
+
+				migrationDescription = &migrations_description.MigrationDescription{
+					Id:        "some-unique-id",
+					ApplyTo:   bMetaDescription.Name,
+					DependsOn: nil,
+					Operations: [] migrations_description.MigrationOperationDescription{
+						{
+							Type:            migrations_description.DeleteObjectOperation,
+							MetaDescription: *bMetaDescription,
+						},
+					},
+				}
+
+				_, err = migrationManager.Run(migrationDescription, globalTransaction, false)
+				Expect(err).To(BeNil())
+
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+				metaObj, _, err := metaStore.Get(globalTransaction, metaDescription.Name, false)
+				Expect(err).To(BeNil())
+
+				Expect(metaObj.FindField(meta.ReverseInnerLinkName("b"))).To(BeNil())
+
+			})
+
+			It("removes generic outer links if inner generic link is being removed", func() {
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+
+				field := description.Field{
+					Name:         "target_object",
+					Type:         description.FieldTypeGeneric,
+					LinkType:     description.LinkTypeInner,
+					LinkMetaList: []string{"a"},
+					Optional:     false,
+				}
+
+				migrationDescription := &migrations_description.MigrationDescription{
+					Id:        "some-unique-id",
+					ApplyTo:   bMetaDescription.Name,
+					DependsOn: nil,
+					Operations: [] migrations_description.MigrationOperationDescription{
+						{
+							Type:  migrations_description.AddFieldOperation,
+							Field: migrations_description.MigrationFieldDescription{Field: field},
+						},
+					},
+				}
+
+				_, err = migrationManager.Run(migrationDescription, globalTransaction, false)
+				Expect(err).To(BeNil())
+
+				migrationDescription = &migrations_description.MigrationDescription{
+					Id:        "some-unique-id",
+					ApplyTo:   bMetaDescription.Name,
+					DependsOn: nil,
+					Operations: [] migrations_description.MigrationOperationDescription{
+						{
+							Type:  migrations_description.RemoveFieldOperation,
+							Field: migrations_description.MigrationFieldDescription{Field: field},
+						},
+					},
+				}
+
+				_, err = migrationManager.Run(migrationDescription, globalTransaction, false)
+				Expect(err).To(BeNil())
+
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+				metaObj, _, err := metaStore.Get(globalTransaction, metaDescription.Name, false)
+				Expect(err).To(BeNil())
+				Expect(metaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
+			})
 		})
 	})
 })

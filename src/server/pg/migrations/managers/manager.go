@@ -130,7 +130,7 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 	return meta.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func (mm *MigrationManager) Run(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMeta *description.MetaDescription, err error) {
+func (mm *MigrationManager) Run(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
 	migration, err := migrations.NewMigrationFactory(mm.metaStore, globalTransaction, mm.metaDescriptionSyncer).Factory(migrationDescription)
 	if err != nil {
 		return nil, err
@@ -148,7 +148,7 @@ func (mm *MigrationManager) Run(migrationDescription *migrations_description.Mig
 	metaToApply := migration.ApplyTo
 	for _, operation := range migration.Operations {
 		//metaToApply should mutate only within iterations, not inside iteration
-		updatedMeta, err = operation.SyncMetaDescription(metaToApply, globalTransaction.MetaDescriptionTransaction, mm.metaDescriptionSyncer)
+		updatedMetaDescription, err = operation.SyncMetaDescription(metaToApply, globalTransaction.MetaDescriptionTransaction, mm.metaDescriptionSyncer)
 		if err != nil {
 			return nil, err
 		} else {
@@ -158,7 +158,7 @@ func (mm *MigrationManager) Run(migrationDescription *migrations_description.Mig
 			}
 		}
 		//mutate metaToApply
-		metaToApply = updatedMeta
+		metaToApply = updatedMetaDescription
 	}
 
 	for _, spawnedMigrationDescription := range migration.RunAfter {
@@ -174,7 +174,7 @@ func (mm *MigrationManager) Run(migrationDescription *migrations_description.Mig
 		}
 	}
 
-	return updatedMeta, nil
+	return updatedMetaDescription, nil
 }
 
 func (mm *MigrationManager) DropHistory(transaction transactions.DbTransaction) error {
