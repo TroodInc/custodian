@@ -11,13 +11,12 @@ import (
 	"server/transactions"
 	"server/object/description"
 	"server/pg/migrations/operations/object"
-	"server/pg/migrations/operations/field"
 	migrations_description "server/migrations/description"
 	"server/pg/migrations/managers"
 	. "server/migrations/migrations"
 )
 
-var _ = Describe("Migration Factory", func() {
+var _ = Describe("Automated generic links` migrations` spawning", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
@@ -80,171 +79,6 @@ var _ = Describe("Migration Factory", func() {
 		//
 		err = globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
-	})
-
-	It("factories migration containing CreateObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:            migrations_description.CreateObjectOperation,
-					MetaDescription: *metaDescription,
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*object.CreateObjectOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing RenameObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		updatedMetaDescription := metaDescription.Clone()
-		updatedMetaDescription.Name = "updatedA"
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:            migrations_description.RenameObjectOperation,
-					MetaDescription: *updatedMetaDescription,
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*object.RenameObjectOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing RenameObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:            migrations_description.DeleteObjectOperation,
-					MetaDescription: *metaDescription,
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*object.DeleteObjectOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing AddFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:  migrations_description.AddFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "new-field", Type: description.FieldTypeString, Optional: true}},
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*field.AddFieldOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing RemoveFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:  migrations_description.RemoveFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing UpdateFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:  migrations_description.RemoveFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	Describe("Automated generic fields` migrations` spawning", func() {
