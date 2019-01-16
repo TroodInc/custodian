@@ -26,7 +26,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	var metaObj *meta.Meta
+	var metaDescription *description.MetaDescription
 
 	//setup transaction
 	BeforeEach(func() {
@@ -40,7 +40,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription := &description.MetaDescription{
+		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -54,14 +54,12 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 				},
 			},
 		}
-		metaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-		Expect(err).To(BeNil())
 
-		operation := CreateObjectOperation{Meta: metaOjb}
+		operation := CreateObjectOperation{MetaDescription: metaDescription}
 
-		metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		Expect(metaObj).NotTo(BeNil())
+		Expect(metaDescription).NotTo(BeNil())
 	})
 
 	//setup teardown
@@ -74,25 +72,23 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	})
 
 	It("renames metaDescription`s file", func() {
-		updatedMetaDescription := metaObj.MetaDescription.Clone()
+		updatedMetaDescription := metaDescription.Clone()
 		updatedMetaDescription.Name = "b"
-		updatedMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(updatedMetaDescription)
-		Expect(err).To(BeNil())
 
-		operation := RenameObjectOperation{Meta: updatedMetaObj}
-		updatedMetaObj, err = operation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		operation := RenameObjectOperation{MetaDescription: updatedMetaDescription}
+		updatedMetaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		Expect(metaObj).NotTo(BeNil())
+		Expect(updatedMetaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file
-		metaDescription, _, err := metaDescriptionSyncer.Get(updatedMetaObj.Name)
+		updatedMetaDescription, _, err = metaDescriptionSyncer.Get(updatedMetaDescription.Name)
 		Expect(metaDescription).NotTo(BeNil())
 		//ensure previous MetaDescription does not exist
-		metaDescription, _, err = metaDescriptionSyncer.Get(metaObj.Name)
+		metaDescription, _, err = metaDescriptionSyncer.Get(metaDescription.Name)
 		Expect(metaDescription).To(BeNil())
 
 		//clean up
-		_, err = metaDescriptionSyncer.Remove(updatedMetaObj.Name)
+		_, err = metaDescriptionSyncer.Remove(updatedMetaDescription.Name)
 		Expect(err).To(BeNil())
 	})
 
@@ -112,24 +108,21 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 			},
 		}
 
-		bMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+		createOperation := CreateObjectOperation{MetaDescription: bMetaDescription}
+		bMetaDescription, err := createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-
-		createOperation := CreateObjectOperation{Meta: bMetaOjb}
-		bMetaObj, err := createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		Expect(metaObj).NotTo(BeNil())
+		Expect(bMetaDescription).NotTo(BeNil())
 
 		//
-		renameOperation := RenameObjectOperation{bMetaObj}
-		renamedMetaObj, err := renameOperation.SyncMetaDescription(metaObj, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		renameOperation := RenameObjectOperation{bMetaDescription}
+		renamedMetaObj, err := renameOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 
 		// Ensure migration has not been applied
 		Expect(err).NotTo(BeNil())
 		Expect(renamedMetaObj).To(BeNil())
 
 		//clean up
-		metaDescriptionSyncer.Remove(bMetaObj.Name)
-		metaDescriptionSyncer.Remove(metaObj.Name)
+		metaDescriptionSyncer.Remove(bMetaDescription.Name)
+		metaDescriptionSyncer.Remove(metaDescription.Name)
 	})
 })

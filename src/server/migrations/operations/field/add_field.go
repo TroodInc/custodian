@@ -2,45 +2,39 @@ package field
 
 import (
 	"server/object/meta"
+	meta_description "server/object/description"
 	"server/transactions"
 	"server/migrations"
 	"fmt"
 )
 
 type AddFieldOperation struct {
-	Field *meta.FieldDescription
+	Field *meta_description.Field
 }
 
-func (o *AddFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
-	if err := o.validate(metaObj); err != nil {
+func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+	metaDescriptionToApply = metaDescriptionToApply.Clone()
+	if err := o.validate(metaDescriptionToApply); err != nil {
 		return nil, err
 	}
 
-	metaDescription := metaObj.MetaDescription.Clone()
-	metaDescription.Fields = append(metaDescription.Fields, *o.Field.Field)
+	metaDescriptionToApply.Fields = append(metaDescriptionToApply.Fields, *o.Field)
 
-	//factory new Meta
-	metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-	if err != nil {
-		return metaObj, nil
-	}
 	//sync its MetaDescription
-	if _, err = metaDescriptionSyncer.Update(metaObj.Name, *metaObj.MetaDescription); err != nil {
+	if _, err := metaDescriptionSyncer.Update(metaDescriptionToApply.Name, *metaDescriptionToApply); err != nil {
 		return nil, err
 	} else {
-		return metaObj, nil
+		return metaDescriptionToApply, nil
 	}
-
-	return meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 }
 
-func (o *AddFieldOperation) validate(metaObj *meta.Meta) error {
-	if metaObj.FindField(o.Field.Name) != nil {
-		return migrations.NewMigrationError(fmt.Sprintf("Object %s already has field %s", metaObj.Name, o.Field.Name))
+func (o *AddFieldOperation) validate(metaDescription *meta_description.MetaDescription) error {
+	if metaDescription.FindField(o.Field.Name) != nil {
+		return migrations.NewMigrationError(fmt.Sprintf("Object %s already has field %s", metaDescription.Name, o.Field.Name))
 	}
 	return nil
 }
 
-func NewAddFieldOperation(field *meta.FieldDescription) *AddFieldOperation {
+func NewAddFieldOperation(field *meta_description.Field) *AddFieldOperation {
 	return &AddFieldOperation{Field: field}
 }

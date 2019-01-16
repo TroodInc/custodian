@@ -1,7 +1,6 @@
 package field
 
 import (
-	"server/object/meta"
 	"server/transactions"
 	"database/sql"
 	"server/migrations/operations/field"
@@ -9,16 +8,18 @@ import (
 	"fmt"
 	"logger"
 	"server/pg/migrations/operations/statement_factories"
+	"server/object/description"
+	"server/object/meta"
 )
 
 type RemoveFieldOperation struct {
 	field.RemoveFieldOperation
 }
 
-func (o *RemoveFieldOperation) SyncDbDescription(metaObj *meta.Meta, transaction transactions.DbTransaction) (err error) {
+func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
-	columns, ifk, _, seq, err := new(pg.MetaDdlFactory).FactoryFieldProperties(o.Field)
+	columns, ifk, _, seq, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescription)
 	if err != nil {
 		return err
 	}
@@ -28,17 +29,17 @@ func (o *RemoveFieldOperation) SyncDbDescription(metaObj *meta.Meta, transaction
 		return err
 	}
 
-	if err := o.addConstraintStatement(&statementSet, ifk, metaObj); err != nil {
+	if err := o.addConstraintStatement(&statementSet, ifk, metaDescription); err != nil {
 		return err
 	}
-	if err := o.addColumnStatements(&statementSet, columns, metaObj); err != nil {
+	if err := o.addColumnStatements(&statementSet, columns, metaDescription); err != nil {
 		return err
 	}
 
 	for _, statement := range statementSet {
 		logger.Debug("Removing field from DB: %s\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
-			return pg.NewDdlError(metaObj.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+			return pg.NewDdlError(metaDescription.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
 		}
 	}
 
@@ -57,9 +58,9 @@ func (o *RemoveFieldOperation) addSequenceStatement(statementSet *pg.DdlStatemen
 	}
 }
 
-func (o *RemoveFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaObj *meta.Meta) error {
+func (o *RemoveFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescription *description.MetaDescription) error {
 	statementFactory := new(statement_factories.ColumnStatementFactory)
-	tableName := pg.GetTableName(metaObj.Name)
+	tableName := pg.GetTableName(metaDescription.Name)
 	for _, column := range columns {
 		statement, err := statementFactory.FactoryDropStatement(tableName, column)
 		if err != nil {
@@ -70,12 +71,12 @@ func (o *RemoveFieldOperation) addColumnStatements(statementSet *pg.DdlStatement
 	return nil
 }
 
-func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaObj *meta.Meta) error {
+func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaDescription *description.MetaDescription) error {
 	if ifk == nil {
 		return nil
 	}
 	statementFactory := new(statement_factories.ConstraintStatementFactory)
-	tableName := pg.GetTableName(metaObj.Name)
+	tableName := pg.GetTableName(metaDescription.Name)
 
 	statement, err := statementFactory.FactoryDropStatement(tableName, ifk)
 	if err != nil {
@@ -85,6 +86,6 @@ func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatem
 	return nil
 }
 
-func NewRemoveFieldOperation(targetField *meta.FieldDescription) *RemoveFieldOperation {
+func NewRemoveFieldOperation(targetField *description.Field) *RemoveFieldOperation {
 	return &RemoveFieldOperation{field.RemoveFieldOperation{Field: targetField}}
 }

@@ -27,7 +27,6 @@ import (
 	. "server/streams"
 	_ "net/http/pprof"
 	migrations_description "server/migrations/description"
-	"server/pg/migrations/migrations"
 	"server/pg/migrations/managers"
 	"utils"
 )
@@ -128,7 +127,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	app := GetApp(cs)
 
-	//Meta routes
+	//MetaDescription routes
 	syncer, err := pg.NewSyncer(cs.db)
 	dataManager, _ := syncer.NewDataManager()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
@@ -164,7 +163,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), true); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.ForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.push(map[string]interface{}{"status": "FAIL", "error": e.Error()})
@@ -188,7 +187,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			}
 			if e := metaStore.Create(globalTransaction, metaObj); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.ForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(e)
@@ -233,7 +232,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			}
 			if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.push(map[string]interface{}{"status": "OK", "data": metaObj.DescriptionForExport()})
+				js.push(map[string]interface{}{"status": "OK", "data": metaObj.ForExport()})
 			} else {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)
@@ -501,15 +500,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
-			migration, err := migrations.NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-			if err != nil {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(err)
-				return
-			}
-
-			migrationManager := managers.NewMigrationManager(dataManager, metaDescriptionSyncer)
-			updatedMeta, err := migrationManager.Run(migration, globalTransaction, )
+			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
+			updatedMetaDescription, err := migrationManager.Run(migrationDescription, globalTransaction, true)
 			if err != nil {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)
@@ -519,15 +511,14 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			//response data
 			var responseData map[string]interface{}
-			if updatedMeta != nil {
-				responseData = map[string]interface{}{"status": "OK", "data": updatedMeta.DescriptionForExport()}
+			if updatedMetaDescription != nil {
+				responseData = map[string]interface{}{"status": "OK", "data": updatedMetaDescription.ForExport()}
 			} else {
 				responseData = map[string]interface{}{"status": "OK"}
 			}
 
 			js.push(map[string]interface{}{"status": "OK", "data": responseData})
 		}
-
 	}))
 
 	if config.EnableProfiler {

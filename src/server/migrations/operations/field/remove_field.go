@@ -9,45 +9,38 @@ import (
 )
 
 type RemoveFieldOperation struct {
-	Field *meta.FieldDescription
+	Field *description.Field
 }
 
-func (o *RemoveFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
-	if err := o.validate(metaObj); err != nil {
+func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+	updatedMetaDescription := metaDescription.Clone()
+	if err := o.validate(updatedMetaDescription); err != nil {
 		return nil, err
 	}
 
-	metaDescription := metaObj.MetaDescription.Clone()
-	metaDescription.Fields = make([]description.Field, 0)
+	updatedMetaDescription.Fields = make([]description.Field, 0)
 
 	//remove field from meta description
-	for i, currentField := range metaObj.MetaDescription.Fields {
+	for i, currentField := range metaDescription.Fields {
 		if currentField.Name != o.Field.Name {
-			metaDescription.Fields = append(metaDescription.Fields, metaObj.MetaDescription.Fields[i])
+			updatedMetaDescription.Fields = append(updatedMetaDescription.Fields, metaDescription.Fields[i])
 		}
 	}
-	//factory new Meta
-	metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-	if err != nil {
-		return metaObj, nil
-	}
 	//sync its MetaDescription
-	if _, err = metaDescriptionSyncer.Update(metaObj.Name, *metaObj.MetaDescription); err != nil {
+	if _, err := metaDescriptionSyncer.Update(updatedMetaDescription.Name, *updatedMetaDescription); err != nil {
 		return nil, err
 	} else {
-		return metaObj, nil
+		return updatedMetaDescription, nil
 	}
-
-	return meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 }
 
-func (o *RemoveFieldOperation) validate(metaObj *meta.Meta) error {
-	if metaObj.FindField(o.Field.Name) == nil {
-		return migrations.NewMigrationError(fmt.Sprintf("Object %s has no field named %s", metaObj.Name, o.Field.Name))
+func (o *RemoveFieldOperation) validate(metaDescription *description.MetaDescription) error {
+	if metaDescription.FindField(o.Field.Name) == nil {
+		return migrations.NewMigrationError(fmt.Sprintf("Object %s has no field named %s", metaDescription.Name, o.Field.Name))
 	}
 	return nil
 }
 
-func NewRemoveFieldOperation(field *meta.FieldDescription) *RemoveFieldOperation {
+func NewRemoveFieldOperation(field *description.Field) *RemoveFieldOperation {
 	return &RemoveFieldOperation{Field: field}
 }

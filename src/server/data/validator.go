@@ -153,9 +153,9 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 		if len(idFilters) > 0 {
 			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
 			callbackFunction := func(obj map[string]interface{}) error {
-				if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteCascade || fieldDescription.OuterLinkField.OnDelete == description.OnDeleteRestrict {
+				if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
 					recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkMeta, obj))
-				} else if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteSetNull {
+				} else if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteSetNull {
 					obj[fieldDescription.OuterLinkField.Name] = nil
 					recordsToProcess = append(recordsToProcess, NewRecord(fieldDescription.LinkMeta, obj))
 				}
@@ -164,7 +164,7 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, 1, true, callbackFunction)
 		}
 		if len(recordsToRemove) > 0 {
-			if fieldDescription.OuterLinkField.OnDelete == description.OnDeleteRestrict {
+			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
 				return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrRestrictConstraintViolation, "Array in field '%s'contains records, which could not be removed due to `Restrict` strategy set", fieldDescription.Name)
 			}
 		}

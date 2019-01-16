@@ -26,7 +26,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	var objectMeta *meta.Meta
+	var metaDescription *description.MetaDescription
 
 	//setup transaction
 	BeforeEach(func() {
@@ -40,7 +40,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription := description.MetaDescription{
+		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -55,9 +55,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			},
 		}
 		var err error
-		objectMeta, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&metaDescription)
-		Expect(err).To(BeNil())
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *objectMeta.MetaDescription)
+		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
 	})
 
@@ -73,14 +71,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	It("adds a field into metaDescription`s file", func() {
 
 		field := description.Field{Name: "new_field", Type: description.FieldTypeString, Optional: true}
-		fieldDescription, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryFieldDescription(field, objectMeta)
 
-		operation := NewAddFieldOperation(fieldDescription)
-		objectMeta, err := operation.SyncMetaDescription(objectMeta, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		operation := NewAddFieldOperation(&field)
+		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(objectMeta).NotTo(BeNil())
 
-		//ensure Meta contains added field
+		//ensure MetaDescription contains added field
 		Expect(objectMeta.FindField("new_field")).NotTo(BeNil())
 		//ensure MetaDescription has been save to file with new field
 		metaDescription, _, err := metaDescriptionSyncer.Get(objectMeta.Name)

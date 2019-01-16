@@ -49,7 +49,7 @@ var _ = Describe("Server", func() {
 		err = metaStore.Flush(globalTransaction)
 		Expect(err).To(BeNil())
 		// drop history
-		err = managers.NewMigrationManager(dataManager, metaDescriptionSyncer).DropHistory(globalTransaction.DbTransaction)
+		err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer).DropHistory(globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -136,13 +136,10 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		createOperation := object.NewCreateObjectOperation(aMetaDescription)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-
-		createOperation := object.NewCreateObjectOperation(aMetaOjb)
-		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -219,13 +216,10 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		createOperation := object.NewCreateObjectOperation(aMetaDescription)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-
-		createOperation := object.NewCreateObjectOperation(aMetaOjb)
-		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -302,13 +296,10 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		createOperation := object.NewCreateObjectOperation(aMetaDescription)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-
-		createOperation := object.NewCreateObjectOperation(aMetaOjb)
-		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -382,13 +373,10 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		createOperation := object.NewCreateObjectOperation(aMetaDescription)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-
-		createOperation := object.NewCreateObjectOperation(aMetaOjb)
-		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -440,7 +428,7 @@ var _ = Describe("Server", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	It("Can remove field by application of migration", func() {
+	It("Can remove field by appliance of migration", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 		//Create A object
@@ -464,13 +452,10 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		aMetaOjb, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(aMetaDescription)
+		createOperation := object.NewCreateObjectOperation(aMetaDescription)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-
-		createOperation := object.NewCreateObjectOperation(aMetaOjb)
-		aMetaOjb, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction)
+		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		err = globalTransactionManager.CommitTransaction(globalTransaction)

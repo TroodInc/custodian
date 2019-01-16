@@ -26,7 +26,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	var objectMeta *meta.Meta
+	var metaDescription *description.MetaDescription
 
 	//setup transaction
 	BeforeEach(func() {
@@ -39,7 +39,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription := description.MetaDescription{
+		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
@@ -60,9 +60,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			},
 		}
 		var err error
-		objectMeta, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(&metaDescription)
-		Expect(err).To(BeNil())
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *objectMeta.MetaDescription)
+		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
 	})
 
@@ -78,24 +76,21 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 	It("replaces a field in metaDescription`s file", func() {
 
 		field := description.Field{Name: "name", Type: description.FieldTypeNumber, Optional: false, Def: nil}
-		fieldDescription, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryFieldDescription(field, objectMeta)
 
-		operation := NewUpdateFieldOperation(objectMeta.FindField("name"), fieldDescription)
-		objectMeta, err := operation.SyncMetaDescription(objectMeta, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		operation := NewUpdateFieldOperation(metaDescription.FindField("name"), &field)
+		metaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		Expect(objectMeta).NotTo(BeNil())
+		Expect(metaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file with new field
-		metaDescription, _, err := metaDescriptionSyncer.Get(objectMeta.Name)
+		metaDescription, _, err = metaDescriptionSyncer.Get(metaDescription.Name)
 		Expect(metaDescription).NotTo(BeNil())
 		Expect(metaDescription.Fields).To(HaveLen(2))
 		Expect(metaDescription.Fields[1].Name).To(Equal("name"))
 
-		objectMeta, err = meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-		Expect(err).To(BeNil())
-		Expect(objectMeta.FindField("name").Optional).To(BeFalse())
-		Expect(objectMeta.FindField("name").Def).To(BeNil())
-		Expect(objectMeta.FindField("name").Type).To(Equal(description.FieldTypeNumber))
+		Expect(metaDescription.FindField("name").Optional).To(BeFalse())
+		Expect(metaDescription.FindField("name").Def).To(BeNil())
+		Expect(metaDescription.FindField("name").Type).To(Equal(description.FieldTypeNumber))
 
 		//clean up
 		metaDescriptionSyncer.Remove(metaDescription.Name)

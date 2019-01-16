@@ -3,59 +3,41 @@ package operations
 import (
 	"server/migrations/operations"
 	"server/migrations"
-	"server/object/meta"
+	meta_description "server/object/description"
 	"fmt"
 	"server/pg/migrations/operations/field"
 	"server/migrations/description"
 	"server/pg/migrations/operations/object"
 )
 
-type OperationFactory struct {
-	metaFactory *meta.MetaFactory
-}
+type OperationFactory struct{}
 
-func (of *OperationFactory) Factory(operationDescription *description.MigrationOperationDescription, metaObj *meta.Meta) (operations.MigrationOperation, error) {
+func (of *OperationFactory) Factory(operationDescription *description.MigrationOperationDescription, metaDescription *meta_description.MetaDescription) (operations.MigrationOperation, error) {
 	switch operationDescription.Type {
 	case description.AddFieldOperation:
-		if fieldDescription, err := of.metaFactory.FactoryFieldDescription(operationDescription.Field.Field, metaObj); err != nil {
-			return nil, err
-		} else {
-			return field.NewAddFieldOperation(fieldDescription), nil
-		}
+		return field.NewAddFieldOperation(&operationDescription.Field.Field), nil
 	case description.RemoveFieldOperation:
-		targetField := metaObj.FindField(operationDescription.Field.Name)
+		targetField := metaDescription.FindField(operationDescription.Field.Name)
 		if targetField == nil {
-			return nil, migrations.NewMigrationError(fmt.Sprintf("meta %s has no field %s", metaObj.Name, operationDescription.Field.Name))
+			return nil, migrations.NewMigrationError(fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.Name))
 		}
 		return field.NewRemoveFieldOperation(targetField), nil
 	case description.UpdateFieldOperation:
-		newField, err := of.metaFactory.FactoryFieldDescription(operationDescription.Field.Field, metaObj)
-		if err != nil {
-			return nil, err
-		}
-		currentField := metaObj.FindField(operationDescription.Field.PreviousName)
+		currentField := metaDescription.FindField(operationDescription.Field.PreviousName)
 		if currentField == nil {
-			return nil, migrations.NewMigrationError(fmt.Sprintf("meta %s has no field %s", metaObj.Name, operationDescription.Field.PreviousName))
+			return nil, migrations.NewMigrationError(fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.PreviousName))
 		}
-		return field.NewUpdateFieldOperation(currentField, newField), nil
+		return field.NewUpdateFieldOperation(currentField, &operationDescription.Field.Field), nil
 	case description.CreateObjectOperation:
-		metaObj, err := of.metaFactory.FactoryMeta(&operationDescription.MetaDescription)
-		if err != nil {
-			return nil, err
-		}
-		return object.NewCreateObjectOperation(metaObj), nil
+		return object.NewCreateObjectOperation(&operationDescription.MetaDescription), nil
 	case description.RenameObjectOperation:
-		metaObj, err := of.metaFactory.FactoryMeta(&operationDescription.MetaDescription)
-		if err != nil {
-			return nil, err
-		}
-		return object.NewRenameObjectOperation(metaObj), nil
+		return object.NewRenameObjectOperation(&operationDescription.MetaDescription), nil
 	case description.DeleteObjectOperation:
 		return object.NewDeleteObjectOperation(), nil
 	}
-	return nil, migrations.NewMigrationError(fmt.Sprintf(fmt.Sprintf("unknown type of operation(%s)", operationDescription.Type), metaObj.Name, operationDescription.Field.Name))
+	return nil, migrations.NewMigrationError(fmt.Sprintf(fmt.Sprintf("unknown type of operation(%s)", operationDescription.Type), metaDescription.Name, operationDescription.Field.Name))
 }
 
-func NewOperationFactory(metaFactory *meta.MetaFactory) *OperationFactory {
-	return &OperationFactory{metaFactory: metaFactory}
+func NewOperationFactory() *OperationFactory {
+	return &OperationFactory{}
 }

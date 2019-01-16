@@ -5,29 +5,30 @@ import (
 	"server/transactions"
 	"server/migrations"
 	"fmt"
+	"server/object/description"
 )
 
 type RenameObjectOperation struct {
-	Meta *meta.Meta
+	MetaDescription *description.MetaDescription
 }
 
-func (o *RenameObjectOperation) SyncMetaDescription(metaObj *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
-	if err := o.validate(metaObj, metaDescriptionSyncer); err != nil {
+func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+	if err := o.validate(metaDescriptionToApply, metaDescriptionSyncer); err != nil {
 		return nil, err
 	}
 
 	//remove old description
-	metaDescriptionSyncer.Remove(metaObj.Name)
+	metaDescriptionSyncer.Remove(metaDescriptionToApply.Name)
 	//create new one
-	metaDescriptionSyncer.Create(transaction, *o.Meta.MetaDescription)
+	metaDescriptionSyncer.Create(transaction, *o.MetaDescription)
 
-	return o.Meta, nil
+	return o.MetaDescription, nil
 }
 
-func (o *RenameObjectOperation) validate(metaObj *meta.Meta, metaDescriptionSyncer meta.MetaDescriptionSyncer) error {
-	metaDescription, _, _ := metaDescriptionSyncer.Get(o.Meta.Name)
+func (o *RenameObjectOperation) validate(metaObj *description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) error {
+	metaDescription, _, _ := metaDescriptionSyncer.Get(o.MetaDescription.Name)
 	if metaDescription != nil {
-		return migrations.NewMigrationError(fmt.Sprintf("failed to rename object '%s' to '%s': object named '%s' already exists", metaObj.Name, o.Meta.Name, o.Meta.Name))
+		return migrations.NewMigrationError(fmt.Sprintf("failed to rename object '%s' to '%s': object named '%s' already exists", metaObj.Name, o.MetaDescription.Name, o.MetaDescription.Name))
 	}
 	return nil
 }

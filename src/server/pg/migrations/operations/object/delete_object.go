@@ -1,7 +1,6 @@
 package object
 
 import (
-	"server/object/meta"
 	"server/transactions"
 	"server/migrations/operations/object"
 	"database/sql"
@@ -9,16 +8,18 @@ import (
 	"logger"
 	"fmt"
 	"text/template"
+	"server/object/description"
+	"server/object/meta"
 )
 
 type DeleteObjectOperation struct {
 	object.DeleteObjectOperation
 }
 
-func (o *DeleteObjectOperation) SyncDbDescription(metaObj *meta.Meta, transaction transactions.DbTransaction) (err error) {
+func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
-	if metaDdl, err = new(pg.MetaDdlFactory).Factory(metaObj); err != nil {
+	if metaDdl, err = pg.NewMetaDdlFactory(syncer).Factory(metaDescription); err != nil {
 		return err
 	}
 
@@ -43,7 +44,7 @@ func (o *DeleteObjectOperation) SyncDbDescription(metaObj *meta.Meta, transactio
 	for _, statement := range statementSet {
 		logger.Debug("Removing object in DB: %syncer\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
-			return pg.NewDdlError(metaObj.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+			return pg.NewDdlError(metaDescription.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
 		}
 	}
 	return nil

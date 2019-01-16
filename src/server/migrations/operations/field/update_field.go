@@ -2,37 +2,33 @@ package field
 
 import (
 	"server/object/meta"
+	"server/object/description"
 	"server/transactions"
 )
 
 type UpdateFieldOperation struct {
-	NewField     *meta.FieldDescription
-	CurrentField *meta.FieldDescription
+	NewField     *description.Field
+	CurrentField *description.Field
 }
 
-func (o *UpdateFieldOperation) SyncMetaDescription(metaObj *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
-	metaDescription := metaObj.MetaDescription.Clone()
+func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+	metaDescriptionToApply = metaDescriptionToApply.Clone()
 
 	//replace field
-	for i, field := range metaDescription.Fields {
+	for i, field := range metaDescriptionToApply.Fields {
 		if field.Name == o.CurrentField.Name {
-			metaDescription.Fields[i] = *o.NewField.Field
+			metaDescriptionToApply.Fields[i] = *o.NewField
 		}
 	}
 
-	//factory new Meta
-	metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-	if err != nil {
-		return nil, err
-	}
 	//sync its MetaDescription
-	if _, err = metaDescriptionSyncer.Update(metaObj.Name, *metaObj.MetaDescription); err != nil {
+	if _, err := syncer.Update(metaDescriptionToApply.Name, *metaDescriptionToApply); err != nil {
 		return nil, err
 	} else {
-		return metaObj, nil
+		return metaDescriptionToApply, nil
 	}
 }
 
-func NewUpdateFieldOperation(currentField *meta.FieldDescription, newField *meta.FieldDescription) *UpdateFieldOperation {
+func NewUpdateFieldOperation(currentField *description.Field, newField *description.Field) *UpdateFieldOperation {
 	return &UpdateFieldOperation{CurrentField: currentField, NewField: newField}
 }

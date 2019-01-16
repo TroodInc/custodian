@@ -167,7 +167,7 @@ var _ = Describe("Outer field", func() {
 		havingAMetaWithManuallySetBSetLink()
 		// A meta contains automatically generated outer link to B
 		aMetaObj, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, false)
-		aMetaObjForExport := aMetaObj.DescriptionForExport()
+		aMetaObjForExport := aMetaObj.ForExport()
 		encodedData, err := json.Marshal(aMetaObjForExport)
 		Expect(err).To(BeNil())
 		var decodedData map[string]interface{}

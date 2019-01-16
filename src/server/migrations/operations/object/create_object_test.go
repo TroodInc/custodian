@@ -67,17 +67,14 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 	It("stores MetaDescription to file", func() {
 
-		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
-		Expect(err).To(BeNil())
+		operation := CreateObjectOperation{MetaDescription: metaDescription}
 
-		operation := CreateObjectOperation{Meta: metaObj}
-
-		metaObj, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		Expect(metaObj).NotTo(BeNil())
+		Expect(metaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file
-		metaDescription, _, err := metaDescriptionSyncer.Get(metaObj.Name)
+		metaDescription, _, err = metaDescriptionSyncer.Get(metaDescription.Name)
 		Expect(metaDescription).NotTo(BeNil())
 		//clean up
 		metaDescriptionSyncer.Remove(metaDescription.Name)

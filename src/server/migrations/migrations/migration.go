@@ -1,13 +1,15 @@
 package migrations
 
 import (
-	"server/object/meta"
-	"server/migrations/operations"
+	meta_description "server/object/description"
 	"server/migrations/description"
+	"server/migrations/operations"
 )
 
 type Migration struct {
 	description.MigrationDescription
-	ApplyTo    *meta.Meta
+	ApplyTo    *meta_description.MetaDescription
 	Operations []operations.MigrationOperation
+	RunBefore  []*description.MigrationDescription //Migrations which are spawned by the owner, used to store \
+	RunAfter   []*description.MigrationDescription //automatically generated migrations(eg outer links handling)
 }

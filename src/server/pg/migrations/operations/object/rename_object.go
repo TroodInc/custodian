@@ -2,39 +2,40 @@ package object
 
 import (
 	"server/migrations/operations/object"
-	"server/object/meta"
 	"database/sql"
 	"server/pg"
 	"logger"
 	"server/transactions"
 	"fmt"
 	"server/pg/migrations/operations/statement_factories"
+	"server/object/description"
+	"server/object/meta"
 )
 
 type RenameObjectOperation struct {
 	object.RenameObjectOperation
 }
 
-func (o *RenameObjectOperation) SyncDbDescription(metaObjToApply *meta.Meta, transaction transactions.DbTransaction) (err error) {
+func (o *RenameObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	//rename table
 	var statementSet = pg.DdlStatementSet{}
 
-	err = o.factoryTableStatements(&statementSet, metaObjToApply.Name, o.Meta.Name)
+	err = o.factoryTableStatements(&statementSet, metaDescription.Name, o.MetaDescription.Name)
 	if err != nil {
 		return err
 	}
 
-	for i := range metaObjToApply.Fields {
-		currentField := metaObjToApply.Fields[i]
-		newField := o.Meta.FindField(currentField.Name)
+	for i := range metaDescription.Fields {
+		currentField := metaDescription.Fields[i]
+		newField := o.MetaDescription.FindField(currentField.Name)
 
-		_, _, _, newSequence, err := new(pg.MetaDdlFactory).FactoryFieldProperties(newField)
+		_, _, _, newSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(newField, o.MetaDescription)
 		if err != nil {
 			return err
 		}
-		_, _, _, currentSequence, err := new(pg.MetaDdlFactory).FactoryFieldProperties(&currentField)
+		_, _, _, currentSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(&currentField, metaDescription)
 		if err != nil {
 			return err
 		}
@@ -46,7 +47,7 @@ func (o *RenameObjectOperation) SyncDbDescription(metaObjToApply *meta.Meta, tra
 	for _, statement := range statementSet {
 		logger.Debug("Renaming object: %s\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
-			return pg.NewDdlError(metaObjToApply.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+			return pg.NewDdlError(metaDescription.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
 		}
 	}
 
@@ -74,6 +75,6 @@ func (o *RenameObjectOperation) factorySequenceStatements(statementSet *pg.DdlSt
 	return nil
 }
 
-func NewRenameObjectOperation(metaObj *meta.Meta) *RenameObjectOperation {
-	return &RenameObjectOperation{RenameObjectOperation: object.RenameObjectOperation{Meta: metaObj}}
+func NewRenameObjectOperation(metaDescription *description.MetaDescription) *RenameObjectOperation {
+	return &RenameObjectOperation{RenameObjectOperation: object.RenameObjectOperation{MetaDescription: metaDescription}}
 }
