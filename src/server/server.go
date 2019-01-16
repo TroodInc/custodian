@@ -29,6 +29,7 @@ import (
 	migrations_description "server/migrations/description"
 	"server/pg/migrations/managers"
 	"utils"
+	"server/migrations"
 )
 
 type CustodianApp struct {
@@ -614,6 +615,9 @@ func returnError(w http.ResponseWriter, e error) {
 		w.WriteHeader(http.StatusForbidden)
 		responseData["error"] = e.Serialize()
 	case JsonError:
+		w.WriteHeader(http.StatusBadRequest)
+		responseData["error"] = e.Serialize()
+	case *migrations.MigrationError:
 		w.WriteHeader(http.StatusBadRequest)
 		responseData["error"] = e.Serialize()
 	default:

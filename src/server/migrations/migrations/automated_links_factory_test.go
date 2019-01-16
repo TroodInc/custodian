@@ -27,6 +27,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
 
 	var metaDescription *description.MetaDescription
 
@@ -127,6 +128,82 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			Expect(migration.RunAfter).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("replaces automatically added reverse outer link with explicitly specified new one", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			bMetaDescription := description.NewMetaDescription(
+				"b",
+				"id",
+				[]description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "a",
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: "a",
+						Optional: false,
+					},
+				},
+				nil,
+				false,
+			)
+
+			migrationDescription := &migrations_description.MigrationDescription{
+				Id:        "some-unique-id",
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: [] migrations_description.MigrationOperationDescription{
+					{
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: *bMetaDescription,
+					},
+				},
+			}
+
+			_, err = migrationManager.Run(migrationDescription, globalTransaction, false)
+			Expect(err).To(BeNil())
+
+			aMetaDescription, _, err := metaDescriptionSyncer.Get("a")
+			Expect(err).To(BeNil())
+			Expect(aMetaDescription.FindField("b_set")).NotTo(BeNil())
+
+			migrationDescription = &migrations_description.MigrationDescription{
+				Id:        "some-unique-id",
+				ApplyTo:   "a",
+				DependsOn: nil,
+				Operations: [] migrations_description.MigrationOperationDescription{
+					{
+						Type: migrations_description.AddFieldOperation,
+						Field: migrations_description.MigrationFieldDescription{
+							Field: description.Field{
+								Name:           "explicitly_set_b_set",
+								Type:           description.FieldTypeArray,
+								LinkType:       description.LinkTypeOuter,
+								OuterLinkField: "a",
+								LinkMeta:       "b",
+							},
+						},
+					},
+				},
+			}
+
+			migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+			Expect(err).To(BeNil())
+
+			Expect(migration.RunBefore).To(HaveLen(1))
+			Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
+			Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
