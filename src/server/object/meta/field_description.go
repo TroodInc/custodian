@@ -107,6 +107,7 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 	}
 }
 
+//TODO: actually is redundant, its usages should be replaced with MetaDescriptionManager.ReverseOuterField
 func (f *FieldDescription) ReverseOuterField() *FieldDescription {
 	if f.Type == FieldTypeObject && f.LinkType == LinkTypeInner {
 		for _, field := range f.LinkMeta.Fields {

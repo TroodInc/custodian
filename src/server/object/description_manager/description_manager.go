@@ -28,3 +28,20 @@ func (mdm *MetaDescriptionManager) ReverseGenericOuterFields(ownerMetaName strin
 	}
 	return nil
 }
+
+func (mdm *MetaDescriptionManager) ReverseOuterField(ownerMetaName string, field *description.Field, syncer meta.MetaDescriptionSyncer) *description.Field {
+	if field.Type == description.FieldTypeObject && field.LinkType == description.LinkTypeInner {
+		linkMetaDescription, _, err := syncer.Get(field.LinkMeta)
+		if err != nil {
+			panic(err.Error())
+		}
+		for _, outerField := range linkMetaDescription.Fields {
+			if outerField.Type == description.FieldTypeArray && outerField.LinkType == description.LinkTypeOuter {
+				if outerField.OuterLinkField == field.Name && outerField.LinkMeta == ownerMetaName {
+					return &outerField
+				}
+			}
+		}
+	}
+	return nil
+}

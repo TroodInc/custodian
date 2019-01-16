@@ -11,13 +11,12 @@ import (
 	"server/transactions"
 	"server/object/description"
 	"server/pg/migrations/operations/object"
-	"server/pg/migrations/operations/field"
 	migrations_description "server/migrations/description"
-	"server/pg/migrations/managers"
 	. "server/migrations/migrations"
+	"server/pg/migrations/managers"
 )
 
-var _ = Describe("Migration Factory", func() {
+var _ = Describe("Automated generic links` migrations` spawning", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
@@ -82,173 +81,8 @@ var _ = Describe("Migration Factory", func() {
 		Expect(err).To(BeNil())
 	})
 
-	It("factories migration containing CreateObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:            migrations_description.CreateObjectOperation,
-					MetaDescription: *metaDescription,
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*object.CreateObjectOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing RenameObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		updatedMetaDescription := metaDescription.Clone()
-		updatedMetaDescription.Name = "updatedA"
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:            migrations_description.RenameObjectOperation,
-					MetaDescription: *updatedMetaDescription,
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*object.RenameObjectOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing RenameObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:            migrations_description.DeleteObjectOperation,
-					MetaDescription: *metaDescription,
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*object.DeleteObjectOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing AddFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:  migrations_description.AddFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "new-field", Type: description.FieldTypeString, Optional: true}},
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*field.AddFieldOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing RemoveFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:  migrations_description.RemoveFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("factories migration containing UpdateFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "a",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:  migrations_description.RemoveFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
-				},
-			},
-		}
-
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-
-		Expect(err).To(BeNil())
-		Expect(migration.Operations).To(HaveLen(1))
-
-		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
-		Expect(ok).To(BeTrue())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	Describe("Automated generic fields` migrations` spawning", func() {
-		It("adds reverse generic outer link while object is being created", func() {
+	Describe("Automated links` migrations` spawning", func() {
+		It("adds reverse outer link while object is being created", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -264,11 +98,11 @@ var _ = Describe("Migration Factory", func() {
 						},
 					},
 					{
-						Name:         "target_object",
-						Type:         description.FieldTypeGeneric,
-						LinkType:     description.LinkTypeInner,
-						LinkMetaList: []string{"a"},
-						Optional:     false,
+						Name:     "a",
+						Type:     description.FieldTypeObject,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: "a",
+						Optional: false,
 					},
 				},
 				nil,
@@ -328,16 +162,16 @@ var _ = Describe("Migration Factory", func() {
 				Expect(err).To(BeNil())
 			})
 
-			It("adds a reverse generic outer link when a new inner generic field is being added to an object", func() {
+			It("adds a reverse outer link when a new inner link field is being added to an object", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
 				field := description.Field{
-					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
-					Optional:     false,
+					Name:     "a",
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "a",
+					Optional: false,
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
@@ -364,102 +198,16 @@ var _ = Describe("Migration Factory", func() {
 
 			})
 
-			It("removes and adds reverse generic outer links while inner generic field`s LinkMetaList is being updated", func() {
+			It("renames reverse outer link if object which owns inner link is being renamed", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
 				field := description.Field{
-					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
-					Optional:     false,
-				}
-
-				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
-					ApplyTo:   bMetaDescription.Name,
-					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
-
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer).Run(migrationDescription, globalTransaction, false)
-				Expect(err).To(BeNil())
-
-				cMetaDescription := description.NewMetaDescription(
-					"c",
-					"id",
-					[]description.Field{
-						{
-							Name: "id",
-							Type: description.FieldTypeNumber,
-							Def: map[string]interface{}{
-								"func": "nextval",
-							},
-						},
-					},
-					nil,
-					false,
-				)
-				cMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
-				Expect(err).To(BeNil())
-
-				err = metaStore.Create(globalTransaction, cMetaObj)
-				Expect(err).To(BeNil())
-
-				//LinkMetaList is being changed
-				field = description.Field{
-					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"c"},
-					Optional:     false,
-				}
-
-				migrationDescription = &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
-					ApplyTo:   bMetaDescription.Name,
-					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.UpdateFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field, PreviousName: field.Name},
-						},
-					},
-				}
-
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
-				Expect(err).To(BeNil())
-
-				Expect(migration.RunBefore).To(HaveLen(1))
-				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
-				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
-
-				Expect(migration.RunAfter).To(HaveLen(1))
-				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
-				Expect(migration.RunAfter[0].Operations[0].Type).To(Equal(migrations_description.AddFieldOperation))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
-
-				err = globalTransactionManager.CommitTransaction(globalTransaction)
-				Expect(err).To(BeNil())
-			})
-
-			It("renames reverse generic outer links if object which owns inner generic link is being renamed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
-				field := description.Field{
-					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
-					Optional:     false,
+					Name:     "a",
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "a",
+					Optional: false,
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
@@ -504,16 +252,16 @@ var _ = Describe("Migration Factory", func() {
 				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("bb")))
 			})
 
-			It("removes generic outer links if object which owns inner generic link is being deleted", func() {
+			It("removes outer links if object which owns inner link is being deleted", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
 				field := description.Field{
-					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
-					Optional:     false,
+					Name:     "a",
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "a",
+					Optional: false,
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
@@ -555,16 +303,16 @@ var _ = Describe("Migration Factory", func() {
 				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
 			})
 
-			It("removes generic outer links if inner generic link is being removed", func() {
+			It("removes outer links if inner link is being removed", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
 				field := description.Field{
-					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
-					Optional:     false,
+					Name:     "a",
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "a",
+					Optional: false,
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
