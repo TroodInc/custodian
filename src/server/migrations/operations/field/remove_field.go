@@ -36,7 +36,10 @@ func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *description.
 
 func (o *RemoveFieldOperation) validate(metaDescription *description.MetaDescription) error {
 	if metaDescription.FindField(o.Field.Name) == nil {
-		return migrations.NewMigrationError(fmt.Sprintf("Object %s has no field named %s", metaDescription.Name, o.Field.Name))
+		return migrations.NewMigrationError(
+			migrations.MigrationErrorInvalidDescription,
+			fmt.Sprintf("Object %s has no field named %s", metaDescription.Name, o.Field.Name),
+		)
 	}
 	return nil
 }

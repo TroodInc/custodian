@@ -397,7 +397,7 @@ func (mf *MigrationFactory) factoryAddGenericOuterLinkMigrationsForUpdatedField(
 				)
 			}
 		} else {
-			return nil, nil, migrations.NewMigrationError("Generic inner link`s type change is not supported yet")
+			return nil, nil, migrations.NewMigrationError(migrations.MigrationErrorNotImplemented, "Generic inner link`s type change is not supported yet")
 		}
 	}
 

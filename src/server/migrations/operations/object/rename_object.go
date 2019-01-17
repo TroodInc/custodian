@@ -28,7 +28,10 @@ func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *desc
 func (o *RenameObjectOperation) validate(metaObj *description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) error {
 	metaDescription, _, _ := metaDescriptionSyncer.Get(o.MetaDescription.Name)
 	if metaDescription != nil {
-		return migrations.NewMigrationError(fmt.Sprintf("failed to rename object '%s' to '%s': object named '%s' already exists", metaObj.Name, o.MetaDescription.Name, o.MetaDescription.Name))
+		return migrations.NewMigrationError(
+			migrations.MigrationErrorInvalidDescription,
+			fmt.Sprintf("failed to rename object '%s' to '%s': object named '%s' already exists", metaObj.Name, o.MetaDescription.Name, o.MetaDescription.Name),
+		)
 	}
 	return nil
 }

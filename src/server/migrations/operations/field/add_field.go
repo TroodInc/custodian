@@ -17,7 +17,7 @@ func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta_des
 	if err := o.validate(metaDescriptionToApply); err != nil {
 		//TODO:This is a workaround to avoid duplicated outer field (<meta-name>_set) to be created.
 		//This case is possible if some meta has 2 or more inner links to the same another meta
-		if err.Error() == "Migration error: 'duplicated_outer'" {
+		if err.(*migrations.MigrationError).Code() == migrations.MigrationErrorDuplicated {
 			return metaDescriptionToApply, nil
 		} else {
 			return nil, err
@@ -42,14 +42,17 @@ func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta_des
 func (o *AddFieldOperation) validate(metaDescription *meta_description.MetaDescription) error {
 	existingField := metaDescription.FindField(o.Field.Name)
 	if existingField != nil {
-		if existingField.LinkType == meta_description.LinkTypeOuter && existingField.Type == meta_description.FieldTypeArray {
-			if o.Field.LinkType == meta_description.LinkTypeOuter && o.Field.Type == meta_description.FieldTypeArray {
+		if existingField.LinkType == meta_description.LinkTypeOuter {
+			if o.Field.LinkType == meta_description.LinkTypeOuter {
 				if o.Field.OuterLinkField != existingField.OuterLinkField {
-					return migrations.NewMigrationError("duplicated_outer")
+					return migrations.NewMigrationError(migrations.MigrationErrorDuplicated, "")
 				}
 			}
 		}
-		return migrations.NewMigrationError(fmt.Sprintf("Object %s already has field %s", metaDescription.Name, o.Field.Name))
+		return migrations.NewMigrationError(
+			migrations.MigrationErrorInvalidDescription,
+			fmt.Sprintf("Object %s already has field %s", metaDescription.Name, o.Field.Name),
+		)
 	}
 	return nil
 }

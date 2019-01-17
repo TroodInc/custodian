@@ -19,13 +19,13 @@ func (of *OperationFactory) Factory(operationDescription *description.MigrationO
 	case description.RemoveFieldOperation:
 		targetField := metaDescription.FindField(operationDescription.Field.Name)
 		if targetField == nil {
-			return nil, migrations.NewMigrationError(fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.Name))
+			return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.Name))
 		}
 		return field.NewRemoveFieldOperation(targetField), nil
 	case description.UpdateFieldOperation:
 		currentField := metaDescription.FindField(operationDescription.Field.PreviousName)
 		if currentField == nil {
-			return nil, migrations.NewMigrationError(fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.PreviousName))
+			return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.PreviousName))
 		}
 		return field.NewUpdateFieldOperation(currentField, &operationDescription.Field.Field), nil
 	case description.CreateObjectOperation:
@@ -35,7 +35,7 @@ func (of *OperationFactory) Factory(operationDescription *description.MigrationO
 	case description.DeleteObjectOperation:
 		return object.NewDeleteObjectOperation(), nil
 	}
-	return nil, migrations.NewMigrationError(fmt.Sprintf(fmt.Sprintf("unknown type of operation(%s)", operationDescription.Type), metaDescription.Name, operationDescription.Field.Name))
+	return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf(fmt.Sprintf("unknown type of operation(%s)", operationDescription.Type), metaDescription.Name, operationDescription.Field.Name))
 }
 
 func NewOperationFactory() *OperationFactory {

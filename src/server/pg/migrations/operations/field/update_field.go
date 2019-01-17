@@ -89,7 +89,7 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 	statementFactory := new(statement_factories.ColumnStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
 	if len(currentColumns) != len(newColumns) {
-		return migrations.NewMigrationError("Update column migration cannot be done with difference numbers of columns")
+		return migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, "Update column migration cannot be done with difference numbers of columns")
 	} else {
 		var currentColumn pg.Column
 		var newColumn pg.Column

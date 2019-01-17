@@ -93,6 +93,7 @@ func (mm *MigrationManager) canApplyMigration(migration *migrations.Migration, t
 		return nil
 	} else {
 		return _migrations.NewMigrationError(
+			_migrations.MigrationErrorAlreadyHasBeenApplied,
 			fmt.Sprintf("Migration with ID '%s' has already been applied", migration.Id),
 		)
 	}
