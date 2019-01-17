@@ -15,6 +15,7 @@ import (
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
 	"server/data/record"
+	"fmt"
 )
 
 var _ = Describe("Data", func() {
@@ -50,7 +51,7 @@ var _ = Describe("Data", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	Describe("Querying records by generic fields` values", func() {
+	Describe("Querying records with generic fields` values", func() {
 
 		var aRecord *record.Record
 		var bRecord *record.Record
@@ -95,6 +96,11 @@ var _ = Describe("Data", func() {
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
+						Optional: true,
+					},
+					{
+						Name:     "name",
+						Type:     description.FieldTypeString,
 						Optional: true,
 					},
 					{
@@ -155,7 +161,7 @@ var _ = Describe("Data", func() {
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "brecord"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -232,6 +238,27 @@ var _ = Describe("Data", func() {
 			Expect(aRecord.Data["b_set"]).To(HaveLen(1))
 			bSetData = aRecord.Data["b_set"].([]interface{})
 			Expect(bSetData[0].(float64)).To(Equal(bRecord.Data["id"]))
+		})
+
+		It("can query records by outer generic field value", func() {
+
+			Describe("Having object A", havingObjectA)
+			Describe("And having object B", havingObjectBWithGenericLinkToA)
+			Describe("And having object A containing outer field referencing object B", havingObjectAWithGenericOuterLinkToB)
+			Describe("And having a record of object A", havingARecordOfObjectA)
+			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "anotherbrecord"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			matchedRecords := []map[string]interface{}{}
+			callbackFunction := func(obj map[string]interface{}) error {
+				matchedRecords = append(matchedRecords, obj)
+				return nil
+			}
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), 1, false, callbackFunction)
+			Expect(err).To(BeNil())
+			Expect(matchedRecords).To(HaveLen(1))
 		})
 	})
 })

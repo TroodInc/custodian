@@ -10,6 +10,7 @@ COPY ./main.go /go/src/app
 
 RUN go get -d -v
 RUN go install -v
+RUN go get github.com/fatih/structs
 RUN go get github.com/onsi/ginkgo/ginkgo
 RUN go get github.com/onsi/gomega/...
 
