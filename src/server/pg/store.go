@@ -684,27 +684,3 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	}
 	return recordsData, count, err
 }
-
-func (dataManager *DataManager) GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error) {
-	if fields == nil {
-		fields = tableFields(m)
-	}
-	sqlHelper := dml_info.SqlHelper{}
-	where := bytes.NewBufferString(key)
-	where.WriteString(" IN (")
-	where.WriteString(sqlHelper.BindValues(1, len(in)))
-	where.WriteString(")")
-	si := &SelectInfo{From: GetTableName(m.Name), Cols: fieldsToCols(fields, ""), Where: where.String()}
-	var q bytes.Buffer
-	if err := si.sql(&q); err != nil {
-		return nil, NewDMLError(ErrTemplateFailed, err.Error())
-	}
-
-	stmt, err := dataManager.Prepare(q.String(), dbTransaction.Transaction().(*sql.Tx))
-	if err != nil {
-		return nil, err
-	}
-	defer stmt.Close()
-
-	return stmt.ParsedQuery(in, fields)
-}
