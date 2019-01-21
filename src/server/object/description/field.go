@@ -161,7 +161,7 @@ func (fieldType FieldType) MarshalJSON() ([]byte, error) {
 	if s, ok := fieldType.String(); ok {
 		return json.Marshal(s)
 	} else {
-		return nil, NewMetaDescriptionError("", "json_marshal", ErrJsonMarshal, "Incorrect filed type: %v", fieldType)
+		return nil, NewMetaDescriptionError("", "json_marshal", ErrJsonMarshal, "Incorrect field type: %v", fieldType)
 	}
 }
 

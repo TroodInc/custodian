@@ -44,10 +44,10 @@ func (mc *MigrationConstructor) Construct(currentMetaDescription *description.Me
 	}
 
 	var metaName string
-	if newMigrationMetaDescription != nil {
-		metaName = newMigrationMetaDescription.Name
-	} else {
+	if currentMetaDescription != nil {
 		metaName = currentMetaDescription.Name
+	} else {
+		metaName = newMigrationMetaDescription.Name
 	}
 
 	precedingMigrations, err := mc.migrationManager.GetPrecedingMigrationsForObject(metaName, transaction)
@@ -56,7 +56,7 @@ func (mc *MigrationConstructor) Construct(currentMetaDescription *description.Me
 	}
 	dependsOn := make([]string, 0)
 	for _, precedingMigration := range precedingMigrations {
-		dependsOn = append(dependsOn, precedingMigration.Data["id"].(string))
+		dependsOn = append(dependsOn, precedingMigration.Data["migration_id"].(string))
 	}
 
 	migrationDescription := MigrationDescription{

@@ -103,7 +103,11 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, t
 	if latestMigration == nil {
 		return nil, nil
 	}
-	rqlFilter := "eq(object," + objectName + "),eq(predecessor_id," + latestMigration.Data["predecessor_id"].(string) + ")"
+
+	rqlFilter := "eq(object," + objectName + ")"
+	if latestMigration.Data["predecessor_id"] != "" {
+		rqlFilter = rqlFilter + ",eq(predecessor_id," + latestMigration.Data["predecessor_id"].(string) + ")"
+	}
 
 	var latestMigrations []*record.Record
 	callbackFunction := func(obj map[string]interface{}) error {
@@ -115,7 +119,7 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, t
 		return nil, err
 
 	}
-	_, err = processor.GetBulk(transaction, historyMetaName, rqlFilter, 1, true, callbackFunction)
+	_, err = processor.ShadowGetBulk(transaction, historyMeta, rqlFilter, 1, true, callbackFunction)
 
 	return latestMigrations, err
 }

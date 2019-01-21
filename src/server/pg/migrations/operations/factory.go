@@ -29,9 +29,9 @@ func (of *OperationFactory) Factory(operationDescription *description.MigrationO
 		}
 		return field.NewUpdateFieldOperation(currentField, &operationDescription.Field.Field), nil
 	case description.CreateObjectOperation:
-		return object.NewCreateObjectOperation(&operationDescription.MetaDescription), nil
+		return object.NewCreateObjectOperation(operationDescription.MetaDescription), nil
 	case description.RenameObjectOperation:
-		return object.NewRenameObjectOperation(&operationDescription.MetaDescription), nil
+		return object.NewRenameObjectOperation(operationDescription.MetaDescription), nil
 	case description.DeleteObjectOperation:
 		return object.NewDeleteObjectOperation(), nil
 	}

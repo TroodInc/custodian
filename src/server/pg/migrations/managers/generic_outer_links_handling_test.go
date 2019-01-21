@@ -115,7 +115,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				Operations: [] migrations_description.MigrationOperationDescription{
 					{
 						Type:            migrations_description.CreateObjectOperation,
-						MetaDescription: *bMetaDescription,
+						MetaDescription: bMetaDescription,
 					},
 				},
 			}
@@ -181,7 +181,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -218,7 +218,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -263,7 +263,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.UpdateFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field, PreviousName: field.Name},
+							Field: &migrations_description.MigrationFieldDescription{Field: field, PreviousName: field.Name},
 						},
 					},
 				}
@@ -303,7 +303,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -321,7 +321,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.RenameObjectOperation,
-							MetaDescription: *renamedBMetaDescription,
+							MetaDescription: renamedBMetaDescription,
 						},
 					},
 				}
@@ -358,7 +358,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -373,7 +373,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.DeleteObjectOperation,
-							MetaDescription: *bMetaDescription,
+							MetaDescription: bMetaDescription,
 						},
 					},
 				}
@@ -410,7 +410,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -425,7 +425,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.RemoveFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}

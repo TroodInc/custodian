@@ -30,11 +30,19 @@ type MigrationFieldDescription struct {
 }
 
 type MigrationMetaDescription struct {
-	Name    string                      `json:"name"`
-	Key     string                      `json:"key"`
-	Fields  []MigrationFieldDescription `json:"fields"`
-	Actions []description.Action        `json:"actions,omitempty"`
-	Cas     bool                        `json:"cas"`
+	Name         string                      `json:"name"`
+	PreviousName string                      `json:"previousName"`
+	Key          string                      `json:"key"`
+	Fields       []MigrationFieldDescription `json:"fields"`
+	Actions      []description.Action        `json:"actions,omitempty"`
+	Cas          bool                        `json:"cas"`
+}
+
+func (mmd *MigrationMetaDescription) Unmarshal(inputReader io.ReadCloser) (*MigrationMetaDescription, error) {
+	if e := json.NewDecoder(inputReader).Decode(mmd); e != nil {
+		return nil, NewMigrationUnmarshallingError(e.Error())
+	}
+	return mmd, nil
 }
 
 func (mmd *MigrationMetaDescription) MetaDescription() *description.MetaDescription {
@@ -55,23 +63,14 @@ func (mmd *MigrationMetaDescription) FindFieldWithPreviousName(fieldName string)
 }
 
 type MigrationOperationDescription struct {
-	Type            string                      `json:"type"`
-	Field           MigrationFieldDescription   `json:"field,omitempty"`
-	MetaDescription description.MetaDescription `json:"object,omitempty"`
+	Type            string                       `json:"type"`
+	Field           *MigrationFieldDescription   `json:"field,omitempty"`
+	MetaDescription *description.MetaDescription `json:"object,omitempty"`
 }
 
 func NewMigrationOperationDescription(operationType string, field *MigrationFieldDescription, metaDescription *description.MetaDescription) *MigrationOperationDescription {
-	var fieldValue MigrationFieldDescription
-	if field != nil {
-		fieldValue = *field
-	}
 
-	var metaDescriptionValue description.MetaDescription
-	if metaDescription != nil {
-		metaDescriptionValue = *metaDescription
-	}
-
-	return &MigrationOperationDescription{Type: operationType, Field: fieldValue, MetaDescription: metaDescriptionValue}
+	return &MigrationOperationDescription{Type: operationType, Field: field, MetaDescription: metaDescription}
 }
 
 const (

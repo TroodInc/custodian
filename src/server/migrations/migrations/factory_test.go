@@ -93,7 +93,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:            migrations_description.CreateObjectOperation,
-					MetaDescription: *metaDescription,
+					MetaDescription: metaDescription,
 				},
 			},
 		}
@@ -123,7 +123,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:            migrations_description.RenameObjectOperation,
-					MetaDescription: *updatedMetaDescription,
+					MetaDescription: updatedMetaDescription,
 				},
 			},
 		}
@@ -150,7 +150,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:            migrations_description.DeleteObjectOperation,
-					MetaDescription: *metaDescription,
+					MetaDescription: metaDescription,
 				},
 			},
 		}
@@ -177,7 +177,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.AddFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "new-field", Type: description.FieldTypeString, Optional: true}},
+					Field: &migrations_description.MigrationFieldDescription{Field: description.Field{Name: "new-field", Type: description.FieldTypeString, Optional: true}},
 				},
 			},
 		}
@@ -204,7 +204,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.RemoveFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
+					Field: &migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
 				},
 			},
 		}
@@ -231,7 +231,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.RemoveFieldOperation,
-					Field: migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
+					Field: &migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
 				},
 			},
 		}
@@ -282,7 +282,7 @@ var _ = Describe("Migration Factory", func() {
 				Operations: [] migrations_description.MigrationOperationDescription{
 					{
 						Type:            migrations_description.CreateObjectOperation,
-						MetaDescription: *bMetaDescription,
+						MetaDescription: bMetaDescription,
 					},
 				},
 			}
@@ -347,7 +347,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -383,7 +383,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -428,7 +428,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.UpdateFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field, PreviousName: field.Name},
+							Field: &migrations_description.MigrationFieldDescription{Field: field, PreviousName: field.Name},
 						},
 					},
 				}
@@ -469,7 +469,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -487,7 +487,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.RenameObjectOperation,
-							MetaDescription: *renamedBMetaDescription,
+							MetaDescription: renamedBMetaDescription,
 						},
 					},
 				}
@@ -523,7 +523,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -538,7 +538,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.DeleteObjectOperation,
-							MetaDescription: *bMetaDescription,
+							MetaDescription: bMetaDescription,
 						},
 					},
 				}
@@ -574,7 +574,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
@@ -589,7 +589,7 @@ var _ = Describe("Migration Factory", func() {
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.RemoveFieldOperation,
-							Field: migrations_description.MigrationFieldDescription{Field: field},
+							Field: &migrations_description.MigrationFieldDescription{Field: field},
 						},
 					},
 				}
