@@ -23,7 +23,6 @@ type ExecuteContext interface {
 type DataManager interface {
 	Db() (interface{})
 	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
-	GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
 	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
 	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
 	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *Processor) (error)
@@ -116,6 +115,40 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 		}
 		return recordsCount, nil
 	}
+}
+
+//Todo: this method is a shadow of GetBulk, the only difference is that it gets Meta object, not meta`s name
+//perhaps it should become public and replace current GetBulk
+func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *meta.Meta, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
+	searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
+	root := &Node{
+		KeyField:   metaObj.Key,
+		Meta:       metaObj,
+		ChildNodes: make(map[string]*Node),
+		Depth:      1,
+		OnlyLink:   false,
+		plural:     false,
+		Parent:     nil,
+		Type:       NodeTypeRegular,
+	}
+	root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+
+	parser := rqlParser.NewParser()
+	rqlNode, err := parser.Parse(strings.NewReader(filter))
+	if err != nil {
+		return 0, errors.NewDataError(metaObj.Name, errors.ErrWrongRQL, err.Error())
+	}
+
+	records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
+
+	if e != nil {
+		return recordsCount, e
+	}
+	for _, record := range records {
+		record = root.FillRecordValues(record, searchContext)
+		sink(record)
+	}
+	return recordsCount, nil
 }
 
 type DNode struct {

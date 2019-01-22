@@ -151,8 +151,8 @@ func (mf *MigrationFactory) factoryAddOuterLinkMigrationsForNewField(metaName st
 
 		addFieldOperationDescription := description.MigrationOperationDescription{
 			Type:            description.AddFieldOperation,
-			Field:           description.MigrationFieldDescription{Field: outerField, PreviousName: ""},
-			MetaDescription: *linkMetaDescription,
+			Field:           &description.MigrationFieldDescription{Field: outerField, PreviousName: ""},
+			MetaDescription: linkMetaDescription,
 		}
 
 		spawnedMigrations = append(
@@ -183,7 +183,7 @@ func (mf *MigrationFactory) factoryUpdateOuterLinkMigrationsForMeta(currentMetaD
 
 			updateFieldOperationDescription := description.MigrationOperationDescription{
 				Type:  description.UpdateFieldOperation,
-				Field: description.MigrationFieldDescription{Field: *updatedField, PreviousName: outerField.Name},
+				Field: &description.MigrationFieldDescription{Field: *updatedField, PreviousName: outerField.Name},
 			}
 			spawnedMigrations = append(spawnedMigrations, &description.MigrationDescription{
 				ApplyTo:    field.LinkMeta,
@@ -211,7 +211,7 @@ func (mf *MigrationFactory) factoryRemoveAutomaticallyAddedOuterField(metaDescri
 	if existingOuterField != nil {
 		removeFieldOperationDescription := description.MigrationOperationDescription{
 			Type:  description.RemoveFieldOperation,
-			Field: description.MigrationFieldDescription{Field: *existingOuterField, PreviousName: ""},
+			Field: &description.MigrationFieldDescription{Field: *existingOuterField, PreviousName: ""},
 		}
 		return []*description.MigrationDescription{
 			{
@@ -237,7 +237,7 @@ func (mf *MigrationFactory) factoryRemoveOuterLinkMigrationsForRemovedField(meta
 		outerField := new(description_manager.MetaDescriptionManager).ReverseOuterField(metaDescription.Name, field, mf.metaDescriptionSyncer)
 		removeFieldOperationDescription := description.MigrationOperationDescription{
 			Type:  description.RemoveFieldOperation,
-			Field: description.MigrationFieldDescription{Field: *outerField, PreviousName: ""},
+			Field: &description.MigrationFieldDescription{Field: *outerField, PreviousName: ""},
 		}
 		spawnedMigrationDescriptions = append(
 			spawnedMigrationDescriptions,
@@ -290,8 +290,8 @@ func (mf *MigrationFactory) factoryAddGenericOuterLinkMigrationsForNewField(meta
 			}
 			addFieldOperationDescription := description.MigrationOperationDescription{
 				Type:            description.AddFieldOperation,
-				Field:           description.MigrationFieldDescription{Field: outerField, PreviousName: ""},
-				MetaDescription: *linkMetaDescription,
+				Field:           &description.MigrationFieldDescription{Field: outerField, PreviousName: ""},
+				MetaDescription: linkMetaDescription,
 			}
 
 			spawnedMigrations = append(
@@ -322,7 +322,7 @@ func (mf *MigrationFactory) factoryUpdateGenericOuterLinkMigrationsForMeta(curre
 
 				updateFieldOperationDescription := description.MigrationOperationDescription{
 					Type:  description.UpdateFieldOperation,
-					Field: description.MigrationFieldDescription{Field: *updatedField, PreviousName: outerField.Name},
+					Field: &description.MigrationFieldDescription{Field: *updatedField, PreviousName: outerField.Name},
 				}
 				spawnedMigrations = append(spawnedMigrations, &description.MigrationDescription{
 					ApplyTo:    linkMetaName,
@@ -361,7 +361,7 @@ func (mf *MigrationFactory) factoryAddGenericOuterLinkMigrationsForUpdatedField(
 
 				removeFieldOperationDescription := description.MigrationOperationDescription{
 					Type:  description.RemoveFieldOperation,
-					Field: description.MigrationFieldDescription{Field: outerField, PreviousName: ""},
+					Field: &description.MigrationFieldDescription{Field: outerField, PreviousName: ""},
 				}
 				runBefore = append(
 					runBefore,
@@ -386,7 +386,7 @@ func (mf *MigrationFactory) factoryAddGenericOuterLinkMigrationsForUpdatedField(
 
 				addFieldOperationDescription := description.MigrationOperationDescription{
 					Type:  description.AddFieldOperation,
-					Field: description.MigrationFieldDescription{Field: outerField, PreviousName: ""},
+					Field: &description.MigrationFieldDescription{Field: outerField, PreviousName: ""},
 				}
 				runAfter = append(
 					runAfter,
@@ -418,7 +418,7 @@ func (mf *MigrationFactory) factoryRemoveGenericOuterLinkMigrationsForRemovedFie
 		for linkMetaName, outerFieldDescription := range new(description_manager.MetaDescriptionManager).ReverseGenericOuterFields(metaDescription.Name, field, mf.metaDescriptionSyncer) {
 			removeFieldOperationDescription := description.MigrationOperationDescription{
 				Type:  description.RemoveFieldOperation,
-				Field: description.MigrationFieldDescription{Field: *outerFieldDescription, PreviousName: ""},
+				Field: &description.MigrationFieldDescription{Field: *outerFieldDescription, PreviousName: ""},
 			}
 			spawnedMigrationDescriptions = append(
 				spawnedMigrationDescriptions,

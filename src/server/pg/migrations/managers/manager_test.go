@@ -34,7 +34,7 @@ var _ = Describe("MigrationManager", func() {
 		Expect(err).To(BeNil())
 
 		Expect(metaDdl.Table).To(Equal(pg.GetTableName(historyMetaName)))
-		Expect(metaDdl.Columns).To(HaveLen(3))
+		Expect(metaDdl.Columns).To(HaveLen(5))
 
 		dbTransactionManager.RollbackTransaction(dbTransaction)
 	})
@@ -43,7 +43,7 @@ var _ = Describe("MigrationManager", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		migrationUid := "c1be598d"
-		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{Id: migrationUid}}
+		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		migrationHistoryId, err := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer).recordAppliedMigration(migration, dbTransaction)
 		Expect(err).To(BeNil())
@@ -57,7 +57,7 @@ var _ = Describe("MigrationManager", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		migrationUid := "c1be598d"
-		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{Id: migrationUid}}
+		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		_, err = NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer).recordAppliedMigration(migration, dbTransaction)
 		Expect(err).To(BeNil())

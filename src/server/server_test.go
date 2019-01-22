@@ -93,6 +93,7 @@ var _ = Describe("Server", func() {
 				},
 				"actions": []map[string]interface{}{
 					{
+						"name":     "someAction",
 						"protocol": "REST",
 						"method":   "create",
 						"args":     []string{"http://localhost:2000/create/contact"},
@@ -112,7 +113,13 @@ var _ = Describe("Server", func() {
 
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
-				Expect(responseBody).To(Equal(`{"data":{"name":"person","key":"id","fields":[{"name":"id","type":"number","optional":true,"default":{"func":"nextval"}},{"name":"name","type":"string","optional":false},{"name":"gender","type":"string","optional":true},{"name":"cas","type":"number","optional":false}],"actions":[{"method":"create","protocol":"REST","args":["http://localhost:2000/create/contact"],"activeIfNotRoot":true,"includeValues":{"account__plan":"accountPlan","amount":"amount"}}],"cas":true},"status":"OK"}`))
+
+				var body map[string]interface{}
+				err := json.Unmarshal([]byte(responseBody), &body)
+				Expect(err).To(BeNil())
+
+				Expect(body["status"].(string)).To(Equal("OK"))
+				Expect(body["data"].(map[string]interface{})["name"]).To(Equal("person"))
 
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
