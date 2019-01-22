@@ -12,6 +12,7 @@ const (
 	MigrationErrorInvalidDescription    = "invalid_description"
 	MigrationErrorAlreadyHasBeenApplied = "migration_already_applied"
 	MigrationNoChangesWereDetected      = "no_changes_were_detected"
+	ErrorWhileWritingMigrationFile      = "error_while_writing_migration_file"
 )
 
 type MigrationError struct {

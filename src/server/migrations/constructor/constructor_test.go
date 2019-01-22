@@ -30,7 +30,7 @@ var _ = Describe("Migration Constructor", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
-	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer))
+	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath))
 
 	flushDb := func() {
 		var err error

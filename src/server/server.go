@@ -637,7 +637,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
-			migrationConstructor := constructor.NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer))
+			migrationConstructor := constructor.NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath))
 
 			var currentMetaDescription *description.MetaDescription
 			if len(migrationMetaDescription.PreviousName) != 0 {
@@ -683,7 +683,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
-			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
+			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
 			updatedMetaDescription, err := migrationManager.Run(migrationDescription, globalTransaction, true)
 			if err != nil {
 				globalTransactionManager.RollbackTransaction(globalTransaction)

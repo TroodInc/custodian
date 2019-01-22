@@ -13,6 +13,7 @@ import (
 	migrations_description "server/migrations/description"
 	"server/data/record"
 	"server/data"
+	"server/migrations/storage"
 )
 
 const historyMetaName = "__custodian_objects_migration_history__"
@@ -21,6 +22,7 @@ type MigrationManager struct {
 	metaStore             *meta.MetaStore
 	dataManager           *pg.DataManager
 	metaDescriptionSyncer meta.MetaDescriptionSyncer
+	migrationStorage      *storage.MigrationStorage
 }
 
 func (mm *MigrationManager) Run(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
@@ -71,8 +73,16 @@ func (mm *MigrationManager) Run(migrationDescription *migrations_description.Mig
 	}
 
 	if shouldRecord {
+		migrationFileName, err := mm.migrationStorage.Store(migrationDescription)
+		if err != nil {
+			return nil, err
+		}
+
 		_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
 		if err != nil {
+			if removeErr := mm.migrationStorage.Remove(migrationFileName); removeErr != nil {
+				return nil, _migrations.NewMigrationError(_migrations.ErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error())
+			}
 			return nil, err
 		}
 	}
@@ -83,6 +93,9 @@ func (mm *MigrationManager) Run(migrationDescription *migrations_description.Mig
 func (mm *MigrationManager) DropHistory(transaction transactions.DbTransaction) error {
 	historyMeta, err := mm.ensureHistoryTableExists(transaction)
 	if err != nil {
+		return err
+	}
+	if err := mm.migrationStorage.Flush(); err != nil {
 		return err
 	}
 	return object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.metaDescriptionSyncer)
@@ -293,6 +306,6 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 	return meta.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func NewMigrationManager(metaStore *meta.MetaStore, manager *pg.DataManager, syncer meta.MetaDescriptionSyncer) *MigrationManager {
-	return &MigrationManager{metaStore: metaStore, dataManager: manager, metaDescriptionSyncer: syncer}
+func NewMigrationManager(metaStore *meta.MetaStore, manager *pg.DataManager, syncer meta.MetaDescriptionSyncer, migrationStoragePath string) *MigrationManager {
+	return &MigrationManager{metaStore: metaStore, dataManager: manager, metaDescriptionSyncer: syncer, migrationStorage: storage.NewMigrationStorage(migrationStoragePath)}
 }

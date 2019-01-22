@@ -10,6 +10,7 @@ import (
 	"path/filepath"
 	"server/transactions"
 	. "server/object/description"
+	"utils"
 )
 
 type FileMetaDescriptionSyncer struct {
@@ -20,40 +21,24 @@ func NewFileMetaDescriptionSyncer(d string) *FileMetaDescriptionSyncer {
 	return &FileMetaDescriptionSyncer{d}
 }
 
-func closeFile(f *os.File) error {
-	if err := f.Close(); err != nil {
-		logger.Warn("Can't close file '%s': %s", f.Name(), err.Error())
-		return err
-	}
-	return nil
-}
-
-func removeFile(path string) error {
-	if err := os.Remove(path); err != nil {
-		logger.Warn("Can't remove file '%s': %s", path, err.Error())
-		return err
-	}
-	return nil
-}
-
 func createMetaFile(metaFile string, m *MetaDescription) error {
 	f, err := os.Create(metaFile)
 	if err != nil {
 		logger.Error("Can't create file '%s': %s", metaFile, m.Name, err.Error())
 		return err
 	}
-	defer closeFile(f)
+	defer utils.CloseFile(f)
 
 	w := bufio.NewWriter(f)
 	if err := json.NewEncoder(w).Encode(m); err != nil {
 		logger.Error("Can't encoding MetaDescription '%s' to file '%s': %s", m.Name, metaFile, err.Error())
-		defer removeFile(metaFile)
+		defer utils.RemoveFile(metaFile)
 		return err
 	}
 
 	if err := w.Flush(); err != nil {
 		logger.Error("Can't write MetaDescription '%s' to file '%s': %s", m.Name, metaFile, err.Error())
-		defer removeFile(metaFile)
+		defer utils.RemoveFile(metaFile)
 		return err
 	}
 
@@ -90,7 +75,7 @@ func (fm *FileMetaDescriptionSyncer) Get(name string) (*MetaDescription, bool, e
 		logger.Error("Can't open file '%s' of  MetaDescription '%s': %s", metaFile, name, err.Error())
 		return nil, true, NewMetaError(name, "meta_file_get", ErrInternal, "Can't open file of MetaDescription '%s'", name)
 	}
-	defer closeFile(f)
+	defer utils.CloseFile(f)
 
 	var meta = MetaDescription{}
 	if err := json.NewDecoder(bufio.NewReader(f)).Decode(&meta); err != nil {

@@ -25,7 +25,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
+	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath)
 
 	var metaDescription *description.MetaDescription
 
