@@ -26,6 +26,15 @@ func (md *MetaDescription) FindField(fieldName string) *Field {
 	return nil
 }
 
+func (md *MetaDescription) FindAction(actionName string) *Action {
+	for i, action := range md.Actions {
+		if action.Name == actionName {
+			return &md.Actions[i]
+		}
+	}
+	return nil
+}
+
 func (md *MetaDescription) ForExport() MetaDescription {
 	metaCopy := MetaDescription{}
 	deepcopy.Copy(&metaCopy, *md)

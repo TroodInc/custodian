@@ -72,6 +72,14 @@ var _ = Describe("Migration`s construction", func() {
 					Optional: false,
 				},
 			},
+			Actions: []description.Action{
+				{
+					Name:     "some-action",
+					Method:   description.MethodUpdate,
+					Protocol: description.REST,
+					Args:     []string{"http://localhost:5555/some-endpoint/"},
+				},
+			},
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
@@ -83,13 +91,15 @@ var _ = Describe("Migration`s construction", func() {
 	BeforeEach(flushDb)
 	AfterEach(flushDb)
 
-	It("Can create migration to create object", func() {
+	It("Does not create migration if changes were not detected", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
+		factoryObjectA(globalTransaction)
+
 		migrationMetaDescription := map[string]interface{}{
 			"name":         "a",
-			"previousName": "",
+			"previousName": "a",
 			"key":          "id",
 			"fields": []map[string]interface{}{
 				{
@@ -103,55 +113,12 @@ var _ = Describe("Migration`s construction", func() {
 					"optional": false,
 				},
 			},
-		}
-
-		encodedMetaData, _ := json.Marshal(migrationMetaDescription)
-
-		url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
-
-		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
-		request.Header.Set("Content-Type", "application/json")
-		httpServer.Handler.ServeHTTP(recorder, request)
-
-		responseBody := recorder.Body.String()
-		var body map[string]interface{}
-		json.Unmarshal([]byte(responseBody), &body)
-
-		//check response status
-		Expect(body["status"]).To(Equal("OK"))
-
-		migrationDescriptionData := body["data"].(map[string]interface{})
-		Expect(migrationDescriptionData["applyTo"]).To(Equal(""))
-
-		Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
-		Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
-		Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.CreateObjectOperation))
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("Can create migration to rename object", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		factoryObjectA(globalTransaction)
-
-		migrationMetaDescription := map[string]interface{}{
-			"name":         "b",
-			"previousName": "a",
-			"key":          "id",
-			"fields": []map[string]interface{}{
+			"actions": []map[string]interface{}{
 				{
-					"name":         "id",
-					"type":         "string",
-					"optional":     false,
-					"previousName": "id",
-				},
-				{
-					"name":         "name",
-					"type":         "string",
-					"optional":     false,
-					"previousName": "name",
+					"name":     "some-action",
+					"method":   description.MethodUpdate,
+					"protocol": "REST",
+					"args":     []string{"http://localhost:5555/some-endpoint/"},
 				},
 			},
 		}
@@ -169,204 +136,583 @@ var _ = Describe("Migration`s construction", func() {
 		json.Unmarshal([]byte(responseBody), &body)
 
 		//check response status
-		Expect(body["status"]).To(Equal("OK"))
-
-		migrationDescriptionData := body["data"].(map[string]interface{})
-		Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
-
-		Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
-		Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
-		Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.RenameObjectOperation))
+		Expect(body["status"]).To(Equal("FAIL"))
+		Expect(body["error"].(map[string]interface{})["Code"].(string)).To(Equal("no_changes_were_detected"))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	It("Can create migration to delete object", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
+	Describe("Objects` operations", func() {
+		It("Can create migration to create object", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
 
-		factoryObjectA(globalTransaction)
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "a",
+				"previousName": "",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":     "id",
+						"type":     "string",
+						"optional": false,
+					},
+					{
+						"name":     "name",
+						"type":     "string",
+						"optional": false,
+					},
+				},
+				"actions": []map[string]interface{}{
+					{
+						"name":     "some-action",
+						"method":   description.MethodUpdate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
+				},
+			}
 
-		migrationMetaDescription := map[string]interface{}{
-			"name":         "",
-			"previousName": "a",
-		}
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
 
-		encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
 
-		url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
 
-		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
-		request.Header.Set("Content-Type", "application/json")
-		httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
 
-		responseBody := recorder.Body.String()
-		var body map[string]interface{}
-		json.Unmarshal([]byte(responseBody), &body)
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
 
-		//check response status
-		Expect(body["status"]).To(Equal("OK"))
+			migrationDescriptionData := body["data"].(map[string]interface{})
+			Expect(migrationDescriptionData["applyTo"]).To(Equal(""))
 
-		migrationDescriptionData := body["data"].(map[string]interface{})
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.CreateObjectOperation))
 
-		Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
-		Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
-		Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
-		Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.DeleteObjectOperation))
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		It("Can create migration to rename object", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			factoryObjectA(globalTransaction)
+
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "b",
+				"previousName": "a",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":         "id",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "id",
+					},
+					{
+						"name":         "name",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "name",
+					},
+				},
+				"actions": []map[string]interface{}{
+					{
+						"name":     "some-action",
+						"method":   description.MethodUpdate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
+				},
+			}
+
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
+
+			migrationDescriptionData := body["data"].(map[string]interface{})
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.RenameObjectOperation))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("Can create migration to delete object", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			factoryObjectA(globalTransaction)
+
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "",
+				"previousName": "a",
+			}
+
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
+
+			migrationDescriptionData := body["data"].(map[string]interface{})
+
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.DeleteObjectOperation))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
 	})
 
-	It("Can create migration to add a new field", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
+	Describe("Fields` operations", func() {
+		It("Can create migration to add a new field", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
 
-		factoryObjectA(globalTransaction)
+			factoryObjectA(globalTransaction)
 
-		migrationMetaDescription := map[string]interface{}{
-			"name":         "a",
-			"previousName": "a",
-			"key":          "id",
-			"fields": []map[string]interface{}{
-				{
-					"name":         "id",
-					"type":         "string",
-					"optional":     false,
-					"previousName": "id",
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "a",
+				"previousName": "a",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":         "id",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "id",
+					},
+					{
+						"name":         "name",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "name",
+					},
+					{
+						"name":     "newField",
+						"type":     "number",
+						"optional": true,
+					},
 				},
-				{
-					"name":         "name",
-					"type":         "string",
-					"optional":     false,
-					"previousName": "name",
+				"actions": []map[string]interface{}{
+					{
+						"name":     "some-action",
+						"method":   description.MethodUpdate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
 				},
-				{
-					"name":     "newField",
-					"type":     "number",
-					"optional": true,
+			}
+
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
+
+			migrationDescriptionData := body["data"].(map[string]interface{})
+
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.AddFieldOperation))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("Can create migration to remove a field", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			factoryObjectA(globalTransaction)
+
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "a",
+				"previousName": "a",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":         "id",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "id",
+					},
 				},
-			},
-		}
+				"actions": []map[string]interface{}{
+					{
+						"name":     "some-action",
+						"method":   description.MethodUpdate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
+				},
+			}
 
-		encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
 
-		url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
 
-		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
-		request.Header.Set("Content-Type", "application/json")
-		httpServer.Handler.ServeHTTP(recorder, request)
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
 
-		responseBody := recorder.Body.String()
-		var body map[string]interface{}
-		json.Unmarshal([]byte(responseBody), &body)
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
 
-		//check response status
-		Expect(body["status"]).To(Equal("OK"))
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
 
-		migrationDescriptionData := body["data"].(map[string]interface{})
+			migrationDescriptionData := body["data"].(map[string]interface{})
 
-		Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
-		Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
-		Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
-		Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.AddFieldOperation))
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.RemoveFieldOperation))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("Can create migration to update a field", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			factoryObjectA(globalTransaction)
+
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "a",
+				"previousName": "a",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":         "id",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "id",
+					},
+					{
+						"name":         "renamed_field",
+						"type":         "string",
+						"optional":     true,
+						"previousName": "name",
+					},
+				},
+				"actions": []map[string]interface{}{
+					{
+						"name":     "some-action",
+						"method":   description.MethodUpdate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
+				},
+			}
+
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
+
+			migrationDescriptionData := body["data"].(map[string]interface{})
+
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.UpdateFieldOperation))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
 	})
 
-	It("Can create migration to remove a field", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
+	Describe("Actions` operations", func() {
+		It("Can create migration to add a new action", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
 
-		factoryObjectA(globalTransaction)
+			factoryObjectA(globalTransaction)
 
-		migrationMetaDescription := map[string]interface{}{
-			"name":         "a",
-			"previousName": "a",
-			"key":          "id",
-			"fields": []map[string]interface{}{
-				{
-					"name":         "id",
-					"type":         "string",
-					"optional":     false,
-					"previousName": "id",
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "a",
+				"previousName": "a",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":         "id",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "id",
+					},
+					{
+						"name":         "name",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "name",
+					},
 				},
-			},
-		}
-
-		encodedMetaData, _ := json.Marshal(migrationMetaDescription)
-
-		url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
-
-		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
-		request.Header.Set("Content-Type", "application/json")
-		httpServer.Handler.ServeHTTP(recorder, request)
-
-		responseBody := recorder.Body.String()
-		var body map[string]interface{}
-		json.Unmarshal([]byte(responseBody), &body)
-
-		//check response status
-		Expect(body["status"]).To(Equal("OK"))
-
-		migrationDescriptionData := body["data"].(map[string]interface{})
-
-		Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
-		Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
-		Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
-		Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.RemoveFieldOperation))
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("Can create migration to update a field", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		factoryObjectA(globalTransaction)
-
-		migrationMetaDescription := map[string]interface{}{
-			"name":         "a",
-			"previousName": "a",
-			"key":          "id",
-			"fields": []map[string]interface{}{
-				{
-					"name":         "id",
-					"type":         "string",
-					"optional":     false,
-					"previousName": "id",
+				"actions": []map[string]interface{}{
+					{
+						"name":     "some-action",
+						"method":   description.MethodUpdate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
+					{
+						"name":     "some-new-action",
+						"method":   description.MethodCreate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
 				},
-				{
-					"name":         "renamed_field",
-					"type":         "string",
-					"optional":     true,
-					"previousName": "name",
+			}
+
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
+
+			migrationDescriptionData := body["data"].(map[string]interface{})
+
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.AddActionOperation))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("Can create migration to add a new action", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			factoryObjectA(globalTransaction)
+
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "a",
+				"previousName": "a",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":         "id",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "id",
+					},
+					{
+						"name":         "name",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "name",
+					},
 				},
-			},
-		}
+				"actions": []map[string]interface{}{
+					{
+						"name":     "some-action",
+						"method":   description.MethodUpdate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
+					{
+						"name":     "some-new-action",
+						"method":   description.MethodCreate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-endpoint/"},
+					},
+				},
+			}
 
-		encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
 
-		url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
 
-		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
-		request.Header.Set("Content-Type", "application/json")
-		httpServer.Handler.ServeHTTP(recorder, request)
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
 
-		responseBody := recorder.Body.String()
-		var body map[string]interface{}
-		json.Unmarshal([]byte(responseBody), &body)
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
 
-		//check response status
-		Expect(body["status"]).To(Equal("OK"))
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
 
-		migrationDescriptionData := body["data"].(map[string]interface{})
+			migrationDescriptionData := body["data"].(map[string]interface{})
 
-		Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
-		Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
-		Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
-		Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.UpdateFieldOperation))
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.AddActionOperation))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("Can create migration to remove an action", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			factoryObjectA(globalTransaction)
+
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "a",
+				"previousName": "a",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":         "id",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "id",
+					},
+					{
+						"name":         "name",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "name",
+					},
+				},
+				"actions": []string{},
+			}
+
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
+
+			migrationDescriptionData := body["data"].(map[string]interface{})
+
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.RemoveActionOperation))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("Can create migration to update an action", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			factoryObjectA(globalTransaction)
+
+			migrationMetaDescription := map[string]interface{}{
+				"name":         "a",
+				"previousName": "a",
+				"key":          "id",
+				"fields": []map[string]interface{}{
+					{
+						"name":         "id",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "id",
+					},
+					{
+						"name":         "name",
+						"type":         "string",
+						"optional":     false,
+						"previousName": "name",
+					},
+				},
+				"actions": []map[string]interface{}{
+					{
+						"name":     "some-action",
+						"method":   description.MethodUpdate,
+						"protocol": "REST",
+						"args":     []string{"http://localhost:5555/some-updated-endpoint/"},
+					},
+				},
+			}
+
+			encodedMetaData, _ := json.Marshal(migrationMetaDescription)
+
+			url := fmt.Sprintf("%s/migrations/construct", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+
+			responseBody := recorder.Body.String()
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+
+			//check response status
+			Expect(body["status"]).To(Equal("OK"))
+
+			migrationDescriptionData := body["data"].(map[string]interface{})
+
+			Expect(migrationDescriptionData["applyTo"]).To(Equal("a"))
+			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
+			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
+			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.UpdateActionOperation))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
 	})
 
 	It("Creates migration with correct 'dependsOn' values", func() {

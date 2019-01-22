@@ -76,7 +76,7 @@ var _ = Describe("Migration Constructor", func() {
 						PreviousName: "",
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []migration_description.MigrationActionDescription{},
 				Cas:     false,
 			}
 			_, err = migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -104,7 +104,7 @@ var _ = Describe("Migration Constructor", func() {
 						PreviousName: "",
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []migration_description.MigrationActionDescription{},
 				Cas:     false,
 			}
 			migrationDescription, err := migrationConstructor.Construct(nil, newMetaDescription, globalTransaction.DbTransaction)
@@ -148,7 +148,7 @@ var _ = Describe("Migration Constructor", func() {
 						PreviousName: "",
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []migration_description.MigrationActionDescription{},
 				Cas:     false,
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -230,7 +230,7 @@ var _ = Describe("Migration Constructor", func() {
 						PreviousName: "",
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []migration_description.MigrationActionDescription{},
 				Cas:     false,
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -279,56 +279,7 @@ var _ = Describe("Migration Constructor", func() {
 						PreviousName: "",
 					},
 				},
-				Actions: []description.Action{},
-				Cas:     false,
-			}
-			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
-			Expect(err).To(BeNil())
-
-			Expect(migrationDescription).NotTo(BeNil())
-			Expect(migrationDescription.Operations).To(HaveLen(1))
-			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.RemoveFieldOperation))
-
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
-		})
-
-		It("generates operation if field is being removed", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-					{
-						Name:     "existing_field",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-				Actions: []description.Action{},
-				Cas:     false,
-			}
-			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []migration_description.MigrationFieldDescription{
-					{
-						Field: description.Field{
-							Name:     "id",
-							Type:     description.FieldTypeString,
-							Optional: false,
-						},
-						PreviousName: "",
-					},
-				},
-				Actions: []description.Action{},
+				Actions: []migration_description.MigrationActionDescription{},
 				Cas:     false,
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -407,7 +358,7 @@ var _ = Describe("Migration Constructor", func() {
 							},
 						},
 					},
-					Actions: []description.Action{},
+					Actions: []migration_description.MigrationActionDescription{},
 					Cas:     false,
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -456,7 +407,7 @@ var _ = Describe("Migration Constructor", func() {
 						},
 					},
 
-					Actions: []description.Action{},
+					Actions: []migration_description.MigrationActionDescription{},
 					Cas:     false,
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -504,7 +455,7 @@ var _ = Describe("Migration Constructor", func() {
 							},
 						},
 					},
-					Actions: []description.Action{},
+					Actions: []migration_description.MigrationActionDescription{},
 					Cas:     false,
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -552,7 +503,7 @@ var _ = Describe("Migration Constructor", func() {
 							},
 						},
 					},
-					Actions: []description.Action{},
+					Actions: []migration_description.MigrationActionDescription{},
 					Cas:     false,
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -599,7 +550,7 @@ var _ = Describe("Migration Constructor", func() {
 							},
 						},
 					},
-					Actions: []description.Action{},
+					Actions: []migration_description.MigrationActionDescription{},
 					Cas:     false,
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
@@ -608,6 +559,297 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
+
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			})
+		})
+
+		It("generates operation if action is being added", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			currentMetaDescription := &description.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeString,
+						Optional: false,
+					},
+				},
+				Actions: []description.Action{},
+				Cas:     false,
+			}
+			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
+				Name: "a",
+				Key:  "id",
+				Fields: []migration_description.MigrationFieldDescription{
+					{
+						Field: description.Field{
+							Name:     "id",
+							Type:     description.FieldTypeString,
+							Optional: false,
+						},
+						PreviousName: "",
+					},
+				},
+				Actions: []migration_description.MigrationActionDescription{{
+					Action: description.Action{
+						Name:     "new_action",
+						Method:   description.MethodCreate,
+						Protocol: description.REST,
+						Args:     []string{"http://localhost:3000/some-handler"},
+					},
+				}},
+				Cas: false,
+			}
+			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+
+			Expect(migrationDescription).NotTo(BeNil())
+			Expect(migrationDescription.Operations).To(HaveLen(1))
+			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.AddActionOperation))
+
+			err = globalTransactionManager.CommitTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		})
+
+		It("generates operation if action is being removed", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			currentMetaDescription := &description.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeString,
+						Optional: false,
+					},
+				},
+				Actions: []description.Action{
+					{
+						Name:     "new_action",
+						Method:   description.MethodCreate,
+						Protocol: description.REST,
+						Args:     []string{"http://localhost:3000/some-handler"},
+					},
+				},
+				Cas: false,
+			}
+			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
+				Name: "a",
+				Key:  "id",
+				Fields: []migration_description.MigrationFieldDescription{
+					{
+						Field: description.Field{
+							Name:     "id",
+							Type:     description.FieldTypeString,
+							Optional: false,
+						},
+						PreviousName: "",
+					},
+				},
+				Actions: []migration_description.MigrationActionDescription{},
+				Cas:     false,
+			}
+			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
+			Expect(err).To(BeNil())
+
+			Expect(migrationDescription).NotTo(BeNil())
+			Expect(migrationDescription.Operations).To(HaveLen(1))
+			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.RemoveActionOperation))
+
+			err = globalTransactionManager.CommitTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		})
+
+		Describe("Update action", func() {
+			var currentMetaDescription *description.MetaDescription
+			BeforeEach(func() {
+
+				currentMetaDescription = &description.MetaDescription{
+					Name: "a",
+					Key:  "id",
+					Fields: []description.Field{
+						{
+							Name:     "id",
+							Type:     description.FieldTypeString,
+							Optional: false,
+						},
+					},
+					Actions: []description.Action{
+						{
+							Name:     "new_action",
+							Method:   description.MethodCreate,
+							Protocol: description.REST,
+							Args:     []string{"http://localhost:3000/some-handler"},
+						},
+					},
+					Cas: false,
+				}
+			})
+
+			It("generates operation if action is being renamed", func() {
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+
+				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
+					Name: "a",
+					Key:  "id",
+					Fields: []migration_description.MigrationFieldDescription{
+						{
+							Field: description.Field{
+								Name:     "id",
+								Type:     description.FieldTypeString,
+								Optional: false,
+							},
+							PreviousName: "",
+						},
+					},
+					Actions: []migration_description.MigrationActionDescription{
+						{
+							Action: description.Action{
+								Name:     "updated_action",
+								Method:   description.MethodCreate,
+								Protocol: description.REST,
+								Args:     []string{"http://localhost:3000/some-handler"},
+							},
+							PreviousName: "new_action",
+						},
+					},
+					Cas: false,
+				}
+				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
+				Expect(err).To(BeNil())
+
+				Expect(migrationDescription).NotTo(BeNil())
+				Expect(migrationDescription.Operations).To(HaveLen(1))
+				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
+
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			})
+
+			It("generates operation if action`s Method value has changed", func() {
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+
+				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
+					Name: "a",
+					Key:  "id",
+					Fields: []migration_description.MigrationFieldDescription{
+						{
+							Field: description.Field{
+								Name:     "id",
+								Type:     description.FieldTypeString,
+								Optional: false,
+							},
+							PreviousName: "",
+						},
+					},
+					Actions: []migration_description.MigrationActionDescription{
+						{
+							Action: description.Action{
+								Name:     "new_action",
+								Method:   description.MethodCreate,
+								Protocol: description.TEST,
+								Args:     []string{"http://localhost:3000/some-handler"},
+							},
+						},
+					},
+					Cas: false,
+				}
+				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
+				Expect(err).To(BeNil())
+
+				Expect(migrationDescription).NotTo(BeNil())
+				Expect(migrationDescription.Operations).To(HaveLen(1))
+				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
+
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			})
+
+			It("generates operation if action`s Args value has changed", func() {
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+
+				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
+					Name: "a",
+					Key:  "id",
+					Fields: []migration_description.MigrationFieldDescription{
+						{
+							Field: description.Field{
+								Name:     "id",
+								Type:     description.FieldTypeString,
+								Optional: false,
+							},
+							PreviousName: "",
+						},
+					},
+					Actions: []migration_description.MigrationActionDescription{
+						{
+							Action: description.Action{
+								Name:     "new_action",
+								Method:   description.MethodCreate,
+								Protocol: description.REST,
+								Args:     []string{"http://localhost:3000/some-another-handler"},
+							},
+						},
+					},
+					Cas: false,
+				}
+				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
+				Expect(err).To(BeNil())
+
+				Expect(migrationDescription).NotTo(BeNil())
+				Expect(migrationDescription.Operations).To(HaveLen(1))
+				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
+
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			})
+
+			It("generates operation if action`s ActiveIfNotRoot value has changed", func() {
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+
+				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
+					Name: "a",
+					Key:  "id",
+					Fields: []migration_description.MigrationFieldDescription{
+						{
+							Field: description.Field{
+								Name:     "id",
+								Type:     description.FieldTypeString,
+								Optional: false,
+							},
+							PreviousName: "",
+						},
+					},
+					Actions: []migration_description.MigrationActionDescription{
+						{
+							Action: description.Action{
+								Name:            "new_action",
+								Method:          description.MethodCreate,
+								Protocol:        description.REST,
+								Args:            []string{"http://localhost:3000/some-handler"},
+								ActiveIfNotRoot: true,
+							},
+						},
+					},
+					Cas: false,
+				}
+				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
+				Expect(err).To(BeNil())
+
+				Expect(migrationDescription).NotTo(BeNil())
+				Expect(migrationDescription.Operations).To(HaveLen(1))
+				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
