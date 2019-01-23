@@ -81,7 +81,7 @@ func (mm *MigrationManager) Run(migrationDescription *migrations_description.Mig
 		_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
 		if err != nil {
 			if removeErr := mm.migrationStorage.Remove(migrationFileName); removeErr != nil {
-				return nil, _migrations.NewMigrationError(_migrations.ErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error())
+				return nil, _migrations.NewMigrationError(_migrations.MigrationErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error())
 			}
 			return nil, err
 		}
@@ -183,14 +183,8 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 		return "", err
 	}
 	var predecessorId string
-	if latestMigration, err := mm.getLatestMigrationForObject(metaName, transaction); err != nil {
-		return "", err
-	} else {
-		if latestMigration != nil {
-			predecessorId = latestMigration.Data["migration_id"].(string)
-		} else {
-			predecessorId = ""
-		}
+	if len(migration.DependsOn) > 0 {
+		predecessorId = migration.DependsOn[0]
 	}
 
 	migrationData := map[string]interface{}{

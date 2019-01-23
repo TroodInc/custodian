@@ -16,7 +16,7 @@ type MigrationStorage struct {
 }
 
 func (ms *MigrationStorage) Store(description *description.MigrationDescription) (string, error) {
-	migrationFileName := ms.generateMigrationFileName(description)
+	migrationFileName := ms.generateMigrationFileName(description.Id)
 	f, err := os.Create(migrationFileName)
 	if err != nil {
 		return "", err
@@ -42,12 +42,31 @@ func (ms *MigrationStorage) Remove(migrationFileName string) error {
 	return utils.RemoveFile(migrationFileName)
 }
 
+func (ms *MigrationStorage) Get(migrationId string) (*description.MigrationDescription, error) {
+	migrationFileName := ms.generateMigrationFileName(migrationId)
+	if _, err := os.Stat(migrationFileName); err != nil {
+		return nil, err
+	}
+	f, err := os.Open(migrationFileName)
+	if err != nil {
+		return nil, err
+	}
+	defer utils.CloseFile(f)
+
+	migrationDescription := &description.MigrationDescription{}
+	if err := json.NewDecoder(bufio.NewReader(f)).Decode(migrationDescription); err != nil {
+		return nil, err
+	}
+
+	return migrationDescription, nil
+}
+
 func (ms *MigrationStorage) Flush() error {
 	return utils.RemoveContents(ms.storagePath)
 }
 
-func (ms *MigrationStorage) generateMigrationFileName(migrationDescription *description.MigrationDescription) string {
-	migrationFileName := migrationDescription.Id + "." + fileExtension
+func (ms *MigrationStorage) generateMigrationFileName(migrationId string) string {
+	migrationFileName := migrationId + "." + fileExtension
 	return path.Join(ms.storagePath, migrationFileName)
 }
 
