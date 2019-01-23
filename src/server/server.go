@@ -29,6 +29,7 @@ import (
 	_ "net/http/pprof"
 	"fmt"
 	"os"
+	"server/data/record"
 )
 
 type CustodianApp struct {
@@ -37,18 +38,9 @@ type CustodianApp struct {
 }
 
 func GetApp(cs *CustodianServer) *CustodianApp {
-	var authenticator auth.Authenticator
-	if cs.auth_url != "" {
-		authenticator = &auth.TroodAuthenticator{
-			cs.auth_url,
-		}
-	} else {
-		authenticator = &auth.EmptyAuthenticator{}
-	}
-
 	return &CustodianApp{
-		httprouter.New(),
-		authenticator,
+		router:        httprouter.New(),
+		authenticator: cs.authenticator,
 	}
 }
 
@@ -58,18 +50,18 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 		ctx := context.WithValue(req.Context(), "auth_user", user)
 
-		resolver := abac.GetTroodABACResolver(map[string]interface{} {
+		resolver := abac.GetTroodABACResolver(map[string]interface{}{
 			"sbj": user,
 			"ctx": req,
-		},)
+		}, )
 
-		handled, opts, _ := app.router.Lookup(req.Method, req.RequestURI)
+		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
-		if handled != nil {
+		if handler != nil {
 			var res = strings.Split(opts.ByName("name"), "?")[0]
 			var action = ""
 
-			splited := strings.Split(req.RequestURI, "/")
+			splited := strings.Split(req.URL.Path, "/")
 
 			if res != "" {
 				if splited[2] == "meta" {
@@ -87,18 +79,18 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				action = req.Method
 			}
 
-			rules := abac.GetAttributeByPath(user.ABAC[os.Getenv("SERVICE_DOMAIN")], res + "." + action)
+			rules := abac.GetAttributeByPath(user.ABAC[os.Getenv("SERVICE_DOMAIN")], res+"."+action)
 
 			if rules != nil {
 				result := false
 				for _, rule := range rules.([]interface{}) {
 					fmt.Println("ABAC:  matched rule", rule)
-					res, filters  := resolver.EvaluateRule(rule.(map[string]interface{}))
+					res, filter := resolver.EvaluateRule(rule.(map[string]interface{}))
 
-					fmt.Println("ABAC:  filters ", filters)
 					if res {
-						if len(filters) > 0 {
-							ctx = context.WithValue(ctx, "auth_filters", strings.Join(filters, ","))
+						if filter != nil {
+							fmt.Println("ABAC:  filters ", filter)
+							ctx = context.WithValue(ctx, "auth_filter", filter)
 						}
 						result = true
 						break
@@ -151,6 +143,7 @@ type CustodianServer struct {
 	s                *http.Server
 	db               string
 	auth_url         string
+	authenticator    auth.Authenticator
 }
 
 func New(host, port, urlPrefix, databaseConnectionOptions string) *CustodianServer {
@@ -173,12 +166,25 @@ func (cs *CustodianServer) SetDb(d string) {
 	cs.db = d
 }
 
-func (cs *CustodianServer) SetAuth(s string) {
+func (cs *CustodianServer) SetAuthUrl(s string) {
 	cs.auth_url = s
 }
 
-func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
+func (cs *CustodianServer) SetAuthenticator(authenticator auth.Authenticator) {
+	cs.authenticator = authenticator
+}
 
+//TODO: "enableProfiler" option should be configured like other options
+func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
+	if cs.authenticator == nil {
+		if cs.auth_url != "" {
+			cs.authenticator = &auth.TroodAuthenticator{
+				cs.auth_url,
+			}
+		} else {
+			cs.authenticator = &auth.EmptyAuthenticator{}
+		}
+	}
 	app := GetApp(cs)
 
 	//Meta routes
@@ -379,6 +385,19 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
 				} else {
+					auth_filter := request.Context().Value("auth_filter")
+					if auth_filter != nil {
+						filterExpression := auth_filter.(*abac.FilterExpression)
+						ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), o, dbTransaction, dataProcessor.Get))
+						if err != nil {
+							sink.pushError(err)
+						}
+						if !ok {
+							sink.pushError(abac.NewError("Permission denied"))
+							dbTransactionManager.RollbackTransaction(dbTransaction)
+							return
+						}
+					}
 					dbTransactionManager.CommitTransaction(dbTransaction)
 					sink.pushGeneric(o.Data)
 				}
@@ -410,19 +429,19 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					omitOuters = true
 				}
 
-				auth_filters := request.Context().Value("auth_filters")
+				auth_filter := request.Context().Value("auth_filter")
 				user_filters := pq.Get("q")
 
 				var filters = ""
-				if auth_filters != nil && user_filters != "" {
-					filters = auth_filters.(string) + "," + user_filters
+				if auth_filter != nil && user_filters != "" {
+					filters = auth_filter.(*abac.FilterExpression).String() + "," + user_filters
 				} else if user_filters != "" {
 					filters = user_filters
-				} else if auth_filters != nil {
-					filters = auth_filters.(string)
+				} else if auth_filter != nil {
+					filters = auth_filter.(*abac.FilterExpression).String()
 				}
 
-				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters , depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
 				if e != nil {
 					sink.PushError(e)
 					dbTransactionManager.RollbackTransaction(dbTransaction)
@@ -440,10 +459,34 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
+			objectName := p.ByName("name")
+			recordPkValue := p.ByName("key")
 			//set transaction to the context
 			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
 
-			if removedData, e := dataProcessor.RemoveRecord(dbTransaction, p.ByName("name"), p.ByName("key"), user); e != nil {
+			//process access check
+			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, 1, true)
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(dbTransaction)
+				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+			} else {
+				auth_filter := r.Context().Value("auth_filter")
+				if auth_filter != nil {
+					filterExpression := auth_filter.(*abac.FilterExpression)
+					ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), recordToUpdate, dbTransaction, dataProcessor.Get))
+					if err != nil {
+						sink.pushError(err)
+					}
+					if !ok {
+						sink.pushError(abac.NewError("Permission denied"))
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						return
+					}
+				}
+			}
+			//end access check
+
+			if removedData, e := dataProcessor.RemoveRecord(dbTransaction, objectName, recordPkValue, user); e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
@@ -471,7 +514,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			}, user)
 			if e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.PushError(e)
+				defer sink.PushError(e)
 			} else {
 				defer sink.Complete(nil)
 				dbTransactionManager.CommitTransaction(dbTransaction)
@@ -488,9 +531,32 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 			user := r.Context().Value("auth_user").(auth.User)
 			objectName := p.ByName("name")
 			recordPkValue := p.ByName("key")
+
+			//process access check
+			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, 1, true)
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(dbTransaction)
+				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+			} else {
+				auth_filter := r.Context().Value("auth_filter")
+				if auth_filter != nil {
+					filterExpression := auth_filter.(*abac.FilterExpression)
+					ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), recordToUpdate, dbTransaction, dataProcessor.Get))
+					if err != nil {
+						sink.pushError(err)
+					}
+					if !ok {
+						sink.pushError(abac.NewError("Permission denied"))
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						return
+					}
+				}
+			}
+			//end access check
+
 			//TODO: building record data respecting "depth" argument should be implemented inside dataProcessor
 			//also "FillRecordValues" also should be moved from Node struct
-			if recordData, e := dataProcessor.UpdateRecord(dbTransaction, objectName, recordPkValue, src.Value, user); e != nil {
+			if updatedRecord, e := dataProcessor.UpdateRecord(dbTransaction, objectName, recordPkValue, src.Value, user); e != nil {
 				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
@@ -499,7 +565,7 @@ func (cs *CustodianServer) Setup(enableProfiler bool) *http.Server {
 					sink.pushError(e)
 				}
 			} else {
-				if recordData != nil {
+				if updatedRecord != nil {
 					var depth = 1
 					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
 						depth = i
