@@ -35,6 +35,7 @@ import (
 	"server/data/record"
 	"utils"
 	"server/migrations/constructor"
+	"server/migrations/validation"
 )
 
 type CustodianApp struct {
@@ -637,7 +638,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
-			migrationConstructor := constructor.NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer))
+			migrationConstructor := constructor.NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath))
 
 			var currentMetaDescription *description.MetaDescription
 			if len(migrationMetaDescription.PreviousName) != 0 {
@@ -683,7 +684,15 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
-			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
+			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
+			migrationValidationService := validation.NewMigrationValidationService(migrationManager, config.MigrationStoragePath)
+			//validate migration
+			if err := migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction); err != nil {
+				globalTransactionManager.RollbackTransaction(globalTransaction)
+				js.pushError(err)
+				return
+			}
+			//apply migration
 			updatedMetaDescription, err := migrationManager.Run(migrationDescription, globalTransaction, true)
 			if err != nil {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
