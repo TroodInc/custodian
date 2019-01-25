@@ -122,7 +122,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				},
 			}
 
-			migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+			migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 			Expect(err).To(BeNil())
 			Expect(migration.RunAfter).To(HaveLen(1))
@@ -171,7 +171,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				},
 			}
 
-			_, err = migrationManager.Run(migrationDescription, globalTransaction, false)
+			_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
 			Expect(err).To(BeNil())
 
 			aMetaDescription, _, err := metaDescriptionSyncer.Get("a")
@@ -198,7 +198,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				},
 			}
 
-			migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+			migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 			Expect(err).To(BeNil())
 
 			Expect(migration.RunBefore).To(HaveLen(1))
@@ -263,7 +263,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 				Expect(err).To(BeNil())
 				Expect(migration.RunAfter).To(HaveLen(1))
@@ -299,7 +299,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Run(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				renamedBMetaDescription := bMetaDescription.Clone()
@@ -317,7 +317,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -353,7 +353,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Run(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
@@ -368,7 +368,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -404,7 +404,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Run(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
@@ -419,7 +419,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)

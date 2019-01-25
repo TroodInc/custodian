@@ -25,20 +25,25 @@ func (ms *MigrationStorage) Store(description *description.MigrationDescription)
 
 	w := bufio.NewWriter(f)
 	if encodedData, err := json.MarshalIndent(description, "", "\t"); err != nil {
-		defer ms.Remove(migrationFileName)
+		defer ms.RemoveFile(migrationFileName)
 		return "", err
 	} else {
 		w.Write(encodedData)
 	}
 
 	if err := w.Flush(); err != nil {
-		defer ms.Remove(migrationFileName)
+		defer ms.RemoveFile(migrationFileName)
 		return "", err
 	}
 	return migrationFileName, nil
 }
 
-func (ms *MigrationStorage) Remove(migrationFileName string) error {
+func (ms *MigrationStorage) Remove(description *description.MigrationDescription) error {
+	migrationFileName := ms.generateMigrationFileName(description.Id)
+	return ms.RemoveFile(migrationFileName)
+}
+
+func (ms *MigrationStorage) RemoveFile(migrationFileName string) error {
 	return utils.RemoveFile(migrationFileName)
 }
 

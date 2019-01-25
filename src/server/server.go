@@ -693,7 +693,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 			//apply migration
-			updatedMetaDescription, err := migrationManager.Run(migrationDescription, globalTransaction, true)
+			updatedMetaDescription, err := migrationManager.Apply(migrationDescription, globalTransaction, true)
 			if err != nil {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)

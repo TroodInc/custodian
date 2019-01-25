@@ -98,7 +98,7 @@ var _ = Describe("Migration Factory", func() {
 			},
 		}
 
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 		Expect(err).To(BeNil())
 		Expect(migration.Operations).To(HaveLen(1))
@@ -128,7 +128,7 @@ var _ = Describe("Migration Factory", func() {
 			},
 		}
 
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 		Expect(err).To(BeNil())
 		Expect(migration.Operations).To(HaveLen(1))
@@ -155,7 +155,7 @@ var _ = Describe("Migration Factory", func() {
 			},
 		}
 
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 		Expect(err).To(BeNil())
 		Expect(migration.Operations).To(HaveLen(1))
@@ -182,7 +182,7 @@ var _ = Describe("Migration Factory", func() {
 			},
 		}
 
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 		Expect(err).To(BeNil())
 		Expect(migration.Operations).To(HaveLen(1))
@@ -209,7 +209,7 @@ var _ = Describe("Migration Factory", func() {
 			},
 		}
 
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 		Expect(err).To(BeNil())
 		Expect(migration.Operations).To(HaveLen(1))
@@ -236,7 +236,7 @@ var _ = Describe("Migration Factory", func() {
 			},
 		}
 
-		migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 		Expect(err).To(BeNil())
 		Expect(migration.Operations).To(HaveLen(1))
@@ -287,7 +287,7 @@ var _ = Describe("Migration Factory", func() {
 				},
 			}
 
-			migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+			migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 			Expect(err).To(BeNil())
 			Expect(migration.RunAfter).To(HaveLen(1))
@@ -352,7 +352,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 				Expect(err).To(BeNil())
 				Expect(migration.RunAfter).To(HaveLen(1))
@@ -388,7 +388,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Run(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				cMetaDescription := description.NewMetaDescription(
@@ -433,7 +433,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 				Expect(err).To(BeNil())
 
 				Expect(migration.RunBefore).To(HaveLen(1))
@@ -474,7 +474,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Run(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				renamedBMetaDescription := bMetaDescription.Clone()
@@ -492,7 +492,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -528,7 +528,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Run(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
@@ -543,7 +543,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -579,7 +579,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Run(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
@@ -594,7 +594,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				migration, err := NewMigrationFactory(metaStore, globalTransaction, metaDescriptionSyncer).Factory(migrationDescription)
+				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)

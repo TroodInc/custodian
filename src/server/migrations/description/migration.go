@@ -8,10 +8,11 @@ import (
 )
 
 type MigrationDescription struct {
-	Id         string                          `json:"id"`
-	ApplyTo    string                          `json:"applyTo"`
-	DependsOn  []string                        `json:"dependsOn"`
-	Operations []MigrationOperationDescription `json:"operations"`
+	Id              string                          `json:"id"`
+	ApplyTo         string                          `json:"applyTo"`
+	DependsOn       []string                        `json:"dependsOn"`
+	Operations      []MigrationOperationDescription `json:"operations"`
+	MetaDescription *description.MetaDescription    `json:"metaState,omitempty"`
 }
 
 func (md *MigrationDescription) Marshal() ([]byte, error) {
