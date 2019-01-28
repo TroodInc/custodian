@@ -29,7 +29,7 @@ const SERVICE_DOMAIN = "custodian"
 var _ = Describe("ABAC rules handling", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var custodianServer *server.CustodianServer
@@ -100,7 +100,7 @@ var _ = Describe("ABAC rules handling", func() {
 		Expect(user).NotTo(BeNil())
 		custodianServer.SetAuthenticator(auth.NewMockAuthenticator(*user))
 
-		httpServer = custodianServer.Setup(false)
+		httpServer = custodianServer.Setup(utils.GetConfig())
 		recorder = httptest.NewRecorder()
 
 	})

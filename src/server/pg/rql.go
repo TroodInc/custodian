@@ -279,7 +279,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			//query which uses "Objects" field has to be replaced with query using LinkThrough
 			//eg: object A has "Objects" relation "bs" which references B. Query like eq(bs.name,Fedor) will be replace
 			//with query eq(a__b_set.b.name,Fedor) and processed in the common way
-			outerField := field.LinkThrough.ReverseOuterField(field.Meta.Name).Name
+			outerField := field.LinkThrough.FindField(field.Meta.Name).ReverseOuterField().Name
 			throughObjectFieldName := field.LinkMeta.Name
 			fieldPathParts = append(fieldPathParts[:i], append([]string{outerField, throughObjectFieldName}, fieldPathParts[i+1:]...)...)
 			i--
@@ -294,7 +294,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			if linkedMeta != nil {
 				joinsCount++
 				//fill in all the options required for join operation
-				exists := &Exists{Table: GetTableName(linkedMeta), Alias: alias + field.Name, RightTableAlias: alias}
+				exists := &Exists{Table: GetTableName(linkedMeta.Name), Alias: alias + field.Name, RightTableAlias: alias}
 				if field.OuterLinkField != nil {
 					exists.RightTableColumn = linkedMeta.Key.Name
 					if field.Type == description.FieldTypeGeneric {

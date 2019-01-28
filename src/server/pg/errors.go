@@ -5,7 +5,7 @@ import (
 	"fmt"
 )
 
-// Meta DDL errors
+// MetaDescription DDL errors
 const (
 	ErrUnsupportedColumnType = "unsuported_column_type"
 	ErrUnsupportedLinkType   = "unsuported_link_type"
@@ -33,6 +33,14 @@ func (e *DDLError) Json() []byte {
 		"msg":   e.msg,
 	})
 	return j
+}
+
+func (e *DDLError) Code() string {
+	return e.code
+}
+
+func NewDdlError(code string, msg string, table string) *DDLError {
+	return &DDLError{code: code, msg: msg, table: table}
 }
 
 type TransactionNotBegunError struct {

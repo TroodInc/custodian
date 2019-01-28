@@ -7,10 +7,11 @@ import (
 )
 
 type AppConfig struct {
-	UrlPrefix           string
-	DbConnectionOptions string
-	SentryDsn           string
-	EnableProfiler      bool
+	UrlPrefix               string
+	DbConnectionOptions     string
+	SentryDsn               string
+	EnableProfiler          bool
+	DisableSafePanicHandler bool
 }
 
 func getRealWorkingDirectory() string {
@@ -46,10 +47,11 @@ func GetConfig() *AppConfig {
 	godotenv.Load(getRealWorkingDirectory() + "/.env")
 
 	var appConfig = AppConfig{
-		UrlPrefix:           "/custodian",
-		DbConnectionOptions: "host=localhost port=5432 dbname=custodian sslmode=disable",
-		SentryDsn:           "",
-		EnableProfiler:      false,
+		UrlPrefix:               "/custodian",
+		DbConnectionOptions:     "host=localhost port=5432 dbname=custodian sslmode=disable",
+		SentryDsn:               "",
+		EnableProfiler:          false,
+		DisableSafePanicHandler: true,
 	}
 
 	if urlPrefix := os.Getenv("URL_PREFIX"); len(urlPrefix) > 0 {
@@ -66,6 +68,9 @@ func GetConfig() *AppConfig {
 
 	if enableProfiler := os.Getenv("ENABLE_PROFILER"); len(enableProfiler) > 0 {
 		appConfig.EnableProfiler = enableProfiler == "true"
+	}
+	if disableSafePanicHandler := os.Getenv("DISABLE_SAFE_PANIC_HANDLER"); len(disableSafePanicHandler) > 0 {
+		appConfig.DisableSafePanicHandler = disableSafePanicHandler == "true"
 	}
 
 	return &appConfig

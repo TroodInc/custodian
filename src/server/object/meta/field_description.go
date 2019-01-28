@@ -12,29 +12,7 @@ type FieldDescription struct {
 	LinkMeta       *Meta
 	OuterLinkField *FieldDescription
 	LinkMetaList   *MetaList
-	OnDelete       OnDeleteStrategy
 	LinkThrough    *Meta
-}
-
-func (f *FieldDescription) Default() Def {
-	switch t := f.Field.Def.(type) {
-	case string:
-		return DefConstStr{t}
-	case float64:
-		return DefConstFloat{t}
-	case int:
-		return DefConstInt{t}
-	case bool:
-		return DefConstBool{t}
-	case map[string]interface{}:
-		var args []interface{}
-		if a, ok := t["args"]; ok {
-			args = a.([]interface{})
-		}
-		return DefExpr{Func: t["func"].(string), Args: args}
-	default:
-		return nil
-	}
 }
 
 func (f *FieldDescription) IsValueTypeValid(v interface{}) bool {
@@ -78,7 +56,7 @@ func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 		//	case of querying by object
 		return v, nil
 	default:
-		return nil, NewMetaError(field.Meta.Name, "pk_from_string_conversion", ErrInternal, "Unsupported conversion from 'string' for the Field type '%s'", field.Type)
+		return nil, NewMetaError(field.Meta.Name, "pk_from_string_conversion", ErrInternal, "Unsupported conversion from 'string' for the NewField type '%s'", field.Type)
 	}
 }
 
@@ -87,7 +65,7 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime:
 		if str, ok := v.(string); !ok {
 			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
-				"Wrong input value type '%s'. For Field '%s' expects 'string' type", reflect.TypeOf(v).String(), f.Name)
+				"Wrong input value type '%s'. For NewField '%s' expects 'string' type", reflect.TypeOf(v).String(), f.Name)
 		} else {
 			return str, nil
 		}
@@ -99,12 +77,12 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 			return value, nil
 		default:
 			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
-				"Wrong input value type '%s'. For Field '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
+				"Wrong input value type '%s'. For NewField '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
 		}
 	case FieldTypeBool:
 		if b, ok := v.(bool); !ok {
 			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
-				"Wrong input value type '%s'. For Field '%s' expects 'bool' type", reflect.TypeOf(v).String(), f.Name)
+				"Wrong input value type '%s'. For NewField '%s' expects 'bool' type", reflect.TypeOf(v).String(), f.Name)
 		} else {
 			return strconv.FormatBool(b), nil
 		}
@@ -122,9 +100,23 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 			return value, nil
 		default:
 			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
-				"Wrong input value type '%s'. For Field '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
+				"Wrong input value type '%s'. For NewField '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
 		}
 	default:
-		return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal, "Unknown Field type '%s'", f.Type)
+		return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal, "Unknown NewField type '%s'", f.Type)
 	}
+}
+
+//TODO: actually is redundant, its usages should be replaced with MetaDescriptionManager.ReverseOuterField
+func (f *FieldDescription) ReverseOuterField() *FieldDescription {
+	if f.Type == FieldTypeObject && f.LinkType == LinkTypeInner {
+		for _, field := range f.LinkMeta.Fields {
+			if field.Type == FieldTypeArray && field.LinkType == LinkTypeOuter {
+				if field.OuterLinkField.Name == f.Name && field.LinkMeta.Name == f.Meta.Name {
+					return &field
+				}
+			}
+		}
+	}
+	return nil
 }

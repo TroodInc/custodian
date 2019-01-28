@@ -23,7 +23,7 @@ import (
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -45,7 +45,7 @@ var _ = Describe("Server", func() {
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(false)
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
 		recorder = httptest.NewRecorder()
 
 	})

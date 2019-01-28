@@ -166,7 +166,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 		//Eg: for record of object A with ID 56 which has "Objects" relation to B called "bs" filter will look like this:
 		//eq(b__s_set.a,56)
 		//and querying is performed by B meta
-		filter := fmt.Sprintf("eq(%s.%s,%s)", node.LinkField.LinkThrough.ReverseOuterField(node.LinkField.LinkMeta.Name).Name, node.LinkField.Meta.Name, keyStr)
+		filter := fmt.Sprintf("eq(%s.%s,%s)", node.LinkField.LinkThrough.FindField(node.LinkField.LinkMeta.Name).ReverseOuterField().Name, node.LinkField.Meta.Name, keyStr)
 		searchContext := SearchContext{depthLimit: 1, dm: sc.dm, lazyPath: "/custodian/data/bulk", DbTransaction: sc.DbTransaction, omitOuters: sc.omitOuters}
 		root := &Node{
 			KeyField:   node.LinkField.LinkMeta.Key,
