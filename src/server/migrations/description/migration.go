@@ -4,13 +4,15 @@ import (
 	"server/object/description"
 	"encoding/json"
 	"io"
+	_migrations "server/migrations"
 )
 
 type MigrationDescription struct {
-	Id         string                          `json:"id"`
-	ApplyTo    string                          `json:"applyTo"`
-	DependsOn  []string                        `json:"dependsOn"`
-	Operations []MigrationOperationDescription `json:"operations"`
+	Id              string                          `json:"id"`
+	ApplyTo         string                          `json:"applyTo"`
+	DependsOn       []string                        `json:"dependsOn"`
+	Operations      []MigrationOperationDescription `json:"operations"`
+	MetaDescription *description.MetaDescription    `json:"metaState,omitempty"`
 }
 
 func (md *MigrationDescription) Marshal() ([]byte, error) {
@@ -22,6 +24,19 @@ func (md *MigrationDescription) Unmarshal(inputReader io.ReadCloser) (*Migration
 		return nil, NewMigrationUnmarshallingError(e.Error())
 	}
 	return md, nil
+}
+
+//Returns meta`s name which this migration is intended for
+//TODO: implement MigrationDescription`s validation in a separate step
+func (md *MigrationDescription) MetaName() (string, error) {
+	if md.ApplyTo != "" {
+		return md.ApplyTo, nil
+	} else {
+		if md.Operations[0].Type != CreateObjectOperation {
+			return "", _migrations.NewMigrationError(_migrations.MigrationErrorInvalidDescription, "Migration has neither ApplyTo defined nor createObject operation")
+		}
+		return md.Operations[0].MetaDescription.Name, nil
+	}
 }
 
 type MigrationFieldDescription struct {
@@ -73,7 +88,6 @@ func (mmd *MigrationMetaDescription) FindFieldWithPreviousName(fieldName string)
 	return nil
 }
 
-
 func (mmd *MigrationMetaDescription) FindActionWithPreviousName(actionName string) *MigrationActionDescription {
 	for i := range mmd.Actions {
 		if mmd.Actions[i].PreviousName == actionName {
@@ -82,7 +96,6 @@ func (mmd *MigrationMetaDescription) FindActionWithPreviousName(actionName strin
 	}
 	return nil
 }
-
 
 type MigrationOperationDescription struct {
 	Type            string                       `json:"type"`

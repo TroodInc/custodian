@@ -35,6 +35,7 @@ import (
 	"server/data/record"
 	"utils"
 	"server/migrations/constructor"
+	"server/migrations/validation"
 )
 
 type CustodianApp struct {
@@ -637,7 +638,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
-			migrationConstructor := constructor.NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer))
+			migrationConstructor := constructor.NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath))
 
 			var currentMetaDescription *description.MetaDescription
 			if len(migrationMetaDescription.PreviousName) != 0 {
@@ -683,8 +684,16 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
-			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
-			updatedMetaDescription, err := migrationManager.Run(migrationDescription, globalTransaction, true)
+			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
+			migrationValidationService := validation.NewMigrationValidationService(migrationManager, config.MigrationStoragePath)
+			//validate migration
+			if err := migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction); err != nil {
+				globalTransactionManager.RollbackTransaction(globalTransaction)
+				js.pushError(err)
+				return
+			}
+			//apply migration
+			updatedMetaDescription, err := migrationManager.Apply(migrationDescription, globalTransaction, true)
 			if err != nil {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)
@@ -701,6 +710,83 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			}
 
 			js.push(responseData)
+		}
+	}))
+
+	app.router.GET(cs.root+"/migrations/", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL, request *http.Request) {
+		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+			sink.PushError(err)
+		} else {
+			//set transaction to the context
+			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
+
+			if e := softParseQuery(make(url.Values), q.RawQuery); e != nil {
+				sink.PushError(e)
+				dbTransactionManager.RollbackTransaction(dbTransaction)
+			} else {
+				migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
+				migrationList, err := migrationManager.List(dbTransaction, p.ByName("name"))
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(dbTransaction)
+					sink.PushError(err)
+					return
+				} else {
+					dbTransactionManager.CommitTransaction(dbTransaction)
+					count := len(migrationList)
+					for i := range migrationList {
+						sink.PourOff(migrationList[i].Data)
+					}
+					sink.Complete(&count)
+				}
+			}
+		}
+	}))
+
+	app.router.GET(cs.root+"/migrations/description/:migration_id", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+			sink.pushError(err)
+		} else {
+			//set transaction to the context
+			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
+
+			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
+			migrationDescription, err := migrationManager.GetDescription(dbTransaction, p.ByName("migration_id"))
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(dbTransaction)
+				sink.pushError(err)
+				return
+			} else {
+				dbTransactionManager.CommitTransaction(dbTransaction)
+				sink.push(map[string]interface{}{"status": "OK", "data": migrationDescription})
+			}
+		}
+	}))
+
+	app.router.POST(cs.root+"/migrations/rollback-object-to", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
+			sink.pushError(err)
+		} else {
+			//set transaction to the context
+			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction.DbTransaction))
+
+			requestData := map[string]interface{}{}
+			if e := json.NewDecoder(r).Decode(&requestData); e != nil {
+				sink.pushError(e)
+				return
+			}
+
+			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
+			metaDescription, err := migrationManager.RollBackTo(requestData["migrationId"].(string), globalTransaction, true)
+
+			if err != nil {
+				sink.pushError(err)
+				globalTransactionManager.RollbackTransaction(globalTransaction)
+				return
+			} else {
+				sink.push(map[string]interface{}{"status": "OK", "data": metaDescription})
+				globalTransactionManager.CommitTransaction(globalTransaction)
+				return
+			}
 		}
 	}))
 

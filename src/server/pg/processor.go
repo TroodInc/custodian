@@ -186,7 +186,7 @@ func NewStmt(tx *sql.Tx, q string) (*Stmt, error) {
 	return &Stmt{statement}, nil
 }
 
-func (dataManager *DataManager) Prepare(q string, tx *sql.Tx) (*Stmt, error) {
+func (dm *DataManager) Prepare(q string, tx *sql.Tx) (*Stmt, error) {
 	return NewStmt(tx, q)
 }
 
@@ -336,7 +336,7 @@ func increaseCasVal(v interface{}) interface{} {
 	return cas + 1
 }
 
-func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (transactions.Operation, error) {
+func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -459,7 +459,7 @@ func (dataManager *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValue
 	}, nil
 }
 
-func (dataManager *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (transactions.Operation, error) {
+func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordsValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -514,8 +514,8 @@ func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 	return columns
 }
 
-func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error) {
-	objs, err := dataManager.GetAll(m, fields, map[string]interface{}{key: val}, dbTransaction)
+func (dm *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error) {
+	objs, err := dm.GetAll(m, fields, map[string]interface{}{key: val}, dbTransaction)
 	if err != nil {
 		return nil, err
 	}
@@ -532,7 +532,7 @@ func (dataManager *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescriptio
 	return objs[0], nil
 }
 
-func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
+func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
 	tx := dbTransction.Transaction().(*sql.Tx)
 	if fields == nil {
 		fields = tableFields(m)
@@ -545,7 +545,7 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
 	}
 
-	stmt, err := dataManager.Prepare(q.String(), tx)
+	stmt, err := dm.Prepare(q.String(), tx)
 	if err != nil {
 		return nil, err
 	}
@@ -553,7 +553,7 @@ func (dataManager *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescrip
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dataManager *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
+func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
 	var operation transactions.Operation
 	var err error
 	var onDeleteStrategy description.OnDeleteStrategy
@@ -575,7 +575,7 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordRemovalNode
 			nullValue = nil
 		}
 		//update record with this value
-		operation, err = dataManager.PrepareUpdateOperation(
+		operation, err = dm.PrepareUpdateOperation(
 			recordNode.Record.Meta,
 			[]map[string]interface{}{{recordNode.Record.Meta.Key.Name: recordNode.Record.Pk(), recordNode.LinkField.Name: nullValue}},
 		)
@@ -584,31 +584,16 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordRemovalNode
 		}
 		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
 	default:
-		var query bytes.Buffer
-		sqlHelper := dml_info.SqlHelper{}
-		deleteInfo := dml_info.NewDeleteInfo(GetTableName(recordNode.Record.Meta.Name), []string{sqlHelper.EscapeColumn(recordNode.Record.Meta.Key.Name) + " IN (" + sqlHelper.BindValues(1, 1) + ")"})
-
-		if err := parsedTemplDelete.Execute(&query, deleteInfo); err != nil {
-			return NewDMLError(ErrTemplateFailed, err.Error())
-		}
-
-		operation = func(dbTransaction transactions.DbTransaction) error {
-			stmt, err := dbTransaction.(*PgTransaction).Prepare(query.String())
-			if err != nil {
-				return err
-			}
-			defer stmt.Close()
-			if _, err = stmt.Exec(recordNode.Record.Pk()); err != nil {
-				return NewDMLError(ErrDMLFailed, err.Error())
-			}
-			return nil
+		operation, err = dm.PrepareRemoveOperation(recordNode.Record)
+		if err != nil {
+			return err
 		}
 		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
 	}
 	//process child records
 	for _, recordNodes := range recordNode.Children {
 		for _, recordNode := range recordNodes {
-			err := dataManager.PerformRemove(recordNode, dbTransaction, notificationPool, processor)
+			err := dm.PerformRemove(recordNode, dbTransaction, notificationPool, processor)
 			if err != nil {
 				return err
 			}
@@ -628,7 +613,29 @@ func (dataManager *DataManager) PerformRemove(recordNode *data.RecordRemovalNode
 	}
 }
 
-func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
+func (dm *DataManager) PrepareRemoveOperation(record *record.Record) (transactions.Operation, error) {
+	var query bytes.Buffer
+	sqlHelper := dml_info.SqlHelper{}
+	deleteInfo := dml_info.NewDeleteInfo(GetTableName(record.Meta.Name), []string{sqlHelper.EscapeColumn(record.Meta.Key.Name) + " IN (" + sqlHelper.BindValues(1, 1) + ")"})
+	operation := func(dbTransaction transactions.DbTransaction) error {
+		stmt, err := dbTransaction.(*PgTransaction).Prepare(query.String())
+		if err != nil {
+			return err
+		}
+		defer stmt.Close()
+		if _, err = stmt.Exec(record.Pk()); err != nil {
+			return NewDMLError(ErrDMLFailed, err.Error())
+		}
+		return nil
+	}
+	if err := parsedTemplDelete.Execute(&query, deleteInfo); err != nil {
+		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+	}
+	return operation, nil
+
+}
+
+func (dm *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
 	tx := dbTransaction.Transaction().(*sql.Tx)
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
@@ -660,7 +667,7 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	if err := selectInfo.sql(&queryString); err != nil {
 		return nil, 0, NewDMLError(ErrTemplateFailed, err.Error())
 	}
-	statement, err := dataManager.Prepare(queryString.String(), tx)
+	statement, err := dm.Prepare(queryString.String(), tx)
 	if err != nil {
 		return nil, 0, err
 	}
@@ -671,7 +678,7 @@ func (dataManager *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.R
 	if err := countInfo.sql(&queryString); err != nil {
 		return nil, 0, NewDMLError(ErrTemplateFailed, err.Error())
 	}
-	countStatement, err := dataManager.Prepare(queryString.String(), tx)
+	countStatement, err := dm.Prepare(queryString.String(), tx)
 	if err != nil {
 		return nil, 0, err
 	}
