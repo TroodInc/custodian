@@ -73,6 +73,19 @@ func (rmds *ReversionMigrationDescriptionService) invertOperation(previousStateM
 	case RemoveFieldOperation:
 		invertedOperation.Field = operationDescription.Field
 		invertedOperation.Type = AddFieldOperation
+	case AddActionOperation:
+		invertedOperation.Type = RemoveActionOperation
+		invertedOperation.Action = operationDescription.Action
+	case UpdateActionOperation:
+		previousAction := previousStateMetaDescription.FindAction(operationDescription.Action.PreviousName)
+		if previousAction == nil {
+			return nil, migrations.NewMigrationError(migrations.MigrationErrorPreviousStateActionNotFound, fmt.Sprintln("Failed to find previous state for action", operationDescription.Action.PreviousName))
+		}
+		invertedOperation.Action = &MigrationActionDescription{PreviousName: operationDescription.Action.Name, Action: *previousAction}
+		invertedOperation.Type = UpdateActionOperation
+	case RemoveActionOperation:
+		invertedOperation.Action = operationDescription.Action
+		invertedOperation.Type = AddActionOperation
 	}
 	return invertedOperation, nil
 }
