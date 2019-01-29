@@ -90,7 +90,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			_, err = migrationManager.Rollback(firstAppliedMigrationDescription, globalTransaction, true)
+			_, err = migrationManager.rollback(firstAppliedMigrationDescription, globalTransaction, true)
 			Expect(err).To(BeNil())
 
 			//ensure migration description was removed
@@ -145,7 +145,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
-				_, err = migrationManager.Rollback(secondAppliedMigrationDescription, globalTransaction, true)
+				_, err = migrationManager.rollback(secondAppliedMigrationDescription, globalTransaction, true)
 				Expect(err).To(BeNil())
 
 				//ensure migration record was deleted
@@ -185,7 +185,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				aMetaDescription, err = migrationManager.Apply(appliedMigrationDescription, globalTransaction, true)
 				Expect(err).To(BeNil())
 
-				_, err = migrationManager.Rollback(appliedMigrationDescription, globalTransaction, true)
+				_, err = migrationManager.rollback(appliedMigrationDescription, globalTransaction, true)
 				Expect(err).To(BeNil())
 
 				//ensure migration record was deleted
@@ -236,7 +236,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 					Expect(err).To(BeNil())
 
-					_, err = migrationManager.Rollback(thirdAppliedMigrationDescription, globalTransaction, true)
+					_, err = migrationManager.rollback(thirdAppliedMigrationDescription, globalTransaction, true)
 					Expect(err).To(BeNil())
 
 					//ensure migration record was deleted
@@ -288,7 +288,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			_, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
 			Expect(err).To(BeNil())
 
-			_, err = migrationManager.Rollback(secondAppliedMigrationDescription, globalTransaction, true)
+			_, err = migrationManager.rollback(secondAppliedMigrationDescription, globalTransaction, true)
 			Expect(err).To(BeNil())
 
 			//ensure migration description was removed
@@ -330,7 +330,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			_, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
 			Expect(err).To(BeNil())
 
-			_, err = migrationManager.Rollback(secondAppliedMigrationDescription, globalTransaction, true)
+			_, err = migrationManager.rollback(secondAppliedMigrationDescription, globalTransaction, true)
 			Expect(err).To(BeNil())
 
 			//ensure migration description was removed
