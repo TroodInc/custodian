@@ -102,7 +102,7 @@ var _ = Describe("Migrations` listing", func() {
 		})
 		It("Can list applied migrations", func() {
 
-			url := fmt.Sprintf("%s/migrations/", appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
 			filter := "eq(object," + metaDescription.Name + ")"
 

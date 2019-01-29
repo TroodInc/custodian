@@ -713,7 +713,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.GET(cs.root+"/migrations/", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL, request *http.Request) {
+	app.router.GET(cs.root+"/migrations", CreateJsonStreamAction(func(sink *JsonSinkStream, p httprouter.Params, q *url.URL, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.PushError(err)
 		} else {
