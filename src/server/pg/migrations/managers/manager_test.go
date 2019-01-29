@@ -26,7 +26,7 @@ var _ = Describe("MigrationManager", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
-		_, err = NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath).ensureHistoryTableExists(dbTransaction)
+		_, err = NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).ensureHistoryTableExists(dbTransaction)
 		Expect(err).To(BeNil())
 
 		metaDdl, err := pg.MetaDDLFromDB(dbTransaction.Transaction().(*sql.Tx), historyMetaName)
@@ -34,7 +34,7 @@ var _ = Describe("MigrationManager", func() {
 		Expect(err).To(BeNil())
 
 		Expect(metaDdl.Table).To(Equal(pg.GetTableName(historyMetaName)))
-		Expect(metaDdl.Columns).To(HaveLen(5))
+		Expect(metaDdl.Columns).To(HaveLen(4))
 
 		dbTransactionManager.RollbackTransaction(dbTransaction)
 	})
@@ -45,10 +45,10 @@ var _ = Describe("MigrationManager", func() {
 		migrationUid := "c1be598d"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
-		migrationHistoryId, err := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath).recordAppliedMigration(migration, dbTransaction)
+		migrationHistoryId, err := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).recordAppliedMigration(migration, dbTransaction)
 		Expect(err).To(BeNil())
 
-		Expect(migrationHistoryId).To(Equal("1"))
+		Expect(migrationHistoryId).To(Equal(migrationUid))
 
 		dbTransactionManager.RollbackTransaction(dbTransaction)
 	})
@@ -59,10 +59,10 @@ var _ = Describe("MigrationManager", func() {
 		migrationUid := "c1be598d"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
-		_, err = NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath).recordAppliedMigration(migration, dbTransaction)
+		_, err = NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).recordAppliedMigration(migration, dbTransaction)
 		Expect(err).To(BeNil())
 
-		_, err = NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath).recordAppliedMigration(migration, dbTransaction)
+		_, err = NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).recordAppliedMigration(migration, dbTransaction)
 		Expect(err).NotTo(BeNil())
 
 		dbTransactionManager.RollbackTransaction(dbTransaction)
