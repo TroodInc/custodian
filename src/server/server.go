@@ -446,7 +446,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					filters = auth_filter.(*abac.FilterExpression).String()
 				}
 
-				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, pq["include"], pq["exclude"], depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
 				if e != nil {
 					sink.PushError(e)
 					dbTransactionManager.RollbackTransaction(dbTransaction)

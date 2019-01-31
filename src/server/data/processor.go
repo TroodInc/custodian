@@ -79,7 +79,26 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 	}
 }
 
-func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
+func (processor *Processor) ShadowGet(transaction transactions.DbTransaction, objectMeta *meta.Meta, key string, depth int, omitOuters bool) (*Record, error) {
+	if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
+		return nil, e
+	} else {
+		ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
+
+		root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
+		root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+
+		if recordData, e := root.Resolve(ctx, pk); e != nil {
+			return nil, e
+		} else if recordData == nil {
+			return nil, nil
+		} else {
+			return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
+		}
+	}
+}
+
+func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
 	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true); e != nil {
 		return 0, e
 	} else if !ok {
@@ -97,6 +116,15 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 			Type:       NodeTypeRegular,
 		}
 		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+
+		//make and apply retrieves policy
+		retrievePolicy := new(RetrievePolicyFactory).Factory(includePaths, excludePaths)
+
+		root, err := retrievePolicy.Apply(root)
+		if err != nil {
+			return 0, err
+		}
+		//
 
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))

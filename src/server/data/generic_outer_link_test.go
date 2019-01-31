@@ -256,7 +256,7 @@ var _ = Describe("Data", func() {
 				matchedRecords = append(matchedRecords, obj)
 				return nil
 			}
-			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), 1, false, callbackFunction)
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false, callbackFunction)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 		})

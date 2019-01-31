@@ -16,7 +16,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 	for _, childNode := range resultNode.node.ChildNodes {
 
 		//if the current level equals to depth limit, only outer links(ie plural nodes) should be resolved
-		if !childNode.plural && resultNode.node.Depth == ctx.depthLimit {
+		if !childNode.plural && childNode.OnlyLink {
 			continue
 		}
 

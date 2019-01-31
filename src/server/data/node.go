@@ -197,83 +197,95 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 
 func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode) {
 	//process regular links, skip generic child nodes
+	onlyLink := false
+	if node.Depth == depthLimit {
+		onlyLink = true
+	}
 	if node.Meta != nil {
-		for i, fieldDescription := range node.Meta.Fields {
-			//skip outer link which does not have retrieve mode set to true
-			if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode && fieldMode != description.FieldModeQuery {
-				continue
-			}
-			var onlyLink = false
-			branches := make(map[string]*Node)
-			if node.Depth == depthLimit {
-				onlyLink = true
-			}
+		for i := range node.Meta.Fields {
+			node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode)
+		}
+	}
+}
 
-			if fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, &fieldDescription)) {
-				node.ChildNodes[fieldDescription.Name] = &Node{
-					LinkField:  &node.Meta.Fields[i],
-					KeyField:   fieldDescription.LinkMeta.Key,
-					Meta:       fieldDescription.LinkMeta,
-					ChildNodes: branches,
-					Depth:      node.Depth + 1,
-					OnlyLink:   onlyLink,
-					plural:     false,
-					Parent:     node,
-					Type:       NodeTypeRegular,
-				}
-			} else if fieldDescription.Type == description.FieldTypeArray && fieldDescription.LinkType == description.LinkTypeOuter {
-				node.ChildNodes[fieldDescription.Name] = &Node{
-					LinkField:  &node.Meta.Fields[i],
-					KeyField:   fieldDescription.OuterLinkField,
-					Meta:       fieldDescription.LinkMeta,
-					ChildNodes: branches,
-					Depth:      node.Depth + 1,
-					OnlyLink:   onlyLink,
-					plural:     true,
-					Parent:     node,
-					Type:       NodeTypeRegular,
-				}
-			} else if fieldDescription.Type == description.FieldTypeObjects {
-				node.ChildNodes[fieldDescription.Name] = &Node{
-					LinkField:  &node.Meta.Fields[i],
-					KeyField:   fieldDescription.LinkThrough.FindField(fieldDescription.LinkMeta.Name),
-					Meta:       fieldDescription.LinkThrough,
-					ChildNodes: branches,
-					Depth:      node.Depth + 1,
-					OnlyLink:   onlyLink,
-					plural:     true,
-					Parent:     node,
-					Type:       NodeTypeRegular,
-				}
-			} else if fieldDescription.Type == description.FieldTypeGeneric {
-				if fieldDescription.LinkType == description.LinkTypeInner {
-					node.ChildNodes[fieldDescription.Name] = &Node{
-						LinkField:  &node.Meta.Fields[i],
-						KeyField:   nil,
-						Meta:       nil,
-						ChildNodes: branches,
-						Depth:      node.Depth + 1,
-						OnlyLink:   onlyLink,
-						plural:     false,
-						Parent:     node,
-						MetaList:   fieldDescription.LinkMetaList,
-						Type:       NodeTypeGeneric,
-					}
-				} else if fieldDescription.LinkType == description.LinkTypeOuter {
-					node.ChildNodes[fieldDescription.Name] = &Node{
-						LinkField:  &node.Meta.Fields[i],
-						KeyField:   fieldDescription.OuterLinkField,
-						Meta:       fieldDescription.LinkMeta,
-						ChildNodes: branches,
-						Depth:      node.Depth + 1,
-						OnlyLink:   onlyLink,
-						plural:     true,
-						Parent:     node,
-						Type:       NodeTypeGeneric,
-					}
-				}
+func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLink bool, fieldMode description.FieldMode) *Node {
+	//process regular links, skip generic child nodes
+
+	//skip outer link which does not have retrieve mode set to true
+	if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode && fieldMode != description.FieldModeQuery {
+		return nil
+	}
+	branches := make(map[string]*Node)
+
+	if fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, fieldDescription)) {
+		node.ChildNodes[fieldDescription.Name] = &Node{
+			LinkField:  fieldDescription,
+			KeyField:   fieldDescription.LinkMeta.Key,
+			Meta:       fieldDescription.LinkMeta,
+			ChildNodes: branches,
+			Depth:      node.Depth + 1,
+			OnlyLink:   onlyLink,
+			plural:     false,
+			Parent:     node,
+			Type:       NodeTypeRegular,
+		}
+	} else if fieldDescription.Type == description.FieldTypeArray && fieldDescription.LinkType == description.LinkTypeOuter {
+		node.ChildNodes[fieldDescription.Name] = &Node{
+			LinkField:  fieldDescription,
+			KeyField:   fieldDescription.OuterLinkField,
+			Meta:       fieldDescription.LinkMeta,
+			ChildNodes: branches,
+			Depth:      node.Depth + 1,
+			OnlyLink:   onlyLink,
+			plural:     true,
+			Parent:     node,
+			Type:       NodeTypeRegular,
+		}
+	} else if fieldDescription.Type == description.FieldTypeObjects {
+		node.ChildNodes[fieldDescription.Name] = &Node{
+			LinkField:  fieldDescription,
+			KeyField:   fieldDescription.LinkThrough.FindField(fieldDescription.LinkMeta.Name),
+			Meta:       fieldDescription.LinkThrough,
+			ChildNodes: branches,
+			Depth:      node.Depth + 1,
+			OnlyLink:   onlyLink,
+			plural:     true,
+			Parent:     node,
+			Type:       NodeTypeRegular,
+		}
+	} else if fieldDescription.Type == description.FieldTypeGeneric {
+		if fieldDescription.LinkType == description.LinkTypeInner {
+			node.ChildNodes[fieldDescription.Name] = &Node{
+				LinkField:  fieldDescription,
+				KeyField:   nil,
+				Meta:       nil,
+				ChildNodes: branches,
+				Depth:      node.Depth + 1,
+				OnlyLink:   onlyLink,
+				plural:     false,
+				Parent:     node,
+				MetaList:   fieldDescription.LinkMetaList,
+				Type:       NodeTypeGeneric,
+			}
+		} else if fieldDescription.LinkType == description.LinkTypeOuter {
+			node.ChildNodes[fieldDescription.Name] = &Node{
+				LinkField:  fieldDescription,
+				KeyField:   fieldDescription.OuterLinkField,
+				Meta:       fieldDescription.LinkMeta,
+				ChildNodes: branches,
+				Depth:      node.Depth + 1,
+				OnlyLink:   onlyLink,
+				plural:     true,
+				Parent:     node,
+				Type:       NodeTypeGeneric,
 			}
 		}
+
+	}
+	if node, ok := node.ChildNodes[fieldDescription.Name]; !ok {
+		return nil
+	} else {
+		return node
 	}
 }
 
