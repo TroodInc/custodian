@@ -14,7 +14,7 @@ type RecordSetNotification struct {
 	recordSet *record.RecordSet
 	isRoot    bool
 	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error)
-	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)
+	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)
 	dbTransaction     transactions.DbTransaction
 	Actions           []*description.Action
 	Method            description.Method
@@ -22,7 +22,7 @@ type RecordSetNotification struct {
 	CurrentState      map[int]*record.RecordSet
 }
 
-func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error), getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) *RecordSetNotification {
+func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error), getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *RecordSetNotification {
 	actions := recordSet.Meta.ActionSet.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,

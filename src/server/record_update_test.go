@@ -19,6 +19,7 @@ import (
 	"server/transactions"
 	"server/object/description"
 	"server"
+	"server/data/record"
 )
 
 var _ = Describe("Server", func() {
@@ -203,8 +204,11 @@ var _ = Describe("Server", func() {
 		})
 	})
 
-	It("updates record and outputs its data respecting depth", func() {
-		Context("having a record of given object", func() {
+	Context("having a record of given object", func() {
+		var bRecord *record.Record
+		var objectB *meta.Meta
+
+		BeforeEach(func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -212,32 +216,47 @@ var _ = Describe("Server", func() {
 			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			objectB := factoryObjectB(globalTransaction)
-			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
+			objectB = factoryObjectB(globalTransaction)
+			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
 			Expect(err).To(BeNil())
 
 			factoryObjectAWithManuallySetOuterLinkToB(globalTransaction)
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
 
-			Context("and update request performed by URL with specified record ID with wrong id specified in body", func() {
-				updateData := map[string]interface{}{
-					"name": "B record new name",
-					"id":   bRecord.Data["id"],
-				}
-				encodedMetaData, _ := json.Marshal(updateData)
+		It("updates record and outputs its data respecting depth", func() {
+			updateData := map[string]interface{}{
+				"name": "B record new name",
+				"id":   bRecord.Data["id"],
+			}
+			encodedMetaData, _ := json.Marshal(updateData)
 
-				url := fmt.Sprintf("%s/data/single/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
+			url := fmt.Sprintf("%s/data/single/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
 
-				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
-				request.Header.Set("Content-Type", "application/json")
-				httpServer.Handler.ServeHTTP(recorder, request)
-				responseBody := recorder.Body.String()
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
 
-				Context("response should contain nested A record", func() {
-					Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"b_set\":[1],\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
-				})
-			})
+			Expect(responseBody).To(Equal("{\"data\":{\"a\":{\"b_set\":[1],\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
+		})
+
+		It("updates record and outputs its data respecting depth, omitting field specified in 'exclude' key", func() {
+			updateData := map[string]interface{}{
+				"name": "B record new name",
+				"id":   bRecord.Data["id"],
+			}
+			encodedMetaData, _ := json.Marshal(updateData)
+
+			url := fmt.Sprintf("%s/data/single/%s/%d?depth=2,exclude=a", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
+
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			Expect(responseBody).To(Equal("{\"data\":{\"a\":1,\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
 		})
 	})
 })
