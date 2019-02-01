@@ -13,6 +13,8 @@ services:
         DB_NAME: "custodian"
         DB_SSL_MODE: "disable"
     container_name: custodian
+    networks:
+      - test-network
 
   custodian_postgres:
     image: postgres:10.5
@@ -22,3 +24,9 @@ services:
       POSTGRES_DB: custodian
       POSTGRES_USER: custodian
       POSTGRES_PASSWORD: custodian
+    networks:
+      - test-network
+
+networks:
+  test-network:
+    driver: bridge
