@@ -281,12 +281,10 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 				Optional: false,
 			},
 			{
-				Name:     "created",
-				Type:     description.FieldTypeDateTime,
-				Optional: true,
-				Def: map[string]interface{}{
-					"func": "CURRENT_TIMESTAMP",
-				},
+				Name:        "created",
+				Type:        description.FieldTypeDateTime,
+				Optional:    true,
+				NowOnCreate: true,
 			},
 		},
 	}

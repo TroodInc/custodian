@@ -233,12 +233,10 @@ var _ = Describe("PG MetaStore test", func() {
 						},
 					},
 					{
-						Name:     "date",
-						Type:     description.FieldTypeDate,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "CURRENT_DATE",
-						},
+						Name:        "date",
+						Type:        description.FieldTypeDate,
+						Optional:    true,
+						NowOnCreate: true,
 					},
 				},
 			}
@@ -309,12 +307,10 @@ var _ = Describe("PG MetaStore test", func() {
 						},
 					},
 					{
-						Name:     "created",
-						Type:     description.FieldTypeDateTime,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "CURRENT_TIMESTAMP",
-						},
+						Name:        "created",
+						Type:        description.FieldTypeDateTime,
+						Optional:    true,
+						NowOnCreate: true,
 					},
 				},
 			}
@@ -325,7 +321,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Context("and record is created", func() {
 				record, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
-				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$", record.Data["created"].(string))
+				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", record.Data["created"].(string))
 				Expect(matched).To(BeTrue())
 			})
 		})
@@ -370,12 +366,10 @@ var _ = Describe("PG MetaStore test", func() {
 								},
 							},
 							{
-								Name:     "created",
-								Type:     description.FieldTypeDateTime,
-								Optional: false,
-								Def: map[string]interface{}{
-									"func": "CURRENT_TIMESTAMP",
-								},
+								Name:        "created",
+								Type:        description.FieldTypeDateTime,
+								Optional:    true,
+								NowOnCreate: true,
 							},
 						},
 					}
@@ -419,7 +413,7 @@ var _ = Describe("PG MetaStore test", func() {
 			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", 1,false)
+			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", 1, false)
 			Expect(err).To(BeNil())
 			Expect(record.Data["order"]).To(Equal("value"))
 

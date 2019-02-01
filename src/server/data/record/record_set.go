@@ -23,9 +23,9 @@ func (recordSet *RecordSet) IsPhantom() bool {
 	return true
 }
 
-func (recordSet *RecordSet) PrepareData() {
+func (recordSet *RecordSet) PrepareData(operationType RecordOperationType) {
 	for _, record := range recordSet.Records {
-		record.PrepareData()
+		record.PrepareData(operationType)
 	}
 }
 

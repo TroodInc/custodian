@@ -155,24 +155,6 @@ type ColDefValSimple struct {
 	val string
 }
 
-type ColDefDate struct{}
-
-func (colDefDate *ColDefDate) ddlVal() (string, error) {
-	return "CURRENT_DATE", nil
-}
-
-type ColDefTimestamp struct{}
-
-func (colDefTimestamp *ColDefTimestamp) ddlVal() (string, error) {
-	return "CURRENT_TIMESTAMP", nil
-}
-
-type ColDefNow struct{}
-
-func (colDefNow *ColDefNow) ddlVal() (string, error) {
-	return "NOW()", nil
-}
-
 func newColDefValSimple(v interface{}) (*ColDefValSimple, error) {
 	if s, err := valToDdl(v); err == nil {
 		return &ColDefValSimple{s}, nil
@@ -257,23 +239,8 @@ func defaultNextval(metaName string, f *description.Field, args []interface{}) (
 	}
 }
 
-func defaultCurrentDate(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
-	return &ColDefDate{}, nil
-}
-
-func defaultCurrentTimestamp(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
-	return &ColDefTimestamp{}, nil
-}
-
-func defaultNow(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
-	return &ColDefNow{}, nil
-}
-
 var defaultFuncs = map[string]func(metaName string, f *description.Field, args []interface{}) (ColDefVal, error){
-	"nextval":           defaultNextval,
-	"current_date":      defaultCurrentDate,
-	"current_timestamp": defaultCurrentTimestamp,
-	"now":               defaultNow,
+	"nextval": defaultNextval,
 }
 
 func newColDefVal(metaName string, f *description.Field) (ColDefVal, error) {
