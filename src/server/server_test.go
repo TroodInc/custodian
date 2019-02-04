@@ -181,7 +181,7 @@ var _ = Describe("Server", func() {
 						matchedRecords = append(matchedRecords, obj)
 						return nil
 					}
-					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "", 1, false, callbackFunction)
+					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "", nil, nil, 1, false, callbackFunction)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0]["id"]).To(Not(Equal(firstRecord.Data["id"])))
 				})
