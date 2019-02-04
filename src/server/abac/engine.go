@@ -58,7 +58,7 @@ func (this *TroodABACResolver) EvaluateRule(rule map[string]interface{}) (bool, 
 func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{}) (bool, []*FilterExpression) {
 	var filters []*FilterExpression
 
-	result := true
+	totalResult := true
 	var operator string
 
 	for operand, value := range condition {
@@ -78,6 +78,7 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 		fmt.Println("ABAC:  evaluating ", operand, operator, value)
 
 		var flt *FilterExpression
+		result := true
 		if is_filter {
 			flt = makeFilter(operand.(string), value)
 		} else {
@@ -93,12 +94,13 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 				}
 			}
 		}
+		totalResult = totalResult && result
 
 		if flt != nil {
 			filters = append(filters, flt)
 		}
 	}
-	return result, filters
+	return totalResult, filters
 }
 
 func makeFilter(operand string, value interface{}) *FilterExpression {
