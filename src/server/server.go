@@ -683,13 +683,27 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
+			fake := len(q.Get("fake")) > 0
+
 			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
-			updatedMetaDescription, err := migrationManager.Run(migrationDescription, globalTransaction, true)
-			if err != nil {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(err)
-				return
+			var updatedMetaDescription *description.MetaDescription
+			if !fake {
+				updatedMetaDescription, err = migrationManager.Run(migrationDescription, globalTransaction, true)
+				if err != nil {
+					globalTransactionManager.RollbackTransaction(globalTransaction)
+					js.pushError(err)
+					return
+				}
+			} else {
+				err := migrationManager.Fake(migrationDescription, globalTransaction, true)
+				if err != nil {
+					globalTransactionManager.RollbackTransaction(globalTransaction)
+					js.pushError(err)
+					return
+				}
 			}
+
+			metaStore.Cache().Invalidate()
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			//response data

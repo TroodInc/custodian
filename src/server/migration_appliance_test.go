@@ -35,6 +35,7 @@ var _ = Describe("Server", func() {
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
 
 	BeforeEach(func() {
 		//setup server
@@ -113,6 +114,69 @@ var _ = Describe("Server", func() {
 		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
 		Expect(err).To(BeNil())
 		Expect(aMeta).NotTo(BeNil())
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
+
+	It("Can fake migration appliance", func() {
+		migrationDescriptionData := map[string]interface{}{
+			"id":        "b5df723r",
+			"applyTo":   "",
+			"dependsOn": []string{},
+			"operations": []map[string]interface{}{
+				{
+					"type": "createObject",
+					"object": map[string]interface{}{
+						"name": "a",
+						"key":  "id",
+						"fields": []map[string]interface{}{
+							{
+								"name":     "id",
+								"type":     "string",
+								"optional": false,
+							},
+							{
+								"name":     "name",
+								"type":     "string",
+								"optional": false,
+							},
+							{
+								"name":     "order",
+								"type":     "number",
+								"optional": true,
+							},
+						},
+						"cas": false,
+					},
+				},
+			},
+		}
+
+		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
+
+		url := fmt.Sprintf("%s/migrations/apply?fake=true", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+
+		//check response status
+		Expect(body["status"]).To(Equal("OK"))
+		//ensure meta has been created
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		Expect(err).NotTo(BeNil())
+		Expect(aMeta).To(BeNil())
+
+		appliedMigrations, err := migrationManager.GetPrecedingMigrationsForObject("a", globalTransaction.DbTransaction)
+		Expect(err).To(BeNil())
+		Expect(appliedMigrations).To(HaveLen(1))
+		Expect(appliedMigrations[0].Data["migration_id"]).To(Equal(migrationDescriptionData["id"]))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})

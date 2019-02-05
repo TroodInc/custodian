@@ -570,6 +570,10 @@ func (metaStore *MetaStore) addReversedOuterFields(transaction *transactions.Glo
 	}
 }
 
+func (metaStore *MetaStore) Cache() *MetaCache {
+	return metaStore.cache
+}
+
 //create through meta if it does not exist
 func (metaStore *MetaStore) createThroughMeta(transaction *transactions.GlobalTransaction, meta *Meta) error {
 	for _, field := range meta.Fields {

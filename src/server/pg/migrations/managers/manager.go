@@ -124,6 +124,26 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, t
 	return latestMigrations, err
 }
 
+func (mm *MigrationManager) Fake(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (err error) {
+	migration, err := migrations.NewMigrationFactory(mm.metaStore, globalTransaction, mm.metaDescriptionSyncer).Factory(migrationDescription)
+	if err != nil {
+		return err
+	}
+
+	if err := mm.canApplyMigration(migration, globalTransaction.DbTransaction); err != nil {
+		return err
+	}
+
+	if shouldRecord {
+		_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
 //return a latest applied migration for the given object
 func (mm *MigrationManager) getLatestMigrationForObject(objectName string, transaction transactions.DbTransaction) (*record.Record, error) {
 	historyMeta, err := mm.ensureHistoryTableExists(transaction)
