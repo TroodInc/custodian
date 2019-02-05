@@ -56,7 +56,7 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	}
 	return false
 }
-func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*Record, error) {
+func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (*Record, error) {
 	if objectMeta, e := processor.GetMeta(transaction, objectClass); e != nil {
 		return nil, e
 	} else {
@@ -67,6 +67,15 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 
 			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
 			root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+
+			//make and apply retrieves policy
+			retrievePolicy := new(RetrievePolicyFactory).Factory(includePaths, excludePaths)
+
+			root, err := retrievePolicy.Apply(root)
+			if err != nil {
+				return nil, err
+			}
+			//
 
 			if recordData, e := root.Resolve(ctx, pk); e != nil {
 				return nil, e
@@ -98,7 +107,7 @@ func (processor *Processor) ShadowGet(transaction transactions.DbTransaction, ob
 	}
 }
 
-func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
+func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
 	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true); e != nil {
 		return 0, e
 	} else if !ok {
@@ -116,6 +125,15 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 			Type:       NodeTypeRegular,
 		}
 		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+
+		//make and apply retrieves policy
+		retrievePolicy := new(RetrievePolicyFactory).Factory(includePaths, excludePaths)
+
+		root, err := retrievePolicy.Apply(root)
+		if err != nil {
+			return 0, err
+		}
+		//
 
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
@@ -267,7 +285,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
 			for i, record := range recordSetOperation.RecordSet.Records {
-				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(),nil,nil, 1, true)
 				if err != nil {
 					return nil, err
 				} else {
@@ -445,7 +463,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 
 		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
 			for i, record := range recordSetOperation.RecordSet.Records {
-				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(),nil,nil, 1, true)
 				if err != nil {
 					return nil, err
 				} else {
@@ -569,7 +587,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 	var err error
 
 	//get pk
-	recordToRemove, err := processor.Get(dbTransaction, objectName, key, 1, false)
+	recordToRemove, err := processor.Get(dbTransaction, objectName, key,nil,nil, 1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -621,7 +639,7 @@ func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTrans
 	for _, record := range records {
 
 		//get pk
-		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), 1, false)
+		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(),nil,nil, 1, false)
 		if err != nil {
 			return err
 		}

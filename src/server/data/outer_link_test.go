@@ -141,7 +141,7 @@ var _ = Describe("Data", func() {
 			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), 1, false)
+			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), nil, nil, 1, false)
 			Expect(aRecord.Data).To(HaveKey("b_set"))
 		})
 
@@ -153,7 +153,7 @@ var _ = Describe("Data", func() {
 			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), 1, false)
+			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), nil, nil, 1, false)
 			Expect(aRecord.Data).NotTo(HaveKey("b_set"))
 		})
 	})

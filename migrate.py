@@ -38,9 +38,8 @@ if __name__ == "__main__":
 
         def apply_migration(migration_data):
             response = requests.post(
-                "http://127.0.0.1:8000/custodian/migrations/apply",
-                json=migration_data,
-                headers={'Authorization': get_service_token()}
+                "http://127.0.0.1:8080/custodian/migrations/apply",
+                json=migration_data
             )
 
             decoded_response = response.json()
@@ -51,7 +50,9 @@ if __name__ == "__main__":
                 return APPLIED
             elif decoded_response['status'] == "FAIL" and decoded_response["error"]["Code"] == "migration_already_applied":
                 return SKIPPED
+                import pdb;pdb.set_trace()
             else:
+                import pdb;pdb.set_trace()
                 return FAILED
 
         print("Applying migrations...")

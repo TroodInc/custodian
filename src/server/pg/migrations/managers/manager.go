@@ -56,6 +56,32 @@ func (mm *MigrationManager) List(dbTransaction transactions.DbTransaction, filte
 	return appliedMigrations, err
 }
 
+func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
+	migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryForward(migrationDescription)
+	if err != nil {
+		return nil, err
+	}
+	if err := mm.canApplyMigration(migration, globalTransaction.DbTransaction); err != nil {
+		return nil, err
+	}
+
+	return mm.runMigration(migration, globalTransaction, shouldRecord)
+}
+
+func (mm *MigrationManager) FakeApply(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction) (err error) {
+	migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryForward(migrationDescription)
+	if err != nil {
+		return err
+	}
+
+	_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
 //Rollback object to the given migration`s state
 func (mm *MigrationManager) RollBackTo(migrationId string, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (*description.MetaDescription, error) {
 	subsequentMigrations, err := mm.getSubsequentMigrations(migrationId, globalTransaction.DbTransaction)
@@ -79,16 +105,29 @@ func (mm *MigrationManager) RollBackTo(migrationId string, globalTransaction *tr
 	return updatedMetaDescription, nil
 }
 
-func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
-	migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryForward(migrationDescription)
+func (mm *MigrationManager) FakeRollbackTo(migrationId string, globalTransaction *transactions.GlobalTransaction) (err error) {
+	subsequentMigrations, err := mm.getSubsequentMigrations(migrationId, globalTransaction.DbTransaction)
 	if err != nil {
-		return nil, err
-	}
-	if err := mm.canApplyMigration(migration, globalTransaction.DbTransaction); err != nil {
-		return nil, err
+		return err
 	}
 
-	return mm.runMigration(migration, globalTransaction, shouldRecord)
+	for _, subsequentMigration := range subsequentMigrations {
+		migrationDescription, err := mm.migrationStorage.Get(subsequentMigration.Data["migration_id"].(string))
+		if err != nil {
+			return err
+		}
+
+		migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryBackward(migrationDescription)
+		if err != nil {
+			return err
+		}
+
+		err = mm.removeAppliedMigration(migration, globalTransaction.DbTransaction)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func (mm *MigrationManager) rollback(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
