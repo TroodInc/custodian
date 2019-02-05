@@ -4,6 +4,7 @@ import (
 	"github.com/joho/godotenv"
 	"os"
 	"strings"
+	"path"
 )
 
 type AppConfig struct {
@@ -12,6 +13,7 @@ type AppConfig struct {
 	SentryDsn               string
 	EnableProfiler          bool
 	DisableSafePanicHandler bool
+	MigrationStoragePath    string
 }
 
 func getRealWorkingDirectory() string {
@@ -52,6 +54,7 @@ func GetConfig() *AppConfig {
 		SentryDsn:               "",
 		EnableProfiler:          false,
 		DisableSafePanicHandler: true,
+		MigrationStoragePath:    path.Join(getRealWorkingDirectory(), "/applied_migrations"),
 	}
 
 	if urlPrefix := os.Getenv("URL_PREFIX"); len(urlPrefix) > 0 {
@@ -71,6 +74,14 @@ func GetConfig() *AppConfig {
 	}
 	if disableSafePanicHandler := os.Getenv("DISABLE_SAFE_PANIC_HANDLER"); len(disableSafePanicHandler) > 0 {
 		appConfig.DisableSafePanicHandler = disableSafePanicHandler == "true"
+	}
+
+	if migrationStoragePath := os.Getenv("MIGRATION_STORAGE_PATH"); len(migrationStoragePath) > 0 {
+		if migrationStoragePath[0] == '/' {
+			appConfig.MigrationStoragePath = migrationStoragePath
+		} else {
+			appConfig.MigrationStoragePath = path.Join(getRealWorkingDirectory(), migrationStoragePath)
+		}
 	}
 
 	return &appConfig

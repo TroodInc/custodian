@@ -173,7 +173,7 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), 1, false)
+			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
@@ -188,7 +188,7 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), 3, false)
+			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 3, false)
 			Expect(err).To(BeNil())
 			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
@@ -231,7 +231,7 @@ var _ = Describe("Data", func() {
 			Expect(bSetData[0].(float64)).To(Equal(bRecord.Data["id"]))
 
 			//check queried data
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), 1, false)
+			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 
 			Expect(aRecord.Data).To(HaveKey("b_set"))
@@ -256,7 +256,7 @@ var _ = Describe("Data", func() {
 				matchedRecords = append(matchedRecords, obj)
 				return nil
 			}
-			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), 1, false, callbackFunction)
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false, callbackFunction)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 		})

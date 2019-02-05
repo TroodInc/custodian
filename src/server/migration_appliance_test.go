@@ -35,7 +35,7 @@ var _ = Describe("Server", func() {
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer)
+	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath)
 
 	BeforeEach(func() {
 		//setup server
@@ -50,7 +50,7 @@ var _ = Describe("Server", func() {
 		err = metaStore.Flush(globalTransaction)
 		Expect(err).To(BeNil())
 		// drop history
-		err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer).DropHistory(globalTransaction.DbTransaction)
+		err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).DropHistory(globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -448,7 +448,7 @@ var _ = Describe("Server", func() {
 		//apply migration
 
 		migrationDescriptionData := map[string]interface{}{
-			"id":        "q3sdfsgd7823",
+			"id":        "q3sdfsgd",
 			"applyTo":   "a",
 			"dependsOn": []string{},
 			"operations": []map[string]interface{}{

@@ -10,7 +10,7 @@ import (
 
 type GenericInnerFieldValidator struct {
 	metaGetCallback   func(transaction *transactions.GlobalTransaction, name string, useCache bool) (*meta.Meta, bool, error)
-	recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)
+	recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)
 	dbTransaction     transactions.DbTransaction
 }
 
@@ -74,7 +74,7 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 	if pkValueAsString, err := objectMeta.Key.ValueAsString(pkValue); err != nil {
 		return err
 	} else {
-		if recordData, err := validator.recordGetCallback(validator.dbTransaction, objectMeta.Name, pkValueAsString, 1, true); err != nil || recordData == nil {
+		if recordData, err := validator.recordGetCallback(validator.dbTransaction, objectMeta.Name, pkValueAsString, nil, nil, 1, true); err != nil || recordData == nil {
 			if err != nil {
 				return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Failed to validate generic value of object '%s' with PK '%s' referenced in '%s'. Original error is: '%s'", objectMeta.Name, pkValue, fieldDescription.Name, err.Error())
 			} else {
@@ -86,6 +86,6 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 	}
 }
 
-func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string, useCache bool) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*record.Record, error)) *GenericInnerFieldValidator {
+func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(transaction *transactions.GlobalTransaction, name string, useCache bool) (*meta.Meta, bool, error), recordGetCallback func(transaction transactions.DbTransaction, objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *GenericInnerFieldValidator {
 	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback, dbTransaction: dbTransaction}
 }

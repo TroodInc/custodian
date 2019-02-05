@@ -161,7 +161,7 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 				}
 				return nil
 			}
-			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, 1, true, callbackFunction)
+			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true, callbackFunction)
 		}
 		if len(recordsToRemove) > 0 {
 			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
@@ -275,7 +275,7 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 			recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkThrough, obj))
 			return nil
 		}
-		vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, 1, true, callbackFunction)
+		vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true, callbackFunction)
 	}
 	//get records which are already attached and remove them from list of records to process
 	if !record.IsPhantom() {
@@ -292,7 +292,7 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 				}
 				return nil
 			}
-			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, 1, true, callbackFunction)
+			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true, callbackFunction)
 		}
 	}
 	return recordsToProcess, recordsToRemove, recordsToRetrieve, nil
