@@ -24,11 +24,6 @@ func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta_des
 		}
 	}
 	fieldToAdd := o.Field.Clone()
-	if fieldToAdd.LinkType == meta_description.LinkTypeOuter {
-		fieldToAdd.RetrieveMode = true
-		fieldToAdd.QueryMode = true
-	}
-
 	metaDescriptionToApply.Fields = append(metaDescriptionToApply.Fields, *fieldToAdd)
 
 	//sync its MetaDescription
