@@ -444,6 +444,18 @@ func (mm *MigrationManager) ensureHistoryTableExists(transaction transactions.Db
 }
 
 func (mm *MigrationManager) canApplyMigration(migration *migrations.Migration, transaction transactions.DbTransaction) error {
+	if err := mm.migrationIsNotAppliedYet(migration, transaction); err != nil {
+		return err
+	}
+	for _, parentId := range migration.DependsOn {
+		if err := mm.migrationParentIsValid(migration, parentId, transaction); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (mm *MigrationManager) migrationIsNotAppliedYet(migration *migrations.Migration, transaction transactions.DbTransaction) error {
 	historyMeta, err := mm.ensureHistoryTableExists(transaction)
 	if err != nil {
 		return err
@@ -463,7 +475,28 @@ func (mm *MigrationManager) canApplyMigration(migration *migrations.Migration, t
 			fmt.Sprintf("Migration with ID '%s' has already been applied", migration.Id),
 		)
 	}
+}
 
+func (mm *MigrationManager) migrationParentIsValid(migration *migrations.Migration, parentMigrationId string, transaction transactions.DbTransaction) error {
+	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+	if err != nil {
+		return err
+	}
+
+	filters := map[string]interface{}{"migration_id": parentMigrationId}
+	fields := []*meta.FieldDescription{historyMeta.Key}
+	result, err := mm.dataManager.GetAll(historyMeta, fields, filters, transaction)
+	if err != nil {
+		return nil
+	}
+	if len(result) == 0 {
+		return _migrations.NewMigrationError(
+			_migrations.MigrationErrorInvalidDescription,
+			fmt.Sprintf("Migration with ID '%s' has unknown parent '%s'", migration.Id, parentMigrationId),
+		)
+	} else {
+		return nil
+	}
 }
 
 func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {

@@ -569,4 +569,54 @@ var _ = Describe("Server", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
+	It("Does`nt apply migration with invalid parent ID", func() {
+		migrationDescriptionData := map[string]interface{}{
+			"id":        "b5df723r",
+			"applyTo":   "",
+			"dependsOn": []string{"some-non-existing-id"},
+			"operations": []map[string]interface{}{
+				{
+					"type": "createObject",
+					"object": map[string]interface{}{
+						"name": "a",
+						"key":  "id",
+						"fields": []map[string]interface{}{
+							{
+								"name":     "id",
+								"type":     "string",
+								"optional": false,
+							},
+							{
+								"name":     "name",
+								"type":     "string",
+								"optional": false,
+							},
+							{
+								"name":     "order",
+								"type":     "number",
+								"optional": true,
+							},
+						},
+						"cas": false,
+					},
+				},
+			},
+		}
+
+		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
+
+		url := fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+
+		//check response status
+		Expect(body["status"]).To(Equal("FAIL"))
+		//ensure meta has been renamed
+	})
 })

@@ -43,7 +43,7 @@ func (mf *MigrationFactory) factory(migrationDescription *description.MigrationD
 	operationFactory := pg_operations.NewOperationFactory()
 
 	for i := range migration.MigrationDescription.Operations {
-		operation, err := operationFactory.Factory(&migration.MigrationDescription.Operations[i], migration.ApplyTo)
+		operation, err := operationFactory.Factory(&migration.MigrationDescription, &migration.MigrationDescription.Operations[i], migration.ApplyTo)
 		if err != nil {
 			return nil, err
 		}
