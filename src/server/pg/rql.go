@@ -321,17 +321,18 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 					return nil, NewRqlError(ErrRQLInternal, err.Error())
 				}
 
-				expectedNode, ok := currentNode.ChildNodes[field.Name]
+				expectedNode, ok := currentNode.ChildNodes.Get(field.Name)
 				if field.Type == description.FieldTypeGeneric {
 					if field.LinkType == description.LinkTypeInner {
 						expectedNode = &data.Node{
-							KeyField:   linkedMeta.Key,
-							Meta:       linkedMeta,
-							ChildNodes: make(map[string]*data.Node),
-							Depth:      1,
-							OnlyLink:   false,
-							Parent:     nil,
-							Type:       data.NodeTypeRegular,
+							KeyField:       linkedMeta.Key,
+							Meta:           linkedMeta,
+							ChildNodes:     *data.NewChildNodes(),
+							Depth:          1,
+							OnlyLink:       false,
+							Parent:         nil,
+							Type:           data.NodeTypeRegular,
+							SelectFields:   *data.NewSelectFields(linkedMeta.Key, linkedMeta.TableFields()),
 						}
 					}
 				}

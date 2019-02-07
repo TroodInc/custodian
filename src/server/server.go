@@ -325,7 +325,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				}
 				objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
 				pkValue, _ := objectMeta.Key.ValueAsString(record.Data[objectMeta.Key.Name])
-				if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, r.URL.Query()["include"], r.URL.Query()["exclude"], depth, false);
+				if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
 					err != nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(err)
@@ -382,7 +382,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				omitOuters = true
 			}
 
-			if o, e := dataProcessor.Get(dbTransaction, p.ByName("name"), p.ByName("key"), q["include"], q["exclude"], depth, omitOuters); e != nil {
+			if o, e := dataProcessor.Get(dbTransaction, p.ByName("name"), p.ByName("key"), q["only"], q["exclude"], depth, omitOuters); e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
@@ -446,7 +446,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					filters = auth_filter.(*abac.FilterExpression).String()
 				}
 
-				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, pq["include"], pq["exclude"], depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, pq["only"], pq["exclude"], depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
 				if e != nil {
 					sink.PushError(e)
 					dbTransactionManager.RollbackTransaction(dbTransaction)
@@ -470,7 +470,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
 
 			//process access check
-			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["include"], r.URL.Query()["exclude"], 1, true)
+			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
 			if err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
@@ -538,7 +538,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			recordPkValue := p.ByName("key")
 
 			//process access check
-			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["include"], r.URL.Query()["exclude"], 1, true)
+			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
 			if err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
@@ -575,7 +575,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
 						depth = i
 					}
-					if recordData, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["include"], r.URL.Query()["exclude"], depth, false);
+					if recordData, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
 						err != nil {
 						dbTransactionManager.RollbackTransaction(dbTransaction)
 						sink.pushError(err)

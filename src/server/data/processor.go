@@ -65,17 +65,24 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 		} else {
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
 
-			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
-			root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+			//
+			root := &Node{
+				KeyField:       objectMeta.Key,
+				Meta:           objectMeta,
+				ChildNodes:     *NewChildNodes(),
+				Depth:          1,
+				OnlyLink:       false,
+				plural:         false,
+				Parent:         nil,
+				Type:           NodeTypeRegular,
+				SelectFields:   *NewSelectFields(objectMeta.Key, objectMeta.TableFields()),
+				RetrievePolicy: new(AggregatedRetrievePolicyFactory).Factory(includePaths, excludePaths),
+			}
 
-			//make and apply retrieves policy
-			retrievePolicy := new(RetrievePolicyFactory).Factory(includePaths, excludePaths)
-
-			root, err := retrievePolicy.Apply(root)
+			err := root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
 			if err != nil {
 				return nil, err
 			}
-			//
 
 			if recordData, e := root.Resolve(ctx, pk); e != nil {
 				return nil, e
@@ -94,7 +101,17 @@ func (processor *Processor) ShadowGet(transaction transactions.DbTransaction, ob
 	} else {
 		ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
 
-		root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
+		root := &Node{
+			KeyField:     objectMeta.Key,
+			Meta:         objectMeta,
+			ChildNodes:   *NewChildNodes(),
+			Depth:        1,
+			OnlyLink:     false,
+			plural:       false,
+			Parent:       nil,
+			Type:         NodeTypeRegular,
+			SelectFields: *NewSelectFields(objectMeta.Key, objectMeta.TableFields()),
+		}
 		root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
 
 		if recordData, e := root.Resolve(ctx, pk); e != nil {
@@ -114,26 +131,23 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 		return 0, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
-		root := &Node{
-			KeyField:   businessObject.Key,
-			Meta:       businessObject,
-			ChildNodes: make(map[string]*Node),
-			Depth:      1,
-			OnlyLink:   false,
-			plural:     false,
-			Parent:     nil,
-			Type:       NodeTypeRegular,
-		}
-		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
 		//make and apply retrieves policy
-		retrievePolicy := new(RetrievePolicyFactory).Factory(includePaths, excludePaths)
-
-		root, err := retrievePolicy.Apply(root)
-		if err != nil {
-			return 0, err
-		}
+		retrievePolicy := new(AggregatedRetrievePolicyFactory).Factory(includePaths, excludePaths)
 		//
+		root := &Node{
+			KeyField:       businessObject.Key,
+			Meta:           businessObject,
+			ChildNodes:     *NewChildNodes(),
+			Depth:          1,
+			OnlyLink:       false,
+			plural:         false,
+			Parent:         nil,
+			Type:           NodeTypeRegular,
+			SelectFields:   *NewSelectFields(businessObject.Key, businessObject.TableFields()),
+			RetrievePolicy: retrievePolicy,
+		}
+		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
@@ -159,14 +173,15 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *meta.Meta, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
 	searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
 	root := &Node{
-		KeyField:   metaObj.Key,
-		Meta:       metaObj,
-		ChildNodes: make(map[string]*Node),
-		Depth:      1,
-		OnlyLink:   false,
-		plural:     false,
-		Parent:     nil,
-		Type:       NodeTypeRegular,
+		KeyField:     metaObj.Key,
+		Meta:         metaObj,
+		ChildNodes:   *NewChildNodes(),
+		Depth:        1,
+		OnlyLink:     false,
+		plural:       false,
+		Parent:       nil,
+		Type:         NodeTypeRegular,
+		SelectFields: *NewSelectFields(metaObj.Key, metaObj.TableFields()),
 	}
 	root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
@@ -285,7 +300,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
 			for i, record := range recordSetOperation.RecordSet.Records {
-				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(),nil,nil, 1, true)
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
 				if err != nil {
 					return nil, err
 				} else {
@@ -463,7 +478,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 
 		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
 			for i, record := range recordSetOperation.RecordSet.Records {
-				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(),nil,nil, 1, true)
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
 				if err != nil {
 					return nil, err
 				} else {
@@ -587,7 +602,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 	var err error
 
 	//get pk
-	recordToRemove, err := processor.Get(dbTransaction, objectName, key,nil,nil, 1, false)
+	recordToRemove, err := processor.Get(dbTransaction, objectName, key, nil, nil, 1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -639,7 +654,7 @@ func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTrans
 	for _, record := range records {
 
 		//get pk
-		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(),nil,nil, 1, false)
+		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), nil, nil, 1, false)
 		if err != nil {
 			return err
 		}
