@@ -13,10 +13,10 @@ type ResultNode struct {
 //Replace link values with its objects` full extended value
 func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNode, error) {
 	childNodeResults := make([]ResultNode, 0)
-	for _, childNode := range resultNode.node.ChildNodes {
+	for _, childNode := range resultNode.node.ChildNodes.Nodes() {
 
 		//if the current level equals to depth limit, only outer links(ie plural nodes) should be resolved
-		if !childNode.plural && childNode.OnlyLink {
+		if !childNode.plural && childNode.OnlyLink && childNode.RetrievePolicy == nil {
 			continue
 		}
 
@@ -85,19 +85,20 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			if k == nil || k.(types.GenericInnerLink).ObjectName == "" {
 				continue
 			}
+			childNode.RetrievePolicy = childNode.RetrievePolicy.SubPolicyForNode(k.(types.GenericInnerLink).ObjectName)
+			childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(k.(types.GenericInnerLink).ObjectName)
+			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.Key, childNodeLinkMeta.TableFields())
+			childNode.Meta = childNodeLinkMeta
+			childNode.KeyField = childNodeLinkMeta.Key
+			childNode.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+
 			if resolvedValue, e := childNode.Resolve(ctx, k); e != nil {
 				return nil, e
 			} else if resolvedValue != nil {
 				resultNode.values[childNode.LinkField.Name] = resolvedValue
-				if childNode.Depth <= ctx.depthLimit {
-					//dynamically fill child nodes, because child node can be determined only with generic field data
-					// values
 
-					childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(resolvedValue.(map[string]interface{})[types.GenericInnerLinkObjectKey].(string))
-					childNode.Meta = childNodeLinkMeta
-					childNode.KeyField = childNodeLinkMeta.Key
-					childNode.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
-				}
+				//dynamically fill child nodes, because child node can be determined only with generic field data
+				// values
 
 				if !childNode.OnlyLink {
 					childNodeResults = append(childNodeResults, ResultNode{childNode, resolvedValue.(map[string]interface{})})

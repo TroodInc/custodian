@@ -106,17 +106,6 @@ func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filte
 	return &SelectInfo{From: GetTableName(objectMeta.Name), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
 }
 
-func tableFields(m *meta.Meta) []*meta.FieldDescription {
-	fields := make([]*meta.FieldDescription, 0)
-	l := len(m.Fields)
-	for i := 0; i < l; i++ {
-		if m.Fields[i].LinkType != description.LinkTypeOuter && m.Fields[i].Type != description.FieldTypeObjects {
-			fields = append(fields, &m.Fields[i])
-		}
-	}
-	return fields
-}
-
 func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
 	names := make([]string, 0)
 	for _, field := range fields {
@@ -341,7 +330,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 		return emptyOperation, nil
 	}
 
-	rFields := tableFields(m)
+	rFields := m.TableFields()
 	updateInfo := dml_info.NewUpdateInfo(GetTableName(m.Name), getFieldsColumnsNames(rFields), make([]string, 0), make([]string, 0))
 	updateFields := make([]string, 0, len(recordValues[0]))
 	valueExtractors := make([]func(interface{}) interface{}, 0, len(recordValues[0]))
@@ -465,7 +454,7 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 	}
 
 	//fix the columns by the first object
-	fields := tableFields(m)
+	fields := m.TableFields()
 
 	insertFields, insertValuesPattern := utils.GetMapKeysValues(recordsValues[0])
 	insertColumns := getColumnsToInsert(insertFields, insertValuesPattern)
@@ -535,7 +524,7 @@ func (dm *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key st
 func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
 	tx := dbTransction.Transaction().(*sql.Tx)
 	if fields == nil {
-		fields = tableFields(m)
+		fields = m.TableFields()
 	}
 	filterKeys, filterValues := utils.GetMapKeysValues(filters)
 
@@ -644,9 +633,6 @@ func (dm *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNod
 		return nil, 0, err
 	}
 
-	if fields == nil {
-		fields = tableFields(dataNode.Meta)
-	}
 	selectInfo := &SelectInfo{
 		From:   GetTableName(dataNode.Meta.Name) + " " + tableAlias,
 		Cols:   fieldsToCols(fields, tableAlias),
