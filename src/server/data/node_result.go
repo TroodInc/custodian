@@ -85,7 +85,16 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			if k == nil || k.(types.GenericInnerLink).ObjectName == "" {
 				continue
 			}
-			childNode.RetrievePolicy = childNode.RetrievePolicy.SubPolicyForNode(k.(types.GenericInnerLink).ObjectName)
+			//retrieve policy for generic fields is specific for each record, so it should be build on the go
+			var retrievePolicyForThisMeta *AggregatedRetrievePolicy
+			if resultNode.node.RetrievePolicy != nil {
+				retrievePolicyForThisField := resultNode.node.RetrievePolicy.SubPolicyForNode(childNode.LinkField.Name)
+				if retrievePolicyForThisField != nil {
+					retrievePolicyForThisMeta = retrievePolicyForThisField.SubPolicyForNode(k.(types.GenericInnerLink).ObjectName)
+				}
+			}
+
+			childNode.RetrievePolicy = retrievePolicyForThisMeta
 			childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(k.(types.GenericInnerLink).ObjectName)
 			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.Key, childNodeLinkMeta.TableFields())
 			childNode.Meta = childNodeLinkMeta
