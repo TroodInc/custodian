@@ -10,96 +10,186 @@ import (
 TODO: Query_* files should be moved to separate package, but now it`s not possible because of cyclic imports
 */
 
-type AbstractRetrievePolicy interface {
-	Apply(*Node) (*Node, error)
+type RetrievePolicy interface {
+	Apply(*Node, *AggregatedRetrievePolicy) error
+	PathItems() []string
+	SubPolicy() RetrievePolicy
 }
 
-type IncludeNodeRetrievePolicy struct {
+type includeNodeRetrievePolicy struct {
 	pathItems []string
 }
 
-func (ip *IncludeNodeRetrievePolicy) Apply(node *Node) (*Node, error) {
+func (ip *includeNodeRetrievePolicy) Apply(node *Node, parentPolicy *AggregatedRetrievePolicy) error {
 	currentNode := node
-	var onlyLink bool
 	for i := range ip.pathItems {
-		currentNodeName := ip.pathItems[i]
+		currentPath := ip.pathItems[i]
+		isLeaf := len(ip.pathItems)-1 == i
 
-		fieldDescription := currentNode.Meta.FindField(currentNodeName)
+		fieldDescription := currentNode.Meta.FindField(currentPath)
 		if fieldDescription == nil {
-			return nil, NewQueryError(
+			return NewQueryError(
 				ErrCodeFieldNotFound,
 				fmt.Sprintf(
-					"Field '%s' referenced in include path '%s' was not found",
-					currentNodeName, fmt.Sprintln(ip.pathItems),
+					"Field '%s' referenced in 'only' path '%s' was not found",
+					currentPath, fmt.Sprintln(ip.pathItems),
 				),
-
 			)
 		}
-		onlyLink = i == len(ip.pathItems)
-		currentNode = currentNode.FillChildNode(fieldDescription, onlyLink, description.FieldModeRetrieve)
+		if fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner {
+			return nil
+		}
+		if fieldDescription.IsLink() && (!isLeaf && fieldDescription.LinkType == description.LinkTypeInner || fieldDescription.LinkType == description.LinkTypeOuter) {
+			if isLeaf {
+				currentNode.ChildNodes.Empty()
+			}
+			currentNode.OnlyLink = false
+			currentNode = currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
+		} else if fieldDescription.LinkType != description.LinkTypeOuter {
+			//exclude all child nodes, filled by default
+			currentNode.ChildNodes.Empty()
+			currentNode.SelectFields.Include(fieldDescription)
+			currentNode.OnlyLink = false
+		}
 	}
-	return node, nil
+	return nil
+}
+func (ip *includeNodeRetrievePolicy) PathItems() []string {
+	return ip.pathItems
 }
 
-func NewIncludeNodeRetrievePolicy(path string) *IncludeNodeRetrievePolicy {
-	return &IncludeNodeRetrievePolicy{pathItems: strings.Split(path, ".")}
+func (ip *includeNodeRetrievePolicy) SubPolicy() RetrievePolicy {
+	if len(ip.pathItems) == 1 {
+		return nil
+	}
+	return &includeNodeRetrievePolicy{pathItems: append([]string(nil), ip.pathItems[1:]...)}
 }
 
-type ExcludeNodeRetrievePolicy struct {
+func newIncludeNodeRetrievePolicy(path string) *includeNodeRetrievePolicy {
+	return &includeNodeRetrievePolicy{pathItems: strings.Split(path, ".")}
+}
+
+type excludeNodeRetrievePolicy struct {
 	pathItems []string
 }
 
-func (ep *ExcludeNodeRetrievePolicy) Apply(node *Node) (*Node, error) {
+func (ep *excludeNodeRetrievePolicy) Apply(node *Node, _ *AggregatedRetrievePolicy) error {
 	currentNode := node
-	var onlyLink bool
 	for i := range ep.pathItems {
-		currentNodeName := ep.pathItems[i]
-		if _, ok := currentNode.ChildNodes[currentNodeName]; !ok {
-			return nil, NewQueryError(
+		currentPath := ep.pathItems[i]
+		isLeaf := i == len(ep.pathItems)-1
+
+		fieldDescription := currentNode.Meta.FindField(currentPath)
+
+		if fieldDescription == nil {
+			return NewQueryError(
 				ErrCodeFieldNotFound,
 				fmt.Sprintf(
 					"Field '%s' referenced in exclude path '%s' was not found",
-					currentNodeName, fmt.Sprintln(ep.pathItems),
+					currentPath, fmt.Sprintln(ep.pathItems),
 				),
 			)
 		} else {
-			if !onlyLink {
-				delete(currentNode.ChildNodes, currentNodeName)
+			if fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner && !isLeaf {
+				return nil
+			}
+			if isLeaf {
+				if fieldDescription.IsLink() {
+					currentNode.ChildNodes.Exclude(fieldDescription.Name)
+					currentNode.SelectFields.Exclude(fieldDescription)
+				} else {
+					currentNode.SelectFields.Exclude(fieldDescription)
+				}
+			} else {
+				ok := false
+				currentNode, ok = currentNode.ChildNodes.Get(fieldDescription.Name)
+				if !ok {
+					return NewQueryError(
+						ErrCodeFieldNotFound,
+						fmt.Sprintf(
+							"Branch '%s' referenced in exclude path '%s' was not found",
+							currentPath, fmt.Sprintln(ep.pathItems),
+						),
+					)
+				}
 			}
 		}
 	}
-	return node, nil
+	return nil
 }
 
-func NewExcludeNodeRetrievePolicy(path string) *ExcludeNodeRetrievePolicy {
-	return &ExcludeNodeRetrievePolicy{pathItems: strings.Split(path, ".")}
+func (ep *excludeNodeRetrievePolicy) PathItems() []string {
+	return ep.pathItems
 }
 
-type RetrievePolicy struct {
-	childPolicies []AbstractRetrievePolicy
+func (ep *excludeNodeRetrievePolicy) SubPolicy() RetrievePolicy {
+	if len(ep.pathItems) == 1 {
+		return nil
+	}
+	return &excludeNodeRetrievePolicy{pathItems: append([]string(nil), ep.pathItems[1:]...)}
 }
 
-func (rp *RetrievePolicy) Apply(node *Node) (*Node, error) {
+func newExcludeNodeRetrievePolicy(path string) *excludeNodeRetrievePolicy {
+	return &excludeNodeRetrievePolicy{pathItems: strings.Split(path, ".")}
+}
+
+//The only public structure, all policy appliances are done via this one
+type AggregatedRetrievePolicy struct {
+	childPolicies []RetrievePolicy
+}
+
+func (rp *AggregatedRetrievePolicy) Apply(node *Node) error {
+	if rp == nil {
+		return nil
+	}
 	var err error
 	for _, retrievePolicy := range rp.childPolicies {
-		node, err = retrievePolicy.Apply(node)
+		err = retrievePolicy.Apply(node, rp)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
-	return node, nil
+	return nil
 }
 
-type RetrievePolicyFactory struct {
+/*Generate a new policy, which is applicable to the given child node
+Eg. having parent policy with 3 rules:
+	- include account.company.name
+	- include account.phone
+	- exclude address.description
+subPolicy for node "account" will be as follows:
+	- include company.name
+	- include phone
+*/
+func (rp *AggregatedRetrievePolicy) SubPolicyForNode(nodeName string) *AggregatedRetrievePolicy {
+	if rp == nil {
+		return nil
+	}
+	childPolicies := make([]RetrievePolicy, 0)
+	for _, childPolicy := range rp.childPolicies {
+		if childPolicy.PathItems()[0] == nodeName {
+			if childPolicy = childPolicy.SubPolicy(); childPolicy != nil {
+				childPolicies = append(childPolicies, childPolicy)
+			}
+		}
+	}
+	if len(childPolicies) > 0 {
+		return &AggregatedRetrievePolicy{childPolicies: childPolicies}
+	} else {
+		return nil
+	}
 }
 
-func (*RetrievePolicyFactory) Factory(includePaths, excludePaths []string) *RetrievePolicy {
-	childPolicies := make([]AbstractRetrievePolicy, 0)
+type AggregatedRetrievePolicyFactory struct {
+}
+
+func (*AggregatedRetrievePolicyFactory) Factory(includePaths, excludePaths []string) *AggregatedRetrievePolicy {
+	childPolicies := make([]RetrievePolicy, 0)
 	for _, includePath := range includePaths {
-		childPolicies = append(childPolicies, NewIncludeNodeRetrievePolicy(includePath))
+		childPolicies = append(childPolicies, newIncludeNodeRetrievePolicy(includePath))
 	}
 	for _, excludePath := range excludePaths {
-		childPolicies = append(childPolicies, NewExcludeNodeRetrievePolicy(excludePath))
+		childPolicies = append(childPolicies, newExcludeNodeRetrievePolicy(excludePath))
 	}
-	return &RetrievePolicy{childPolicies: childPolicies}
+	return &AggregatedRetrievePolicy{childPolicies: childPolicies}
 }

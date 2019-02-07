@@ -36,6 +36,18 @@ func (m *Meta) AddField(fieldDescription FieldDescription) *FieldDescription {
 	return nil
 }
 
+//Returns a list of fields which are presented in the DB
+func (m *Meta) TableFields() []*FieldDescription {
+	fields := make([]*FieldDescription, 0)
+	l := len(m.Fields)
+	for i := 0; i < l; i++ {
+		if m.Fields[i].LinkType != LinkTypeOuter && m.Fields[i].Type != FieldTypeObjects {
+			fields = append(fields, &m.Fields[i])
+		}
+	}
+	return fields
+}
+
 func (m *Meta) MarshalJSON() ([]byte, error) {
 	return json.Marshal(m.MetaDescription)
 }
