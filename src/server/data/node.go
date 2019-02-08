@@ -304,7 +304,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode) {
 	//process regular links, skip generic child nodes
 	onlyLink := false
-	if node.Depth == depthLimit {
+	if node.Depth >= depthLimit {
 		onlyLink = true
 	}
 	if node.Meta != nil {

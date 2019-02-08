@@ -93,15 +93,19 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 					retrievePolicyForThisMeta = retrievePolicyForThisField.SubPolicyForNode(k.(types.GenericInnerLink).ObjectName)
 				}
 			}
+			//OnlyLink should be determined on the go, because it depends on concrete record and its policies
+			defaultOnlyLink := childNode.OnlyLink
+			childNode.OnlyLink = childNode.Depth > ctx.depthLimit
 			childNode.ChildNodes = *NewChildNodes()
 			childNode.RetrievePolicy = retrievePolicyForThisMeta
 			childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(k.(types.GenericInnerLink).ObjectName)
 			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.Key, childNodeLinkMeta.TableFields())
 			childNode.Meta = childNodeLinkMeta
 			childNode.KeyField = childNodeLinkMeta.Key
-			childNode.RecursivelyFillChildNodes(childNode.Depth, description.FieldModeRetrieve)
+			childNode.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
 
 			if resolvedValue, e := childNode.Resolve(ctx, k); e != nil {
+				childNode.OnlyLink = defaultOnlyLink
 				return nil, e
 			} else if resolvedValue != nil {
 				resultNode.values[childNode.LinkField.Name] = resolvedValue
@@ -112,7 +116,9 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 				if !childNode.OnlyLink {
 					childNodeResults = append(childNodeResults, ResultNode{childNode, resolvedValue.(map[string]interface{})})
 				}
+				childNode.OnlyLink = defaultOnlyLink
 			} else {
+				childNode.OnlyLink = defaultOnlyLink
 				delete(resultNode.values, childNode.LinkField.Name)
 			}
 		}
