@@ -44,7 +44,7 @@ var _ = Describe("RQL test", func(){
 	dataNode := &data.Node{
 		KeyField:   meta.Key,
 		Meta:       meta,
-		ChildNodes: make(map[string]*data.Node),
+		ChildNodes: *data.NewChildNodes(),
 		Depth:      1,
 		OnlyLink:   false,
 		Parent:     nil,
