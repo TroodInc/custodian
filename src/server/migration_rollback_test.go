@@ -168,7 +168,7 @@ var _ = Describe("Rollback migrations", func() {
 				})
 
 				It("It can rollback object`s state up to the first migration state", func() {
-					url := fmt.Sprintf("%s/migrations/rollback-object-to", appConfig.UrlPrefix)
+					url := fmt.Sprintf("%s/migrations/rollback-to", appConfig.UrlPrefix)
 
 					data := map[string]interface{}{
 						"migrationId": firstAppliedMigrationDescription.Id,
