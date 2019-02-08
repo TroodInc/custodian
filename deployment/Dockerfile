@@ -2,6 +2,12 @@ FROM golang:1.10
 
 WORKDIR /go/src/app
 
+RUN curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && python /tmp/get-pip.py
+RUN pip install requests
+
+COPY ./migrate.py /usr/bin
+RUN chmod +x /usr/bin/migrate.py
+
 COPY ./src/logger /go/src/logger
 COPY ./src/server /go/src/server
 COPY ./src/utils /go/src/utils

@@ -8,6 +8,7 @@ import (
 	"server/object/description"
 	"strings"
 	"fmt"
+	"errors"
 )
 
 type NodeType int
@@ -17,19 +18,118 @@ const (
 	NodeTypeGeneric
 )
 
+//
+
+type SelectType int
+
+const (
+	SelectFieldsTypeFull    SelectType = iota + 1
+	SelectFieldsTypeExclude
+	SelectFieldsTypeInclude
+)
+
+type SelectFields struct {
+	KeyField  *meta.FieldDescription
+	FieldList []*meta.FieldDescription
+	Type      SelectType
+}
+
+func (sf *SelectFields) Exclude(field *meta.FieldDescription) error {
+	if sf.Type == SelectFieldsTypeInclude {
+		return errors.New("attempted to exclude field from the node, which already has another included one")
+	}
+	for i := range sf.FieldList {
+		if sf.FieldList[i].Name == field.Name {
+			if sf.KeyField.Name != field.Name {
+				sf.FieldList = append(sf.FieldList[:i], sf.FieldList[i+1:]...)
+				break
+			}
+		}
+	}
+	sf.Type = SelectFieldsTypeExclude
+	return nil
+}
+
+func (sf *SelectFields) Include(field *meta.FieldDescription) error {
+	if sf.Type == SelectFieldsTypeExclude {
+		return errors.New("attempted to exclude field from the node, which already has another included one")
+	} else if sf.Type == SelectFieldsTypeFull {
+		sf.FieldList = []*meta.FieldDescription{sf.KeyField}
+	}
+
+	sf.Type = SelectFieldsTypeInclude
+	//do nothing if the field is already selected
+	for _, selectedField := range sf.FieldList {
+		if selectedField.Name == field.Name {
+			return nil
+		}
+	}
+
+	sf.FieldList = append(sf.FieldList, field)
+	return nil
+}
+
+func NewSelectFields(keyField *meta.FieldDescription, fieldList []*meta.FieldDescription) *SelectFields {
+	return &SelectFields{KeyField: keyField, FieldList: fieldList, Type: SelectFieldsTypeFull}
+}
+
+//
+
+type ChildNodes struct {
+	nodes      map[string]*Node
+	selectType SelectType
+}
+
+func (cn *ChildNodes) Exclude(name string) error {
+	if cn.selectType == SelectFieldsTypeInclude {
+		return errors.New("attempted to exclude field from the node, which already has another included one")
+	}
+
+	if _, ok := cn.nodes[name]; ok {
+		delete(cn.nodes, name)
+	}
+	cn.selectType = SelectFieldsTypeExclude
+	return nil
+}
+
+func (cn *ChildNodes) Empty() {
+	if cn.selectType == SelectFieldsTypeFull {
+		cn.nodes = make(map[string]*Node)
+		cn.selectType = SelectFieldsTypeInclude
+	}
+}
+
+func (cn *ChildNodes) Set(name string, node *Node) {
+	cn.nodes[name] = node
+}
+func (cn *ChildNodes) Get(name string) (*Node, bool) {
+	node, ok := cn.nodes[name]
+	return node, ok
+}
+
+func (cn *ChildNodes) Nodes() map[string]*Node {
+	return cn.nodes
+}
+
+func NewChildNodes() *ChildNodes {
+	return &ChildNodes{nodes: make(map[string]*Node), selectType: SelectFieldsTypeFull}
+}
+
 type Node struct {
 	//LinkField is a field which links to the target object
 	LinkField *meta.FieldDescription
 	//KeyField is a field of the target object which LinkField is linking to
-	KeyField   *meta.FieldDescription
-	Meta       *meta.Meta
-	ChildNodes map[string]*Node
-	Depth      int
-	OnlyLink   bool
-	plural     bool
-	Parent     *Node
-	MetaList   *meta.MetaList
-	Type       NodeType
+	KeyField       *meta.FieldDescription
+	Meta           *meta.Meta
+	ChildNodes     ChildNodes
+	Depth          int
+	OnlyLink       bool
+	plural         bool
+	Parent         *Node
+	MetaList       *meta.MetaList
+	Type           NodeType
+	SelectFields   SelectFields
+	RetrievePolicy *AggregatedRetrievePolicy
 }
 
 func (node *Node) keyAsString(recordValues map[string]interface{}, objectMeta *meta.Meta) (string, error) {
@@ -46,7 +146,7 @@ func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMet
 }
 
 func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, int, error) {
-	return sc.dm.GetRql(node, rqlNode, nil, sc.DbTransaction)
+	return sc.dm.GetRql(node, rqlNode, node.SelectFields.FieldList, sc.DbTransaction)
 }
 
 func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
@@ -74,6 +174,8 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 
 	if node.OnlyLink {
 		fields = []*meta.FieldDescription{objectMeta.Key}
+	} else {
+		fields = node.SelectFields.FieldList
 	}
 
 	obj, err := sc.dm.Get(objectMeta, fields, objectMeta.Key.Name, pkValue, sc.DbTransaction)
@@ -92,6 +194,8 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 	var fields []*meta.FieldDescription = nil
 	if node.OnlyLink {
 		fields = []*meta.FieldDescription{node.Meta.Key}
+	} else {
+		fields = node.SelectFields.FieldList
 	}
 	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{node.KeyField.Name: key}, sc.DbTransaction); err != nil {
 		return nil, err
@@ -169,14 +273,16 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 		filter := fmt.Sprintf("eq(%s.%s,%s)", node.LinkField.LinkThrough.FindField(node.LinkField.LinkMeta.Name).ReverseOuterField().Name, node.LinkField.Meta.Name, keyStr)
 		searchContext := SearchContext{depthLimit: 1, dm: sc.dm, lazyPath: "/custodian/data/bulk", DbTransaction: sc.DbTransaction, omitOuters: sc.omitOuters}
 		root := &Node{
-			KeyField:   node.LinkField.LinkMeta.Key,
-			Meta:       node.LinkField.LinkMeta,
-			ChildNodes: make(map[string]*Node),
-			Depth:      1,
-			OnlyLink:   false,
-			plural:     false,
-			Parent:     nil,
-			Type:       NodeTypeRegular,
+			KeyField:       node.LinkField.LinkMeta.Key,
+			Meta:           node.LinkField.LinkMeta,
+			ChildNodes:     *NewChildNodes(),
+			Depth:          1,
+			OnlyLink:       false,
+			plural:         false,
+			Parent:         nil,
+			Type:           NodeTypeRegular,
+			SelectFields:   *NewSelectFields(node.LinkField.LinkMeta.Key, node.LinkField.LinkMeta.TableFields()),
+			RetrievePolicy: node.RetrievePolicy,
 		}
 		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
@@ -197,112 +303,131 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 
 func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode) {
 	//process regular links, skip generic child nodes
+	onlyLink := false
+	if node.Depth == depthLimit {
+		onlyLink = true
+	}
 	if node.Meta != nil {
-		for i, fieldDescription := range node.Meta.Fields {
-			//skip outer link which does not have retrieve mode set to true
-			if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode && fieldMode != description.FieldModeQuery {
-				continue
-			}
-			var onlyLink = false
-			branches := make(map[string]*Node)
-			if node.Depth == depthLimit {
-				onlyLink = true
-			}
-
-			if fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, &fieldDescription)) {
-				node.ChildNodes[fieldDescription.Name] = &Node{
-					LinkField:  &node.Meta.Fields[i],
-					KeyField:   fieldDescription.LinkMeta.Key,
-					Meta:       fieldDescription.LinkMeta,
-					ChildNodes: branches,
-					Depth:      node.Depth + 1,
-					OnlyLink:   onlyLink,
-					plural:     false,
-					Parent:     node,
-					Type:       NodeTypeRegular,
-				}
-			} else if fieldDescription.Type == description.FieldTypeArray && fieldDescription.LinkType == description.LinkTypeOuter {
-				node.ChildNodes[fieldDescription.Name] = &Node{
-					LinkField:  &node.Meta.Fields[i],
-					KeyField:   fieldDescription.OuterLinkField,
-					Meta:       fieldDescription.LinkMeta,
-					ChildNodes: branches,
-					Depth:      node.Depth + 1,
-					OnlyLink:   onlyLink,
-					plural:     true,
-					Parent:     node,
-					Type:       NodeTypeRegular,
-				}
-			} else if fieldDescription.Type == description.FieldTypeObjects {
-				node.ChildNodes[fieldDescription.Name] = &Node{
-					LinkField:  &node.Meta.Fields[i],
-					KeyField:   fieldDescription.LinkThrough.FindField(fieldDescription.LinkMeta.Name),
-					Meta:       fieldDescription.LinkThrough,
-					ChildNodes: branches,
-					Depth:      node.Depth + 1,
-					OnlyLink:   onlyLink,
-					plural:     true,
-					Parent:     node,
-					Type:       NodeTypeRegular,
-				}
-			} else if fieldDescription.Type == description.FieldTypeGeneric {
-				if fieldDescription.LinkType == description.LinkTypeInner {
-					node.ChildNodes[fieldDescription.Name] = &Node{
-						LinkField:  &node.Meta.Fields[i],
-						KeyField:   nil,
-						Meta:       nil,
-						ChildNodes: branches,
-						Depth:      node.Depth + 1,
-						OnlyLink:   onlyLink,
-						plural:     false,
-						Parent:     node,
-						MetaList:   fieldDescription.LinkMetaList,
-						Type:       NodeTypeGeneric,
-					}
-				} else if fieldDescription.LinkType == description.LinkTypeOuter {
-					node.ChildNodes[fieldDescription.Name] = &Node{
-						LinkField:  &node.Meta.Fields[i],
-						KeyField:   fieldDescription.OuterLinkField,
-						Meta:       fieldDescription.LinkMeta,
-						ChildNodes: branches,
-						Depth:      node.Depth + 1,
-						OnlyLink:   onlyLink,
-						plural:     true,
-						Parent:     node,
-						Type:       NodeTypeGeneric,
-					}
-				}
-			}
+		for i := range node.Meta.Fields {
+			node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
 		}
 	}
 }
 
-func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode description.FieldMode) {
+func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLink bool, fieldMode description.FieldMode, policy *AggregatedRetrievePolicy) *Node {
+	//process regular links, skip generic child nodes
+
+	//skip outer link which does not have retrieve mode set to true
+	if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode && fieldMode != description.FieldModeQuery {
+		return nil
+	}
+	childNodes := *NewChildNodes()
+
+	if fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, fieldDescription)) {
+		node.ChildNodes.Set(fieldDescription.Name, &Node{
+			LinkField:      fieldDescription,
+			KeyField:       fieldDescription.LinkMeta.Key,
+			Meta:           fieldDescription.LinkMeta,
+			ChildNodes:     childNodes,
+			Depth:          node.Depth + 1,
+			OnlyLink:       onlyLink,
+			plural:         false,
+			Parent:         node,
+			Type:           NodeTypeRegular,
+			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.Key, fieldDescription.LinkMeta.TableFields()),
+			RetrievePolicy: policy,
+		})
+	} else if fieldDescription.Type == description.FieldTypeArray && fieldDescription.LinkType == description.LinkTypeOuter {
+		node.ChildNodes.Set(fieldDescription.Name, &Node{
+			LinkField:      fieldDescription,
+			KeyField:       fieldDescription.OuterLinkField,
+			Meta:           fieldDescription.LinkMeta,
+			ChildNodes:     childNodes,
+			Depth:          node.Depth + 1,
+			OnlyLink:       onlyLink,
+			plural:         true,
+			Parent:         node,
+			Type:           NodeTypeRegular,
+			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.Key, fieldDescription.LinkMeta.TableFields()),
+			RetrievePolicy: policy,
+		})
+	} else if fieldDescription.Type == description.FieldTypeObjects {
+		node.ChildNodes.Set(fieldDescription.Name, &Node{
+			LinkField:      fieldDescription,
+			KeyField:       fieldDescription.LinkThrough.FindField(fieldDescription.LinkMeta.Name),
+			Meta:           fieldDescription.LinkThrough,
+			ChildNodes:     childNodes,
+			Depth:          node.Depth + 1,
+			OnlyLink:       onlyLink,
+			plural:         true,
+			Parent:         node,
+			Type:           NodeTypeRegular,
+			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.Key, fieldDescription.LinkMeta.TableFields()),
+			RetrievePolicy: policy,
+		})
+	} else if fieldDescription.Type == description.FieldTypeGeneric {
+		if fieldDescription.LinkType == description.LinkTypeInner {
+			node.ChildNodes.Set(fieldDescription.Name, &Node{
+				LinkField:      fieldDescription,
+				KeyField:       nil,
+				Meta:           nil,
+				ChildNodes:     childNodes,
+				Depth:          node.Depth + 1,
+				OnlyLink:       onlyLink,
+				plural:         false,
+				Parent:         node,
+				MetaList:       fieldDescription.LinkMetaList,
+				Type:           NodeTypeGeneric,
+				RetrievePolicy: policy,
+			})
+
+		} else if fieldDescription.LinkType == description.LinkTypeOuter {
+			node.ChildNodes.Set(fieldDescription.Name, &Node{
+				LinkField:      fieldDescription,
+				KeyField:       fieldDescription.OuterLinkField,
+				Meta:           fieldDescription.LinkMeta,
+				ChildNodes:     childNodes,
+				Depth:          node.Depth + 1,
+				OnlyLink:       onlyLink,
+				plural:         true,
+				Parent:         node,
+				Type:           NodeTypeGeneric,
+				RetrievePolicy: policy,
+			})
+		}
+	}
+	if childNode, ok := node.ChildNodes.Get(fieldDescription.Name); !ok {
+		return nil
+	} else {
+		return childNode
+	}
+}
+
+func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode description.FieldMode) error {
 	node.fillDirectChildNodes(depthLimit, fieldMode)
-	if node.IsOfGenericType() {
-		return
-	}
-	nodesToProcess := make([]*Node, 0)
-	for _, v := range node.ChildNodes {
-		nodesToProcess = append(nodesToProcess, v)
-	}
-	processedNodesNames := map[string]bool{node.Meta.Name: true}
-	//recursively fill all dependent nodes beginning from root node
-	for ; len(nodesToProcess) > 0; nodesToProcess = nodesToProcess[1:] {
-		if !nodesToProcess[0].OnlyLink {
-			if nodesToProcess[0].IsOfRegularType() || (nodesToProcess[0].IsOfGenericType() && nodesToProcess[0].plural) {
-				nodesToProcess[0].fillDirectChildNodes(depthLimit, fieldMode)
-				processedNodesNames[nodesToProcess[0].Meta.Name] = true
-				for _, childNode := range nodesToProcess[0].ChildNodes {
-					//generic fields` meta could not be resolved without fields value
-					if childNode.IsOfRegularType() && !processedNodesNames[childNode.Meta.Name] || childNode.IsOfGenericType() {
-						nodesToProcess = append(nodesToProcess, childNode)
+	if !node.IsOfGenericType() {
+		nodesToProcess := make([]*Node, 0)
+		for _, v := range node.ChildNodes.Nodes() {
+			nodesToProcess = append(nodesToProcess, v)
+		}
+		processedNodesNames := map[string]bool{node.Meta.Name: true}
+		//recursively fill all dependent nodes beginning from root node
+		for ; len(nodesToProcess) > 0; nodesToProcess = nodesToProcess[1:] {
+			if !nodesToProcess[0].OnlyLink {
+				if nodesToProcess[0].IsOfRegularType() || (nodesToProcess[0].IsOfGenericType() && nodesToProcess[0].plural) {
+					nodesToProcess[0].fillDirectChildNodes(depthLimit, fieldMode)
+					processedNodesNames[nodesToProcess[0].Meta.Name] = true
+					for _, childNode := range nodesToProcess[0].ChildNodes.Nodes() {
+						//generic fields` meta could not be resolved without fields value
+						if childNode.IsOfRegularType() && !processedNodesNames[childNode.Meta.Name] || childNode.IsOfGenericType() {
+							nodesToProcess = append(nodesToProcess, childNode)
+						}
 					}
 				}
 			}
 		}
 	}
-
+	return node.RetrievePolicy.Apply(node)
 }
 
 func (node *Node) FillRecordValues(record map[string]interface{}, searchContext SearchContext) map[string]interface{} {
@@ -345,14 +470,15 @@ func (node *Node) IsOfRegularType() bool {
 
 func (node *Node) Clone() *Node {
 	return &Node{
-		LinkField:  node.LinkField,
-		Meta:       node.Meta,
-		ChildNodes: make(map[string]*Node, 0),
-		Depth:      node.Depth,
-		OnlyLink:   node.OnlyLink,
-		plural:     node.plural,
-		Parent:     node.Parent,
-		MetaList:   node.MetaList,
-		Type:       node.Type,
+		LinkField:    node.LinkField,
+		Meta:         node.Meta,
+		ChildNodes:   *NewChildNodes(),
+		Depth:        node.Depth,
+		OnlyLink:     node.OnlyLink,
+		plural:       node.plural,
+		Parent:       node.Parent,
+		MetaList:     node.MetaList,
+		Type:         node.Type,
+		SelectFields: SelectFields{FieldList: append([]*meta.FieldDescription(nil), node.SelectFields.FieldList...), Type: node.SelectFields.Type},
 	}
 }

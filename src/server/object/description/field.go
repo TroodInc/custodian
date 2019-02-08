@@ -265,6 +265,10 @@ func (f *Field) IsSimple() bool {
 	return f.Type != FieldTypeObject && f.Type != FieldTypeArray && f.Type != FieldTypeGeneric && f.Type != FieldTypeObjects
 }
 
+func (f *Field) IsLink() bool {
+	return f.Type == FieldTypeObject || f.Type == FieldTypeArray || f.Type == FieldTypeGeneric || f.Type == FieldTypeObjects
+}
+
 func (f *Field) Default() Def {
 	switch t := f.Def.(type) {
 	case string:
