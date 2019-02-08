@@ -343,7 +343,7 @@ func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transact
 		return nil, err
 	}
 
-	rqlFilter := "eq(object," + migration.Data["object"].(string) + "),gt(created," + url.QueryEscape(migration.Data["created"].(string)) + "),sort(-created)"
+	rqlFilter := "gt(created," + url.QueryEscape(migration.Data["created"].(string)) + "),sort(-created)"
 
 	var subsequentMigrations []*record.Record
 	callbackFunction := func(obj map[string]interface{}) error {

@@ -767,7 +767,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.POST(cs.root+"/migrations/rollback-object-to", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+	app.router.POST(cs.root+"/migrations/rollback", CreateJsonAction(func(r io.ReadCloser, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
 			sink.pushError(err)
 		} else {
@@ -783,7 +783,12 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
 
 			if !fake {
-				metaDescription, err := migrationManager.RollBackTo(requestData["migrationId"].(string), globalTransaction, true)
+				migrationId, ok := requestData["migrationId"]
+				if !ok {
+					sink.pushError(migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, "Migration`s ID should be specified with 'migrationId' attribute"))
+					return
+				}
+				metaDescription, err := migrationManager.RollBackTo(migrationId.(string), globalTransaction, true)
 
 				if err != nil {
 					sink.pushError(err)
