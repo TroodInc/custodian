@@ -15,6 +15,7 @@ import (
 	"server/data"
 	"server/migrations/storage"
 	"net/url"
+	"strconv"
 )
 
 const historyMetaName = "__custodian_objects_migration_history__"
@@ -307,7 +308,7 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string, trans
 		return nil, err
 
 	}
-	rqlFilter := "eq(object," + objectName + "),sort(-created),limit(0,1)"
+	rqlFilter := "eq(object," + objectName + "),sort(-order),limit(0,1)"
 
 	var lastMigrationData map[string]interface{}
 	callbackFunction := func(obj map[string]interface{}) error {
@@ -325,7 +326,7 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string, trans
 	}
 }
 
-//return a list of migrations which were applied after the given one(for the same object)
+//return a list of migrations which were applied after the given one
 func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transaction transactions.DbTransaction) ([]*record.Record, error) {
 	historyMeta, err := mm.ensureHistoryTableExists(transaction)
 	if err != nil {
@@ -343,7 +344,7 @@ func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transact
 		return nil, err
 	}
 
-	rqlFilter := "gt(created," + url.QueryEscape(migration.Data["created"].(string)) + "),sort(-created)"
+	rqlFilter := "gt(order," + url.QueryEscape(strconv.Itoa(int(migration.Data["order"].(float64)))) + "),sort(-order)"
 
 	var subsequentMigrations []*record.Record
 	callbackFunction := func(obj map[string]interface{}) error {
@@ -374,12 +375,13 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 		predecessorId = migration.DependsOn[0]
 	}
 
-	migrationData := map[string]interface{}{
+	migrationRecord := record.NewRecord(historyMeta, map[string]interface{}{
 		"migration_id":   migration.Id,
 		"predecessor_id": predecessorId,
 		"object":         metaName,
-	}
-	operation, err := mm.dataManager.PrepareCreateOperation(historyMeta, []map[string]interface{}{migrationData})
+	})
+	migrationRecord.PrepareData(record.RecordOperationTypeCreate)
+	operation, err := mm.dataManager.PrepareCreateOperation(historyMeta, []map[string]interface{}{migrationRecord.RawData})
 	if err != nil {
 		return "", err
 	}
@@ -388,8 +390,7 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 		return "", e
 	}
 
-	migrationIdStrValue, _ := historyMeta.Key.ValueAsString(migrationData[historyMeta.Key.Name])
-	return migrationIdStrValue, nil
+	return migrationRecord.PkAsString(), nil
 }
 
 func (mm *MigrationManager) removeAppliedMigration(migration *migrations.Migration, transaction transactions.DbTransaction) error {
@@ -522,8 +523,14 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 			{
 				Name:        "created",
 				Type:        description.FieldTypeDateTime,
-				Optional:    true,
 				NowOnCreate: true,
+			},
+			{
+				Name: "order",
+				Type: description.FieldTypeNumber,
+				Def: map[string]interface{}{
+					"func": "nextval",
+				},
 			},
 		},
 	}

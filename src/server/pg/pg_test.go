@@ -321,7 +321,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Context("and record is created", func() {
 				record, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
-				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$", record.Data["created"].(string))
+				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$", record.Data["created"].(string))
 				Expect(matched).To(BeTrue())
 			})
 		})

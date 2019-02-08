@@ -637,7 +637,7 @@ var _ = Describe("Server", func() {
 								Expect(targetData).To(HaveKey("d_set"))
 							})
 
-							FIt("Applies policies regardless of specification`s order in query", func() {
+							It("Applies policies regardless of specification`s order in query", func() {
 
 								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target&only=target.a", appConfig.UrlPrefix)
 								reversedOrderUrl := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target.a&only=target", appConfig.UrlPrefix)
