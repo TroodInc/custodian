@@ -318,6 +318,11 @@ var _ = Describe("Migration Constructor", func() {
 							LinkMetaList: []string{"a"},
 							Optional:     false,
 						},
+						{
+							Name:     "created",
+							Type:     description.FieldTypeDateTime,
+							Optional: true,
+						},
 					},
 					Actions: []description.Action{},
 					Cas:     false,
@@ -355,6 +360,13 @@ var _ = Describe("Migration Constructor", func() {
 								LinkType:     description.LinkTypeInner,
 								LinkMetaList: []string{"a"},
 								Optional:     false,
+							},
+						},
+						{
+							Field: description.Field{
+								Name:     "created",
+								Type:     description.FieldTypeDateTime,
+								Optional: true,
 							},
 						},
 					},
@@ -403,6 +415,13 @@ var _ = Describe("Migration Constructor", func() {
 								LinkType:     description.LinkTypeInner,
 								LinkMetaList: []string{"a"},
 								Optional:     false,
+							},
+						},
+						{
+							Field: description.Field{
+								Name:     "created",
+								Type:     description.FieldTypeDateTime,
+								Optional: true,
 							},
 						},
 					},
@@ -454,6 +473,123 @@ var _ = Describe("Migration Constructor", func() {
 								Optional:     false,
 							},
 						},
+						{
+							Field: description.Field{
+								Name:     "created",
+								Type:     description.FieldTypeDateTime,
+								Optional: true,
+							},
+						},
+					},
+					Actions: []migration_description.MigrationActionDescription{},
+					Cas:     false,
+				}
+				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
+				Expect(err).To(BeNil())
+
+				Expect(migrationDescription).NotTo(BeNil())
+				Expect(migrationDescription.Operations).To(HaveLen(1))
+				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
+
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			})
+
+			It("generates operation if field`s NowOnCreate value has changed", func() {
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+
+				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
+					Name: "a",
+					Key:  "id",
+					Fields: []migration_description.MigrationFieldDescription{
+						{
+							Field: description.Field{
+								Name:     "id",
+								Type:     description.FieldTypeString,
+								Optional: false,
+							},
+							PreviousName: "",
+						},
+						{
+							Field: description.Field{
+								Name:     "existing_field",
+								Type:     description.FieldTypeString,
+								Optional: false,
+							},
+						},
+						{
+							Field: description.Field{
+								Name:         "target_object",
+								Type:         description.FieldTypeGeneric,
+								LinkType:     description.LinkTypeInner,
+								LinkMetaList: []string{"a"},
+								Optional:     false,
+							},
+						},
+						{
+							Field: description.Field{
+								Name:        "created",
+								Type:        description.FieldTypeDateTime,
+								NowOnCreate: true,
+								Optional:    true,
+							},
+						},
+					},
+					Actions: []migration_description.MigrationActionDescription{},
+					Cas:     false,
+				}
+				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
+				Expect(err).To(BeNil())
+
+				Expect(migrationDescription).NotTo(BeNil())
+				Expect(migrationDescription.Operations).To(HaveLen(1))
+				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
+
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			})
+
+			It("generates operation if field`s NowOnUpdate value has changed", func() {
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				Expect(err).To(BeNil())
+
+				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
+					Name: "a",
+					Key:  "id",
+					Fields: []migration_description.MigrationFieldDescription{
+						{
+							Field: description.Field{
+								Name:     "id",
+								Type:     description.FieldTypeString,
+								Optional: false,
+							},
+							PreviousName: "",
+						},
+						{
+							Field: description.Field{
+								Name:     "existing_field",
+								Type:     description.FieldTypeString,
+								Optional: false,
+							},
+						},
+						{
+							Field: description.Field{
+								Name:         "target_object",
+								Type:         description.FieldTypeGeneric,
+								LinkType:     description.LinkTypeInner,
+								LinkMetaList: []string{"a"},
+								Optional:     false,
+							},
+						},
+						{
+							Field: description.Field{
+								Name:        "created",
+								Type:        description.FieldTypeDateTime,
+								NowOnUpdate: true,
+								Optional:    true,
+							},
+						},
 					},
 					Actions: []migration_description.MigrationActionDescription{},
 					Cas:     false,
@@ -502,6 +638,13 @@ var _ = Describe("Migration Constructor", func() {
 								Optional:     false,
 							},
 						},
+						{
+							Field: description.Field{
+								Name:     "created",
+								Type:     description.FieldTypeDateTime,
+								Optional: true,
+							},
+						},
 					},
 					Actions: []migration_description.MigrationActionDescription{},
 					Cas:     false,
@@ -547,6 +690,13 @@ var _ = Describe("Migration Constructor", func() {
 								LinkType:     description.LinkTypeInner,
 								LinkMetaList: []string{"a", "b"},
 								Optional:     false,
+							},
+						},
+						{
+							Field: description.Field{
+								Name:     "created",
+								Type:     description.FieldTypeDateTime,
+								Optional: true,
 							},
 						},
 					},

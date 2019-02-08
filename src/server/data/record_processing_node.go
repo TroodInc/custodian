@@ -1,13 +1,13 @@
 package data
 
 import (
-	"server/data/record"
+	. "server/data/record"
 	"server/object/meta"
 )
 
 //represents list of RecordSetOperations which are queued on the same level
 type RecordProcessingNode struct {
-	Record         *record.Record
+	Record         *Record
 	ProcessBefore  []*RecordProcessingNode
 	ProcessAfter   []*RecordProcessingNode
 	RemoveBefore   []*RecordProcessingNode
@@ -15,7 +15,7 @@ type RecordProcessingNode struct {
 }
 
 //return records in order of processing
-func (r *RecordProcessingNode) RecordSetOperations() (*record.RecordSet, []*RecordSetOperation) {
+func (r *RecordProcessingNode) RecordSetOperations() (*RecordSet, []*RecordSetOperation) {
 	recordOperations := r.collectRecordOperations(make([]*RecordOperation, 0))
 	return r.composeRecordSetOperations(recordOperations)
 }
@@ -24,7 +24,7 @@ func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*Recor
 	for _, recordProcessingNode := range r.RetrieveBefore {
 		recordOperations = append(
 			recordOperations,
-			&RecordOperation{Record: recordProcessingNode.Record, Type: RecordOperationTypeRetrive},
+			&RecordOperation{Record: recordProcessingNode.Record, Type: RecordOperationTypeRetrieve},
 		)
 	}
 
@@ -54,9 +54,9 @@ func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*Recor
 }
 
 //unite records of same objects, so they could be processed within same DB operation
-func (r *RecordProcessingNode) composeRecordSetOperations(recordOperations []*RecordOperation) (*record.RecordSet, []*RecordSetOperation) {
+func (r *RecordProcessingNode) composeRecordSetOperations(recordOperations []*RecordOperation) (*RecordSet, []*RecordSetOperation) {
 	recordSetOperations := make([]*RecordSetOperation, 0)
-	rootRecordSet := new(record.RecordSet)
+	rootRecordSet := new(RecordSet)
 	var currentMeta *meta.Meta
 	var currentOperationType RecordOperationType
 	var currentMetaRecordSetOperationPool []*RecordSetOperation //pool represent a set of recordSetOperations, which belong to the same
@@ -82,7 +82,7 @@ func (r *RecordProcessingNode) composeRecordSetOperations(recordOperations []*Re
 		}
 		//if record set is not found - create a new one
 		if currentRecordSetOperation == nil {
-			currentRecordSetOperation = &RecordSetOperation{RecordSet: record.NewRecordSet(currentRecordOperation.Record.Meta), Type: currentRecordOperation.Type}
+			currentRecordSetOperation = &RecordSetOperation{RecordSet: NewRecordSet(currentRecordOperation.Record.Meta), Type: currentRecordOperation.Type}
 			currentMetaRecordSetOperationPool = append(currentMetaRecordSetOperationPool, currentRecordSetOperation)
 			recordSetOperations = append(recordSetOperations, currentRecordSetOperation)
 		}
@@ -96,6 +96,6 @@ func (r *RecordProcessingNode) composeRecordSetOperations(recordOperations []*Re
 	return rootRecordSet, recordSetOperations
 }
 
-func NewRecordProcessingNode(record *record.Record) *RecordProcessingNode {
+func NewRecordProcessingNode(record *Record) *RecordProcessingNode {
 	return &RecordProcessingNode{Record: record}
 }

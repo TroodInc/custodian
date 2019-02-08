@@ -254,6 +254,8 @@ type Field struct {
 	Optional       bool         `json:"optional"`
 	OnDelete       string       `json:"onDelete,omitempty"`
 	Def            interface{}  `json:"default,omitempty"`
+	NowOnUpdate    bool         `json:"nowOnUpdate,omitempty"`
+	NowOnCreate    bool         `json:"nowOnCreate,omitempty"`
 	QueryMode      bool         `json:"queryMode,omitempty"`    //only for outer links, true if field should be used for querying
 	RetrieveMode   bool         `json:"retrieveMode,omitempty"` //only for outer links, true if field should be used for data retrieving
 	LinkThrough    string       `json:"linkThrough,omitempty"`  //only for "objects" field

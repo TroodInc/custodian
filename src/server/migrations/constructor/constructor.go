@@ -141,7 +141,9 @@ func (mc *MigrationConstructor) processFieldsUpdate(currentMetaDescription *desc
 				onDeleteChanged := currentField.OnDelete != newFieldDescription.OnDelete
 				linkMetaListChanged := len(currentField.LinkMetaList.Diff(newFieldDescription.LinkMetaList)) > 0 || len(newFieldDescription.LinkMetaList.Diff(currentField.LinkMetaList)) > 0
 				optionalChanged := currentField.Optional != newFieldDescription.Optional
-				if nameChanged || defChanged || onDeleteChanged || linkMetaListChanged || optionalChanged {
+				nowOnUpdateChanged := currentField.NowOnUpdate != newFieldDescription.NowOnUpdate
+				nowOnCreateChanged := currentField.NowOnCreate != newFieldDescription.NowOnCreate
+				if nameChanged || defChanged || onDeleteChanged || linkMetaListChanged || optionalChanged || nowOnCreateChanged || nowOnUpdateChanged {
 					operationDescriptions = append(operationDescriptions, *NewMigrationOperationDescription(UpdateFieldOperation, &newMigrationMetaDescription.Fields[i], nil, nil))
 				}
 			}

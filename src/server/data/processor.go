@@ -298,7 +298,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 					return nil, err
 				}
 			}
-		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+		} else if recordSetOperation.Type == RecordOperationTypeRetrieve {
 			for i, record := range recordSetOperation.RecordSet.Records {
 				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
 				if err != nil {
@@ -476,7 +476,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 				}
 			}
 
-		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+		} else if recordSetOperation.Type == RecordOperationTypeRetrieve {
 			for i, record := range recordSetOperation.RecordSet.Records {
 				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
 				if err != nil {
@@ -725,7 +725,7 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 
 // perform update and return list of records
 func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
-	recordSet.PrepareData()
+	recordSet.PrepareData(RecordOperationTypeUpdate)
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, recordSet, isRoot, description.MethodUpdate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
@@ -750,7 +750,7 @@ func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransac
 
 // perform create and return list of records
 func (processor *Processor) createRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
-	recordSet.PrepareData()
+	recordSet.PrepareData(RecordOperationTypeCreate)
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, recordSet, isRoot, description.MethodCreate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
