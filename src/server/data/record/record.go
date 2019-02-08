@@ -111,11 +111,11 @@ func (record *Record) setAutoValues(operationType RecordOperationType) {
 			var value string
 			switch field.Type {
 			case description.FieldTypeDateTime:
-				value = time.Now().UTC().Format(time.RFC3339)
+				value = time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00")
 			case description.FieldTypeDate:
 				value = time.Now().UTC().Format("2006-01-02")
 			case description.FieldTypeTime:
-				value = time.Now().UTC().Format("15:04:05")
+				value = time.Now().UTC().Format("15:04:05.123456789")
 			}
 			if value != "" {
 				record.RawData[field.Name] = value
