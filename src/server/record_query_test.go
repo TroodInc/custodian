@@ -636,6 +636,23 @@ var _ = Describe("Server", func() {
 								Expect(targetData).To(HaveKey("name"))
 								Expect(targetData).To(HaveKey("d_set"))
 							})
+
+							FIt("Applies policies regardless of specification`s order in query", func() {
+
+								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target&only=target.a", appConfig.UrlPrefix)
+								reversedOrderUrl := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target.a&only=target", appConfig.UrlPrefix)
+
+								var request, _ = http.NewRequest("GET", url, nil)
+								httpServer.Handler.ServeHTTP(recorder, request)
+								responseBody := recorder.Body.String()
+
+								recorder.Body.Reset()
+								request, _ = http.NewRequest("GET", reversedOrderUrl, nil)
+								httpServer.Handler.ServeHTTP(recorder, request)
+								reversedOrderResponseBody := recorder.Body.String()
+
+								Expect(responseBody).To(Equal(reversedOrderResponseBody))
+							})
 						})
 					})
 				})
