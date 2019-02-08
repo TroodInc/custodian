@@ -4,6 +4,7 @@ import (
 	"strings"
 	"fmt"
 	"server/object/description"
+	"sort"
 )
 
 /*
@@ -185,6 +186,8 @@ type AggregatedRetrievePolicyFactory struct {
 
 func (*AggregatedRetrievePolicyFactory) Factory(includePaths, excludePaths []string) *AggregatedRetrievePolicy {
 	childPolicies := make([]RetrievePolicy, 0)
+	sort.Strings(includePaths)
+	sort.Strings(excludePaths)
 	for _, includePath := range includePaths {
 		childPolicies = append(childPolicies, newIncludeNodeRetrievePolicy(includePath))
 	}
