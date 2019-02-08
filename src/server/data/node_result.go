@@ -93,13 +93,13 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 					retrievePolicyForThisMeta = retrievePolicyForThisField.SubPolicyForNode(k.(types.GenericInnerLink).ObjectName)
 				}
 			}
-
+			childNode.ChildNodes = *NewChildNodes()
 			childNode.RetrievePolicy = retrievePolicyForThisMeta
 			childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(k.(types.GenericInnerLink).ObjectName)
 			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.Key, childNodeLinkMeta.TableFields())
 			childNode.Meta = childNodeLinkMeta
 			childNode.KeyField = childNodeLinkMeta.Key
-			childNode.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+			childNode.RecursivelyFillChildNodes(childNode.Depth, description.FieldModeRetrieve)
 
 			if resolvedValue, e := childNode.Resolve(ctx, k); e != nil {
 				return nil, e

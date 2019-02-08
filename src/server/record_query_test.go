@@ -84,6 +84,11 @@ var _ = Describe("Server", func() {
 						Type:     description.FieldTypeString,
 						Optional: true,
 					},
+					{
+						Name:     "description",
+						Type:     description.FieldTypeString,
+						Optional: true,
+					},
 				},
 			}
 			aMetaObj, err = metaStore.NewMeta(&metaDescription)
@@ -550,6 +555,11 @@ var _ = Describe("Server", func() {
 											LinkMetaList: []string{aMetaObj.Name},
 											Optional:     false,
 										},
+										{
+											Name:     "name",
+											Type:     description.FieldTypeString,
+											Optional: true,
+										},
 									},
 								}
 								eMetaObj, err = metaStore.NewMeta(&metaDescription)
@@ -652,6 +662,46 @@ var _ = Describe("Server", func() {
 								reversedOrderResponseBody := recorder.Body.String()
 
 								Expect(responseBody).To(Equal(reversedOrderResponseBody))
+							})
+
+							It("Can include a generic field", func() {
+
+								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target", appConfig.UrlPrefix)
+
+								var request, _ = http.NewRequest("GET", url, nil)
+								httpServer.Handler.ServeHTTP(recorder, request)
+								responseBody := recorder.Body.String()
+
+								var body map[string]interface{}
+								json.Unmarshal([]byte(responseBody), &body)
+								Expect(body["data"].([]interface{})).To(HaveLen(1))
+								recordData := body["data"].([]interface{})[0].(map[string]interface{})
+								Expect(recordData).To(HaveKey("target"))
+								Expect(recordData).To(HaveKey("id"))
+								Expect(recordData).NotTo(HaveKey("name"))
+							})
+
+							It("Can include a generic field and its subtree", func() {
+
+								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target&only=target.a.name", appConfig.UrlPrefix)
+
+								var request, _ = http.NewRequest("GET", url, nil)
+								httpServer.Handler.ServeHTTP(recorder, request)
+								responseBody := recorder.Body.String()
+
+								var body map[string]interface{}
+								json.Unmarshal([]byte(responseBody), &body)
+								Expect(body["data"].([]interface{})).To(HaveLen(1))
+
+								recordData := body["data"].([]interface{})[0].(map[string]interface{})
+								Expect(recordData).To(HaveKey("target"))
+								Expect(recordData).To(HaveKey("id"))
+								Expect(recordData).NotTo(HaveKey("name"))
+
+								targetData := recordData["target"].(map[string]interface{})
+								Expect(targetData).NotTo(HaveKey("description"))
+								Expect(targetData).To(HaveKey("name"))
+								Expect(targetData).To(HaveKey("id"))
 							})
 						})
 					})
