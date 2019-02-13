@@ -46,9 +46,16 @@ func (ip *includeNodeRetrievePolicy) Apply(node *Node, parentPolicy *AggregatedR
 			}
 			return nil
 		}
+		if fieldDescription.Type == description.FieldTypeObjects {
+			currentNode.ChildNodes.Empty()
+			currentNode.SelectFields.Include(currentNode.KeyField)
+			currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
+			return nil
+		}
 		if fieldDescription.IsLink() && (!isLeaf && fieldDescription.LinkType == description.LinkTypeInner || fieldDescription.LinkType == description.LinkTypeOuter) {
 			if isLeaf {
 				currentNode.ChildNodes.Empty()
+				currentNode.SelectFields.Include(currentNode.KeyField)
 			}
 			currentNode.OnlyLink = false
 			currentNode = currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
