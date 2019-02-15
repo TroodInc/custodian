@@ -16,7 +16,7 @@ import (
 var _ = Describe("Outer field", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
@@ -167,7 +167,7 @@ var _ = Describe("Outer field", func() {
 		havingAMetaWithManuallySetBSetLink()
 		// A meta contains automatically generated outer link to B
 		aMetaObj, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, false)
-		aMetaObjForExport := aMetaObj.DescriptionForExport()
+		aMetaObjForExport := aMetaObj.ForExport()
 		encodedData, err := json.Marshal(aMetaObjForExport)
 		Expect(err).To(BeNil())
 		var decodedData map[string]interface{}

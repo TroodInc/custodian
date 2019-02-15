@@ -23,7 +23,6 @@ type ExecuteContext interface {
 type DataManager interface {
 	Db() (interface{})
 	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
-	GetIn(m *meta.Meta, fields []*meta.FieldDescription, key string, in []interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
 	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
 	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
 	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *Processor) (error)
@@ -57,7 +56,7 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	}
 	return false
 }
-func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, depth int, omitOuters bool) (*Record, error) {
+func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (*Record, error) {
 	if objectMeta, e := processor.GetMeta(transaction, objectClass); e != nil {
 		return nil, e
 	} else {
@@ -66,8 +65,24 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 		} else {
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
 
-			root := &Node{KeyField: objectMeta.Key, Meta: objectMeta, ChildNodes: make(map[string]*Node), Depth: 1, OnlyLink: false, plural: false, Parent: nil, Type: NodeTypeRegular}
-			root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+			//
+			root := &Node{
+				KeyField:       objectMeta.Key,
+				Meta:           objectMeta,
+				ChildNodes:     *NewChildNodes(),
+				Depth:          1,
+				OnlyLink:       false,
+				plural:         false,
+				Parent:         nil,
+				Type:           NodeTypeRegular,
+				SelectFields:   *NewSelectFields(objectMeta.Key, objectMeta.TableFields()),
+				RetrievePolicy: new(AggregatedRetrievePolicyFactory).Factory(includePaths, excludePaths),
+			}
+
+			err := root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+			if err != nil {
+				return nil, err
+			}
 
 			if recordData, e := root.Resolve(ctx, pk); e != nil {
 				return nil, e
@@ -80,22 +95,57 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 	}
 }
 
-func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
+func (processor *Processor) ShadowGet(transaction transactions.DbTransaction, objectMeta *meta.Meta, key string, depth int, omitOuters bool) (*Record, error) {
+	if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
+		return nil, e
+	} else {
+		ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
+
+		root := &Node{
+			KeyField:     objectMeta.Key,
+			Meta:         objectMeta,
+			ChildNodes:   *NewChildNodes(),
+			Depth:        1,
+			OnlyLink:     false,
+			plural:       false,
+			Parent:       nil,
+			Type:         NodeTypeRegular,
+			SelectFields: *NewSelectFields(objectMeta.Key, objectMeta.TableFields()),
+		}
+		root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+
+		if recordData, e := root.Resolve(ctx, pk); e != nil {
+			return nil, e
+		} else if recordData == nil {
+			return nil, nil
+		} else {
+			return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
+		}
+	}
+}
+
+func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
 	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true); e != nil {
 		return 0, e
 	} else if !ok {
 		return 0, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
+
+		//make and apply retrieves policy
+		retrievePolicy := new(AggregatedRetrievePolicyFactory).Factory(includePaths, excludePaths)
+		//
 		root := &Node{
-			KeyField:   businessObject.Key,
-			Meta:       businessObject,
-			ChildNodes: make(map[string]*Node),
-			Depth:      1,
-			OnlyLink:   false,
-			plural:     false,
-			Parent:     nil,
-			Type:       NodeTypeRegular,
+			KeyField:       businessObject.Key,
+			Meta:           businessObject,
+			ChildNodes:     *NewChildNodes(),
+			Depth:          1,
+			OnlyLink:       false,
+			plural:         false,
+			Parent:         nil,
+			Type:           NodeTypeRegular,
+			SelectFields:   *NewSelectFields(businessObject.Key, businessObject.TableFields()),
+			RetrievePolicy: retrievePolicy,
 		}
 		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
@@ -116,6 +166,41 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 		}
 		return recordsCount, nil
 	}
+}
+
+//Todo: this method is a shadow of GetBulk, the only difference is that it gets Meta object, not meta`s name
+//perhaps it should become public and replace current GetBulk
+func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *meta.Meta, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
+	searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
+	root := &Node{
+		KeyField:     metaObj.Key,
+		Meta:         metaObj,
+		ChildNodes:   *NewChildNodes(),
+		Depth:        1,
+		OnlyLink:     false,
+		plural:       false,
+		Parent:       nil,
+		Type:         NodeTypeRegular,
+		SelectFields: *NewSelectFields(metaObj.Key, metaObj.TableFields()),
+	}
+	root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+
+	parser := rqlParser.NewParser()
+	rqlNode, err := parser.Parse(strings.NewReader(filter))
+	if err != nil {
+		return 0, errors.NewDataError(metaObj.Name, errors.ErrWrongRQL, err.Error())
+	}
+
+	records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
+
+	if e != nil {
+		return recordsCount, e
+	}
+	for _, record := range records {
+		record = root.FillRecordValues(record, searchContext)
+		sink(record)
+	}
+	return recordsCount, nil
 }
 
 type DNode struct {
@@ -160,7 +245,7 @@ func (processor *Processor) GetMeta(transaction transactions.DbTransaction, obje
 }
 
 func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransaction, objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
-	// get Meta
+	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return nil, err
@@ -213,9 +298,9 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 					return nil, err
 				}
 			}
-		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+		} else if recordSetOperation.Type == RecordOperationTypeRetrieve {
 			for i, record := range recordSetOperation.RecordSet.Records {
-				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
 				if err != nil {
 					return nil, err
 				} else {
@@ -243,7 +328,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 }
 
 func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
-	// get Meta
+	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
@@ -333,7 +418,7 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 }
 
 func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecord *Record, err error) {
-	// get Meta
+	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return nil, err
@@ -391,9 +476,9 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 				}
 			}
 
-		} else if recordSetOperation.Type == RecordOperationTypeRetrive {
+		} else if recordSetOperation.Type == RecordOperationTypeRetrieve {
 			for i, record := range recordSetOperation.RecordSet.Records {
-				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), 1, true)
+				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
 				if err != nil {
 					return nil, err
 				} else {
@@ -421,7 +506,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 
 func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
 
-	//get Meta
+	//get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
@@ -517,7 +602,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 	var err error
 
 	//get pk
-	recordToRemove, err := processor.Get(dbTransaction, objectName, key, 1, false)
+	recordToRemove, err := processor.Get(dbTransaction, objectName, key, nil, nil, 1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -550,7 +635,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 
 //TODO: Refactor this method similarly to BulkUpdateRecords, so notifications could be tested properly, it should affect PrepareDeletes method
 func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), user auth.User) (err error) {
-	// get Meta
+	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
 		return err
@@ -569,7 +654,7 @@ func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTrans
 	for _, record := range records {
 
 		//get pk
-		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), 1, false)
+		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), nil, nil, 1, false)
 		if err != nil {
 			return err
 		}
@@ -640,7 +725,7 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 
 // perform update and return list of records
 func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
-	recordSet.PrepareData()
+	recordSet.PrepareData(RecordOperationTypeUpdate)
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, recordSet, isRoot, description.MethodUpdate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
@@ -665,7 +750,7 @@ func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransac
 
 // perform create and return list of records
 func (processor *Processor) createRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
-	recordSet.PrepareData()
+	recordSet.PrepareData(RecordOperationTypeCreate)
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, recordSet, isRoot, description.MethodCreate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {

@@ -19,7 +19,7 @@ import (
 var _ = Describe("PG MetaStore test", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -101,7 +101,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", 1, false, callbackFunction)
+				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["ordering"]).To(Equal(float64(10)))
 			})
@@ -161,7 +161,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", 1, false, callbackFunction)
+				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["ordering"]).To(Equal(float64(10.98)))
 			})
@@ -221,7 +221,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", 1, false, callbackFunction)
+				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["is_active"]).To(BeTrue())
 			})
@@ -281,7 +281,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", 1, false, callbackFunction)
+				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["name"]).To(Equal("Not specified"))
 			})
@@ -341,7 +341,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", 1, false, callbackFunction)
+				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["date"]).To(Equal("2018-05-22"))
 			})
@@ -401,7 +401,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", 1, false, callbackFunction)
+				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0]["datetime"]).To(Equal("2018-05-29T10:29:58.627755Z"))
 			})
@@ -461,7 +461,7 @@ var _ = Describe("PG MetaStore test", func() {
 					matchedRecords = append(matchedRecords, obj)
 					return nil
 				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", 1, false, callbackFunction)
+				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
 				Expect(matchedRecords).To(HaveLen(1))
 
 				Expect(matchedRecords[0]["time"]).To(Equal("15:29:58+07:00"))

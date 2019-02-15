@@ -13,7 +13,7 @@ type metaError struct {
 }
 
 func (e *metaError) Error() string {
-	return fmt.Sprintf("Meta error:  MetaDescription = '%s', operation = '%s', code='%s'  msg = '%s'", e.meta, e.op, e.code, e.msg)
+	return fmt.Sprintf("MetaDescription error:  MetaDescription = '%s', operation = '%s', code='%s'  msg = '%s'", e.meta, e.op, e.code, e.msg)
 }
 
 func (e *metaError) Json() []byte {

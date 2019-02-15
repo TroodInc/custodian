@@ -110,6 +110,7 @@ func init() {
 	operators["GT"] = gt
 	operators["GE"] = ge
 	operators["LIKE"] = like
+	operators["IS_NULL"] = is_null
 
 	valueFuncs["NULL"] = nullvf
 	valueFuncs["EMPTY"] = emptyvf
@@ -279,7 +280,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			//query which uses "Objects" field has to be replaced with query using LinkThrough
 			//eg: object A has "Objects" relation "bs" which references B. Query like eq(bs.name,Fedor) will be replace
 			//with query eq(a__b_set.b.name,Fedor) and processed in the common way
-			outerField := field.LinkThrough.ReverseOuterField(field.Meta.Name).Name
+			outerField := field.LinkThrough.FindField(field.Meta.Name).ReverseOuterField().Name
 			throughObjectFieldName := field.LinkMeta.Name
 			fieldPathParts = append(fieldPathParts[:i], append([]string{outerField, throughObjectFieldName}, fieldPathParts[i+1:]...)...)
 			i--
@@ -294,7 +295,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			if linkedMeta != nil {
 				joinsCount++
 				//fill in all the options required for join operation
-				exists := &Exists{Table: GetTableName(linkedMeta), Alias: alias + field.Name, RightTableAlias: alias}
+				exists := &Exists{Table: GetTableName(linkedMeta.Name), Alias: alias + field.Name, RightTableAlias: alias}
 				if field.OuterLinkField != nil {
 					exists.RightTableColumn = linkedMeta.Key.Name
 					if field.Type == description.FieldTypeGeneric {
@@ -321,17 +322,18 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 					return nil, NewRqlError(ErrRQLInternal, err.Error())
 				}
 
-				expectedNode, ok := currentNode.ChildNodes[field.Name]
+				expectedNode, ok := currentNode.ChildNodes.Get(field.Name)
 				if field.Type == description.FieldTypeGeneric {
 					if field.LinkType == description.LinkTypeInner {
 						expectedNode = &data.Node{
-							KeyField:   linkedMeta.Key,
-							Meta:       linkedMeta,
-							ChildNodes: make(map[string]*data.Node),
-							Depth:      1,
-							OnlyLink:   false,
-							Parent:     nil,
-							Type:       data.NodeTypeRegular,
+							KeyField:       linkedMeta.Key,
+							Meta:           linkedMeta,
+							ChildNodes:     *data.NewChildNodes(),
+							Depth:          1,
+							OnlyLink:       false,
+							Parent:         nil,
+							Type:           data.NodeTypeRegular,
+							SelectFields:   *data.NewSelectFields(linkedMeta.Key, linkedMeta.TableFields()),
 						}
 					}
 				}
@@ -412,40 +414,6 @@ func (ctx *context) sqlOpIN(field *meta.FieldDescription, args []interface{}) (s
 	return expression.String(), nil
 }
 
-func (ctx *context) sqlOpEQ(field *meta.FieldDescription, vals []interface{}) (string, error) {
-	value, err := argToFieldVal(vals[0], field)
-	if err != nil {
-		return "", err
-	}
-
-	var p bytes.Buffer
-	if value == nil {
-		//special for null processing
-		p.WriteString(" IS NULL")
-	} else {
-		p.WriteString("=")
-		p.WriteString(ctx.addBind(value))
-	}
-	return p.String(), nil
-}
-
-func (ctx *context) sqlOpNE(f *meta.FieldDescription, vals []interface{}) (string, error) {
-	v, err := argToFieldVal(vals[0], f)
-	if err != nil {
-		return "", err
-	}
-
-	var p bytes.Buffer
-	if v == nil {
-		//special for null processing
-		p.WriteString(" IS NOT NULL")
-	} else {
-		p.WriteString("!=")
-		p.WriteString(ctx.addBind(v))
-	}
-	return p.String(), nil
-}
-
 func (ctx *context) sqlOpSimple(op string) sqlOp {
 	return func(f *meta.FieldDescription, vals []interface{}) (string, error) {
 		v, err := argToFieldVal(vals[0], f)
@@ -476,13 +444,13 @@ func eq(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "eq", len(args))
 	}
-	return ctx.makeFieldExpression(args, ctx.sqlOpEQ)
+	return ctx.makeFieldExpression(args, ctx.sqlOpSimple("="))
 }
 func ne(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "ne", len(args))
 	}
-	return ctx.makeFieldExpression(args, ctx.sqlOpNE)
+	return ctx.makeFieldExpression(args, ctx.sqlOpSimple("!="))
 }
 func lt(ctx *context, args []interface{}) (expr, error) {
 	if len(args) != 2 {
@@ -513,6 +481,26 @@ func like(ctx *context, args []interface{}) (expr, error) {
 		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "like", len(args))
 	}
 	return ctx.makeFieldExpression(args, ctx.sqlOpSimple("ILIKE "))
+}
+
+func is_null(ctx *context, args []interface{}) (expr, error) {
+	if len(args) != 2 {
+		return nil, NewRqlError(ErrRQLWrong, "Expected only two arguments for '%s' rql function but founded '%d'", "is_null", len(args))
+	}
+
+	var res = "IS NULL"
+
+	value, err := strconv.ParseBool(args[1].(string))
+
+	if err != nil {
+		return nil, NewRqlError(ErrRQLWrong, "Second argument for is_null() must be 'true' or 'false'")
+	} else if value == false {
+		 res = "IS NOT NULL"
+	}
+
+	return ctx.makeFieldExpression(args, func(f *meta.FieldDescription, vals []interface{}) (string, error) {
+		return res, nil
+	})
 }
 
 func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error) {

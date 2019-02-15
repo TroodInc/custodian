@@ -17,7 +17,7 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -141,7 +141,7 @@ var _ = Describe("Data", func() {
 			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), 1, false)
+			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), nil, nil, 1, false)
 			Expect(aRecord.Data).To(HaveKey("b_set"))
 		})
 
@@ -153,7 +153,7 @@ var _ = Describe("Data", func() {
 			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), 1, false)
+			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), nil, nil, 1, false)
 			Expect(aRecord.Data).NotTo(HaveKey("b_set"))
 		})
 	})

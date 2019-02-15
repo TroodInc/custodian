@@ -16,7 +16,7 @@ import (
 var _ = Describe("The PG MetaStore", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
@@ -476,7 +476,7 @@ var _ = Describe("The PG MetaStore", func() {
 				},
 			},
 		}
-		By("and having an object B reversing A")
+		By("and having an object B referencing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
 				Name: "b",
@@ -520,7 +520,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteCascade))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(description.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -590,7 +590,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteCascade))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(description.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -660,7 +660,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteSetNull))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(description.OnDeleteSetNull))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -730,7 +730,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteRestrict))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(description.OnDeleteRestrict))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -800,7 +800,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(globalTransaction, bMeta.Name, true)
-			Expect(bMeta.FindField("a").OnDelete).To(Equal(description.OnDeleteSetDefault))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(description.OnDeleteSetDefault))
 			Expect(err).To(BeNil())
 		})
 	})

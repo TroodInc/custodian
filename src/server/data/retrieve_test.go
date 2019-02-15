@@ -17,7 +17,7 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -122,7 +122,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			//
-			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObject.Name, bRecord.PkAsString(), 1, false)
+			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObject.Name, bRecord.PkAsString(), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("as"))
 			Expect(bRecord.Data).To(HaveLen(2))
@@ -213,7 +213,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			//
-			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObject.Name, bRecord.PkAsString(), 2, false)
+			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObject.Name, bRecord.PkAsString(), nil, nil, 2, false)
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("as"))
 			Expect(bRecord.Data["as"]).To(HaveLen(2))

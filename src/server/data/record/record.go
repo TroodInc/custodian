@@ -4,6 +4,7 @@ import (
 	"server/object/meta"
 	"server/data/types"
 	"server/object/description"
+	"time"
 )
 
 type Record struct {
@@ -80,8 +81,8 @@ func (record *Record) MergeData() {
 	}
 }
 
-//prepare data for DB operations: replace complex links with their primitive values
-func (record *Record) PrepareData() {
+//prepare data for DB operations: replace complex links with their primitive values,
+func (record *Record) PrepareData(operationType RecordOperationType) {
 	record.RawData = map[string]interface{}{}
 	for k, v := range record.Data {
 		switch link := v.(type) {
@@ -101,6 +102,26 @@ func (record *Record) PrepareData() {
 			record.RawData[k] = record.Data[k]
 		}
 	}
+	record.setAutoValues(operationType)
+}
+
+func (record *Record) setAutoValues(operationType RecordOperationType) {
+	for _, field := range record.Meta.Fields {
+		if operationType == RecordOperationTypeUpdate && field.NowOnUpdate || operationType == RecordOperationTypeCreate && field.NowOnCreate {
+			var value string
+			switch field.Type {
+			case description.FieldTypeDateTime:
+				value = time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00")
+			case description.FieldTypeDate:
+				value = time.Now().UTC().Format("2006-01-02")
+			case description.FieldTypeTime:
+				value = time.Now().UTC().Format("15:04:05.123456789")
+			}
+			if value != "" {
+				record.RawData[field.Name] = value
+			}
+		}
+	}
 }
 
 func (record *Record) Pk() interface{} {
@@ -117,7 +138,6 @@ func (record *Record) IsPhantom() bool {
 	_, pkIsSet := record.Data[record.Meta.Key.Name]
 	return !pkIsSet
 }
-
 
 func NewRecord(meta *meta.Meta, data map[string]interface{}) *Record {
 	record := &Record{Meta: meta, Data: data, RawData: nil}

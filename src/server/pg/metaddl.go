@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"server/object/meta"
 	"regexp"
 	"strconv"
 	"strings"
@@ -21,11 +20,15 @@ type DDLStmt struct {
 	time int
 }
 
+func NewDdlStatement(name string, code string) *DDLStmt {
+	return &DDLStmt{Name: name, Code: code}
+}
+
 //Collection of the DDL statements
-type DDLStmts []*DDLStmt
+type DdlStatementSet []*DDLStmt
 
 //Adds a DDL statement to the colletcion of them
-func (ds *DDLStmts) Add(s *DDLStmt) {
+func (ds *DdlStatementSet) Add(s *DDLStmt) {
 	*ds = append(*ds, s)
 }
 
@@ -190,7 +193,7 @@ func (c *ColDefValSeq) ddlVal() (string, error) {
 }
 
 type ColDefValFunc struct {
-	*meta.DefExpr
+	*description.DefExpr
 }
 
 func (dFunc *ColDefValFunc) ddlVal() (string, error) {
@@ -210,7 +213,11 @@ var ddlFuncs = template.FuncMap{"dict": dictionary}
 func valToDdl(v interface{}) (string, error) {
 	switch v := v.(type) {
 	case string:
-		return fmt.Sprintf(`'%s'`, v), nil
+		if len(v) > 0 {
+			return fmt.Sprintf(`'%s'`, v), nil
+		} else {
+			return "", nil
+		}
 	case int:
 		return strconv.Itoa(v), nil
 	case uint:
@@ -230,7 +237,7 @@ func valToDdl(v interface{}) (string, error) {
 	}
 }
 
-func newFieldSeq(f *meta.FieldDescription, args []interface{}) (*Seq, error) {
+func newFieldSeq(metaName string, f *description.Field, args []interface{}) (*Seq, error) {
 	if len(args) > 0 {
 		if name, err := valToDdl(args[0]); err == nil {
 			return &Seq{Name: name}, nil
@@ -238,51 +245,51 @@ func newFieldSeq(f *meta.FieldDescription, args []interface{}) (*Seq, error) {
 			return nil, err
 		}
 	} else {
-		return &Seq{Name: GetTableName(f.Meta) + "_" + f.Name + "_seq"}, nil
+		return &Seq{Name: GetTableName(metaName) + "_" + f.Name + "_seq"}, nil
 	}
 }
 
-func defaultNextval(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
-	if s, err := newFieldSeq(f, args); err == nil {
+func defaultNextval(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
+	if s, err := newFieldSeq(metaName, f, args); err == nil {
 		return &ColDefValSeq{s}, nil
 	} else {
 		return nil, err
 	}
 }
 
-func defaultCurrentDate(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultCurrentDate(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefDate{}, nil
 }
 
-func defaultCurrentTimestamp(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultCurrentTimestamp(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefTimestamp{}, nil
 }
 
-func defaultNow(f *meta.FieldDescription, args []interface{}) (ColDefVal, error) {
+func defaultNow(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefNow{}, nil
 }
 
-var defaultFuncs = map[string]func(f *meta.FieldDescription, args []interface{}) (ColDefVal, error){
+var defaultFuncs = map[string]func(metaName string, f *description.Field, args []interface{}) (ColDefVal, error){
 	"nextval":           defaultNextval,
 	"current_date":      defaultCurrentDate,
 	"current_timestamp": defaultCurrentTimestamp,
 	"now":               defaultNow,
 }
 
-func newColDefVal(f *meta.FieldDescription) (ColDefVal, error) {
+func newColDefVal(metaName string, f *description.Field) (ColDefVal, error) {
 	if def := f.Default(); def != nil {
 		switch v := def.(type) {
-		case meta.DefConstStr:
+		case description.DefConstStr:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstFloat:
+		case description.DefConstFloat:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstInt:
+		case description.DefConstInt:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstBool:
+		case description.DefConstBool:
 			return newColDefValSimple(v.Value)
-		case meta.DefExpr:
+		case description.DefExpr:
 			if fn, ok := defaultFuncs[strings.ToLower(v.Func)]; ok {
-				return fn(f, v.Args)
+				return fn(metaName, f, v.Args)
 			} else {
 				return &ColDefValFunc{&v}, nil
 			}
@@ -337,7 +344,7 @@ const (
 var parsedTemplCreateTable = template.Must(template.Must(template.Must(template.New("create_table_ddl").Funcs(ddlFuncs).Parse(templCreateTable)).Parse(templCreateTableColumns)).Parse(templCreateTableInnerFK))
 
 //Creates a DDL script to make a table based on the metadata
-func (md *MetaDDL) createTableScript() (*DDLStmt, error) {
+func (md *MetaDDL) CreateTableDdlStatement() (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplCreateTable.Execute(&buffer, md); e != nil {
 		return nil, &DDLError{table: md.Table, code: ErrInternal, msg: e.Error()}
@@ -351,7 +358,7 @@ const templDropTable94 = `DROP TABLE "{{.Table}}" {{.Mode}};`
 var parsedTemplDropTable = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(templDropTable94))
 
 //Creates a DDL to drop a table
-func (md *MetaDDL) dropTableScript(force bool) (*DDLStmt, error) {
+func (md *MetaDDL) DropTableDdlStatement(force bool) (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	var mode string
 	if force {
@@ -491,7 +498,7 @@ const templCreateSeq94 = `CREATE SEQUENCE "{{.Name}}";`
 
 var parsedTemplCreateSeq = template.Must(template.New("add_seq").Funcs(ddlFuncs).Parse(templCreateSeq94))
 
-func (s *Seq) createScript() (*DDLStmt, error) {
+func (s *Seq) CreateDdlStatement() (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplCreateSeq.Execute(&buffer, s); e != nil {
 		return nil, &DDLError{table: s.Name, code: ErrInternal, msg: e.Error()}
@@ -504,7 +511,7 @@ const templDropSeq94 = `DROP SEQUENCE "{{.Name}}";`
 
 var parsedTemplDropSeq = template.Must(template.New("drop_seq").Funcs(ddlFuncs).Parse(templDropSeq94))
 
-func (s *Seq) dropScript() (*DDLStmt, error) {
+func (s *Seq) DropDdlStatement() (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplDropSeq.Execute(&buffer, s); e != nil {
 		return nil, &DDLError{table: s.Name, code: ErrInternal, msg: e.Error()}
@@ -513,16 +520,16 @@ func (s *Seq) dropScript() (*DDLStmt, error) {
 }
 
 //Creates a full DDL to create a table and foreign getColumnsToInsert refer to it
-func (md *MetaDDL) CreateScript() (DDLStmts, error) {
-	var stmts = DDLStmts{}
+func (md *MetaDDL) CreateScript() (DdlStatementSet, error) {
+	var stmts = DdlStatementSet{}
 	for i, _ := range md.Seqs {
-		if s, e := md.Seqs[i].createScript(); e != nil {
-			return nil, e
+		if statement, err := md.Seqs[i].CreateDdlStatement(); err != nil {
+			return nil, err
 		} else {
-			stmts.Add(s)
+			stmts.Add(statement)
 		}
 	}
-	if s, e := md.createTableScript(); e != nil {
+	if s, e := md.CreateTableDdlStatement(); e != nil {
 		return nil, e
 	} else {
 		stmts.Add(s)
@@ -531,16 +538,16 @@ func (md *MetaDDL) CreateScript() (DDLStmts, error) {
 }
 
 //Creates a full DDL to remove a table and foreign getColumnsToInsert refer to it
-func (md *MetaDDL) DropScript(force bool) (DDLStmts, error) {
-	var stmts = DDLStmts{}
-	if s, e := md.dropTableScript(force); e != nil {
+func (md *MetaDDL) DropScript(force bool) (DdlStatementSet, error) {
+	var stmts = DdlStatementSet{}
+	if s, e := md.DropTableDdlStatement(force); e != nil {
 		return nil, e
 	} else {
 		stmts.Add(s)
 	}
 
 	for i, _ := range md.Seqs {
-		if s, e := md.Seqs[i].dropScript(); e != nil {
+		if s, e := md.Seqs[i].DropDdlStatement(); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)
@@ -655,8 +662,8 @@ func (m1 *MetaDDL) Diff(m2 *MetaDDL) (*MetaDDLDiff, error) {
 	return mdd, nil
 }
 
-func (m *MetaDDLDiff) Script() (DDLStmts, error) {
-	var stmts = DDLStmts{}
+func (m *MetaDDLDiff) Script() (DdlStatementSet, error) {
+	var stmts = DdlStatementSet{}
 	for i, _ := range m.IFKsRem {
 		if s, e := m.IFKsRem[i].dropScript(m.Table); e != nil {
 			return nil, e
@@ -672,14 +679,14 @@ func (m *MetaDDLDiff) Script() (DDLStmts, error) {
 		}
 	}
 	for i, _ := range m.SeqsRem {
-		if s, e := m.SeqsRem[i].dropScript(); e != nil {
+		if s, e := m.SeqsRem[i].DropDdlStatement(); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)
 		}
 	}
 	for i, _ := range m.SeqsAdd {
-		if s, e := m.SeqsAdd[i].createScript(); e != nil {
+		if s, e := m.SeqsAdd[i].CreateDdlStatement(); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)
@@ -707,7 +714,7 @@ func (m *MetaDDLDiff) Script() (DDLStmts, error) {
 		}
 	}
 	/*for i, _ := range m.OFKsAdd {
-		if s, e := m.OFKsAdd[i].createScript(); e != nil {
+		if s, e := m.OFKsAdd[i].CreateTableDdlStatement(); e != nil {
 			return nil, e
 		} else {
 			stmts.Add(s)
@@ -718,13 +725,13 @@ func (m *MetaDDLDiff) Script() (DDLStmts, error) {
 
 const TableNamePrefix = "o_"
 
-func GetTableName(m *meta.Meta) string {
+func GetTableName(metaName string) string {
 	name := bytes.NewBufferString(TableNamePrefix)
-	name.WriteString(m.Name)
+	name.WriteString(metaName)
 	return name.String()
 }
 
-var seqNameParseRe = regexp.MustCompile("nextval\\('(.*)'::regclass\\)")
+var seqNameParseRe = regexp.MustCompile("nextval\\('(?:\"?)(.*?)(?:\"?)'::regclass\\)")
 
 func MetaDDLFromDB(tx *sql.Tx, name string) (*MetaDDL, error) {
 	md := &MetaDDL{Table: TableNamePrefix + name}

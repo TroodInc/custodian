@@ -50,7 +50,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 			} else if field.Type == description.FieldTypeGeneric {
 				filter = r.makeGenericFilter(field.OuterLinkField, recordNode.Record.Meta.Name, pkAsString)
 			}
-			_, err = processor.GetBulk(dbTransaction, field.LinkMeta.Name, filter, 1, false, callbackFunction)
+			_, err = processor.GetBulk(dbTransaction, field.LinkMeta.Name, filter, nil, nil, 1, false, callbackFunction)
 			if err != nil {
 				return err
 			}
@@ -60,7 +60,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 				for _, relatedRecord := range relatedRecords {
 					newRecordNode := NewRecordRemovalNode(
 						record.NewRecord(field.LinkMeta, relatedRecord),
-						&field.OuterLinkField.OnDelete,
+						field.OuterLinkField.OnDeleteStrategy(),
 						recordNode,
 						field.OuterLinkField,
 					)

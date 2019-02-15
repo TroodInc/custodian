@@ -19,12 +19,13 @@ import (
 	"server/transactions"
 	"server/object/description"
 	"server"
+	"server/data/record"
 )
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -46,7 +47,7 @@ var _ = Describe("Server", func() {
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(false)
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
 		recorder = httptest.NewRecorder()
 
 	})
@@ -166,39 +167,59 @@ var _ = Describe("Server", func() {
 		Expect(err).To(BeNil())
 		return metaObj
 	}
+	Context("having a record of given object", func() {
+		var aRecord *record.Record
+		var objectB *meta.Meta
+		BeforeEach(func() {
 
-	It("creates record and outputs its data respecting depth", func() {
-		Context("having a record of given object", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
 			objectA := factoryObjectA(globalTransaction)
-			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			objectB := factoryObjectB(globalTransaction)
+			objectB = factoryObjectB(globalTransaction)
 			factoryObjectAWithManuallySetOuterLinkToB(globalTransaction)
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
 
-			Context("and create request performed by URL with specified record ID with wrong id specified in body", func() {
-				createData := map[string]interface{}{
-					"name": "B record name",
-					"a":    aRecord.Data["id"],
-				}
-				encodedMetaData, _ := json.Marshal(createData)
+		It("creates record and outputs its data respecting depth", func() {
+			createData := map[string]interface{}{
+				"name": "B record name",
+				"a":    aRecord.Data["id"],
+			}
+			encodedMetaData, _ := json.Marshal(createData)
 
-				url := fmt.Sprintf("%s/data/single/%s?depth=2", appConfig.UrlPrefix, objectB.Name)
+			url := fmt.Sprintf("%s/data/single/%s?depth=2", appConfig.UrlPrefix, objectB.Name)
 
-				var request, _ = http.NewRequest("PUT", url, bytes.NewBuffer(encodedMetaData))
-				request.Header.Set("Content-Type", "application/json")
-				httpServer.Handler.ServeHTTP(recorder, request)
-				responseBody := recorder.Body.String()
+			var request, _ = http.NewRequest("PUT", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
 
-				Context("response should contain nested A record", func() {
-					Expect(responseBody).To(Equal(`{"data":{"a":{"b_set":[1],"id":1,"name":"A record"},"id":1,"name":"B record name"},"status":"OK"}`))
-				})
+			Context("response should contain nested A record", func() {
+				Expect(responseBody).To(Equal(`{"data":{"a":{"b_set":[1],"id":1,"name":"A record"},"id":1,"name":"B record name"},"status":"OK"}`))
+			})
+		})
 
+		It("creates record and outputs its data respecting depth, omitting fields specified in 'exclude' key", func() {
+			createData := map[string]interface{}{
+				"name": "B record name",
+				"a":    aRecord.Data["id"],
+			}
+			encodedMetaData, _ := json.Marshal(createData)
+
+			url := fmt.Sprintf("%s/data/single/%s?depth=2,exclude=a", appConfig.UrlPrefix, objectB.Name)
+
+			var request, _ = http.NewRequest("PUT", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			Context("response should contain nested A record", func() {
+				Expect(responseBody).To(Equal(`{"data":{"a":1,"id":1,"name":"B record name"},"status":"OK"}`))
 			})
 		})
 	})

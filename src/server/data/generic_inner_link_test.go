@@ -20,7 +20,7 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -607,7 +607,7 @@ var _ = Describe("Data", func() {
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
 
-			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), 1, false)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			targetValue := bRecord.Data["target"].(map[string]interface{})
 			Expect(targetValue["_object"]).To(Equal("a"))
@@ -624,7 +624,7 @@ var _ = Describe("Data", func() {
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
 
-			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), 3, false)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), nil, nil, 3, false)
 			Expect(err).To(BeNil())
 			targetValue := bRecord.Data["target"].(map[string]interface{})
 			Expect(targetValue["_object"]).To(Equal("a"))
@@ -650,7 +650,7 @@ var _ = Describe("Data", func() {
 			}, auth.User{})
 			Expect(err).To(BeNil())
 
-			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "c", strconv.Itoa(int(cRecord.Data["id"].(float64))), 3, false)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "c", strconv.Itoa(int(cRecord.Data["id"].(float64))), nil, nil, 3, false)
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data["target"].(map[string]interface{})["_object"].(string)).To(Equal("b"))
 			Expect(bRecord.Data["target"].(map[string]interface{})["target"].(map[string]interface{})["name"].(string)).To(Equal("A record"))
@@ -664,7 +664,7 @@ var _ = Describe("Data", func() {
 			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), 3, false)
+			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), nil, nil, 3, false)
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("target"))
 			Expect(bRecord.Data["target"]).To(BeNil())
@@ -687,7 +687,7 @@ var _ = Describe("Data", func() {
 			}, auth.User{})
 			Expect(err).To(BeNil())
 
-			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), 2, false)
+			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "b", strconv.Itoa(int(bRecord.Data["id"].(float64))), nil, nil, 2, false)
 			Expect(err).To(BeNil())
 
 			_, ok := bRecord.Data["target"].(map[string]interface{})["d_set"].([]interface{})
@@ -820,7 +820,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target.a.name,A%20record)", 1, false, callbackFunction)
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target.a.name,A%20record)", nil, nil, 1, false, callbackFunction)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]interface{})
@@ -844,7 +844,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target.a.name,A%20record)", 2, false, callbackFunction)
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target.a.name,A%20record)", nil, nil, 2, false, callbackFunction)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]interface{})
@@ -871,7 +871,7 @@ var _ = Describe("Data", func() {
 				return nil
 			}
 
-			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target._object,a)", 2, false, callbackFunction)
+			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "b", "eq(target._object,a)", nil, nil, 2, false, callbackFunction)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0]["target"].(map[string]interface{})

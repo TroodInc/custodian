@@ -1,27 +1,24 @@
-package pg_test
+package object
 
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/pg"
 	"utils"
-	"server/transactions/file_transaction"
-
-	pg_transactions "server/pg/transactions"
 	"server/object/meta"
+	"server/transactions/file_transaction"
+	pg_transactions "server/pg/transactions"
 	"server/transactions"
 	"server/object/description"
-	"server/data"
-	"server/auth"
 )
 
-var _ = Describe("Store", func() {
+var _ = Describe("'CreateObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
@@ -29,6 +26,9 @@ var _ = Describe("Store", func() {
 
 	var globalTransaction *transactions.GlobalTransaction
 
+	var metaDescription *description.MetaDescription
+
+	//setup transaction
 	BeforeEach(func() {
 		var err error
 
@@ -36,21 +36,12 @@ var _ = Describe("Store", func() {
 		Expect(err).To(BeNil())
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
 	})
 
-	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	It("Having an record for person with null value", func() {
-		//create meta
-		meta := description.MetaDescription{
-			Name: "person",
+	//setup MetaDescription
+	BeforeEach(func() {
+		metaDescription = &description.MetaDescription{
+			Name: "a",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -60,28 +51,32 @@ var _ = Describe("Store", func() {
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
-					Optional: true,
-				}, {
-					Name:     "name",
-					Type:     description.FieldTypeString,
-					Optional: false,
-				}, {
-					Name:     "gender",
-					Type:     description.FieldTypeString,
-					Optional: true,
 				},
 			},
 		}
-		metaDescription, _ := metaStore.NewMeta(&meta)
+	})
 
-		err := metaStore.Create(globalTransaction, metaDescription)
+	//setup teardown
+	AfterEach(func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		//create record
-		recordData := map[string]interface{}{
-			"name": "Sergey",
-		}
-		record, _ := dataProcessor.CreateRecord(globalTransaction.DbTransaction, meta.Name, recordData, auth.User{})
-		Expect(record.Data).To(HaveKey("gender"))
+		metaStore.Flush(globalTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
+
+	It("stores MetaDescription to file", func() {
+
+		operation := CreateObjectOperation{MetaDescription: metaDescription}
+
+		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		Expect(metaDescription).NotTo(BeNil())
+
+		//ensure MetaDescription has been save to file
+		metaDescription, _, err = metaDescriptionSyncer.Get(metaDescription.Name)
+		Expect(metaDescription).NotTo(BeNil())
+		//clean up
+		metaDescriptionSyncer.Remove(metaDescription.Name)
 	})
 })

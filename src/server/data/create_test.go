@@ -18,7 +18,7 @@ import (
 var _ = Describe("Create test", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -498,7 +498,7 @@ var _ = Describe("Create test", func() {
 			matchedRecords = append(matchedRecords, obj)
 			return nil
 		}
-		dataProcessor.GetBulk(globalTransaction.DbTransaction, aMeta.FindField("cs").LinkThrough.Name, filter, 1, true, callbackFunction)
+		dataProcessor.GetBulk(globalTransaction.DbTransaction, aMeta.FindField("cs").LinkThrough.Name, filter, nil, nil, 1, true, callbackFunction)
 		Expect(matchedRecords).To(HaveLen(1))
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})

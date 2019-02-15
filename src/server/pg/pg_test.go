@@ -20,7 +20,7 @@ import (
 var _ = Describe("PG MetaStore test", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -233,12 +233,10 @@ var _ = Describe("PG MetaStore test", func() {
 						},
 					},
 					{
-						Name:     "date",
-						Type:     description.FieldTypeDate,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "CURRENT_DATE",
-						},
+						Name:        "date",
+						Type:        description.FieldTypeDate,
+						Optional:    true,
+						NowOnCreate: true,
 					},
 				},
 			}
@@ -309,12 +307,10 @@ var _ = Describe("PG MetaStore test", func() {
 						},
 					},
 					{
-						Name:     "created",
-						Type:     description.FieldTypeDateTime,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "CURRENT_TIMESTAMP",
-						},
+						Name:        "created",
+						Type:        description.FieldTypeDateTime,
+						Optional:    true,
+						NowOnCreate: true,
 					},
 				},
 			}
@@ -370,12 +366,10 @@ var _ = Describe("PG MetaStore test", func() {
 								},
 							},
 							{
-								Name:     "created",
-								Type:     description.FieldTypeDateTime,
-								Optional: false,
-								Def: map[string]interface{}{
-									"func": "CURRENT_TIMESTAMP",
-								},
+								Name:        "created",
+								Type:        description.FieldTypeDateTime,
+								Optional:    true,
+								NowOnCreate: true,
 							},
 						},
 					}
@@ -419,11 +413,10 @@ var _ = Describe("PG MetaStore test", func() {
 			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", 1,false)
+			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(record.Data["order"]).To(Equal("value"))
 
 		})
 	})
-
 })

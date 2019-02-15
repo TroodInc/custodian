@@ -19,7 +19,7 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
@@ -631,7 +631,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), 2, false)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
 		Expect(err).To(BeNil())
 		Expect(record.Data).To(HaveKey("b_set"))
 		bSetData = record.Data["b_set"].([]interface{})
@@ -640,7 +640,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check B record is deleted
 		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, 1, false)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
 		Expect(err).To(BeNil())
 		Expect(record).To(BeNil())
 	})
@@ -679,7 +679,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), 2, false)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
 		Expect(err).To(BeNil())
 		Expect(record.Data).To(HaveKey("b_set"))
 		bSetData = record.Data["b_set"].([]interface{})
@@ -688,7 +688,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check B record is not deleted
 		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, 1, false)
+		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
 		Expect(err).To(BeNil())
 		Expect(record).NotTo(BeNil())
 	})
@@ -838,7 +838,7 @@ var _ = Describe("Data", func() {
 		_, err = dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
 		Expect(err).To(BeNil())
 
-		aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), 1, false)
+		aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), nil, nil, 1, false)
 		Expect(err).To(BeNil())
 
 		Expect(aRecord.Data).To(HaveKey("ds"))

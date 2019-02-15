@@ -13,10 +13,10 @@ type ResultNode struct {
 //Replace link values with its objects` full extended value
 func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNode, error) {
 	childNodeResults := make([]ResultNode, 0)
-	for _, childNode := range resultNode.node.ChildNodes {
+	for _, childNode := range resultNode.node.ChildNodes.Nodes() {
 
 		//if the current level equals to depth limit, only outer links(ie plural nodes) should be resolved
-		if !childNode.plural && resultNode.node.Depth == ctx.depthLimit {
+		if !childNode.plural && childNode.OnlyLink && childNode.RetrievePolicy == nil {
 			continue
 		}
 
@@ -85,24 +85,40 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			if k == nil || k.(types.GenericInnerLink).ObjectName == "" {
 				continue
 			}
+			//retrieve policy for generic fields is specific for each record, so it should be build on the go
+			var retrievePolicyForThisMeta *AggregatedRetrievePolicy
+			if resultNode.node.RetrievePolicy != nil {
+				retrievePolicyForThisField := resultNode.node.RetrievePolicy.SubPolicyForNode(childNode.LinkField.Name)
+				if retrievePolicyForThisField != nil {
+					retrievePolicyForThisMeta = retrievePolicyForThisField.SubPolicyForNode(k.(types.GenericInnerLink).ObjectName)
+				}
+			}
+			//OnlyLink should be determined on the go, because it depends on concrete record and its policies
+			defaultOnlyLink := childNode.OnlyLink
+			childNode.OnlyLink = childNode.Depth > ctx.depthLimit
+			childNode.ChildNodes = *NewChildNodes()
+			childNode.RetrievePolicy = retrievePolicyForThisMeta
+			childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(k.(types.GenericInnerLink).ObjectName)
+			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.Key, childNodeLinkMeta.TableFields())
+			childNode.Meta = childNodeLinkMeta
+			childNode.KeyField = childNodeLinkMeta.Key
+			childNode.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+
 			if resolvedValue, e := childNode.Resolve(ctx, k); e != nil {
+				childNode.OnlyLink = defaultOnlyLink
 				return nil, e
 			} else if resolvedValue != nil {
 				resultNode.values[childNode.LinkField.Name] = resolvedValue
-				if childNode.Depth <= ctx.depthLimit {
-					//dynamically fill child nodes, because child node can be determined only with generic field data
-					// values
 
-					childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(resolvedValue.(map[string]interface{})[types.GenericInnerLinkObjectKey].(string))
-					childNode.Meta = childNodeLinkMeta
-					childNode.KeyField = childNodeLinkMeta.Key
-					childNode.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
-				}
+				//dynamically fill child nodes, because child node can be determined only with generic field data
+				// values
 
 				if !childNode.OnlyLink {
 					childNodeResults = append(childNodeResults, ResultNode{childNode, resolvedValue.(map[string]interface{})})
 				}
+				childNode.OnlyLink = defaultOnlyLink
 			} else {
+				childNode.OnlyLink = defaultOnlyLink
 				delete(resultNode.values, childNode.LinkField.Name)
 			}
 		}

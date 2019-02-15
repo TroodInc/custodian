@@ -16,13 +16,13 @@ import (
 var _ = Describe("Objects field", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	fileMetaDriver := meta.NewFileMetaDriver("./")
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(fileMetaDriver.Remove, fileMetaDriver.Create)
+	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 

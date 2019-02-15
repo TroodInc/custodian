@@ -16,7 +16,7 @@ import (
 var _ = Describe("Node", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDriver("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
@@ -131,16 +131,14 @@ var _ = Describe("Node", func() {
 				node := &data.Node{
 					KeyField:   objectAMeta.Key,
 					Meta:       objectAMeta,
-					ChildNodes: make(map[string]*data.Node),
+					ChildNodes: *data.NewChildNodes(),
 					Depth:      1,
 					OnlyLink:   false,
 					Parent:     nil,
 				}
 				node.RecursivelyFillChildNodes(100, description.FieldModeRetrieve)
-				Expect(node.ChildNodes["c"].ChildNodes["b"].ChildNodes["a"].ChildNodes).To(HaveLen(0))
+				Expect(node.ChildNodes.Nodes()["c"].ChildNodes.Nodes()["b"].ChildNodes.Nodes()["a"].ChildNodes.Nodes()).To(HaveLen(0))
 			})
 		})
-
 	})
-
 })
