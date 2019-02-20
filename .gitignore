@@ -24,3 +24,6 @@ pkg
 src/github.com
 src/golang.org
 src/gopkg.in
+
+docs/_build
+docs/autoapi
