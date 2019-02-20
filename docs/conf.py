@@ -59,6 +59,7 @@ autoapi_dirs = [
     '../src/server/streams',
     '../src/server/transactions',
 ]
+autoapi_ignore = ['_test.go']
 
 autoapi_keep_files = True
 

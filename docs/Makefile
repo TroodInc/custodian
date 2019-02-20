@@ -1,6 +1,5 @@
 # Minimal makefile for Sphinx documentation
 #
-export PATH := /Users/ornot/go/bin:$(PATH)
 
 # You can set these variables from the command line.
 SPHINXOPTS    =
