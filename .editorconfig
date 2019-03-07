@@ -1,0 +1,20 @@
+; http://editorconfig.org/
+
+root = true
+
+[*]
+end_of_line = lf
+insert_final_newline = true
+charset = utf-8
+trim_trailing_whitespace = true
+
+[*.go]
+indent_style = tab
+indent_size = 8
+
+[*.py]
+max_line_length = 119
+indent_style = space
+
+[{Makefile,**.mk}]
+indent_style = tab
