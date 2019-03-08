@@ -1,6 +1,7 @@
-version: "2"
+version: "3.6"
 
 services:
+
   custodian:
     build:
       context: ../
@@ -13,20 +14,26 @@ services:
         DB_NAME: "custodian"
         DB_SSL_MODE: "disable"
     container_name: custodian
-    networks:
-      - test-network
+    depends_on:
+      - custodian_postgres
+    ports:
+      - 8000:8000
+    healthcheck:
+      test: curl http://localhost:8000 >/dev/null; if [[ $$? == 52 ]]; then echo 0; else echo 1; fi
+      interval: 10s
+      timeout: 10s
+      retries: 3
 
   custodian_postgres:
-    image: postgres:10.5
+    image: postgres:10-alpine
     container_name: postgres.custodian
     environment:
       LC_ALL: C.UTF-8
       POSTGRES_DB: custodian
       POSTGRES_USER: custodian
       POSTGRES_PASSWORD: custodian
-    networks:
-      - test-network
-
-networks:
-  test-network:
-    driver: bridge
+    healthcheck:
+      test: nc -w 2 localhost 5432 >/dev/null; if [[ $$? == 0 ]]; then echo 0; else echo 1; fi
+      interval: 10s
+      timeout: 10s
+      retries: 3
