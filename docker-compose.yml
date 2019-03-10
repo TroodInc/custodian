@@ -4,18 +4,21 @@ services:
 
   custodian:
     build:
-      context: ../
+      context: .
       dockerfile: ./deployment/Dockerfile
       args:
-        DB_HOST: "postgres.custodian"
+        DB_HOST: "postgres"
         DB_USER: "custodian"
         DB_PASSWORD: "custodian"
         DB_PORT: "5432"
         DB_NAME: "custodian"
         DB_SSL_MODE: "disable"
     container_name: custodian
+    restart: always
+    volumes:
+      - custodian-data:/data
     depends_on:
-      - custodian_postgres
+      - postgres
     ports:
       - 8000:8000
     healthcheck:
@@ -24,16 +27,38 @@ services:
       timeout: 10s
       retries: 3
 
-  custodian_postgres:
+  postgres:
     image: postgres:10-alpine
-    container_name: postgres.custodian
+    container_name: postgres
+    restart: always
     environment:
       LC_ALL: C.UTF-8
       POSTGRES_DB: custodian
       POSTGRES_USER: custodian
       POSTGRES_PASSWORD: custodian
+    ports:
+      - 5432:5432
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: nc -w 2 localhost 5432 >/dev/null; if [[ $$? == 0 ]]; then echo 0; else echo 1; fi
       interval: 10s
       timeout: 10s
       retries: 3
+
+  adminer:
+    image: adminer
+    restart: always
+    environment:
+      - ADMINER_DEFAULT_USER=custodian
+      - ADMINER_DEFAULT_PASSWORD=custodian
+      - ADMINER_DEFAULT_SERVER=postgres
+      - ADMINER_DESIGN=nette
+    ports:
+      - 8080:8080
+    depends_on:
+      - postgres
+
+volumes:
+  custodian-data:
+  postgres-data:
