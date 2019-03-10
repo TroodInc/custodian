@@ -9,7 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Stdlib "flag" used for arg params (Refactor). @oc
 
 ### Added
-- Initial CHANGELOG.md and README.md documentations added (General). @oc
+- Initial CHANGELOG.md and README.md files added (General). @oc
 - Repeatable builds with Glide package management tool added (Golang). @oc  
 - Pipenv used for Python dependencies (Python). "Pipenv is the officially 
   recommended Python packaging tool and dependency manager" @oc
