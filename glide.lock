@@ -1,0 +1,192 @@
+hash: 744272b779caf617f7ae662934b146e51b5693d46cb94e8fb27526d9b8c3de2d
+updated: 2019-03-10T13:06:16.720107197+03:00
+imports:
+- name: github.com/alecthomas/template
+  version: a0175ee3bccc567396460bf5acd36800cb10c49c
+  subpackages:
+  - parse
+- name: github.com/certifi/gocertifi
+  version: abcd5707844888d7088866f25df3a7a2ac337dc4
+- name: github.com/davecgh/go-spew
+  version: d8f796af33cc11cb798c1aaeb27a4ebc5099927d
+  subpackages:
+  - spew
+- name: github.com/fatih/structs
+  version: 4966fc68f5b7593aafa6cbbba2d65ec6e1416047
+- name: github.com/getlantern/deepcopy
+  version: b923171e8640f94369e21e324b1b0465cb82ec9f
+- name: github.com/getsentry/raven-go
+  version: f04e7487e9a6b9d9837d52743fb5f40576c56411
+- name: github.com/go-openapi/jsonpointer
+  version: ef5f0afec364d3b9396b7b77b43dbe26bf1f8004
+- name: github.com/go-openapi/jsonreference
+  version: 8483a886a90412cd6858df4ea3483dce9c8e35a3
+- name: github.com/go-openapi/spec
+  version: 53d776530bf78a11b03a7b52dd8a083086b045e5
+- name: github.com/go-openapi/swag
+  version: b28747f5c7f9eb6b0b82d2f87f365fff72b535c9
+- name: github.com/joho/godotenv
+  version: 23d116af351c84513e1946b527c88823e476be13
+- name: github.com/json-iterator/go
+  version: 0ff49de124c6f76f8494e194af75bde0f1a49a29
+- name: github.com/julienschmidt/httprouter
+  version: 348b672cd90d8190f8240323e372ecd1e66b59dc
+- name: github.com/konsorten/go-windows-terminal-sequences
+  version: f55edac94c9bbba5d6182a4be46d86a2c9b5b50e
+- name: github.com/lib/pq
+  version: 4ded0e9383f75c197b3a2aaa6d590ac52df6fd79
+  subpackages:
+  - oid
+- name: github.com/mailru/easyjson
+  version: 6243d8e04c3f819e79757e8bc3faa15c3cb27003
+  subpackages:
+  - buffer
+  - jlexer
+  - jwriter
+- name: github.com/mattn/go-colorable
+  version: 3a70a971f94a22f2fa562ffcc7a0eb45f5daf045
+- name: github.com/mattn/go-isatty
+  version: 369ecd8cea9851e459abb67eb171853e3986591e
+- name: github.com/mgutz/ansi
+  version: 9520e82c474b0a04dd04f8a40959027271bab992
+- name: github.com/modern-go/concurrent
+  version: bacd9c7ef1dd9b15be4a9909b8ac7a4e313eec94
+- name: github.com/modern-go/reflect2
+  version: 94122c33edd36123c84d5368cfb2b69df93a0ec8
+- name: github.com/pkg/errors
+  version: ba968bfe8b2f7e042a574c888954fccecfa385b4
+- name: github.com/pmezard/go-difflib
+  version: 5d4384ee4fb2527b0a1256a821ebfc92f91efefc
+  subpackages:
+  - difflib
+- name: github.com/PuerkitoBio/purell
+  version: 44968752391892e1b0d0b821ee79e9a85fa13049
+- name: github.com/PuerkitoBio/urlesc
+  version: de5bf2ad457846296e2031421a34e2568e304e35
+- name: github.com/q-cis-dev/go-rql-parser
+  version: 3b1269d420b0bdf0d495183c69f719be45621523
+- name: github.com/Q-CIS-DEV/go-rql-parser
+  version: 3b1269d420b0bdf0d495183c69f719be45621523
+- name: github.com/sirupsen/logrus
+  version: e1e72e9de974bd926e5c56f83753fba2df402ce5
+- name: github.com/stretchr/objx
+  version: c61a9dfcced1815e7d40e214d00d1a8669a9f58c
+- name: github.com/swaggo/swag
+  version: d95e114626732976ed73a165365089d6e21986cc
+  subpackages:
+  - example/basic/web
+- name: github.com/x-cray/logrus-prefixed-formatter
+  version: bb2702d423886830dee131692131d35648c382e2
+- name: golang.org/x/crypto
+  version: 8dd112bcdc25174059e45e07517d9fc663123347
+  subpackages:
+  - ssh/terminal
+- name: golang.org/x/net
+  version: 16b79f2e4e95ea23b2bf9903c9809ff7b013ce85
+  subpackages:
+  - context
+  - html
+  - html/atom
+  - html/charset
+  - idna
+  - webdav
+  - webdav/internal/xml
+- name: golang.org/x/sys
+  version: 30e92a19ae4a77dde818b8c3d41d51e4850cba12
+  subpackages:
+  - unix
+  - windows
+- name: golang.org/x/text
+  version: d14c52b222ee852cdba8b07206ca0c614b389876
+  subpackages:
+  - encoding
+  - encoding/charmap
+  - encoding/htmlindex
+  - encoding/internal
+  - encoding/internal/identifier
+  - encoding/japanese
+  - encoding/korean
+  - encoding/simplifiedchinese
+  - encoding/traditionalchinese
+  - encoding/unicode
+  - internal/language
+  - internal/language/compact
+  - internal/tag
+  - internal/utf8internal
+  - language
+  - runes
+  - secure/bidirule
+  - transform
+  - unicode/bidi
+  - unicode/norm
+  - width
+- name: golang.org/x/tools
+  version: 6a08e3108db3c45254bbacc63c70c6addc62e6cb
+  subpackages:
+  - go/ast/astutil
+  - go/buildutil
+  - go/gcexportdata
+  - go/internal/cgo
+  - go/internal/gcimporter
+  - go/internal/packagesdriver
+  - go/loader
+  - go/packages
+  - internal/fastwalk
+  - internal/gopathwalk
+  - internal/semver
+- name: gopkg.in/yaml.v2
+  version: 51d6538a90f86fe93ac480b35f37b2be17fef232
+testImports:
+- name: github.com/hpcloud/tail
+  version: a1dbeea552b7c8df4b542c66073e393de198a800
+  subpackages:
+  - ratelimiter
+  - util
+  - watch
+  - winfile
+- name: github.com/kr/pretty
+  version: 73f6ac0b30a98e433b289500d779f50c1a6f0712
+- name: github.com/kr/text
+  version: e2ffdb16a802fe2bb95e2e35ff34f0e53aeef34f
+- name: github.com/onsi/ginkgo
+  version: 2e1be8f7d90e9d3e3e58b0ce470f2f14d075406f
+  subpackages:
+  - config
+  - internal/codelocation
+  - internal/containernode
+  - internal/failer
+  - internal/leafnodes
+  - internal/remote
+  - internal/spec
+  - internal/spec_iterator
+  - internal/specrunner
+  - internal/suite
+  - internal/testingtproxy
+  - internal/writer
+  - reporters
+  - reporters/stenographer
+  - reporters/stenographer/support/go-colorable
+  - reporters/stenographer/support/go-isatty
+  - types
+- name: github.com/onsi/gomega
+  version: 65fb64232476ad9046e57c26cd0bff3d3a8dc6cd
+  subpackages:
+  - format
+  - internal/assertion
+  - internal/asyncassertion
+  - internal/oraclematcher
+  - internal/testingtsupport
+  - matchers
+  - matchers/support/goraph/bipartitegraph
+  - matchers/support/goraph/edge
+  - matchers/support/goraph/node
+  - matchers/support/goraph/util
+  - types
+- name: gopkg.in/check.v1
+  version: 788fd78401277ebd861206a03c884797c6ec5541
+- name: gopkg.in/fsnotify/fsnotify.v1
+  version: c2828203cd70a50dcccfb2761f8b1f8ceef9a8e9
+- name: gopkg.in/go-playground/assert.v1
+  version: 4f4dfbc7d1c48336cf93399deae81aa9067e88af
+- name: gopkg.in/tomb.v1
+  version: c131134a1947e9afd9cecfe11f4c6dff0732ae58
