@@ -13,6 +13,11 @@ Trood custodian service written on Golang.
 ```
 SERVICE_DOMAIN=
 SERVICE_AUTH_SECRET=
+DB_HOST=
+DB_USER=
+DB_PASSWORD=
+DB_NAME=
+DB_SSL_MODE=
 ```
 
 ## Building
