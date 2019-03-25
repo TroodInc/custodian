@@ -29,6 +29,10 @@ func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta
 	}
 }
 
+func (o *UpdateActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+	return nil
+}
+
 func NewUpdateActionOperation(currentAction, newAction *meta_description.Action) *UpdateActionOperation {
 	return &UpdateActionOperation{CurrentAction: currentAction, NewAction: newAction}
 }

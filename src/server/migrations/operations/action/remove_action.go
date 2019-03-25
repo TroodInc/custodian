@@ -6,6 +6,7 @@ import (
 	"server/migrations"
 	"fmt"
 	"server/object/description"
+	meta_description "server/object/description"
 )
 
 type RemoveActionOperation struct {
@@ -41,6 +42,10 @@ func (o *RemoveActionOperation) validate(metaDescription *description.MetaDescri
 			fmt.Sprintf("Object %s has no action named %s", metaDescription.Name, o.Action.Name),
 		)
 	}
+	return nil
+}
+
+func (o *RemoveActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	return nil
 }
 

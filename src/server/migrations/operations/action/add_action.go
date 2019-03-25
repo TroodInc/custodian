@@ -40,6 +40,10 @@ func (o *AddActionOperation) validate(metaDescription *meta_description.MetaDesc
 	return nil
 }
 
+func (o *AddActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+	return nil
+}
+
 func NewAddActionOperation(action *meta_description.Action) *AddActionOperation {
 	return &AddActionOperation{Action: action}
 }
