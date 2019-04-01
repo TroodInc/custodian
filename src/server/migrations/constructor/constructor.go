@@ -137,7 +137,7 @@ func (mc *MigrationConstructor) processFieldsUpdate(currentMetaDescription *desc
 			currentField := currentMetaDescription.FindField(fieldName)
 			if currentField != nil {
 				nameChanged := currentField.Name != newFieldDescription.Name
-				defChanged := currentField.Def != newFieldDescription.Def
+				defChanged := !reflect.DeepEqual(currentField.Def, newFieldDescription.Def)
 				onDeleteChanged := currentField.OnDelete != newFieldDescription.OnDelete
 				linkMetaListChanged := len(currentField.LinkMetaList.Diff(newFieldDescription.LinkMetaList)) > 0 || len(newFieldDescription.LinkMetaList.Diff(currentField.LinkMetaList)) > 0
 				optionalChanged := currentField.Optional != newFieldDescription.Optional
