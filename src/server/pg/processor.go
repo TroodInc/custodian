@@ -395,6 +395,10 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 		}
 	}
 
+	if len(updateInfo.Values) == 0 {
+		return emptyOperation, nil
+	}
+
 	if err := parsedTemplUpdate.Execute(&b, updateInfo); err != nil {
 		logger.Error("Prepare update SQL by template error: %s", err.Error())
 		return nil, NewDMLError(ErrTemplateFailed, err.Error())
