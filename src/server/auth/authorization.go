@@ -61,7 +61,7 @@ type TroodAuthenticator struct {
 	AuthUrl string
 }
 
-func (this *TroodAuthenticator) GetServiceToken() (string, error) {
+func GetServiceToken() (string, error) {
 	secret := os.Getenv("SERVICE_AUTH_SECRET")
 	domain := os.Getenv("SERVICE_DOMAIN")
 
@@ -88,7 +88,7 @@ func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, error){
 		client := &http.Client{}
 
 		user_token := strings.Split(auth_header, " ");
-		service_token, err := this.GetServiceToken()
+		service_token, err := GetServiceToken()
 
 		token_type := "user"
 		if user_token[0] == "Service" {
