@@ -7,6 +7,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"server/auth"
 	"time"
 )
 
@@ -210,7 +211,7 @@ func (rn *restNotifier) redelivery(body []byte, attempt byte) {
 			logger.Error("Can't schedule re-delivery for '%s' URL. Achived max re-delivery attempts '%d'", rn.url, REST_MAX_REDILIVERY_ATTEMPTS)
 		}
 	}
-	resp, err := restClient.Post(rn.url, "application/json", pr)
+	resp, err := postCallbackData(rn.url, pr)
 	if err != nil {
 		logger.Error("Error sending notification: %s", err.Error())
 		tryAgain()
@@ -230,7 +231,7 @@ func (rn *restNotifier) start(in chan *Event) {
 	body := newJsonBodyStream("events", mw)
 	complete := make(chan bool, 1)
 	go rn.consume(in, body, complete)
-	resp, err := restClient.Post(rn.url, "application/json", pr)
+	resp, err := postCallbackData(rn.url, pr)
 	failed := false
 	if err != nil {
 		logger.Error("Error sending notification: %s", err.Error())
@@ -258,4 +259,17 @@ func (rn *restNotifier) NewNotification() chan *Event {
 	in := make(chan *Event, 100)
 	go rn.start(in)
 	return in
+}
+
+func postCallbackData(url string, body io.Reader) (*http.Response, error){
+	callback_request, _ := http.NewRequest("POST", url, body)
+
+	service_token, err := auth.GetServiceToken()
+
+	if err == nil {
+		callback_request.Header.Add("Authorization", "Service " + service_token)
+		callback_request.Header.Add("Content-Type", "application/json")
+	}
+
+	return restClient.Do(callback_request)
 }
