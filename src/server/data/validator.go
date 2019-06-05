@@ -269,7 +269,7 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 		filter := fmt.Sprintf("eq(%s,%s)", fieldDescription.Meta.Name, record.PkAsString())
 		if len(beingAddedIds) > 0 {
 			excludeFilter := fmt.Sprintf("not(in(%s,(%s)))", fieldDescription.LinkMeta.Name, beingAddedIds)
-			filter = fmt.Sprintln(filter, ",", excludeFilter)
+			filter = fmt.Sprintf("%s,%s",filter,excludeFilter)
 		}
 		callbackFunction := func(obj map[string]interface{}) error {
 			recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkThrough, obj))

@@ -1,12 +1,13 @@
 package operations
 
 import (
-	"server/migrations/operations"
-	"server/migrations"
-	meta_description "server/object/description"
 	"fmt"
-	"server/pg/migrations/operations/field"
+	"server/migrations"
 	"server/migrations/description"
+	"server/migrations/operations"
+	"server/migrations/operations/action"
+	meta_description "server/object/description"
+	"server/pg/migrations/operations/field"
 	"server/pg/migrations/operations/object"
 )
 
@@ -44,8 +45,18 @@ func (of *OperationFactory) Factory(migrationDescription *description.MigrationD
 		return object.NewRenameObjectOperation(operationDescription.MetaDescription), nil
 	case description.DeleteObjectOperation:
 		return object.NewDeleteObjectOperation(), nil
+	case description.AddActionOperation:
+		return action.NewAddActionOperation(&operationDescription.Action.Action), nil
+	case description.UpdateActionOperation:
+		currentAction := metaDescription.FindAction(operationDescription.Action.PreviousName)
+		if currentAction == nil {
+			return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no action %s", metaDescription.Name, operationDescription.Action.PreviousName))
+		}
+		return action.NewUpdateActionOperation(currentAction, &operationDescription.Action.Action), nil
+	case description.RemoveActionOperation:
+		return action.NewRemoveActionOperation(&operationDescription.Action.Action), nil
 	}
-	return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf(fmt.Sprintf("unknown type of operation(%s)", operationDescription.Type), metaDescription.Name, operationDescription.Field.Name))
+	return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf(fmt.Sprintf("unknown type of operation(%s)", operationDescription.Type), metaDescription.Name, operationDescription))
 }
 
 func NewOperationFactory() *OperationFactory {
