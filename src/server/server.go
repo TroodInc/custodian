@@ -915,6 +915,13 @@ func returnError(w http.ResponseWriter, e error) {
 	case *migrations.MigrationError:
 		w.WriteHeader(http.StatusBadRequest)
 		responseData["error"] = e.Serialize()
+	case *pg.DMLError:
+		if e.Code == pg.ErrValidation {
+			w.WriteHeader(http.StatusBadRequest)
+		} else {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
+		responseData["error"] = e.Serialize()
 	default:
 		w.WriteHeader(http.StatusInternalServerError)
 		err := ServerError{Status: http.StatusInternalServerError, Code: ErrInternalServerError, Msg: e.Error()}
