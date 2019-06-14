@@ -126,7 +126,7 @@ func (mdf *MetaDdlFactory) factoryBlankColumn(metaName string, field *descriptio
 	column := Column{}
 	column.Name = field.Name
 	column.Optional = field.Optional
-	column.Unique = false
+	column.Unique = field.Unique
 
 	var err error
 	column.Defval, err = mdf.getDefaultValue(metaName, field)
