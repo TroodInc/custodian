@@ -78,7 +78,7 @@ func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatem
 	statementFactory := new(statement_factories.ConstraintStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
 
-	statement, err := statementFactory.FactoryDropStatement(tableName, ifk)
+	statement, err := statementFactory.FactoryDropIFKStatement(tableName, ifk)
 	if err != nil {
 		return err
 	}

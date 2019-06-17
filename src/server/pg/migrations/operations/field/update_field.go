@@ -87,6 +87,7 @@ func (o *UpdateFieldOperation) factorySequenceStatements(statementSet *pg.DdlSta
 // column
 func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStatementSet, currentColumns []pg.Column, newColumns []pg.Column, metaDescription *description.MetaDescription) error {
 	statementFactory := new(statement_factories.ColumnStatementFactory)
+	constraintFactory := new(statement_factories.ConstraintStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
 	if len(currentColumns) != len(newColumns) {
 		return migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, "Update column migration cannot be done with difference numbers of columns")
@@ -132,6 +133,15 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 					statementSet.Add(statement)
 				}
 			}
+			if currentColumn.Unique != newColumn.Unique {
+				//process unique constraint
+				statement, err := constraintFactory.FactorySetUniqueStatement(tableName, newColumn)
+				if err != nil {
+					return err
+				} else {
+					statementSet.Add(statement)
+				}
+			}
 		}
 	}
 	return nil
@@ -141,14 +151,14 @@ func (o *UpdateFieldOperation) factoryConstraintStatement(statementSet *pg.DdlSt
 	statementFactory := new(statement_factories.ConstraintStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
 	if currentIfk != nil {
-		statement, err := statementFactory.FactoryDropStatement(tableName, currentIfk)
+		statement, err := statementFactory.FactoryDropIFKStatement(tableName, currentIfk)
 		if err != nil {
 			return err
 		}
 		statementSet.Add(statement)
 	}
 	if newIfk != nil {
-		statement, err := statementFactory.FactoryCreateStatement(tableName, newIfk)
+		statement, err := statementFactory.FactoryCreateIFKStatement(tableName, newIfk)
 		if err != nil {
 			return err
 		}
