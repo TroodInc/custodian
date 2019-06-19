@@ -79,7 +79,7 @@ func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatement
 	statementFactory := new(statement_factories.ConstraintStatementFactory)
 	tableName := pg.GetTableName(metaDescriptionToApply.Name)
 
-	statement, err := statementFactory.FactoryCreateStatement(tableName, ifk)
+	statement, err := statementFactory.FactoryCreateIFKStatement(tableName, ifk)
 	if err != nil {
 		return err
 	}

@@ -252,6 +252,7 @@ type Field struct {
 	LinkType       LinkType     `json:"linkType,omitempty"`
 	OuterLinkField string       `json:"outerLinkField,omitempty"`
 	Optional       bool         `json:"optional"`
+	Unique         bool         `json:"unique"`
 	OnDelete       string       `json:"onDelete,omitempty"`
 	Def            interface{}  `json:"default,omitempty"`
 	NowOnUpdate    bool         `json:"nowOnUpdate,omitempty"`
@@ -299,6 +300,7 @@ func (f *Field) Clone() *Field {
 		LinkType:       f.LinkType,
 		OuterLinkField: f.OuterLinkField,
 		Optional:       f.Optional,
+		Unique:       	f.Unique,
 		OnDelete:       f.OnDelete,
 		Def:            f.Def,
 		QueryMode:      f.QueryMode,

@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"encoding/json"
 	. "server/errors"
+	"server/pg"
 	"strconv"
 )
 
@@ -48,6 +49,14 @@ func (jsonSinkStream *JsonSinkStream) PushError(e error) {
 		jsonSinkStream.rw.Write(e.Json())
 	case JsonError:
 		jsonSinkStream.rw.WriteHeader(http.StatusBadRequest)
+		jsonSinkStream.err = e.Json()
+		jsonSinkStream.rw.Write(e.Json())
+	case *pg.DMLError:
+		if e.Code == pg.ErrValidation {
+			jsonSinkStream.rw.WriteHeader(http.StatusBadRequest)
+		} else {
+			jsonSinkStream.rw.WriteHeader(http.StatusInternalServerError)
+		}
 		jsonSinkStream.err = e.Json()
 		jsonSinkStream.rw.Write(e.Json())
 	default:

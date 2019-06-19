@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/lib/pq"
 	"logger"
 	"server/data"
 	"server/data/errors"
@@ -36,24 +37,28 @@ func NewDataManager(db *sql.DB) (*DataManager, error) {
 }
 
 type DMLError struct {
-	code string
+	Code string
 	msg  string
 }
 
 func (e *DMLError) Error() string {
-	return fmt.Sprintf("DML error:  code='%s'  msg = '%s'", e.code, e.msg)
+	return fmt.Sprintf("DML error:  code='%s'  msg = '%s'", e.Code, e.msg)
 }
 
 func (e *DMLError) Json() []byte {
 	j, _ := json.Marshal(map[string]string{
-		"code": "dml:" + e.code,
+		"code": "dml:" + e.Code,
 		"msg":  e.msg,
 	})
 	return j
 }
 
+func (e *DMLError) Serialize() map[string]interface{} {
+	return map[string]interface{}{"Code": e.Code, "Message": e.msg}
+}
+
 func NewDMLError(code string, msg string, a ...interface{}) *DMLError {
-	return &DMLError{code: code, msg: fmt.Sprintf(msg, a...)}
+	return &DMLError{Code: code, msg: fmt.Sprintf(msg, a...)}
 }
 
 const (
@@ -61,6 +66,7 @@ const (
 	ErrTemplateFailed     = "template_failed"
 	ErrInvalidArgument    = "invalid_argument"
 	ErrDMLFailed          = "dml_failed"
+	ErrValidation 		  = "validation_error"
 	ErrConvertationFailed = "convertation_failed"
 	ErrCommitFailed       = "commit_failed"
 	ErrPreconditionFailed = "precondition_failed"
@@ -183,7 +189,7 @@ func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription)
 	rows, err := s.Query(binds)
 	if err != nil {
 		logger.Error("Query statement error: %s", err.Error())
-		return nil, NewDMLError(ErrDMLFailed, err.Error())
+		return nil, err
 	}
 	defer rows.Close()
 	return rows.Parse(fields)
@@ -210,7 +216,18 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	rows, err := s.Stmt.Query(binds...)
 	if err != nil {
 		logger.Error("Execution statement error: %s\nBinds: %s", err.Error(), binds)
-		return nil, NewDMLError(ErrDMLFailed, err.Error())
+		if err, ok := err.(*pq.Error); ok {
+			switch err.Code{
+				case "23502",
+				     "23503",
+				     "23505":
+					return nil, NewDMLError(ErrValidation, err.Error())
+				default:
+					return nil, NewDMLError(ErrDMLFailed, err.Error())
+			}
+		} else {
+			return nil, NewDMLError(ErrDMLFailed, err.Error())
+		}
 	}
 
 	return &Rows{rows}, nil
@@ -440,7 +457,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 			if uo, err := stmt.ParsedSingleQuery(binds, rFields); err == nil {
 				updateNodes(recordValues[i], uo)
 			} else {
-				if dml, ok := err.(*DMLError); ok && dml.code == ErrNotFound {
+				if dml, ok := err.(*DMLError); ok && dml.Code == ErrNotFound {
 					return errors.NewDataError(m.Name, errors.ErrCasFailed, "Database has returned no rows. Probably CAS failed or record with such PK does not exist.", i)
 				} else {
 					return err

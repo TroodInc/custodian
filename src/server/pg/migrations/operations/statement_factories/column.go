@@ -1,94 +1,59 @@
 package statement_factories
 
 import (
-	"server/pg"
 	"bytes"
 	"fmt"
+	"server/pg"
 	"text/template"
 )
 
 type ColumnStatementFactory struct{}
 
-func (csm *ColumnStatementFactory) FactoryAddStatement(tableName string, column pg.Column) (*pg.DDLStmt, error) {
-	var buffer bytes.Buffer
-	context := map[string]interface{}{"Table": tableName, "Column": column}
-	if e := parsedAddTableColumnTemplate.Execute(&buffer, context); e != nil {
-		return nil, pg.NewDdlError(pg.ErrInternal, e.Error(), tableName)
-	}
-	return pg.NewDdlStatement(fmt.Sprintf("add_column#%s", tableName), buffer.String()), nil
+var statementsMap = map[string] string {
+	"add_column": `ALTER TABLE "{{.Table}}" ADD COLUMN "{{.Column.Name}}" {{.Column.Typ.DdlType}} {{if not .Column.Optional}} NOT NULL{{end}} {{if .Column.Unique}} UNIQUE{{end}} {{if .Column.Defval}} DEFAULT {{.Column.Defval}}{{end}};`,
+	"drop_column": `ALTER TABLE "{{.Table}}" DROP COLUMN "{{.Column.Name}}";`,
+	"rename_column": `ALTER TABLE "{{.Table}}" RENAME "{{.CurrentName}}" TO "{{.NewName}}";`,
+	"alter_column_set_null": `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" {{if not .Column.Optional}} SET {{else}} DROP {{end}} NOT NULL;`,
+	"alter_column_set_default": `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" {{if .Column.Defval}} SET DEFAULT {{.Column.Defval}} {{else}} DROP DEFAULT {{end}};`,
+	"alter_column_set_type": `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" SET DATA TYPE {{.Column.Typ.DdlType}};`,
 }
 
-func (csm *ColumnStatementFactory) FactoryDropStatement(tableName string, column pg.Column) (*pg.DDLStmt, error) {
+func (csm *ColumnStatementFactory) build(statement string, tableName string, context map[string]interface{}) (*pg.DDLStmt, error) {
 	var buffer bytes.Buffer
-	context := map[string]interface{}{"Table": tableName, "Column": column}
-	if e := parsedDropColumnTemplate.Execute(&buffer, context); e != nil {
+	context["Table"] = tableName
+	statementTemplate := template.Must(template.New("statement").Parse(statementsMap[statement]))
+	if e := statementTemplate.Execute(&buffer, context); e != nil {
 		return nil, pg.NewDdlError(pg.ErrInternal, e.Error(), tableName)
 	}
-	return pg.NewDdlStatement(fmt.Sprintf("drop_column#%s", tableName), buffer.String()), nil
+	return pg.NewDdlStatement(fmt.Sprintf("%s#%s", statement, tableName), buffer.String()), nil
 }
 
 func (csm *ColumnStatementFactory) FactoryRenameStatement(tableName string, currentColumn pg.Column, newColumn pg.Column) (*pg.DDLStmt, error) {
-	var buffer bytes.Buffer
-	context := map[string]string{"Table": tableName, "CurrentName": currentColumn.Name, "NewName": newColumn.Name}
-	if e := parsedAlterColumnRenameTemplate.Execute(&buffer, context); e != nil {
-		return nil, pg.NewDdlError(pg.ErrInternal, e.Error(), tableName)
-	}
-	return pg.NewDdlStatement(fmt.Sprintf("rename_column#%s", currentColumn.Name), buffer.String()), nil
+	context := map[string]interface{}{"CurrentName": currentColumn.Name, "NewName": newColumn.Name}
+	return csm.build("rename_column", tableName, context)
 }
 
-func (csm *ColumnStatementFactory) FactorySetNullStatement(tableName string, column pg.Column) (*pg.DDLStmt, error) {
-	var buffer bytes.Buffer
-	context := map[string]interface{}{"Table": tableName, "Column": column}
-	if e := parsedAlterColumnSetNull.Execute(&buffer, context); e != nil {
-		return nil, pg.NewDdlError(pg.ErrInternal, e.Error(), tableName)
-	}
-	return pg.NewDdlStatement(fmt.Sprintf("alter_column_set_null#%s", tableName), buffer.String()), nil
+func (csm *ColumnStatementFactory) FactorySetNullStatement(tableName string, Column pg.Column) (*pg.DDLStmt, error) {
+	context := map[string]interface{}{"Column": Column}
+	return csm.build("alter_column_set_null", tableName, context)
 }
 
-func (csm *ColumnStatementFactory) FactorySetDefaultStatement(tableName string, column pg.Column) (*pg.DDLStmt, error) {
-	var buffer bytes.Buffer
-	context := map[string]interface{}{"Table": tableName, "Column": column}
-	if e := parsedAlterColumnSetDefault.Execute(&buffer, context); e != nil {
-		return nil, pg.NewDdlError(pg.ErrInternal, e.Error(), tableName)
-	}
-	return pg.NewDdlStatement(fmt.Sprintf("alter_column_set_default#%s", tableName), buffer.String()), nil
+func (csm *ColumnStatementFactory) FactorySetDefaultStatement(tableName string, Column pg.Column) (*pg.DDLStmt, error) {
+	context := map[string]interface{}{"Column": Column}
+	return csm.build("alter_column_set_default", tableName, context)
 }
 
-func (csm *ColumnStatementFactory) FactorySetTypeStatement(tableName string, column pg.Column) (*pg.DDLStmt, error) {
-	var buffer bytes.Buffer
-	context := map[string]interface{}{"Table": tableName, "Column": column}
-	if e := parsedAlterColumnSetType.Execute(&buffer, context); e != nil {
-		return nil, pg.NewDdlError(pg.ErrInternal, e.Error(), tableName)
-	}
-	return pg.NewDdlStatement(fmt.Sprintf("alter_column_set_type#%s", tableName), buffer.String()), nil
+func (csm *ColumnStatementFactory) FactorySetTypeStatement(tableName string, Column pg.Column) (*pg.DDLStmt, error) {
+	context := map[string]interface{}{"Column": Column}
+	return csm.build("alter_column_set_type", tableName, context)
 }
 
-//Templates
-const alterColumnRenameTemplate = `ALTER TABLE "{{.Table}}" RENAME "{{.CurrentName}}" TO "{{.NewName}}";`
+func (csm *ColumnStatementFactory) FactoryAddStatement(tableName string, Column pg.Column) (*pg.DDLStmt, error) {
+	context := map[string]interface{}{"Column": Column}
+	return csm.build("add_column", tableName, context)
+}
 
-var parsedAlterColumnRenameTemplate = template.Must(template.New("alter_table_column_rename").Parse(alterColumnRenameTemplate))
-
-const alterColumnSetNull = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" {{if not .Column.Optional}} SET {{else}} DROP {{end}} NOT NULL;`
-
-var parsedAlterColumnSetNull = template.Must(template.New("alter_table_column_set_null").Parse(alterColumnSetNull))
-
-const alterColumnSetDefault = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" {{if .Column.Defval}} SET DEFAULT {{.Column.Defval}} {{else}} DROP DEFAULT {{end}};`
-
-var parsedAlterColumnSetDefault = template.Must(template.New("alter_table_column_set_default").Parse(alterColumnSetDefault))
-
-const alterColumnSetType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" SET DATA TYPE {{.Column.Typ.DdlType}};`
-
-var parsedAlterColumnSetType = template.Must(template.New("alter_table_column_set_type").Parse(alterColumnSetType))
-
-const addTableColumnTemplate = `
-	ALTER TABLE "{{.Table}}" 
-	ADD COLUMN "{{.Column.Name}}" {{.Column.Typ.DdlType}}
-	{{if not .Column.Optional}} NOT NULL{{end}}
-	{{if .Column.Unique}} UNIQUE{{end}}
-	{{if .Column.Defval}} DEFAULT {{.Column.Defval}}{{end}};`
-
-var parsedAddTableColumnTemplate = template.Must(template.New("add_table_column").Parse(addTableColumnTemplate))
-
-const dropColumnTemplate = `ALTER TABLE "{{.Table}}" DROP COLUMN "{{.Column.Name}}";`
-
-var parsedDropColumnTemplate = template.Must(template.New("drop_table_column").Parse(dropColumnTemplate))
+func (csm *ColumnStatementFactory) FactoryDropStatement(tableName string, Column pg.Column) (*pg.DDLStmt, error) {
+	context := map[string]interface{}{"Column": Column}
+	return csm.build("drop_column", tableName, context)
+}
