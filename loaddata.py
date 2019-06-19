@@ -35,18 +35,18 @@ if __name__ == "__main__":
 
         def apply_fixture(name, data):
             response = requests.put(
-                f'http://127.0.0.1:8000/custodian/data/bulk/{name}',
+                'http://127.0.0.1:8000/custodian/data/bulk/{}'.format(name),
                 json=data,
                 headers={'Authorization': get_service_token()}
             )
             if response.status_code != 200:
-                print(f'Fixture {name} not uploaded.')
+                print('Fixture {} not uploaded.'.format(name))
                 if verbose:
                     print(response.status_code)
                     print(json.dumps(response.json(), indent=4))
                     return
 
-            print(f'Fixture: {name} uploaded.')
+            print('Fixture: {} uploaded.'.format(name))
 
 
         fixture_files = sorted(glob.glob(fixtures_path))
