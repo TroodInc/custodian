@@ -6,7 +6,9 @@ RUN curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py && python /tmp/
 RUN pip install requests
 
 COPY ./migrate.py /usr/bin
+COPY ./loaddata.py /usr/bin
 RUN chmod +x /usr/bin/migrate.py
+RUN chmod +x /usr/bin/loaddata.py
 
 COPY ./src/logger /go/src/logger
 COPY ./src/server /go/src/server
