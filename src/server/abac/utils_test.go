@@ -18,12 +18,10 @@ var _ = Describe("Utils", func() {
 			},
 		}
 
-		no_b := RemoveAttributeByPath(test_obj, "b")
+		no_b := RemoveMapAttributeByPath(test_obj, "b")
 		Expect(no_b).NotTo(HaveKey("b"))
 
-		no_a := RemoveAttributeByPath(test_obj, "c.z")
-		no_c_z := no_a.(map[string]interface{})
-
+		no_c_z := RemoveMapAttributeByPath(test_obj, "c.z")
 		Expect(no_c_z["c"]).NotTo(HaveKey("z"))
 	})
 })

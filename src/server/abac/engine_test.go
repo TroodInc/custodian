@@ -87,7 +87,7 @@ var _ = Describe("Abac Engine", func() {
 		It("must reveal from map", func() {
 			operand, value, is_filter := resolver.reveal("obj.owner", "sbj.profile.id")
 
-			Expect(operand).To(BeIdenticalTo("obj.owner"))
+			Expect(operand).To(BeIdenticalTo("owner"))
 			Expect(value).To(BeIdenticalTo(1))
 			Expect(is_filter).To(BeTrue())
 		})
