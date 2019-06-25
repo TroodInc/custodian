@@ -456,7 +456,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					auth_mask := request.Context().Value("auth_mask")
 					if auth_mask != nil {
 						for _, path := range auth_mask.([]string) {
-							obj = abac.RemoveAttributeByPath(obj, path)
+							obj = abac.RemoveMapAttributeByPath(obj, path)
 						}
 					}
 					return sink.PourOff(obj)

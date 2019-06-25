@@ -22,7 +22,7 @@ func GetAttributeByPath(obj interface{}, path string) interface{} {
 	return obj
 }
 
-func RemoveAttributeByPath(obj interface{}, path string) interface{} {
+func RemoveMapAttributeByPath(obj interface{}, path string) map[string]interface{} {
 	attributes := strings.Split(path, ".")
 
 	for _, key := range attributes {
