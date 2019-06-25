@@ -11,6 +11,7 @@ type User struct {
 	Login  string `json:"login"`
 	Status string `json:"status"`
 	Role   string `json:"role"`
+	Profile map[string]interface{} `json:"profile"`
 }
 
 func json_to_condition(json_condition string) map[string]interface{} {
@@ -23,7 +24,15 @@ func json_to_condition(json_condition string) map[string]interface{} {
 var _ = Describe("Abac Engine", func() {
 	resolver := GetTroodABACResolver(
 		map[string]interface{}{
-			"sbj": User{10, "admin@demo.com", "active", "admin"},
+			"sbj": User{
+				10,
+				"admin@demo.com",
+				"active",
+				"admin",
+				map[string]interface{}{
+					"id": 1,
+					"name": "John",
+				}},
 			"ctx": nil,
 		},
 	)
@@ -76,7 +85,11 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must reveal from map", func() {
+			operand, value, is_filter := resolver.reveal("obj.owner", "sbj.profile.id")
 
+			Expect(operand).To(BeIdenticalTo("obj.owner"))
+			Expect(value).To(BeIdenticalTo(1))
+			Expect(is_filter).To(BeTrue())
 		})
 	})
 

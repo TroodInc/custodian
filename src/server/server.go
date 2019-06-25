@@ -88,15 +88,21 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			if rules != nil {
 				result := false
-				for _, rule := range rules.([]interface{}) {
+				for _, item := range rules.([]interface{}) {
+					rule := item.(map[string]interface{})
 					fmt.Println("ABAC:  matched rule", rule)
-					res, filter := resolver.EvaluateRule(rule.(map[string]interface{}))
+					res, filter := resolver.EvaluateRule(rule)
 
 					if res {
 						if filter != nil {
 							fmt.Println("ABAC:  filters ", filter)
 							ctx = context.WithValue(ctx, "auth_filter", filter)
 						}
+
+						if rule["mask"] != nil {
+							ctx = context.WithValue(ctx, "auth_mask", rule["mask"])
+						}
+
 						result = true
 						break
 					}
@@ -446,7 +452,15 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					filters = auth_filter.(*abac.FilterExpression).String()
 				}
 
-				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, pq["only"], pq["exclude"], depth, omitOuters, func(obj map[string]interface{}) error { return sink.PourOff(obj) })
+				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, pq["only"], pq["exclude"], depth, omitOuters, func(obj map[string]interface{}) error {
+					auth_mask := request.Context().Value("auth_mask")
+					if auth_mask != nil {
+						for _, path := range auth_mask.([]string) {
+							obj = abac.RemoveAttributeByPath(obj, path)
+						}
+					}
+					return sink.PourOff(obj)
+				})
 				if e != nil {
 					sink.PushError(e)
 					dbTransactionManager.RollbackTransaction(dbTransaction)

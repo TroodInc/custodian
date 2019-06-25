@@ -2,9 +2,8 @@ package abac
 
 import (
 	"fmt"
-	"strings"
-	"github.com/fatih/structs"
 	"reflect"
+	"strings"
 )
 
 type Resolver interface{}
@@ -216,21 +215,4 @@ func cleanupType(value interface{}) interface{} {
 	}
 
 	return value
-}
-
-func GetAttributeByPath(obj interface{}, path string) interface{} {
-	attributes := strings.Split(path, ".")
-	for _, key := range attributes {
-		switch obj.(type) {
-		case map[string]interface{}:
-			obj = obj.(map[string]interface{})[key]
-		case struct{}, interface{}:
-			structs.DefaultTagName = "json"
-			obj = structs.Map(obj)[key]
-		default:
-			return obj
-		}
-	}
-
-	return obj
 }
