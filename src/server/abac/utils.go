@@ -30,7 +30,7 @@ func RemoveMapAttributeByPath(obj map[string]interface{}, path string) map[strin
 		return obj
 	} else {
 		next := obj[attributes[0]].(map[string]interface{})
-		obj = RemoveMapAttributeByPath(next, strings.Join(attributes[1:], "."))
+		obj[attributes[0]] = RemoveMapAttributeByPath(next, strings.Join(attributes[1:], "."))
 	}
 
 	return obj
