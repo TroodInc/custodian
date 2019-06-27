@@ -7,21 +7,32 @@ import (
 
 
 var _ = Describe("Utils", func() {
+	var test_obj = map[string]interface{}{
+		"a": 1,
+		"b": 2,
+		"c": map[string]interface{}{
+			"x": 10,
+			"y": 20,
+			"z": 30,
+		},
+	}
+
 	It("Must remove map attributes", func() {
-		test_obj := map[string]interface{}{
-			"a": 1,
-			"b": 2,
-			"c": map[string]interface{}{
-				"x": 10,
-				"y": 20,
-				"z": 30,
-			},
-		}
+		Context("Setting nil", func() {
+			no_b := RemoveMapAttributeByPath(test_obj, "b", true)
+			Expect(no_b["b"]).To(BeNil())
 
-		no_b := RemoveMapAttributeByPath(test_obj, "b")
-		Expect(no_b).NotTo(HaveKey("b"))
+			no_c_z := RemoveMapAttributeByPath(test_obj, "c.z", true)
+			Expect(no_c_z["c"].(map[string]interface{})["z"]).To(BeNil())
+		})
 
-		no_c_z := RemoveMapAttributeByPath(test_obj, "c.z")
-		Expect(no_c_z["c"]).NotTo(HaveKey("z"))
+		Context("Full remove", func() {
+			no_b := RemoveMapAttributeByPath(test_obj, "b", false)
+			Expect(no_b).NotTo(HaveKey("b"))
+
+			no_c_z := RemoveMapAttributeByPath(test_obj, "c.z", false)
+			Expect(no_c_z["c"]).NotTo(HaveKey("z"))
+		})
+
 	})
 })

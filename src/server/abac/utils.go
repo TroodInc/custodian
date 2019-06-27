@@ -22,15 +22,20 @@ func GetAttributeByPath(obj interface{}, path string) interface{} {
 	return obj
 }
 
-func RemoveMapAttributeByPath(obj map[string]interface{}, path string) map[string]interface{} {
-	attributes := strings.Split(path, ".")
+func RemoveMapAttributeByPath(obj map[string]interface{}, path string, set_null bool) map[string]interface{} {
+	parts := strings.SplitN(path, ".", 2)
 
-	if len(attributes) == 1 {
-		delete(obj, attributes[0])
+	current, ok := obj[parts[0]]
+
+	if ok && len(parts) == 1 {
+		if set_null {
+			obj[parts[0]] = nil
+		} else {
+			delete(obj, parts[0])
+		}
 		return obj
-	} else {
-		next := obj[attributes[0]].(map[string]interface{})
-		obj[attributes[0]] = RemoveMapAttributeByPath(next, strings.Join(attributes[1:], "."))
+	} else if ok && len(parts) == 2 {
+		obj[parts[0]] = RemoveMapAttributeByPath(current.(map[string]interface{}), parts[1], set_null)
 	}
 
 	return obj
