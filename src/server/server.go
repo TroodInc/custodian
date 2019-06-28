@@ -413,8 +413,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					auth_mask := request.Context().Value("auth_mask")
 					if auth_mask != nil {
 						obj := o.Data
-						for _, path := range auth_mask.([]string) {
-							obj = abac.RemoveMapAttributeByPath(obj, path, true)
+						for _, path := range auth_mask.([]interface{}) {
+							obj = abac.RemoveMapAttributeByPath(obj, path.(string), true)
 						}
 						sink.pushGeneric(obj)
 					} else {
@@ -465,8 +465,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				count, e = dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, pq["only"], pq["exclude"], depth, omitOuters, func(obj map[string]interface{}) error {
 					auth_mask := request.Context().Value("auth_mask")
 					if auth_mask != nil {
-						for _, path := range auth_mask.([]string) {
-							obj = abac.RemoveMapAttributeByPath(obj, path, true)
+						for _, path := range auth_mask.([]interface{}) {
+							obj = abac.RemoveMapAttributeByPath(obj, path.(string), true)
 						}
 					}
 					return sink.PourOff(obj)
