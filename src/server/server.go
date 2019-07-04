@@ -585,7 +585,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			auth_mask := r.Context().Value("auth_mask")
 			if auth_mask != nil {
 				var restricted []string
-				for _, path := range auth_mask.([]string) {
+				for _, path := range auth_mask.([]interface{}) {
+					path := path.(string)
 					matched := abac.GetAttributeByPath(src.Value, path)
 					if matched != nil {
 						restricted = append(restricted, path)
