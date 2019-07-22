@@ -1,6 +1,7 @@
 package description
 
 import (
+	"server/errors"
 	"server/object/description"
 	"server/migrations"
 	"fmt"
@@ -66,7 +67,7 @@ func (rmds *ReversionMigrationDescriptionService) invertOperation(previousStateM
 	case UpdateFieldOperation:
 		previousField := previousStateMetaDescription.FindField(operationDescription.Field.PreviousName)
 		if previousField == nil {
-			return nil, migrations.NewMigrationError(migrations.MigrationErrorPreviousStateFieldNotFound, fmt.Sprintln("Failed to find previous state for field", operationDescription.Field.PreviousName))
+			return nil, errors.NewValidationError(migrations.MigrationErrorPreviousStateFieldNotFound, fmt.Sprintln("Failed to find previous state for field", operationDescription.Field.PreviousName), nil)
 		}
 		invertedOperation.Field = &MigrationFieldDescription{PreviousName: operationDescription.Field.Name, Field: *previousField}
 		invertedOperation.Type = UpdateFieldOperation
@@ -79,7 +80,7 @@ func (rmds *ReversionMigrationDescriptionService) invertOperation(previousStateM
 	case UpdateActionOperation:
 		previousAction := previousStateMetaDescription.FindAction(operationDescription.Action.PreviousName)
 		if previousAction == nil {
-			return nil, migrations.NewMigrationError(migrations.MigrationErrorPreviousStateActionNotFound, fmt.Sprintln("Failed to find previous state for action", operationDescription.Action.PreviousName))
+			return nil, errors.NewValidationError(migrations.MigrationErrorPreviousStateActionNotFound, fmt.Sprintln("Failed to find previous state for action", operationDescription.Action.PreviousName), nil)
 		}
 		invertedOperation.Action = &MigrationActionDescription{PreviousName: operationDescription.Action.Name, Action: *previousAction}
 		invertedOperation.Type = UpdateActionOperation

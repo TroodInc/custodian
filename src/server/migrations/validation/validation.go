@@ -1,6 +1,7 @@
 package validation
 
 import (
+	"server/errors"
 	"server/pg/migrations/managers"
 	"server/transactions"
 	"utils"
@@ -38,7 +39,7 @@ func (mv *MigrationValidationService) Validate(migrationDescription *description
 	if !utils.Equal(siblingMigrationsIds, migrationDescription.DependsOn, false) {
 		//case 1: the given migration was constructed, but another migrations were applied as its parents` siblings
 		if len(utils.Intersection(siblingMigrationsIds, migrationDescription.DependsOn)) > 0 {
-			return _migrations.NewMigrationError(_migrations.MigrationErrorParentsChanged, "The given migration`s parents` list has changed since this migration was constructed")
+			return errors.NewValidationError(_migrations.MigrationErrorParentsChanged, "The given migration`s parents` list has changed since this migration was constructed", nil)
 		}
 
 		latestMigrationDescription, err := mv.migrationStorage.Get(siblingMigrationsIds[0])
@@ -48,7 +49,7 @@ func (mv *MigrationValidationService) Validate(migrationDescription *description
 		if reflect.DeepEqual(migrationDescription.DependsOn, latestMigrationDescription.DependsOn) {
 			if len(migrationDescription.DependsOn) == 0 {
 				//	case : candidate migration is an attempt to create already existing object
-				return _migrations.NewMigrationError(_migrations.MigrationIsNotActual, "The given migration is supposed to create an already existing object")
+				return errors.NewValidationError(_migrations.MigrationIsNotActual, "The given migration is supposed to create an already existing object", nil)
 			} else {
 				//case 1: latest applied migrations have the same parents, therefore they are siblings to the given migration
 				return mv.validateMigrationAndItsSiblings(migrationDescription, siblingMigrationsIds)
@@ -57,7 +58,7 @@ func (mv *MigrationValidationService) Validate(migrationDescription *description
 			//case 2: latest applied migrations, having the same parents, are not equal to migration`s parents. Migration
 			// history of the given migration`s object has went further than migration`s description assumes and it is
 			// no more actual
-			return _migrations.NewMigrationError(_migrations.MigrationIsNotActual, "The given migration is outdated and the migration history of its object has significantly changed")
+			return errors.NewValidationError(_migrations.MigrationIsNotActual, "The given migration is outdated and the migration history of its object has significantly changed", nil)
 		}
 	} else {
 		return nil
@@ -91,16 +92,18 @@ func (mv *MigrationValidationService) validateMigrationAndItsSiblings(migrationD
 func (mv *MigrationValidationService) validateMigrationHavingSiblings(migrationDescription *description.MigrationDescription) error {
 	for _, operation := range migrationDescription.Operations {
 		if operation.Type == description.RenameObjectOperation || operation.Type == description.DeleteObjectOperation {
-			return _migrations.NewMigrationError(
+			return errors.NewValidationError(
 				_migrations.MigrationIsNotCompatibleWithSiblings,
 				fmt.Sprintln("Migration", migrationDescription.Id, "contains object operation(s) and cannot be applied along with siblings"),
+				nil,
 			)
 		}
 		if operation.Type == description.UpdateFieldOperation {
 			if operation.Field.PreviousName != operation.Field.Name {
-				return _migrations.NewMigrationError(
+				return errors.NewValidationError(
 					_migrations.MigrationIsNotCompatibleWithSiblings,
 					fmt.Sprintln("Migration", migrationDescription.Id, "contains operation which renames the field", operation.Field.PreviousName, "and cannot be applied along with siblings"),
+					nil,
 				)
 			}
 		}
@@ -115,9 +118,10 @@ func (mv *MigrationValidationService) validateMigrationAgainstSingleSibling(migr
 			if siblingOperation.Type == description.UpdateFieldOperation || siblingOperation.Type == description.RemoveFieldOperation || siblingOperation.Type == description.AddFieldOperation {
 				if operation.Type == description.UpdateFieldOperation || operation.Type == description.RemoveFieldOperation || operation.Type == description.AddFieldOperation {
 					if operation.Field.Name == siblingOperation.Field.Name {
-						return _migrations.NewMigrationError(
+						return errors.NewValidationError(
 							_migrations.MigrationIsNotCompatibleWithSiblings,
 							fmt.Sprintln("Migration", migrationDescription.Id, "contains the operation on the same field", operation.Field.Name, "as the migration", siblingMigrationDescription.Id, "has and cannot be applied along with it"),
+							nil,
 						)
 					}
 				}
@@ -125,9 +129,10 @@ func (mv *MigrationValidationService) validateMigrationAgainstSingleSibling(migr
 			if siblingOperation.Type == description.UpdateActionOperation || siblingOperation.Type == description.RemoveActionOperation || siblingOperation.Type == description.AddActionOperation {
 				if operation.Type == description.UpdateActionOperation || operation.Type == description.RemoveActionOperation || operation.Type == description.AddActionOperation {
 					if operation.Action.Name == siblingOperation.Action.Name {
-						return _migrations.NewMigrationError(
+						return errors.NewValidationError(
 							_migrations.MigrationIsNotCompatibleWithSiblings,
 							fmt.Sprintln("Migration", migrationDescription.Id, "contains the operation on the same action", operation.Action.Name, "as the migration", siblingMigrationDescription.Id, "has and cannot be applied along with it"),
+							nil,
 						)
 					}
 				}

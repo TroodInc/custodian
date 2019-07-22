@@ -1,6 +1,7 @@
 package description
 
 import (
+	"server/errors"
 	"server/object/meta"
 	"server/object/description_manager"
 
@@ -359,7 +360,7 @@ func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsF
 				)
 			}
 		} else {
-			return nil, nil, migrations.NewMigrationError(migrations.MigrationErrorNotImplemented, "Generic inner link`s type change is not supported yet")
+			return nil, nil, errors.NewValidationError(migrations.MigrationErrorNotImplemented, "Generic inner link`s type change is not supported yet", nil)
 		}
 	}
 

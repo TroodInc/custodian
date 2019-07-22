@@ -1,6 +1,7 @@
 package action
 
 import (
+	"server/errors"
 	"server/object/meta"
 	"server/transactions"
 	"server/migrations"
@@ -37,9 +38,10 @@ func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description
 
 func (o *RemoveActionOperation) validate(metaDescription *description.MetaDescription) error {
 	if metaDescription.FindAction(o.Action.Name) == nil {
-		return migrations.NewMigrationError(
+		return errors.NewValidationError(
 			migrations.MigrationErrorInvalidDescription,
 			fmt.Sprintf("Object %s has no action named %s", metaDescription.Name, o.Action.Name),
+			nil,
 		)
 	}
 	return nil

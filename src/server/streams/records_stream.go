@@ -1,10 +1,9 @@
 package streams
 
 import (
-	"net/http"
 	"encoding/json"
+	"net/http"
 	. "server/errors"
-	"server/pg"
 	"strconv"
 )
 
@@ -47,26 +46,13 @@ func (jsonSinkStream *JsonSinkStream) PushError(e error) {
 		jsonSinkStream.rw.WriteHeader(e.Status)
 		jsonSinkStream.err = e.Json()
 		jsonSinkStream.rw.Write(e.Json())
-	case JsonError:
-		jsonSinkStream.rw.WriteHeader(http.StatusBadRequest)
-		jsonSinkStream.err = e.Json()
-		jsonSinkStream.rw.Write(e.Json())
-	case *pg.DMLError:
-		if e.Code == pg.ErrValidation {
-			jsonSinkStream.rw.WriteHeader(http.StatusBadRequest)
-		} else {
-			jsonSinkStream.rw.WriteHeader(http.StatusInternalServerError)
-		}
-		jsonSinkStream.err = e.Json()
-		jsonSinkStream.rw.Write(e.Json())
 	default:
-		err := ServerError{Status: http.StatusInternalServerError, Code: ErrInternalServerError, Msg: e.Error()}
-		jsonSinkStream.err = err.Json()
+		err := ServerError{http.StatusInternalServerError, ErrInternalServerError, e.Error(), nil}
 		//header should be wrote before body
-		jsonSinkStream.rw.WriteHeader(http.StatusInternalServerError)
+		jsonSinkStream.rw.WriteHeader(err.Status)
+		jsonSinkStream.err = err.Json()
 		jsonSinkStream.rw.Write(err.Json())
 	}
-
 }
 
 func (jsonSinkStream *JsonSinkStream) Complete(totalCount *int) {

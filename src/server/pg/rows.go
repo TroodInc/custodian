@@ -3,6 +3,7 @@ package pg
 import (
 	"database/sql"
 	"reflect"
+	"server/errors"
 	"server/object/meta"
 	"server/data/types"
 	"server/object/description"
@@ -31,7 +32,7 @@ func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription, ) ([]interfa
 func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
-		return nil, NewDMLError(ErrDMLFailed, err.Error())
+		return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 	}
 
 	result := make([]map[string]interface{}, 0)
@@ -55,7 +56,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 			return nil, err
 		} else {
 			if err = rows.Scan(values...); err != nil {
-				return nil, NewDMLError(ErrDMLFailed, err.Error())
+				return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 			}
 			result = append(result, make(map[string]interface{}))
 			for j, columnName := range cols {
@@ -110,7 +111,10 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 						if value.String != "" {
 							castAssembledValue.ObjectName = value.String
 							if linkMeta := fieldDescription.LinkMetaList.GetByName(value.String); linkMeta == nil {
-								return nil, NewDMLError(ErrDMLFailed, "Generic field '%s' references improper meta '%s'", fieldDescription.Name, castAssembledValue.ObjectName)
+								return nil, errors.NewFatalError(ErrDMLFailed, "Generic field '%s' references improper meta '%s'", map[string]string{
+									"field": fieldDescription.Name,
+									"object": castAssembledValue.ObjectName,
+								})
 							} else {
 								castAssembledValue.PkName = linkMeta.Key.Name
 							}
@@ -118,7 +122,10 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					} else if meta.IsGenericFieldKeyColumn(columnName) {
 						if value.String != "" {
 							if linkMeta := fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName); linkMeta == nil {
-								return nil, NewDMLError(ErrDMLFailed, "Generic field %s references improper meta'%s'", fieldDescription.Name, castAssembledValue.ObjectName)
+								return nil, errors.NewFatalError(ErrDMLFailed, "Generic field %s references improper meta'%s'", map[string]string{
+									"field": fieldDescription.Name,
+									"object": castAssembledValue.ObjectName,
+								})
 							} else {
 								castAssembledValue.Pk, _ = linkMeta.Key.ValueFromString(value.String)
 							}
@@ -158,7 +165,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 							result[i][columnName] = nil
 						}
 					default:
-						return nil, NewDMLError(ErrDMLFailed, "unknown reference type '%s'", reflect.TypeOf(values[j]).String())
+						return nil, errors.NewFatalError(ErrDMLFailed, "unknown reference type '%s'", reflect.TypeOf(values[j]).String())
 					}
 				}
 			}

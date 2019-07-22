@@ -1,6 +1,7 @@
 package field
 
 import (
+	"server/errors"
 	"server/transactions"
 	"database/sql"
 	"server/migrations/operations/field"
@@ -90,7 +91,7 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 	constraintFactory := new(statement_factories.ConstraintStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
 	if len(currentColumns) != len(newColumns) {
-		return migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, "Update column migration cannot be done with difference numbers of columns")
+		return errors.NewFatalError(migrations.MigrationErrorInvalidDescription, "Update column migration cannot be done with difference numbers of columns", nil)
 	} else {
 		var currentColumn pg.Column
 		var newColumn pg.Column

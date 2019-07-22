@@ -1,6 +1,7 @@
 package constructor
 
 import (
+	"server/errors"
 	. "server/migrations/description"
 	"server/object/description"
 	"utils"
@@ -38,7 +39,7 @@ func (mc *MigrationConstructor) Construct(currentMetaDescription *description.Me
 	operationDescriptions = append(operationDescriptions, mc.processActionsRemoval(currentMetaDescription, newMigrationMetaDescription)...)
 
 	if len(operationDescriptions) == 0 {
-		return nil, migrations.NewMigrationError(migrations.MigrationNoChangesWereDetected, "No changes were detected")
+		return nil, errors.NewValidationError(migrations.MigrationNoChangesWereDetected, "No changes were detected", nil)
 	}
 
 	var applyTo string
