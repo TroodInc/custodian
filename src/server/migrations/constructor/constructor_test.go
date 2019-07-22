@@ -3,6 +3,7 @@ package constructor
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/errors"
 	"server/pg"
 	"utils"
 	"server/object/meta"
@@ -81,7 +82,7 @@ var _ = Describe("Migration Constructor", func() {
 			}
 			_, err = migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction.DbTransaction)
 			Expect(err).NotTo(BeNil())
-			Expect(err.(*migrations.MigrationError).Code()).To(Equal(migrations.MigrationNoChangesWereDetected))
+			Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationNoChangesWereDetected))
 
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())

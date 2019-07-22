@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
+	"server/errors"
 	"server/pg"
 	"utils"
 	"server/transactions/file_transaction"
@@ -184,7 +185,7 @@ var _ = Describe("Migration Validation Service", func() {
 			err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
 			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 			Expect(err).NotTo(BeNil())
-			Expect(err.(*migrations.MigrationError).Code()).To(Equal(migrations.MigrationIsNotActual))
+			Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotActual))
 		})
 
 		It("It does`nt return error if there is an already applied migration and its id is specified in migration", func() {
@@ -281,7 +282,7 @@ var _ = Describe("Migration Validation Service", func() {
 				err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
 				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 				Expect(err).NotTo(BeNil())
-				Expect(err.(*migrations.MigrationError).Code()).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
+				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
 			It("It returns an error if a migration contains an `field` operation on the same field as the applied sibling has", func() {
@@ -309,7 +310,7 @@ var _ = Describe("Migration Validation Service", func() {
 				err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
 				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 				Expect(err).NotTo(BeNil())
-				Expect(err.(*migrations.MigrationError).Code()).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
+				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
 			It("It returns an error if a migration contains an `field` `rename` operation", func() {
@@ -337,7 +338,7 @@ var _ = Describe("Migration Validation Service", func() {
 				err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
 				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 				Expect(err).NotTo(BeNil())
-				Expect(err.(*migrations.MigrationError).Code()).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
+				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
 			It("Can apply a migration which is a sibling to the latest applied", func() {
@@ -433,7 +434,7 @@ var _ = Describe("Migration Validation Service", func() {
 					err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
 					Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 					Expect(err).NotTo(BeNil())
-					Expect(err.(*migrations.MigrationError).Code()).To(Equal(migrations.MigrationErrorParentsChanged))
+					Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationErrorParentsChanged))
 				})
 
 				Context("Having a fourth applied migration for the same object which is a direct children to the second and third", func() {
@@ -492,7 +493,7 @@ var _ = Describe("Migration Validation Service", func() {
 						err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
 						Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 						Expect(err).NotTo(BeNil())
-						Expect(err.(*migrations.MigrationError).Code()).To(Equal(migrations.MigrationIsNotActual))
+						Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotActual))
 					})
 				})
 			})

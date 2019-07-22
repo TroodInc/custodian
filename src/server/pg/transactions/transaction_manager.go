@@ -16,7 +16,7 @@ func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction
 	if tx, err := tm.dataManager.Db().(*sql.DB).Begin(); err != nil {
 		return nil, err
 	} else {
-		return &pg.PgTransaction{Tx: tx}, nil
+		return &pg.PgTransaction{Tx: tx, Manager: tm}, nil
 	}
 }
 

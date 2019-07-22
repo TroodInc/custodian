@@ -8,6 +8,7 @@ import (
 	"github.com/lib/pq"
 	_ "github.com/lib/pq"
 	"logger"
+	"regexp"
 	"server/data"
 	"server/data/notifications"
 	"server/data/record"
@@ -41,6 +42,7 @@ const (
 	ErrInvalidArgument    = "invalid_argument"
 	ErrDMLFailed          = "dml_failed"
 	ErrValidation 		  = "validation_error"
+	ErrValueDuplication   = "duplicated_value_error"
 	ErrConvertationFailed = "convertation_failed"
 	ErrCommitFailed       = "commit_failed"
 	ErrPreconditionFailed = "precondition_failed"
@@ -193,9 +195,15 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 		if err, ok := err.(*pq.Error); ok {
 			switch err.Code{
 				case "23502",
-				     "23503",
-				     "23505":
+				     "23503":
 					return nil, errors.NewValidationError(ErrValidation, err.Error(), nil) // Return data here
+				case "23505":
+					re := regexp.MustCompile(`\(([^)]+)\)=\(([^)]+)\)`)
+					parts := re.FindStringSubmatch(err.Detail)[1:]
+					data := make(map[string]interface{})
+					data[parts[0]] = parts[1]
+
+					return nil, errors.NewValidationError(ErrValueDuplication, err.Error(), data) // Return data here
 				default:
 					return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 			}
@@ -473,6 +481,13 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 		defer stmt.Close()
 		dbObjs, err := stmt.ParsedQuery(binds, fields)
 		if err != nil {
+			if err, ok := err.(*errors.ServerError); ok && err.Code == ErrValueDuplication {
+				dupTransaction, _ := dbTransaction.(*PgTransaction).Manager.BeginTransaction()
+				duplicates, dup_error := dm.GetAll(m, m.TableFields(), err.Data.(map[string]interface{}), dupTransaction)
+				dupTransaction.Close()
+				if dup_error != nil { logger.Error(dup_error.Error()) }
+				err.Data = duplicates
+			}
 			return err
 		}
 

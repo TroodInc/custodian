@@ -7,6 +7,7 @@ import (
 
 type PgTransaction struct {
 	*sql.Tx
+	Manager transactions.DbTransactionManager
 }
 
 func (pt *PgTransaction) Prepare(q string) (*Stmt, error) {
