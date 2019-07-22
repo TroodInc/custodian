@@ -1,40 +1,40 @@
 package server
 
 import (
+	"context"
 	"encoding/json"
-	"logger"
-	"server/data"
-	"server/data/errors"
-	"server/object/meta"
-	"server/pg"
-	"server/auth"
-	"server/abac"
+	"fmt"
+	"github.com/getsentry/raven-go"
 	"github.com/julienschmidt/httprouter"
 	"io"
+	"logger"
 	"mime"
 	"net/http"
+	_ "net/http/pprof"
 	"net/textproto"
 	"net/url"
+	"os"
+	"server/abac"
+	"server/auth"
+	"server/data"
+	"server/data/errors"
+	"server/data/record"
+	. "server/errors"
+	"server/migrations"
+	"server/migrations/constructor"
+	migrations_description "server/migrations/description"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
+	"server/pg/migrations/managers"
+	pg_transactions "server/pg/transactions"
+	. "server/streams"
+	"server/transactions"
+	"server/transactions/file_transaction"
 	"strconv"
 	"strings"
 	"time"
-	"context"
-	"github.com/getsentry/raven-go"
-	"server/transactions"
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
-	"server/object/description"
-	. "server/errors"
-	. "server/streams"
-	_ "net/http/pprof"
-	migrations_description "server/migrations/description"
-	"server/pg/migrations/managers"
-	"server/migrations"
-	"fmt"
-	"os"
-	"server/data/record"
 	"utils"
-	"server/migrations/constructor"
 )
 
 type CustodianApp struct {
@@ -394,7 +394,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			} else {
 				if o == nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 				} else {
 					auth_filter := request.Context().Value("auth_filter")
 					if auth_filter != nil {
@@ -497,7 +497,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
 			if err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 			} else {
 				auth_filter := r.Context().Value("auth_filter")
 				if auth_filter != nil {
@@ -565,7 +565,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
 			if err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 			} else {
 				auth_filter := r.Context().Value("auth_filter")
 				if auth_filter != nil {
@@ -611,7 +611,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			if updatedRecord, e := dataProcessor.UpdateRecord(dbTransaction, objectName, recordPkValue, src.Value, user); e != nil {
 				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
+					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg, nil})
 				} else {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(e)
@@ -633,7 +633,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 				} else {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found"})
+					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 				}
 			}
 		}
@@ -659,7 +659,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			if e != nil {
 				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.PushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg})
+					sink.PushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg, nil})
 				} else {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.PushError(e)
@@ -832,7 +832,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			if !fake {
 				migrationId, ok := requestData["migrationId"]
 				if !ok {
-					sink.pushError(migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, "Migration`s ID should be specified with 'migrationId' attribute"))
+					sink.pushError(NewValidationError(migrations.MigrationErrorInvalidDescription, "Migration`s ID should be specified with 'migrationId' attribute", nil))
 					return
 				}
 				metaDescription, err := migrationManager.RollBackTo(migrationId.(string), globalTransaction, true)
@@ -943,36 +943,19 @@ func CreateJsonStreamAction(f func(*JsonSinkStream, httprouter.Params, *url.URL,
 //If the error object accepted is of ServerError type so HTTP status and code are taken from the error object.
 //If the error corresponds to JsonError interface so HTTP status set to http.StatusBadRequest and code taken from the error object.
 //Otherwise they sets to http.StatusInternalServerError and ErrInternalServerError respectively.
-func returnError(w http.ResponseWriter, e error) {
+func returnError(w http.ResponseWriter, e interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	responseData := map[string]interface{}{"status": "FAIL"}
 	switch e := e.(type) {
-	case *ServerError:
-		responseData["error"] = e.Serialize()
-		w.WriteHeader(e.Status)
 	case *auth.AuthError:
 		w.WriteHeader(http.StatusUnauthorized)
 		responseData["error"] = e.Serialize()
 	case *abac.AccessError:
 		w.WriteHeader(http.StatusForbidden)
 		responseData["error"] = e.Serialize()
-	case JsonError:
-		w.WriteHeader(http.StatusBadRequest)
+	case *ServerError:
+		w.WriteHeader(e.Status)
 		responseData["error"] = e.Serialize()
-	case *migrations.MigrationError:
-		w.WriteHeader(http.StatusBadRequest)
-		responseData["error"] = e.Serialize()
-	case *pg.DMLError:
-		if e.Code == pg.ErrValidation {
-			w.WriteHeader(http.StatusBadRequest)
-		} else {
-			w.WriteHeader(http.StatusInternalServerError)
-		}
-		responseData["error"] = e.Serialize()
-	default:
-		w.WriteHeader(http.StatusInternalServerError)
-		err := ServerError{Status: http.StatusInternalServerError, Code: ErrInternalServerError, Msg: e.Error()}
-		responseData["error"] = err.Serialize()
 	}
 	//encoded
 	encodedData, _ := json.Marshal(responseData)
@@ -993,12 +976,12 @@ func (js *JsonStream) Next() (map[string]interface{}, bool, error) {
 		var v interface{}
 		err := js.stream.Decode(&v)
 		if err != nil {
-			return nil, false, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON"}
+			return nil, false, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON", nil}
 		}
 
 		jobj, ok := v.(map[string]interface{})
 		if !ok {
-			return nil, false, &ServerError{http.StatusBadRequest, ErrBadRequest, "expected JSON object"}
+			return nil, false, &ServerError{http.StatusBadRequest, ErrBadRequest, "expected JSON object", nil}
 		}
 		return jobj, false, err
 	} else {
@@ -1014,26 +997,26 @@ type httpRequest http.Request
 func (r *httpRequest) asJsonSource() (*JsonSource, error) {
 	var smime = r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type"))
 	if smime == "" {
-		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "content type not found"}
+		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "content type not found", nil}
 	}
 	mm, _, e := mime.ParseMediaType(smime)
 	if e != nil {
-		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, e.Error()}
+		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, e.Error(), nil}
 	}
 	if mm != "application/json" {
-		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "mime type is not of 'application/json'"}
+		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "mime type is not of 'application/json'", nil}
 	}
 	var body = r.Body
 	if body == nil {
-		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "no body"}
+		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "no body", nil}
 	}
 	var v interface{}
 	if e := json.NewDecoder(body).Decode(&v); e != nil {
-		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON"}
+		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON", nil}
 	}
 	jobj, ok := v.(map[string]interface{})
 	if !ok {
-		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "expected JSON object"}
+		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "expected JSON object", nil}
 	}
 	return &JsonSource{jobj}, nil
 }
@@ -1041,23 +1024,23 @@ func (r *httpRequest) asJsonSource() (*JsonSource, error) {
 func (r *httpRequest) asJsonStream() (*JsonStream, error) {
 	var smime = r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type"))
 	if smime == "" {
-		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "content type not found"}
+		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "content type not found", nil}
 	}
 	mm, _, e := mime.ParseMediaType(smime)
 	if e != nil {
-		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, e.Error()}
+		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, e.Error(), nil}
 	}
 	if mm != "application/json" {
-		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "mime type is not of 'application/json'"}
+		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "mime type is not of 'application/json'", nil}
 	}
 	var body = r.Body
 	if body == nil {
-		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "no body"}
+		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "no body", nil}
 	}
 
 	var js = json.NewDecoder(body)
 	if _, err := js.Token(); err != nil {
-		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON"}
+		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON", nil}
 	}
 	return &JsonStream{js}, nil
 }

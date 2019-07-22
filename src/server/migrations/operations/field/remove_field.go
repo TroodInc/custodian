@@ -1,6 +1,7 @@
 package field
 
 import (
+	"server/errors"
 	"server/object/meta"
 	"server/transactions"
 	"server/migrations"
@@ -36,9 +37,10 @@ func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *description.
 
 func (o *RemoveFieldOperation) validate(metaDescription *description.MetaDescription) error {
 	if metaDescription.FindField(o.Field.Name) == nil {
-		return migrations.NewMigrationError(
+		return errors.NewValidationError(
 			migrations.MigrationErrorInvalidDescription,
 			fmt.Sprintf("Object %s has no field named %s", metaDescription.Name, o.Field.Name),
+			nil,
 		)
 	}
 	return nil

@@ -1,6 +1,7 @@
 package managers
 
 import (
+	"server/errors"
 	"server/transactions"
 	"server/pg"
 	"database/sql"
@@ -206,7 +207,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, global
 			_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
 			if err != nil {
 				if removeErr := mm.migrationStorage.RemoveFile(migrationFileName); removeErr != nil {
-					return nil, _migrations.NewMigrationError(_migrations.MigrationErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error())
+					return nil, errors.NewFatalError(_migrations.MigrationErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error(), nil)
 				}
 				return nil, err
 			}
@@ -219,7 +220,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, global
 			err = mm.removeAppliedMigration(migration, globalTransaction.DbTransaction)
 			if err != nil {
 				if removeErr := mm.migrationStorage.Remove(&migration.MigrationDescription); removeErr != nil {
-					return nil, _migrations.NewMigrationError(_migrations.MigrationErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error())
+					return nil, errors.NewFatalError(_migrations.MigrationErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error(), nil)
 				}
 				return nil, err
 			}
@@ -471,9 +472,10 @@ func (mm *MigrationManager) migrationIsNotAppliedYet(migration *migrations.Migra
 	if len(result) == 0 {
 		return nil
 	} else {
-		return _migrations.NewMigrationError(
+		return errors.NewValidationError(
 			_migrations.MigrationErrorAlreadyHasBeenApplied,
 			fmt.Sprintf("Migration with ID '%s' has already been applied", migration.Id),
+			nil,
 		)
 	}
 }
@@ -491,9 +493,10 @@ func (mm *MigrationManager) migrationParentIsValid(migration *migrations.Migrati
 		return nil
 	}
 	if len(result) == 0 {
-		return _migrations.NewMigrationError(
+		return errors.NewValidationError(
 			_migrations.MigrationErrorInvalidDescription,
 			fmt.Sprintf("Migration with ID '%s' has unknown parent '%s'", migration.Id, parentMigrationId),
+			nil,
 		)
 	} else {
 		return nil

@@ -1,6 +1,7 @@
 package description
 
 import (
+	"server/errors"
 	"server/object/description"
 	"encoding/json"
 	"io"
@@ -21,7 +22,7 @@ func (md *MigrationDescription) Marshal() ([]byte, error) {
 
 func (md *MigrationDescription) Unmarshal(inputReader io.ReadCloser) (*MigrationDescription, error) {
 	if e := json.NewDecoder(inputReader).Decode(md); e != nil {
-		return nil, NewMigrationUnmarshallingError(e.Error())
+		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
 	}
 	return md, nil
 }
@@ -33,7 +34,7 @@ func (md *MigrationDescription) MetaName() (string, error) {
 		return md.ApplyTo, nil
 	} else {
 		if md.Operations[0].Type != CreateObjectOperation {
-			return "", _migrations.NewMigrationError(_migrations.MigrationErrorInvalidDescription, "Migration has neither ApplyTo defined nor createObject operation")
+			return "", errors.NewValidationError(_migrations.MigrationErrorInvalidDescription, "Migration has neither ApplyTo defined nor createObject operation", nil)
 		}
 		return md.Operations[0].MetaDescription.Name, nil
 	}
@@ -60,7 +61,7 @@ type MigrationMetaDescription struct {
 
 func (mmd *MigrationMetaDescription) Unmarshal(inputReader io.ReadCloser) (*MigrationMetaDescription, error) {
 	if e := json.NewDecoder(inputReader).Decode(mmd); e != nil {
-		return nil, NewMigrationUnmarshallingError(e.Error())
+		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
 	}
 	return mmd, nil
 }

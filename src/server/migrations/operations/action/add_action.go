@@ -1,6 +1,7 @@
 package action
 
 import (
+	"server/errors"
 	"server/object/meta"
 	meta_description "server/object/description"
 	"server/transactions"
@@ -32,9 +33,10 @@ func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_de
 func (o *AddActionOperation) validate(metaDescription *meta_description.MetaDescription) error {
 	existingAction := metaDescription.FindAction(o.Action.Name)
 	if existingAction != nil {
-		return migrations.NewMigrationError(
+		return errors.NewValidationError(
 			migrations.MigrationErrorInvalidDescription,
 			fmt.Sprintf("Object %s already has action named '%s'", metaDescription.Name, o.Action.Name),
+			nil,
 		)
 	}
 	return nil
