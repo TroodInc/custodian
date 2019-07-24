@@ -68,11 +68,15 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			splited := strings.Split(req.URL.Path, "/")
 
+			abac_tree := user.ABAC[os.Getenv("SERVICE_DOMAIN")]
+
+			var rules []interface{}
+
 			if res != "" {
 				if splited[2] == "meta" {
-					action = "meta_" + req.Method
+					action = "meta_"
 				} else if splited[2] == "data" {
-					action = "data_" + splited[3] + "_" + req.Method
+					action = "data_" + splited[3] + "_"
 				}
 			} else {
 				if splited[2] == "meta" {
@@ -80,15 +84,21 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				} else {
 					res = "*"
 				}
-
-				action = req.Method
 			}
 
-			rules := abac.GetAttributeByPath(user.ABAC[os.Getenv("SERVICE_DOMAIN")], res+"."+action)
+			paths := []string{
+				res+".*", res + "." + action + "*", res+"." + action + req.Method,
+			}
+
+			for _, path := range paths {
+				if val := abac.GetAttributeByPath(abac_tree, path); val != nil {
+					rules = append(rules, val.([]interface{})...)
+				}
+			}
 
 			if rules != nil {
 				result := false
-				for _, item := range rules.([]interface{}) {
+				for _, item := range rules {
 					rule := item.(map[string]interface{})
 					fmt.Println("ABAC:  matched rule", rule)
 					res, filter := resolver.EvaluateRule(rule)

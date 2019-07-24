@@ -152,7 +152,7 @@ func operatorNot(operand interface{}, value interface{}) (bool, interface{}) {
 
 func operatorIn(value []interface{}, operand interface{}) (bool, *FilterExpression) {
 	for _, v := range value {
-		if v == operand {
+		if cleanupType(v) == cleanupType(operand) {
 			return true, nil
 		}
 	}
