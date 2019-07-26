@@ -1,6 +1,8 @@
 package meta
 
 import (
+	"fmt"
+	"server/errors"
 	"strconv"
 	"reflect"
 	. "server/object/description"
@@ -56,7 +58,11 @@ func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 		//	case of querying by object
 		return v, nil
 	default:
-		return nil, NewMetaError(field.Meta.Name, "pk_from_string_conversion", ErrInternal, "Unsupported conversion from 'string' for the NewField type '%s'", field.Type)
+		return nil, errors.NewValidationError(
+			"pk_from_string_conversion",
+			fmt.Sprintf("Unsupported conversion from 'string' for the NewField type '%s'", field.Type),
+			nil,
+		)
 	}
 }
 
@@ -64,8 +70,11 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 	switch f.Type {
 	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime:
 		if str, ok := v.(string); !ok {
-			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
-				"Wrong input value type '%s'. For NewField '%s' expects 'string' type", reflect.TypeOf(v).String(), f.Name)
+			return "", errors.NewValidationError(
+				"conversion",
+				fmt.Sprintf("Wrong input value type '%s'. For NewField '%s' expects 'string' type", reflect.TypeOf(v).String(), f.Name),
+				nil,
+			)
 		} else {
 			return str, nil
 		}
@@ -76,13 +85,19 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 		case string:
 			return value, nil
 		default:
-			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
-				"Wrong input value type '%s'. For NewField '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
+			return "", errors.NewValidationError(
+				"conversion",
+				fmt.Sprintf("Wrong input value type '%s'. For NewField '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name),
+				nil,
+			)
 		}
 	case FieldTypeBool:
 		if b, ok := v.(bool); !ok {
-			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
-				"Wrong input value type '%s'. For NewField '%s' expects 'bool' type", reflect.TypeOf(v).String(), f.Name)
+			return "", errors.NewValidationError(
+				"conversion",
+				fmt.Sprintf("Wrong input value type '%s'. For NewField '%s' expects 'bool' type", reflect.TypeOf(v).String(), f.Name),
+				nil,
+			)
 		} else {
 			return strconv.FormatBool(b), nil
 		}
@@ -99,11 +114,18 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 		case string:
 			return value, nil
 		default:
-			return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal,
-				"Wrong input value type '%s'. For NewField '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name)
+			return "", errors.NewValidationError(
+				"conversion",
+				fmt.Sprintf("Wrong input value type '%s'. For NewField '%s' expects 'float64' type", reflect.TypeOf(v).String(), f.Name),
+				nil,
+			)
 		}
 	default:
-		return "", NewMetaError(f.Meta.Name, "conversion", ErrInternal, "Unknown NewField type '%s'", f.Type)
+		return "", errors.NewValidationError(
+			"conversion",
+			fmt.Sprintf("Unknown NewField type '%s'", f.Type),
+			nil,
+		)
 	}
 }
 

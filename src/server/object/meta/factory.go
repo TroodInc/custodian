@@ -1,6 +1,7 @@
 package meta
 
 import (
+	"server/errors"
 	. "server/object/description"
 	"fmt"
 )
@@ -87,19 +88,35 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 
 	//check PK field
 	if currentMeta.Key = currentMeta.FindField(currentMeta.MetaDescription.Key); currentMeta.Key == nil {
-		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "MetaDescription '%s' is incorrect. The specified key '%s' Field not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
+		return errors.NewValidationError(
+			"new_meta",
+			fmt.Sprintf("MetaDescription '%s' is incorrect. The specified key '%s' Field not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key),
+			nil,
+		)
 	} else if !currentMeta.Key.IsSimple() {
-		return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "MetaDescription '%s' is incorrect. The key Field '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key)
+		return errors.NewValidationError(
+			"new_meta",
+			fmt.Sprintf("MetaDescription '%s' is incorrect. The key Field '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key),
+			nil,
+		)
 	}
 
 	// check CAS
 	if currentMeta.Cas {
 		if cas := currentMeta.FindField("cas"); cas != nil {
 			if cas.Type != FieldTypeNumber {
-				return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "The filed 'cas' specified in the MetaDescription '%s' as CAS must be type of 'number'", currentMeta.MetaDescription.Cas, currentMeta.MetaDescription.Name)
+				return errors.NewValidationError(
+					"new_meta",
+					fmt.Sprintf("The filed 'cas' specified in the MetaDescription '%s' as CAS must be type of 'number'", currentMeta.MetaDescription.Cas, currentMeta.MetaDescription.Name),
+					nil,
+				)
 			}
 		} else {
-			return NewMetaError(currentMeta.Name, "new_meta", ErrNotValid, "MetaDescription '%s' has CAS defined but the filed 'cas' it refers to is absent", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Cas)
+			return errors.NewValidationError(
+				"new_meta",
+				fmt.Sprintf("MetaDescription '%s' has CAS defined but the filed 'cas' it refers to is absent", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Cas),
+				nil,
+			)
 		}
 	}
 	return nil
@@ -213,7 +230,11 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 	if len(field.LinkMetaList) > 0 {
 		for _, metaName := range field.LinkMetaList {
 			if linkMeta, shouldBuild, err := metaFactory.buildMeta(metaName); err != nil {
-				return nil, NewMetaError(objectMeta.Name, "new_meta", ErrNotFound, "Generic field references meta %s, which does not exist", metaName)
+				return nil, errors.NewValidationError(
+					"new_meta",
+					fmt.Sprintf("Generic field references meta %s, which does not exist", metaName),
+					nil,
+				)
 			} else {
 				fieldDescription.LinkMetaList.AddMeta(linkMeta)
 				if shouldBuild {
@@ -284,9 +305,17 @@ func (metaFactory *MetaFactory) checkOuterLinks(objectMeta *Meta) error {
 			continue
 		}
 		if outerLinkField := field.LinkMeta.FindField(field.Field.OuterLinkField); outerLinkField == nil {
-			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. MetaDescription '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField)
+			return errors.NewValidationError(
+				"new_meta",
+				fmt.Sprintf("Field '%s' has incorrect outer link. MetaDescription '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField),
+				nil,
+			)
 		} else if !outerLinkField.canBeLinkTo(field.Meta) {
-			return NewMetaError(objectMeta.Name, "new_meta", ErrNotValid, "Field '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, outerLinkField.Name, outerLinkField.Meta.Name, field.Meta.Name)
+			return errors.NewValidationError(
+				"new_meta",
+				fmt.Sprintf("Field '%s' has incorrect outer link. FieldDescription '%s' of MetaDescription '%s' can't refer to MetaDescription '%s'", field.Name, outerLinkField.Name, outerLinkField.Meta.Name, field.Meta.Name),
+				nil,
+			)
 		}
 	}
 	return nil
