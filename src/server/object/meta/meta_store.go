@@ -4,6 +4,7 @@ import (
 	"io"
 	"encoding/json"
 	"logger"
+	"server/errors"
 	"utils"
 	. "server/object/description"
 	"server/transactions"
@@ -21,7 +22,7 @@ type MetaStore struct {
 func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.ReadCloser) (*Meta, error) {
 	var metaObj MetaDescription
 	if e := json.NewDecoder(r).Decode(&metaObj); e != nil {
-		return nil, NewMetaError("", "unmarshal", ErrNotValid, e.Error())
+		return nil, errors.NewFatalError(ErrNotValid, "unmarshal", e.Error())
 	}
 	// normalize description
 	return metaStore.NewMeta((&NormalizationService{}).Normalize(&metaObj))
