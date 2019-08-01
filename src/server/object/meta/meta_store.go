@@ -1,8 +1,8 @@
 package meta
 
 import (
-	"io"
 	"encoding/json"
+	"io"
 	"logger"
 	"server/errors"
 	"utils"
@@ -19,7 +19,7 @@ type MetaStore struct {
 	syncer                MetaDbSyncer
 }
 
-func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.ReadCloser) (*Meta, error) {
+func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.Reader) (*Meta, error) {
 	var metaObj MetaDescription
 	if e := json.NewDecoder(r).Decode(&metaObj); e != nil {
 		return nil, errors.NewFatalError(ErrNotValid, "unmarshal", e.Error())

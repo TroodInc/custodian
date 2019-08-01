@@ -1,12 +1,13 @@
 package server
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/getsentry/raven-go"
 	"github.com/julienschmidt/httprouter"
-	"io"
+	"io/ioutil"
 	"logger"
 	"mime"
 	"net/http"
@@ -130,33 +131,6 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func softParseQuery(m url.Values, query string) (err error) {
-	for query != "" {
-		key := query
-		if i := strings.IndexAny(key, "&;"); i >= 0 {
-			key, query = key[:i], key[i+1:]
-		} else {
-			query = ""
-		}
-		if key == "" {
-			continue
-		}
-		value := ""
-		if i := strings.Index(key, "="); i >= 0 {
-			key, value = key[:i], key[i+1:]
-		}
-		key, err1 := url.QueryUnescape(key)
-		if err1 != nil {
-			if err == nil {
-				err = err1
-			}
-			continue
-		}
-		m[key] = append(m[key], value)
-	}
-	return err
-}
-
 //Custodian server description
 type CustodianServer struct {
 	addr, port, root string
@@ -231,7 +205,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			for _, val := range(metaList) {
 				result = append(result, *val)
 			}
-			js.pushList(result)
+			js.pushList(result, len(result))
 		} else {
 			js.pushError(err)
 		}
@@ -263,7 +237,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			//set transaction to the context
 			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction))
 
-			metaObj, err := metaStore.UnmarshalIncomingJSON(r.body)
+			metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
 			if err != nil {
 				js.pushError(err)
 				globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -289,7 +263,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			if ok, e := metaStore.Remove(globalTransaction, p.ByName("name"), false); ok {
 				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushEmpty()
+				js.pushObj(nil)
 			} else {
 				if e != nil {
 					globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -310,7 +284,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			//set transaction to the context
 			*request = *request.WithContext(context.WithValue(request.Context(), "global_transaction", globalTransaction))
 
-			metaObj, err := metaStore.UnmarshalIncomingJSON(r.body)
+			metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
 			if err != nil {
 				js.pushError(err)
 				globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -383,7 +357,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				sink.pushError(e)
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
-				defer sink.pushList(result)
+				defer sink.pushList(result, len(result))
 			}
 		}
 	}))
@@ -447,7 +421,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			pq := make(url.Values)
+			//pq := make(url.Values)
 
 			//set transaction to the context
 			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
@@ -458,12 +432,12 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			}
 
 			var omitOuters = false
-			if len(pq.Get("omit_outers")) > 0 {
+			if len(q.Get("omit_outers")) > 0 {
 				omitOuters = true
 			}
 
 			auth_filter := request.Context().Value("auth_filter")
-			user_filters := pq.Get("q")
+			user_filters := q.Get("q")
 
 			var filters = ""
 			if auth_filter != nil && user_filters != "" {
@@ -475,7 +449,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			}
 
 			var data []interface{}
-			_, e := dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, pq["only"], pq["exclude"], depth, omitOuters, func(obj map[string]interface{}) error {
+			count, e := dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters, func(obj map[string]interface{}) error {
 				auth_mask := request.Context().Value("auth_mask")
 				if auth_mask != nil {
 					for _, path := range auth_mask.([]interface{}) {
@@ -489,7 +463,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				sink.pushError(e)
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 			} else {
-				defer sink.pushList(data)
+				defer sink.pushList(data, count)
 				dbTransactionManager.CommitTransaction(dbTransaction)
 			}
 		}
@@ -558,7 +532,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				defer sink.pushError(e)
 			} else {
-				defer sink.pushEmpty()
+				defer sink.pushObj(nil)
 				dbTransactionManager.CommitTransaction(dbTransaction)
 			}
 		}
@@ -681,7 +655,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				}
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
-				defer sink.pushList(result)
+				defer sink.pushList(result, len(result))
 			}
 		}
 	}))
@@ -692,7 +666,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			js.pushError(err)
 			return
 		} else {
-			migrationMetaDescription, err := new(migrations_description.MigrationMetaDescription).Unmarshal(r.body)
+			migrationMetaDescription, err := new(migrations_description.MigrationMetaDescription).Unmarshal(bytes.NewReader(r.body))
 			if err != nil {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)
@@ -738,7 +712,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			js.pushError(err)
 			return
 		} else {
-			migrationDescription, err := new(migrations_description.MigrationDescription).Unmarshal(r.body)
+			migrationDescription, err := new(migrations_description.MigrationDescription).Unmarshal(bytes.NewReader(r.body))
 			if err != nil {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)
@@ -771,7 +745,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			if updatedMetaDescription != nil {
 				js.pushObj(updatedMetaDescription.ForExport())
 			} else {
-				js.pushEmpty()
+				js.pushObj(nil)
 			}
 		}
 	}))
@@ -784,14 +758,14 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
 
 			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
-			migrationList, err := migrationManager.List(dbTransaction, p.ByName("name"))
+			migrationList, err := migrationManager.List(dbTransaction, q.Get("q"))
 			if err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(err)
 				return
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
-				sink.pushList(migrationList)
+				sink.pushList(migrationList, len(migrationList))
 			}
 		}
 	}))
@@ -850,7 +824,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					globalTransactionManager.RollbackTransaction(globalTransaction)
 					return
 				} else {
-					sink.pushEmpty()
+					sink.pushObj(nil)
 					globalTransactionManager.CommitTransaction(globalTransaction)
 					return
 				}
@@ -902,6 +876,7 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 		src, e := (*httpRequest)(r).asJsonSource()
 		if e != nil {
 			returnError(w, e)
+			return
 		}
 		f(src, sink, p, r.URL.Query(), r)
 	}
@@ -932,7 +907,7 @@ func returnError(w http.ResponseWriter, e interface{}) {
 
 //The source of JSON object. It contains a value of type map[string]interface{}.
 type JsonSource struct {
-	body io.ReadCloser
+	body []byte
 	single map[string]interface{}
 	list []map[string]interface{}
 }
@@ -941,26 +916,29 @@ type httpRequest http.Request
 
 //Converts an HTTP request to the JsonSource if the request is valid and contains a valid JSON object in its body.
 func (r *httpRequest) asJsonSource() (*JsonSource, error) {
-	if smime := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type")); smime == "" {
-		return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "Content type not found", nil}
+	if r.Body != nil {
+		if smime := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type")); smime == "" {
+			return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "Content type not found", nil}
+		} else {
+			if mm, _, e := mime.ParseMediaType(smime); e != nil || mm != "application/json" {
+				return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "MIME type is not of 'application/json'", e}
+			}
+		}
+
+		var result JsonSource
+		result.body, _ = ioutil.ReadAll(r.Body)
+
+		if len(result.body) > 0 {
+			if e := json.Unmarshal(result.body, &result.single); e != nil {
+				if e = json.Unmarshal(result.body, &result.list); e != nil {
+					return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON", e.Error()}
+				}
+			}
+		}
+		return &result, nil
 	} else {
-		if mm, _, e := mime.ParseMediaType(smime); e != nil || mm != "application/json" {
-			return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "MIME type is not of 'application/json'", e}
-		}
+		return nil, nil
 	}
-
-	if r.Body == nil {
-		return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "No body", nil}
-	}
-
-	var result JsonSource
-	if e := json.NewDecoder(r.Body).Decode(&result.single); e != nil {
-		if e = json.NewDecoder(r.Body).Decode(&result.list); e != nil {
-			return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON", nil}
-		}
-	}
-
-	return &result, nil
 }
 
 //The JSON object sink into the HTTP response.
@@ -993,12 +971,14 @@ func (js *JsonSink) pushObj(object interface{}) {
 	}
 }
 
-func (js *JsonSink) pushList(objects []interface{}) {
+func (js *JsonSink) pushList(objects []interface{}, total int) {
 	responseData := map[string]interface{}{"status": "OK"}
-	if objects != nil {
-		responseData["data"] = objects
-		responseData["count"] = len(objects)
+	if objects == nil {
+		objects = make([]interface{},0)
 	}
+	responseData["data"] = objects
+	responseData["total_count"] = total
+
 	if encodedData, err := json.Marshal(responseData); err != nil {
 		returnError(js.rw, err)
 	} else {
@@ -1006,9 +986,4 @@ func (js *JsonSink) pushList(objects []interface{}) {
 		js.rw.WriteHeader(http.StatusOK)
 		js.rw.Write(encodedData)
 	}
-}
-
-//Push an emptiness into JsonSink.
-func (js *JsonSink) pushEmpty() {
-	js.rw.WriteHeader(http.StatusNoContent)
 }
