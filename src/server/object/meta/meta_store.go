@@ -35,11 +35,11 @@ func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
 /*
    Gets the list of metadata objects from the underlying store.
 */
-func (metaStore *MetaStore) List() (*[]*MetaDescription, bool, error) {
+func (metaStore *MetaStore) List() ([]*MetaDescription, bool, error) {
 	metaList, isFound, err := metaStore.metaDescriptionSyncer.List()
 
 	if err != nil {
-		return &[]*MetaDescription{}, isFound, err
+		return []*MetaDescription{}, isFound, err
 	}
 
 	return metaList, isFound, nil
@@ -241,7 +241,7 @@ func (metaStore *MetaStore) removeRelatedToInnerGenericOuterLinks(transaction *t
 //Remove inner fields linking to given MetaDescription
 func (metaStore *MetaStore) removeRelatedInnerLinks(transaction *transactions.GlobalTransaction, targetMeta *Meta) {
 	metaDescriptionList, _, _ := metaStore.List()
-	for _, objectMetaDescription := range *metaDescriptionList {
+	for _, objectMetaDescription := range metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(transaction, objectMetaDescription.Name, false)
@@ -274,7 +274,7 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(transaction *transactions.Gl
 //Remove inner fields linking to given MetaDescription
 func (metaStore *MetaStore) removeRelatedGenericInnerLinks(transaction *transactions.GlobalTransaction, targetMeta *Meta) {
 	metaDescriptionList, _, _ := metaStore.List()
-	for _, objectMetaDescription := range *metaDescriptionList {
+	for _, objectMetaDescription := range metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(transaction, objectMetaDescription.Name, false)
@@ -318,7 +318,7 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(transaction *transact
 //Remove inner fields linking to given MetaDescription
 func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(transaction *transactions.GlobalTransaction, keepMeta bool, targetMeta *Meta) error {
 	metaDescriptionList, _, _ := metaStore.List()
-	for _, objectMetaDescription := range *metaDescriptionList {
+	for _, objectMetaDescription := range metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(transaction, objectMetaDescription.Name, false)
@@ -593,7 +593,7 @@ func (metaStore *MetaStore) Flush(globalTransaction *transactions.GlobalTransact
 	if err != nil {
 		return err
 	}
-	for _, meta := range *metaList {
+	for _, meta := range metaList {
 		if _, err := metaStore.Remove(globalTransaction, meta.Name, true); err != nil {
 			return err
 		}

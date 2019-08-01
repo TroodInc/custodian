@@ -56,13 +56,13 @@ func getMetaList(directory string, extension string) []string {
 	return metaList
 }
 
-func (fm *FileMetaDescriptionSyncer) List() (*[] *MetaDescription, bool, error) {
+func (fm *FileMetaDescriptionSyncer) List() ([]*MetaDescription, bool, error) {
 	var metaList []*MetaDescription
 	for _, metaFileName := range getMetaList(fm.dir, "json") {
 		meta, _, _ := fm.Get(metaFileName)
 		metaList = append(metaList, meta)
 	}
-	return &metaList, true, nil
+	return metaList, true, nil
 }
 
 func (fm *FileMetaDescriptionSyncer) Get(name string) (*MetaDescription, bool, error) {

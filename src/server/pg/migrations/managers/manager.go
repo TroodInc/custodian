@@ -37,15 +37,15 @@ func (mm *MigrationManager) GetDescription(dbTransaction transactions.DbTransact
 	return migrationDescription, nil
 }
 
-func (mm *MigrationManager) List(dbTransaction transactions.DbTransaction, filter string) ([]*record.Record, error) {
+func (mm *MigrationManager) List(dbTransaction transactions.DbTransaction, filter string) ([]interface{}, error) {
 	historyMeta, err := mm.ensureHistoryTableExists(dbTransaction)
 	if err != nil {
 		return nil, err
 	}
 
-	var appliedMigrations []*record.Record
+	var appliedMigrations []interface{}
 	callbackFunction := func(obj map[string]interface{}) error {
-		appliedMigrations = append(appliedMigrations, record.NewRecord(historyMeta, obj))
+		appliedMigrations = append(appliedMigrations, *record.NewRecord(historyMeta, obj))
 		return nil
 	}
 
@@ -243,7 +243,7 @@ func (mm *MigrationManager) DropHistory(transaction transactions.DbTransaction) 
 
 //return a list of preceding migrations for the given object
 //*preceding migrations have the same predecessor*
-func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, transaction transactions.DbTransaction) ([]*record.Record, error) {
+func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, transaction transactions.DbTransaction) ([]record.Record, error) {
 	historyMeta, err := mm.ensureHistoryTableExists(transaction)
 	if err != nil {
 		return nil, err
@@ -262,9 +262,9 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, t
 		rqlFilter = rqlFilter + ",eq(predecessor_id," + latestMigration.Data["predecessor_id"].(string) + ")"
 	}
 
-	var latestMigrations []*record.Record
+	var latestMigrations []record.Record
 	callbackFunction := func(obj map[string]interface{}) error {
-		latestMigrations = append(latestMigrations, record.NewRecord(historyMeta, obj))
+		latestMigrations = append(latestMigrations, *record.NewRecord(historyMeta, obj))
 		return nil
 	}
 	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager)
@@ -328,7 +328,7 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string, trans
 }
 
 //return a list of migrations which were applied after the given one
-func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transaction transactions.DbTransaction) ([]*record.Record, error) {
+func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transaction transactions.DbTransaction) ([]record.Record, error) {
 	historyMeta, err := mm.ensureHistoryTableExists(transaction)
 	if err != nil {
 		return nil, err
@@ -347,9 +347,9 @@ func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transact
 
 	rqlFilter := "gt(order," + url.QueryEscape(strconv.Itoa(int(migration.Data["order"].(float64)))) + "),sort(-order)"
 
-	var subsequentMigrations []*record.Record
+	var subsequentMigrations []record.Record
 	callbackFunction := func(obj map[string]interface{}) error {
-		subsequentMigrations = append(subsequentMigrations, record.NewRecord(historyMeta, obj))
+		subsequentMigrations = append(subsequentMigrations, *record.NewRecord(historyMeta, obj))
 		return nil
 	}
 	_, err = processor.ShadowGetBulk(transaction, historyMeta, rqlFilter, 1, true, callbackFunction)
