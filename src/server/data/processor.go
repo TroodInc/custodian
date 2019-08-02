@@ -150,6 +150,9 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
+
+		filter = strings.Replace(filter, ":", "%3A", -1)
+		filter = strings.Replace(filter, " ", "+", -1)
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
 			return 0, errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
@@ -186,6 +189,8 @@ func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction
 	root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
 	parser := rqlParser.NewParser()
+	filter = strings.Replace(filter, ":", "%3A", -1)
+	filter = strings.Replace(filter, " ", "+", -1)
 	rqlNode, err := parser.Parse(strings.NewReader(filter))
 	if err != nil {
 		return 0, errors.NewDataError(metaObj.Name, errors.ErrWrongRQL, err.Error())

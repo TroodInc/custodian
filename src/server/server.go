@@ -923,6 +923,9 @@ func returnError(w http.ResponseWriter, e interface{}) {
 	case *ServerError:
 		w.WriteHeader(e.Status)
 		responseData["error"] = e.Serialize()
+	default:
+		w.WriteHeader(http.StatusInternalServerError)
+		responseData["error"] = e.(error).Error()
 	}
 	//encoded
 	encodedData, _ := json.Marshal(responseData)
