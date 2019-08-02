@@ -1,11 +1,11 @@
 package description
 
 import (
-	"server/errors"
-	"server/object/description"
 	"encoding/json"
 	"io"
+	"server/errors"
 	_migrations "server/migrations"
+	"server/object/description"
 )
 
 type MigrationDescription struct {
@@ -20,7 +20,7 @@ func (md *MigrationDescription) Marshal() ([]byte, error) {
 	return json.Marshal(md)
 }
 
-func (md *MigrationDescription) Unmarshal(inputReader io.ReadCloser) (*MigrationDescription, error) {
+func (md *MigrationDescription) Unmarshal(inputReader io.Reader) (*MigrationDescription, error) {
 	if e := json.NewDecoder(inputReader).Decode(md); e != nil {
 		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
 	}
@@ -59,7 +59,7 @@ type MigrationMetaDescription struct {
 	Cas          bool                         `json:"cas"`
 }
 
-func (mmd *MigrationMetaDescription) Unmarshal(inputReader io.ReadCloser) (*MigrationMetaDescription, error) {
+func (mmd *MigrationMetaDescription) Unmarshal(inputReader io.Reader) (*MigrationMetaDescription, error) {
 	if e := json.NewDecoder(inputReader).Decode(mmd); e != nil {
 		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
 	}

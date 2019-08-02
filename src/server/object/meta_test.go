@@ -86,7 +86,7 @@ var _ = Describe("The PG MetaStore", func() {
 				globalTransactionManager.CommitTransaction(globalTransaction)
 
 				metaList, _, _ := metaStore.List()
-				Expect(*metaList).To(HaveLen(0))
+				Expect(metaList).To(HaveLen(0))
 			})
 		})
 	})
