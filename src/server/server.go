@@ -949,28 +949,24 @@ func (js *JsonSource) GetData() interface{} {
 //Converts an HTTP request to the JsonSource if the request is valid and contains a valid JSON object in its body.
 func (r *httpRequest) asJsonSource() (*JsonSource, error) {
 	if r.Body != nil {
-		if smime := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type")); smime == "" {
-			return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "Content type not found", nil}
-		} else {
-			if mm, _, e := mime.ParseMediaType(smime); e != nil || mm != "application/json" {
-				return nil, &ServerError{http.StatusUnsupportedMediaType, ErrUnsupportedMediaType, "MIME type is not of 'application/json'", e}
-			}
-		}
+		smime := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type"));
 
-		var result JsonSource
-		result.body, _ = ioutil.ReadAll(r.Body)
+		if mm, _, e := mime.ParseMediaType(smime); e == nil && mm == "application/json" {
+			var result JsonSource
+			result.body, _ = ioutil.ReadAll(r.Body)
 
-		if len(result.body) > 0 {
-			if e := json.Unmarshal(result.body, &result.single); e != nil {
-				if e = json.Unmarshal(result.body, &result.list); e != nil {
-					return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON", e.Error()}
+			if len(result.body) > 0 {
+				if e := json.Unmarshal(result.body, &result.single); e != nil {
+					if e = json.Unmarshal(result.body, &result.list); e != nil {
+						return nil, &ServerError{http.StatusBadRequest, ErrBadRequest, "bad JSON", e.Error()}
+					}
 				}
 			}
+			return &result, nil
 		}
-		return &result, nil
-	} else {
-		return nil, nil
 	}
+
+	return nil, nil
 }
 
 //The JSON object sink into the HTTP response.
