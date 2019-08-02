@@ -52,19 +52,13 @@ func GetApp(cs *CustodianServer) *CustodianApp {
 func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if user, err := app.authenticator.Authenticate(req); err == nil {
-
 		ctx := context.WithValue(req.Context(), "auth_user", user)
-
-		resolver := abac.GetTroodABACResolver(map[string]interface{}{
-			"sbj": user,
-			"ctx": req,
-		}, )
 
 		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
 		if handler != nil {
-			var res = strings.Split(opts.ByName("name"), "?")[0]
-			var action = ""
+			var res= strings.Split(opts.ByName("name"), "?")[0]
+			var action= ""
 
 			splited := strings.Split(req.URL.Path, "/")
 
@@ -87,7 +81,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 
 			paths := []string{
-				res+".*", res + "." + action + "*", res+"." + action + req.Method,
+				res + ".*", res + "." + action + "*", res + "." + action + req.Method,
 			}
 
 			for _, path := range paths {
@@ -96,36 +90,10 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 			}
 
-			if rules != nil {
-				result := false
-				for _, item := range rules {
-					rule := item.(map[string]interface{})
-					fmt.Println("ABAC:  matched rule", rule)
-					res, filter := resolver.EvaluateRule(rule)
-
-					if res {
-						if filter != nil {
-							fmt.Println("ABAC:  filters ", filter)
-							ctx = context.WithValue(ctx, "auth_filter", filter)
-						}
-
-						if rule["mask"] != nil {
-							ctx = context.WithValue(ctx, "auth_mask", rule["mask"])
-						}
-
-						result = true
-						break
-					}
-				}
-
-				if !result {
-					returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-					return
-				}
-			}
+			ctx := context.WithValue(ctx, "rules", rules)
+			app.router.ServeHTTP(w, req.WithContext(ctx))
 		}
 
-		app.router.ServeHTTP(w, req.WithContext(ctx))
 	} else {
 		returnError(w, err)
 	}
@@ -871,14 +839,70 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 }
 
 func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Values, *http.Request)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
-	return func(w http.ResponseWriter, r *http.Request, p httprouter.Params) {
+	return func(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		sink, _ := asJsonSink(w)
-		src, e := (*httpRequest)(r).asJsonSource()
+		src, e := (*httpRequest)(req).asJsonSource()
+
 		if e != nil {
 			returnError(w, e)
 			return
 		}
-		f(src, sink, p, r.URL.Query(), r)
+
+		ctx := req.Context()
+		rules := ctx.Value("rules").([]interface{})
+		user := ctx.Value("auth_user")
+
+		if user != nil {
+			var resolver_context = make(map[string]interface{})
+
+			if src != nil {
+				resolver_context["data"] = src.GetData()
+			}
+
+			var params = make(map[string]interface{})
+			for _, param := range p {
+				params[param.Key] = param.Value
+			}
+			resolver_context["params"] = params
+
+			resolver_context["query"] = req.URL.Query()
+
+			resolver := abac.GetTroodABACResolver(map[string]interface{}{
+				"sbj": user,
+				"ctx": resolver_context,
+			}, )
+
+			if rules != nil {
+				result := false
+				for _, item := range rules {
+					rule := item.(map[string]interface{})
+					fmt.Println("ABAC:  matched rule", rule)
+					res, filter := resolver.EvaluateRule(rule)
+
+					if res {
+						if filter != nil {
+							fmt.Println("ABAC:  filters ", filter)
+							ctx = context.WithValue(ctx, "auth_filter", filter)
+						}
+
+						if rule["mask"] != nil {
+							ctx = context.WithValue(ctx, "auth_mask", rule["mask"])
+						}
+
+						result = true
+						break
+					}
+				}
+
+				if !result {
+					returnError(w, abac.NewError("Access restricted by ABAC access rule"))
+					return
+				}
+			}
+		}
+
+		f(src, sink, p, req.URL.Query(), req.WithContext(ctx))
+
 	}
 }
 
@@ -913,6 +937,14 @@ type JsonSource struct {
 }
 
 type httpRequest http.Request
+
+func (js *JsonSource) GetData() interface{} {
+	if js.list != nil && len(js.list) > 0 {
+		return js.list
+	} else {
+		return js.single
+	}
+}
 
 //Converts an HTTP request to the JsonSource if the request is valid and contains a valid JSON object in its body.
 func (r *httpRequest) asJsonSource() (*JsonSource, error) {
