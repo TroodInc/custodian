@@ -901,9 +901,46 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 			}
 		}
 
-		f(src, sink, p, req.URL.Query(), req.WithContext(ctx))
+		query  := make(url.Values)
+		err := parseQuery(query, req.URL.RawQuery)
+
+		if err != nil {
+			returnError(w, err)
+			return
+		}
+
+		f(src, sink, p, query, req.WithContext(ctx))
 
 	}
+}
+
+func parseQuery(m  url.Values, query string) (err error) {
+
+	for query != "" {
+		key := query
+		if i := strings.IndexAny(key, "&;"); i >= 0 {
+			key, query = key[:i], key[i+1:]
+		} else {
+			query = ""
+		}
+		if key == "" {
+			continue
+		}
+		value := ""
+		if i := strings.Index(key, "="); i >= 0 {
+			key, value = key[:i], key[i+1:]
+		}
+		key, err1 := url.QueryUnescape(key)
+		if err1 != nil {
+			if err == nil {
+				err = err1
+			}
+			continue
+		}
+
+		m[key] = append(m[key], value)
+	}
+	return err
 }
 
 //Returns an error to HTTP response in JSON format.
