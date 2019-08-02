@@ -90,9 +90,10 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 			}
 
-			ctx := context.WithValue(ctx, "rules", rules)
-			app.router.ServeHTTP(w, req.WithContext(ctx))
+			ctx = context.WithValue(ctx, "rules", rules)
 		}
+
+		app.router.ServeHTTP(w, req.WithContext(ctx))
 
 	} else {
 		returnError(w, err)
