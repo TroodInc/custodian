@@ -81,7 +81,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 
 			paths := []string{
-				res + ".*", res + "." + action + "*", res + "." + action + req.Method,
+				res + ".*",  res + ".*_" + req.Method, res + "." + action + "*", res + "." + action + req.Method,
 			}
 
 			for _, path := range paths {
