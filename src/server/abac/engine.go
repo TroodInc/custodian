@@ -42,15 +42,20 @@ func GetTroodABACResolver(datasource map[string]interface{}) TroodABACResolver {
 	}
 }
 
-func (this *TroodABACResolver) EvaluateRule(rule map[string]interface{}) (bool, *FilterExpression) {
+func (this *TroodABACResolver) EvaluateRule(rule map[string]interface{}) (bool, string, *FilterExpression) {
 	condition := rule["rule"].(map[string]interface{})
-	result, filters := this.evaluateCondition(condition)
+	passed, filters := this.evaluateCondition(condition)
+
+	var result string
+	if passed {
+		result = rule["result"].(string)
+	}
 
 	// todo: handle defaults and other edge cases
 	if len(filters) > 0 {
-		return result, &FilterExpression{Operator: andOperator, Operand: "", Value: filters}
+		return passed, result, &FilterExpression{Operator: andOperator, Operand: "", Value: filters}
 	} else {
-		return result, nil
+		return passed, result, nil
 	}
 }
 

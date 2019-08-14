@@ -874,13 +874,13 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 			}, )
 
 			if rules != nil {
-				result := false
+				resolution := os.Getenv("ABAC_DEFAULT_RESOLUTION")
 				for _, item := range rules {
 					rule := item.(map[string]interface{})
 					fmt.Println("ABAC:  matched rule", rule)
-					res, filter := resolver.EvaluateRule(rule)
+					passed, res, filter := resolver.EvaluateRule(rule)
 
-					if res {
+					if passed {
 						if filter != nil {
 							fmt.Println("ABAC:  filters ", filter)
 							ctx = context.WithValue(ctx, "auth_filter", filter)
@@ -890,12 +890,12 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 							ctx = context.WithValue(ctx, "auth_mask", rule["mask"])
 						}
 
-						result = true
+						resolution = res
 						break
 					}
 				}
 
-				if !result {
+				if resolution != "allow" {
 					returnError(w, abac.NewError("Access restricted by ABAC access rule"))
 					return
 				}
