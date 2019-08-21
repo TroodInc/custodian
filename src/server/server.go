@@ -64,6 +64,18 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			abac_tree := user.ABAC[os.Getenv("SERVICE_DOMAIN")]
 
+			abac_default_resolution := "allow"
+
+			if abac_tree != nil {
+				if domain_default_resolution, ok := abac_tree.(map[string]interface{})["_default_resolution"]; ok {
+					abac_default_resolution = domain_default_resolution.(string)
+				} else if abac_global_resolution, ok := user.ABAC["_default_resolution"]; ok {
+					abac_default_resolution = abac_global_resolution.(string)
+				}
+			}
+
+			ctx = context.WithValue(ctx, "ABAC_DEFAULT_RESOLUTION", abac_default_resolution)
+
 			var rules []interface{}
 
 			if res != "" {
@@ -874,7 +886,7 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 			}, )
 
 			if rules != nil {
-				resolution := os.Getenv("ABAC_DEFAULT_RESOLUTION")
+				resolution := ctx.Value("ABAC_DEFAULT_RESOLUTION")
 				for _, item := range rules {
 					rule := item.(map[string]interface{})
 					fmt.Println("ABAC:  matched rule", rule)
