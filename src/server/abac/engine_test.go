@@ -177,7 +177,7 @@ var _ = Describe("Abac Engine", func() {
 
 		It("Returns nil if there are no suitable rules to build filter expression", func() {
 			condition := json_to_condition(`{"sbj.role": "admin"}`)
-			_, filterExpression := resolver.EvaluateRule(map[string]interface{}{"rule": condition})
+			_, _, filterExpression := resolver.EvaluateRule(map[string]interface{}{"rule": condition, "result": "allow"})
 			Expect(filterExpression).To(BeNil())
 		})
 	})
