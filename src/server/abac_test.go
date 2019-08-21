@@ -112,6 +112,7 @@ var _ = Describe("ABAC rules handling", func() {
 			user = &auth.User{
 				Role: "admin",
 				ABAC: map[string]interface{}{
+					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
 						"a": map[string]interface{}{
 							"data_single_GET": []interface{}{
@@ -179,6 +180,7 @@ var _ = Describe("ABAC rules handling", func() {
 			user = &auth.User{
 				Role: "admin",
 				ABAC: map[string]interface{}{
+					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
 						"a": map[string]interface{}{
 							"data_single_GET": []interface{}{

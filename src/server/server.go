@@ -64,6 +64,18 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			abac_tree := user.ABAC[os.Getenv("SERVICE_DOMAIN")]
 
+			abac_default_resolution := "allow"
+
+			if abac_tree != nil {
+				if domain_default_resolution, ok := abac_tree.(map[string]interface{})["_default_resolution"]; ok {
+					abac_default_resolution = domain_default_resolution.(string)
+				} else if abac_global_resolution, ok := user.ABAC["_default_resolution"]; ok {
+					abac_default_resolution = abac_global_resolution.(string)
+				}
+			}
+
+			ctx = context.WithValue(ctx, "ABAC_DEFAULT_RESOLUTION", abac_default_resolution)
+
 			var rules []interface{}
 
 			if res != "" {
@@ -874,13 +886,13 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 			}, )
 
 			if rules != nil {
-				result := false
+				resolution := ctx.Value("ABAC_DEFAULT_RESOLUTION")
 				for _, item := range rules {
 					rule := item.(map[string]interface{})
 					fmt.Println("ABAC:  matched rule", rule)
-					res, filter := resolver.EvaluateRule(rule)
+					passed, res, filter := resolver.EvaluateRule(rule)
 
-					if res {
+					if passed {
 						if filter != nil {
 							fmt.Println("ABAC:  filters ", filter)
 							ctx = context.WithValue(ctx, "auth_filter", filter)
@@ -890,12 +902,12 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 							ctx = context.WithValue(ctx, "auth_mask", rule["mask"])
 						}
 
-						result = true
+						resolution = res
 						break
 					}
 				}
 
-				if !result {
+				if resolution != "allow" {
 					returnError(w, abac.NewError("Access restricted by ABAC access rule"))
 					return
 				}
