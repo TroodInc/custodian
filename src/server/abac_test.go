@@ -26,13 +26,25 @@ import (
 
 const SERVICE_DOMAIN = "custodian"
 
+func get_server(user *auth.User) *http.Server {
+	os.Setenv("SERVICE_DOMAIN", SERVICE_DOMAIN)
+
+	appConfig := utils.GetConfig()
+	custodianServer := server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions)
+
+	if user != nil {
+		custodianServer.SetAuthenticator(auth.NewMockAuthenticator(*user))
+	}
+
+	return custodianServer.Setup(appConfig)
+}
+
 var _ = Describe("ABAC rules handling", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
-	var custodianServer *server.CustodianServer
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
@@ -92,17 +104,7 @@ var _ = Describe("ABAC rules handling", func() {
 
 	JustBeforeEach(func() {
 		flushDb()
-
-		os.Setenv("SERVICE_DOMAIN", SERVICE_DOMAIN)
-
-		custodianServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions)
-
-		Expect(user).NotTo(BeNil())
-		custodianServer.SetAuthenticator(auth.NewMockAuthenticator(*user))
-
-		httpServer = custodianServer.Setup(utils.GetConfig())
 		recorder = httptest.NewRecorder()
-
 	})
 
 	AfterEach(flushDb)
@@ -128,6 +130,11 @@ var _ = Describe("ABAC rules handling", func() {
 				},
 			}
 		})
+
+		JustBeforeEach(func() {
+			httpServer = get_server(user)
+		})
+
 		Context("And this user has the role 'manager'", func() {
 			BeforeEach(func() {
 				user.Role = "manager"
@@ -211,6 +218,10 @@ var _ = Describe("ABAC rules handling", func() {
 					},
 				},
 			}
+		})
+
+		JustBeforeEach(func() {
+			httpServer = get_server(user)
 		})
 
 		Context("And an A record belongs to managers", func() {
@@ -317,6 +328,107 @@ var _ = Describe("ABAC rules handling", func() {
 				var body map[string]interface{}
 				json.Unmarshal([]byte(responseBody), &body)
 				Expect(body["status"].(string)).To(Equal("OK"))
+			})
+		})
+
+	})
+
+	Describe("Deny result tests", func() {
+
+		var url string
+		JustBeforeEach(func() {
+			aObject := factoryObjectA(globalTransaction)
+			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
+			Expect(err).To(BeNil())
+			err = globalTransactionManager.CommitTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+			url = fmt.Sprintf("%s/data/single/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
+		})
+
+		Context("Default resoution set to deny globaly", func() {
+
+			var abac_tree = map[string]interface{}{
+				"_default_resolution": "deny",
+				SERVICE_DOMAIN: map[string]interface{}{
+					"a": map[string]interface{}{
+						"data_single_GET": []interface{}{
+							map[string]interface{}{
+								"result": "allow",
+								"rule": map[string]interface{}{
+									"sbj.role": "admin",
+								},
+							},map[string]interface{}{
+								"result": "deny",
+								"rule": map[string]interface{}{
+									"sbj.role": "disabled",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			It("Must deny if rules not matched", func() {
+				user = &auth.User{
+					Role: "test", ABAC: abac_tree,
+				}
+				httpServer = get_server(user)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+
+			It("Must allow if matched rule result is allow", func() {
+				user = &auth.User{
+					Role: "admin", ABAC: abac_tree,
+				}
+				httpServer = get_server(user)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+			})
+
+			It("Must allow if no rules mutched but domain result is overriden to allow", func() {
+				abac_tree[SERVICE_DOMAIN].(map[string]interface{})["_default_resolution"] = "allow"
+				user = &auth.User{
+					Role: "test", ABAC: abac_tree,
+				}
+				httpServer = get_server(user)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+			})
+
+			It("Must deny if matched rule result is deny", func() {
+				abac_tree[SERVICE_DOMAIN].(map[string]interface{})["_default_resolution"] = "allow"
+				user = &auth.User{
+					Role: "disabled", ABAC: abac_tree,
+				}
+				httpServer = get_server(user)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
 			})
 		})
 	})
