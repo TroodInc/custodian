@@ -168,11 +168,14 @@ var _ = Describe("Abac Engine", func() {
 				"sbj.role": "admin"}`)
 			_, filterExpressions := resolver.evaluateCondition(condition)
 			Expect(filterExpressions).To(HaveLen(1))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)).To(HaveLen(2))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[0].Operand).To(Equal("executor.account"))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[0].Value.(int)).To(Equal(10))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[1].Operand).To(Equal("responsible.account"))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[1].Value.(int)).To(Equal(10))
+
+			value := filterExpressions[0].Value.([]*FilterExpression)
+
+			Expect(value).To(HaveLen(2))
+			Expect(value[0].Operand).To(Equal("executor.account"))
+			Expect(value[0].Value.(int)).To(Equal(10))
+			Expect(value[1].Operand).To(Equal("responsible.account"))
+			Expect(value[1].Value.(int)).To(Equal(10))
 		})
 
 		It("Returns nil if there are no suitable rules to build filter expression", func() {

@@ -21,7 +21,11 @@ func (fe *FilterExpression) String() string {
 	} else if fe.Operator == inOperator {
 		return fmt.Sprint(fe.Operator, "(", fe.Operand, ",(", fe.Value, "))")
 	} else if fe.Operator == notOperator {
-		return fmt.Sprint(fe.Operator, "(", fe.Value, ")")
+		if fe.Operand != "" {
+			return fmt.Sprint(fe.Operator, "(eq(", fe.Operand, ",", fe.Value, ")")
+		} else {
+			return fmt.Sprint(fe.Operator, "(", fe.Value, ")")
+		}
 	} else {
 		return fmt.Sprint(fe.Operator, "(", fe.Operand, ",", fe.Value, ")")
 	}

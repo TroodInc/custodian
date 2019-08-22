@@ -57,7 +57,7 @@ var _ = Describe("FilterExpression", func() {
 		Expect(filterValue).To(Equal("or(eq(owner.role,ADMIN),in(owner.company,(topline,velitto)))"))
 	})
 
-	It("Can stringify NOT expression", func() {
+	It("Can stringify full NOT expression", func() {
 		filterExpression := FilterExpression{
 			Operator: notOperator, Value: &FilterExpression{
 				Operator: "eq", Operand: "owner.is_superuser", Value: 0,
@@ -65,6 +65,15 @@ var _ = Describe("FilterExpression", func() {
 		}
 		filterValue := filterExpression.String()
 		Expect(filterValue).To(Equal("not(eq(owner.is_superuser,0))"))
+	})
+
+	It("Can stringify shorthand NOT expression", func() {
+		filterExpression := FilterExpression{
+			Operator: notOperator, Operand: "owner.is_superuser", Value: 0,
+		}
+
+		filterValue := filterExpression.String()
+		Expect(filterValue).To(Equal("not(eq(owner.is_superuser,0)"))
 	})
 
 	It("Can stringify complex expression", func() {
