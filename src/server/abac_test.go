@@ -117,7 +117,7 @@ var _ = Describe("ABAC rules handling", func() {
 					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
 						"a": map[string]interface{}{
-							"data_single_GET": []interface{}{
+							"data_GET": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
@@ -131,15 +131,11 @@ var _ = Describe("ABAC rules handling", func() {
 			}
 		})
 
-		JustBeforeEach(func() {
-			httpServer = get_server(user)
-		})
-
 		Context("And this user has the role 'manager'", func() {
-			BeforeEach(func() {
-				user.Role = "manager"
-			})
 			It("Should return error when trying to retrieve a record of object A", func() {
+				user.Role = "manager"
+				httpServer = get_server(user)
+
 				aObject := factoryObjectA(globalTransaction)
 				aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 
@@ -159,10 +155,8 @@ var _ = Describe("ABAC rules handling", func() {
 		})
 
 		Context("And this user has the role 'admin'", func() {
-			BeforeEach(func() {
-				user.Role = "admin"
-			})
 			It("Should return a record of object A", func() {
+				httpServer = get_server(user)
 				aObject := factoryObjectA(globalTransaction)
 				aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 
@@ -190,7 +184,7 @@ var _ = Describe("ABAC rules handling", func() {
 					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
 						"a": map[string]interface{}{
-							"data_single_GET": []interface{}{
+							"data_GET": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
@@ -198,7 +192,7 @@ var _ = Describe("ABAC rules handling", func() {
 									},
 								},
 							},
-							"data_single_POST": []interface{}{
+							"data_POST": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
@@ -206,7 +200,7 @@ var _ = Describe("ABAC rules handling", func() {
 									},
 								},
 							},
-							"data_single_DELETE": []interface{}{
+							"data_DELETE": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
@@ -352,7 +346,7 @@ var _ = Describe("ABAC rules handling", func() {
 				"_default_resolution": "deny",
 				SERVICE_DOMAIN: map[string]interface{}{
 					"a": map[string]interface{}{
-						"data_single_GET": []interface{}{
+						"data_GET": []interface{}{
 							map[string]interface{}{
 								"result": "allow",
 								"rule": map[string]interface{}{

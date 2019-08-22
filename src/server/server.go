@@ -82,7 +82,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				if splited[2] == "meta" {
 					action = "meta_"
 				} else if splited[2] == "data" {
-					action = "data_" + splited[3] + "_"
+					action = "data_"
 				}
 			} else {
 				if splited[2] == "meta" {
@@ -93,7 +93,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 
 			paths := []string{
-				res + ".*",  res + ".*_" + req.Method, res + "." + action + "*", res + "." + action + req.Method,
+				res + "." + action + req.Method, res + "." + action + "*", res + ".*",
 			}
 
 			for _, path := range paths {
