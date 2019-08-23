@@ -463,8 +463,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			//process access check
 			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
-			if err != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
+			if err != nil || recordToUpdate == nil {
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 			} else {
 				auth_filter := r.Context().Value("auth_filter")
@@ -480,15 +479,15 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 						return
 					}
 				}
-			}
-			//end access check
+				//end access check
 
-			if removedData, e := dataProcessor.RemoveRecord(dbTransaction, objectName, recordPkValue, user); e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
-			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				sink.pushObj(removedData)
+				if removedData, e := dataProcessor.RemoveRecord(dbTransaction, objectName, recordPkValue, user); e != nil {
+					dbTransactionManager.RollbackTransaction(dbTransaction)
+					sink.pushError(e)
+				} else {
+					dbTransactionManager.CommitTransaction(dbTransaction)
+					sink.pushObj(removedData)
+				}
 			}
 		}
 	}))

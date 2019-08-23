@@ -37,7 +37,13 @@ func matchFilterExpression(filterExpression *FilterExpression, recordValues map[
 	} else if filterExpression.Operator == eqOperator {
 		return valueToString(filterExpression.Value) == valueToString(recordValues[filterExpression.Operand]), nil
 	} else if filterExpression.Operator == notOperator {
-		childResult, err := matchFilterExpression(filterExpression.Value.(*FilterExpression), recordValues)
+		var value *FilterExpression
+		if filterExpression.Operand != "" {
+			value = &FilterExpression{eqOperator, filterExpression.Operand, filterExpression.Value}
+		} else {
+			value = filterExpression.Value.(*FilterExpression)
+		}
+		childResult, err := matchFilterExpression(value, recordValues)
 		if err != nil {
 			return false, err
 		}
@@ -82,6 +88,9 @@ func getReferencedAttributes(filterExpression *FilterExpression) []string {
 	} else if filterExpression.Operator == inOperator || filterExpression.Operator == eqOperator || filterExpression.Operator == ltOperator || filterExpression.Operator == gtOperator {
 		return []string{filterExpression.Operand}
 	} else if filterExpression.Operator == notOperator {
+		if filterExpression.Operand != "" {
+			return []string{filterExpression.Operand}
+		}
 		return getReferencedAttributes(filterExpression.Value.(*FilterExpression))
 	}
 	panic(fmt.Sprintln("Unknown type of filter specified: ", filterExpression.Operator))
