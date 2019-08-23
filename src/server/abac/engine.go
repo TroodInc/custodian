@@ -84,7 +84,7 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 		var flt *FilterExpression
 		result := true
 		if is_filter {
-			flt = makeFilter(operand.(string), value)
+			flt = makeFilter(operator, operand.(string), value)
 		} else {
 			if operator_func, ok := operations[operator]; ok {
 				result, _ = operator_func(operand, value)
@@ -107,9 +107,7 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 	return totalResult, filters
 }
 
-func makeFilter(operand string, value interface{}) *FilterExpression {
-	operator := eqOperator
-
+func makeFilter(operator string, operand string, value interface{}) *FilterExpression {
 	switch value.(type) {
 	case map[string]interface{}:
 		for operator, value = range value.(map[string]interface{}) {
