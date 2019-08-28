@@ -150,6 +150,7 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
+
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
 			return 0, errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())

@@ -11,6 +11,7 @@ type User struct {
 	Login  string `json:"login"`
 	Status string `json:"status"`
 	Role   string `json:"role"`
+	Profile map[string]interface{} `json:"profile"`
 }
 
 func json_to_condition(json_condition string) map[string]interface{} {
@@ -23,7 +24,15 @@ func json_to_condition(json_condition string) map[string]interface{} {
 var _ = Describe("Abac Engine", func() {
 	resolver := GetTroodABACResolver(
 		map[string]interface{}{
-			"sbj": User{10, "admin@demo.com", "active", "admin"},
+			"sbj": User{
+				10,
+				"admin@demo.com",
+				"active",
+				"admin",
+				map[string]interface{}{
+					"id": 1,
+					"name": "John",
+				}},
 			"ctx": nil,
 		},
 	)
@@ -76,7 +85,11 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must reveal from map", func() {
+			operand, value, is_filter := resolver.reveal("obj.owner", "sbj.profile.id")
 
+			Expect(operand).To(BeIdenticalTo("owner"))
+			Expect(value).To(BeIdenticalTo(1))
+			Expect(is_filter).To(BeTrue())
 		})
 	})
 
@@ -155,16 +168,19 @@ var _ = Describe("Abac Engine", func() {
 				"sbj.role": "admin"}`)
 			_, filterExpressions := resolver.evaluateCondition(condition)
 			Expect(filterExpressions).To(HaveLen(1))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)).To(HaveLen(2))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[0].Operand).To(Equal("executor.account"))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[0].Value.(int)).To(Equal(10))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[1].Operand).To(Equal("responsible.account"))
-			Expect(filterExpressions[0].Value.([]*FilterExpression)[1].Value.(int)).To(Equal(10))
+
+			value := filterExpressions[0].Value.([]*FilterExpression)
+
+			Expect(value).To(HaveLen(2))
+			Expect(value[0].Operand).To(Equal("executor.account"))
+			Expect(value[0].Value.(int)).To(Equal(10))
+			Expect(value[1].Operand).To(Equal("responsible.account"))
+			Expect(value[1].Value.(int)).To(Equal(10))
 		})
 
 		It("Returns nil if there are no suitable rules to build filter expression", func() {
 			condition := json_to_condition(`{"sbj.role": "admin"}`)
-			_, filterExpression := resolver.EvaluateRule(map[string]interface{}{"rule": condition})
+			_, _, filterExpression := resolver.EvaluateRule(map[string]interface{}{"rule": condition, "result": "allow"})
 			Expect(filterExpression).To(BeNil())
 		})
 	})

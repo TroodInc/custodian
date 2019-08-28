@@ -65,7 +65,7 @@ func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
 */
 
 type MetaDescriptionSyncer interface {
-	List() (*[]*MetaDescription, bool, error)
+	List() ([]*MetaDescription, bool, error)
 	Get(name string) (*MetaDescription, bool, error)
 	Create(fileTransaction transactions.MetaDescriptionTransaction, m MetaDescription) error
 	Remove(name string) (bool, error)

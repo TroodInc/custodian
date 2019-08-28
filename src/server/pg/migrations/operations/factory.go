@@ -2,6 +2,7 @@ package operations
 
 import (
 	"fmt"
+	"server/errors"
 	"server/migrations"
 	"server/migrations/description"
 	"server/migrations/operations"
@@ -25,13 +26,13 @@ func (of *OperationFactory) Factory(migrationDescription *description.MigrationD
 	case description.RemoveFieldOperation:
 		targetField := metaDescription.FindField(operationDescription.Field.Name)
 		if targetField == nil {
-			return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.Name))
+			return nil, errors.NewValidationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.Name), nil)
 		}
 		return field.NewRemoveFieldOperation(targetField), nil
 	case description.UpdateFieldOperation:
 		currentField := metaDescription.FindField(operationDescription.Field.PreviousName)
 		if currentField == nil {
-			return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.PreviousName))
+			return nil, errors.NewValidationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.PreviousName), nil)
 		}
 		// migrationDescription.Id == "" indicated that current migration is added automatically and outer field should not be used for data retrieval
 		if migrationDescription.Id != "" && operationDescription.Field.LinkType == meta_description.LinkTypeOuter {
@@ -50,13 +51,13 @@ func (of *OperationFactory) Factory(migrationDescription *description.MigrationD
 	case description.UpdateActionOperation:
 		currentAction := metaDescription.FindAction(operationDescription.Action.PreviousName)
 		if currentAction == nil {
-			return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no action %s", metaDescription.Name, operationDescription.Action.PreviousName))
+			return nil, errors.NewValidationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no action %s", metaDescription.Name, operationDescription.Action.PreviousName), nil)
 		}
 		return action.NewUpdateActionOperation(currentAction, &operationDescription.Action.Action), nil
 	case description.RemoveActionOperation:
 		return action.NewRemoveActionOperation(&operationDescription.Action.Action), nil
 	}
-	return nil, migrations.NewMigrationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf(fmt.Sprintf("unknown type of operation(%s)", operationDescription.Type), metaDescription.Name, operationDescription))
+	return nil, errors.NewValidationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf(fmt.Sprintf("unknown type of operation(%s)", operationDescription.Type), metaDescription.Name, operationDescription), nil)
 }
 
 func NewOperationFactory() *OperationFactory {

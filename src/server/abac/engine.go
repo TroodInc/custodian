@@ -2,9 +2,8 @@ package abac
 
 import (
 	"fmt"
-	"strings"
-	"github.com/fatih/structs"
 	"reflect"
+	"strings"
 )
 
 type Resolver interface{}
@@ -43,15 +42,20 @@ func GetTroodABACResolver(datasource map[string]interface{}) TroodABACResolver {
 	}
 }
 
-func (this *TroodABACResolver) EvaluateRule(rule map[string]interface{}) (bool, *FilterExpression) {
+func (this *TroodABACResolver) EvaluateRule(rule map[string]interface{}) (bool, string, *FilterExpression) {
 	condition := rule["rule"].(map[string]interface{})
-	result, filters := this.evaluateCondition(condition)
+	passed, filters := this.evaluateCondition(condition)
+
+	var result string
+	if passed {
+		result = rule["result"].(string)
+	}
 
 	// todo: handle defaults and other edge cases
 	if len(filters) > 0 {
-		return result, &FilterExpression{Operator: andOperator, Operand: "", Value: filters}
+		return passed, result, &FilterExpression{Operator: andOperator, Operand: "", Value: filters}
 	} else {
-		return result, nil
+		return passed, result, nil
 	}
 }
 
@@ -80,7 +84,7 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 		var flt *FilterExpression
 		result := true
 		if is_filter {
-			flt = makeFilter(operand.(string), value)
+			flt = makeFilter(operator, operand.(string), value)
 		} else {
 			if operator_func, ok := operations[operator]; ok {
 				result, _ = operator_func(operand, value)
@@ -103,9 +107,7 @@ func (this *TroodABACResolver) evaluateCondition(condition map[string]interface{
 	return totalResult, filters
 }
 
-func makeFilter(operand string, value interface{}) *FilterExpression {
-	operator := eqOperator
-
+func makeFilter(operator string, operand string, value interface{}) *FilterExpression {
 	switch value.(type) {
 	case map[string]interface{}:
 		for operator, value = range value.(map[string]interface{}) {
@@ -126,13 +128,13 @@ func (this *TroodABACResolver) reveal(operand interface{}, value interface{}) (i
 		operand = splited[1]
 		is_filter = true
 	} else if splited[0] == "sbj" || splited[0] == "ctx" {
-		operand = GetAttributeByPath(this.datasource[splited[0]], splited[1])
+		operand, _ = GetAttributeByPath(this.datasource[splited[0]], splited[1])
 	}
 
 	if v, ok := value.(string); ok {
 		splited := strings.SplitN(v, ".", 2)
 		if splited[0] == "sbj" || splited[0] == "ctx" {
-			value = GetAttributeByPath(this.datasource[splited[0]], splited[1])
+			value, _ = GetAttributeByPath(this.datasource[splited[0]], splited[1])
 		}
 	}
 
@@ -153,7 +155,7 @@ func operatorNot(operand interface{}, value interface{}) (bool, interface{}) {
 
 func operatorIn(value []interface{}, operand interface{}) (bool, *FilterExpression) {
 	for _, v := range value {
-		if v == operand {
+		if cleanupType(v) == cleanupType(operand) {
 			return true, nil
 		}
 	}
@@ -216,21 +218,4 @@ func cleanupType(value interface{}) interface{} {
 	}
 
 	return value
-}
-
-func GetAttributeByPath(obj interface{}, path string) interface{} {
-	attributes := strings.Split(path, ".")
-	for _, key := range attributes {
-		switch obj.(type) {
-		case map[string]interface{}:
-			obj = obj.(map[string]interface{})[key]
-		case struct{}, interface{}:
-			structs.DefaultTagName = "json"
-			obj = structs.Map(obj)[key]
-		default:
-			return obj
-		}
-	}
-
-	return obj
 }

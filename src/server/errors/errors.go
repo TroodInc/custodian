@@ -1,8 +1,9 @@
 package errors
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
+	"net/http"
 )
 
 //Server errors description
@@ -23,14 +24,19 @@ type ServerError struct {
 	Status int
 	Code   string
 	Msg    string
+	Data   interface{}
 }
 
 func (e *ServerError) Error() string {
 	return fmt.Sprintf("Server error: Status = %d, Code = '%s', Msg = '%s'", e.Status, e.Code, e.Msg)
 }
 
-func (e *ServerError) Serialize() map[string]string {
-	return serializeError(e.Code, e.Msg)
+func (e *ServerError) Serialize() map[string]interface{} {
+	return map[string]interface{}{
+		"Code": e.Code,
+		"Msg":  e.Msg,
+		"Data": e.Data,
+	}
 }
 
 func (e *ServerError) Json() []byte {
@@ -38,9 +44,11 @@ func (e *ServerError) Json() []byte {
 	return encodedData
 }
 
-func serializeError(errorCode string, errorMessage string) map[string]string {
-	return map[string]string{
-		"Code": errorCode,
-		"Msg":  errorMessage,
-	}
+
+func NewFatalError(code string, msg string, data interface{}) *ServerError {
+	return &ServerError{http.StatusInternalServerError, code, msg, data}
+}
+
+func NewValidationError(code string, msg string, data interface{}) *ServerError {
+	return &ServerError{http.StatusBadRequest, code, msg, data}
 }

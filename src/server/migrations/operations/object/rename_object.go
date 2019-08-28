@@ -1,6 +1,7 @@
 package object
 
 import (
+	"server/errors"
 	"server/object/meta"
 	"server/transactions"
 	"server/migrations"
@@ -28,9 +29,10 @@ func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *desc
 func (o *RenameObjectOperation) validate(metaObj *description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) error {
 	metaDescription, _, _ := metaDescriptionSyncer.Get(o.MetaDescription.Name)
 	if metaDescription != nil {
-		return migrations.NewMigrationError(
+		return errors.NewValidationError(
 			migrations.MigrationErrorInvalidDescription,
 			fmt.Sprintf("failed to rename object '%s' to '%s': object named '%s' already exists", metaObj.Name, o.MetaDescription.Name, o.MetaDescription.Name),
+			nil,
 		)
 	}
 	return nil

@@ -263,12 +263,12 @@ func (rn *restNotifier) NewNotification() chan *Event {
 
 func postCallbackData(url string, body io.Reader) (*http.Response, error){
 	callback_request, _ := http.NewRequest("POST", url, body)
+	callback_request.Header.Add("Content-Type", "application/json")
 
 	service_token, err := auth.GetServiceToken()
 
 	if err == nil {
 		callback_request.Header.Add("Authorization", "Service " + service_token)
-		callback_request.Header.Add("Content-Type", "application/json")
 	}
 
 	return restClient.Do(callback_request)

@@ -8,6 +8,7 @@ import (
 	"path"
 	"fmt"
 	"path/filepath"
+	"server/errors"
 	"server/transactions"
 	. "server/object/description"
 	"utils"
@@ -55,25 +56,33 @@ func getMetaList(directory string, extension string) []string {
 	return metaList
 }
 
-func (fm *FileMetaDescriptionSyncer) List() (*[] *MetaDescription, bool, error) {
+func (fm *FileMetaDescriptionSyncer) List() ([]*MetaDescription, bool, error) {
 	var metaList []*MetaDescription
 	for _, metaFileName := range getMetaList(fm.dir, "json") {
 		meta, _, _ := fm.Get(metaFileName)
 		metaList = append(metaList, meta)
 	}
-	return &metaList, true, nil
+	return metaList, true, nil
 }
 
 func (fm *FileMetaDescriptionSyncer) Get(name string) (*MetaDescription, bool, error) {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
 		logger.Debug("File '%s' of MetaDescription '%s' not found", metaFile, name)
-		return nil, false, NewMetaError(name, "meta_file_get", ErrNotFound, "The MetaDescription '%s' not found", name)
+		return nil, false, errors.NewFatalError(
+			"meta_file_get",
+			fmt.Sprintf("The MetaDescription '%s' not found", name),
+			nil,
+		)
 	}
 	f, err := os.Open(metaFile)
 	if err != nil {
 		logger.Error("Can't open file '%s' of  MetaDescription '%s': %s", metaFile, name, err.Error())
-		return nil, true, NewMetaError(name, "meta_file_get", ErrInternal, "Can't open file of MetaDescription '%s'", name)
+		return nil, true, errors.NewFatalError(
+			"meta_file_get",
+			fmt.Sprintf("Can't open file of MetaDescription '%s'", name),
+			nil,
+		)
 	}
 	defer utils.CloseFile(f)
 
@@ -91,12 +100,20 @@ func (fm *FileMetaDescriptionSyncer) Create(transaction transactions.MetaDescrip
 	var metaFile = fm.getMetaFileName(m.Name)
 	if _, err := os.Stat(metaFile); err == nil {
 		logger.Debug("File '%s' of MetaDescription '%s' already exists: %s", metaFile, m.Name)
-		return NewMetaError(m.Name, "meta_file_create", ErrDuplicated, "The MetaDescription '%s' already exists", m.Name)
+		return errors.NewFatalError(
+			"meta_file_create",
+			fmt.Sprintf("The MetaDescription '%s' already exists", m.Name),
+			nil,
+		)
 	}
 
 	if err := createMetaFile(metaFile, &m); err != nil {
 		logger.Error("Can't save MetaDescription '%s' fo file '%s': %s", m.Name, metaFile, err.Error())
-		return NewMetaError(m.Name, "meta_file_create", ErrInternal, "Can't save MetaDescription'%s'", m.Name)
+		return errors.NewFatalError(
+			"meta_file_create",
+			fmt.Sprintf("Can't save MetaDescription'%s'", m.Name),
+			nil,
+		)
 	}
 	transaction.AddCreatedMetaName(m.Name)
 	return nil
@@ -105,12 +122,20 @@ func (fm *FileMetaDescriptionSyncer) Create(transaction transactions.MetaDescrip
 func (fm *FileMetaDescriptionSyncer) Remove(name string) (bool, error) {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
-		return false, NewMetaError(name, "meta_file_remove", ErrNotFound, "The MetaDescription '%s' not found", name)
+		return false, errors.NewFatalError(
+			"meta_file_remove",
+			fmt.Sprintf("The MetaDescription '%s' not found", name),
+			nil,
+		)
 	}
 	err := os.Remove(metaFile)
 	if err != nil {
 		logger.Error("Can't delete file '%s' of MetaDescription '%s': %s", metaFile, name, err.Error())
-		return true, NewMetaError(name, "meta_file_remove", ErrInternal, "Can't delete MetaDescription '%s'", name)
+		return true, errors.NewFatalError(
+			"meta_file_remove",
+			fmt.Sprintf("Can't delete MetaDescription '%s'", name),
+			nil,
+		)
 	}
 	return true, nil
 }
@@ -119,22 +144,38 @@ func (fm *FileMetaDescriptionSyncer) Update(name string, m MetaDescription) (boo
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
 		logger.Debug("Can't find file '%s' of MetaDescription '%s'", metaFile, name)
-		return false, NewMetaError(name, "meta_file_update", ErrNotFound, "The MetaDescription '%s' not found", name)
+		return false, errors.NewFatalError(
+			"meta_file_update",
+			fmt.Sprintf("The MetaDescription '%s' not found", name),
+			nil,
+		)
 	}
 
 	if name != m.Name {
-		return true, NewMetaError(name, "meta_file_update", ErrNotValid, "Name of MetaDescription '%s' is not equal to name parameter %s", m.Name, name)
+		return true, errors.NewFatalError(
+			"meta_file_update",
+			fmt.Sprintf("Name of MetaDescription '%s' is not equal to name parameter %s", m.Name, name),
+			nil,
+		)
 	}
 
 	var metaFileTmp = metaFile + ".tmp"
 	if err := createMetaFile(metaFileTmp, &m); err != nil {
 		logger.Error("Can't save temp file '%s' of MetaDescription '%s': %s", metaFile, name, err.Error())
-		return true, NewMetaError(name, "meta_file_update", ErrInternal, "Can't save MetaDescription'%s'", name)
+		return true, errors.NewFatalError(
+			"meta_file_update",
+			fmt.Sprintf("Can't save MetaDescription'%s'", name),
+			nil,
+		)
 	}
 
 	if err := os.Rename(metaFileTmp, metaFile); err != nil {
 		logger.Error("Can't rename temp file from '%s' to '%s' of MetaDescription '%s': %s", metaFileTmp, metaFile, name, err.Error())
-		return true, NewMetaError(name, "meta_file_update", ErrInternal, "Can't save MetaDescription '%s'", name)
+		return true, errors.NewFatalError(
+			"meta_file_update",
+			fmt.Sprintf("Can't save MetaDescription '%s'", name),
+			nil,
+		)
 	}
 
 	return true, nil

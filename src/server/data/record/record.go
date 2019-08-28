@@ -140,7 +140,5 @@ func (record *Record) IsPhantom() bool {
 }
 
 func NewRecord(meta *meta.Meta, data map[string]interface{}) *Record {
-	record := &Record{Meta: meta, Data: data, RawData: nil}
-	record.Links = make([]*types.LazyLink, 0)
-	return record
+	return  &Record{Meta: meta, Data: data, RawData: nil, Links: make([]*types.LazyLink, 0)}
 }

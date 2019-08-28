@@ -3,25 +3,25 @@ package pg
 import (
 	"bytes"
 	"database/sql"
-	"encoding/json"
 	"fmt"
-	"github.com/lib/pq"
-	"logger"
-	"server/data"
-	"server/data/errors"
-	"server/object/meta"
-	_ "github.com/lib/pq"
 	"github.com/Q-CIS-DEV/go-rql-parser"
+	"github.com/lib/pq"
+	_ "github.com/lib/pq"
+	"logger"
+	"regexp"
+	"server/data"
+	"server/data/notifications"
+	"server/data/record"
+	"server/data/types"
+	"server/errors"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg/dml_info"
+	"server/transactions"
 	"strconv"
 	"strings"
 	"text/template"
-	"server/pg/dml_info"
-	"server/data/types"
 	"utils"
-	"server/object/description"
-	"server/transactions"
-	"server/data/notifications"
-	"server/data/record"
 )
 
 type DataManager struct {
@@ -36,37 +36,13 @@ func NewDataManager(db *sql.DB) (*DataManager, error) {
 	return &DataManager{db: db}, nil
 }
 
-type DMLError struct {
-	Code string
-	msg  string
-}
-
-func (e *DMLError) Error() string {
-	return fmt.Sprintf("DML error:  code='%s'  msg = '%s'", e.Code, e.msg)
-}
-
-func (e *DMLError) Json() []byte {
-	j, _ := json.Marshal(map[string]string{
-		"code": "dml:" + e.Code,
-		"msg":  e.msg,
-	})
-	return j
-}
-
-func (e *DMLError) Serialize() map[string]interface{} {
-	return map[string]interface{}{"Code": e.Code, "Message": e.msg}
-}
-
-func NewDMLError(code string, msg string, a ...interface{}) *DMLError {
-	return &DMLError{Code: code, msg: fmt.Sprintf(msg, a...)}
-}
-
 const (
 	ErrTrxFailed          = "transaction_failed"
 	ErrTemplateFailed     = "template_failed"
 	ErrInvalidArgument    = "invalid_argument"
 	ErrDMLFailed          = "dml_failed"
 	ErrValidation 		  = "validation_error"
+	ErrValueDuplication   = "duplicated_value_error"
 	ErrConvertationFailed = "convertation_failed"
 	ErrCommitFailed       = "commit_failed"
 	ErrPreconditionFailed = "precondition_failed"
@@ -159,7 +135,7 @@ func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, erro
 			return newFieldValue(f.OuterLinkField, f.Optional)
 		}
 	default:
-		return nil, NewDMLError(ErrConvertationFailed, "Unknown field type '%s'", f.Type)
+		return nil, errors.NewFatalError(ErrConvertationFailed, "Unknown field type '%s'", f.Type)
 	}
 }
 
@@ -175,7 +151,7 @@ func NewStmt(tx *sql.Tx, q string) (*Stmt, error) {
 	statement, err := tx.Prepare(q)
 	if err != nil {
 		logger.Error("Prepare statement error: %s %s", q, err.Error())
-		return nil, NewDMLError(ErrDMLFailed, err.Error())
+		return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 	}
 	logger.Debug("Prepared sql: %s", q)
 	return &Stmt{statement}, nil
@@ -203,9 +179,9 @@ func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*meta.FieldDescri
 
 	count := len(objs)
 	if count == 0 {
-		return nil, NewDMLError(ErrNotFound, "No rows returned. Check the object's references, identificator and cas value.")
+		return nil, errors.NewFatalError(ErrNotFound, "No rows returned. Check the object's references, identificator and cas value.", nil)
 	} else if count > 1 {
-		return nil, NewDMLError(ErrTooManyFound, "Mone then one rows returned")
+		return nil, errors.NewFatalError(ErrTooManyFound, "More then one rows returned", nil)
 	}
 
 	return objs[0], nil
@@ -219,14 +195,20 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 		if err, ok := err.(*pq.Error); ok {
 			switch err.Code{
 				case "23502",
-				     "23503",
-				     "23505":
-					return nil, NewDMLError(ErrValidation, err.Error())
+				     "23503":
+					return nil, errors.NewValidationError(ErrValidation, err.Error(), nil) // Return data here
+				case "23505":
+					re := regexp.MustCompile(`\(([^)]+)\)=\(([^)]+)\)`)
+					parts := re.FindStringSubmatch(err.Detail)[1:]
+					data := make(map[string]interface{})
+					data[parts[0]] = parts[1]
+
+					return nil, errors.NewValidationError(ErrValueDuplication, err.Error(), data) // Return data here
 				default:
-					return nil, NewDMLError(ErrDMLFailed, err.Error())
+					return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 			}
 		} else {
-			return nil, NewDMLError(ErrDMLFailed, err.Error())
+			return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 		}
 	}
 
@@ -305,7 +287,7 @@ func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, ex
 		}
 	}
 	if !utils.Equal(expectedSetOfColumns, processedColumns, false) {
-		return nil, NewDMLError(ErrInvalidArgument, "FieldDescription '%s' not found. All objects must have the same set of fileds.")
+		return nil, errors.NewValidationError(ErrInvalidArgument, "FieldDescription '%s' not found. All objects must have the same set of fileds.", nil)
 	}
 	return values, nil
 }
@@ -418,7 +400,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 
 	if err := parsedTemplUpdate.Execute(&b, updateInfo); err != nil {
 		logger.Error("Prepare update SQL by template error: %s", err.Error())
-		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+		return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 
 	return func(dbTransaction transactions.DbTransaction) error {
@@ -432,7 +414,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 			binds := make([]interface{}, 0)
 			for j := range updateFields {
 				if v, ok := recordValues[i][updateFields[j]]; !ok {
-					return NewDMLError(ErrInvalidArgument, "Different set of fields. Object #%d. All objects must have the same set of fields.", i)
+					return errors.NewValidationError(ErrInvalidArgument, "Different set of fields. Object #%d. All objects must have the same set of fields.", i)
 				} else {
 					value := valueExtractors[j](v)
 					if value == nil {
@@ -457,11 +439,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 			if uo, err := stmt.ParsedSingleQuery(binds, rFields); err == nil {
 				updateNodes(recordValues[i], uo)
 			} else {
-				if dml, ok := err.(*DMLError); ok && dml.Code == ErrNotFound {
-					return errors.NewDataError(m.Name, errors.ErrCasFailed, "Database has returned no rows. Probably CAS failed or record with such PK does not exist.", i)
-				} else {
-					return err
-				}
+				return err
 			}
 		}
 
@@ -483,7 +461,7 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 	insertInfo := dml_info.NewInsertInfo(GetTableName(m.Name), insertColumns, getFieldsColumnsNames(fields), len(recordsValues))
 	var insertDML bytes.Buffer
 	if err := parsedTemplInsert.Execute(&insertDML, insertInfo); err != nil {
-		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+		return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 
 	return func(dbTransaction transactions.DbTransaction) error {
@@ -503,6 +481,13 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 		defer stmt.Close()
 		dbObjs, err := stmt.ParsedQuery(binds, fields)
 		if err != nil {
+			if err, ok := err.(*errors.ServerError); ok && err.Code == ErrValueDuplication {
+				dupTransaction, _ := dbTransaction.(*PgTransaction).Manager.BeginTransaction()
+				duplicates, dup_error := dm.GetAll(m, m.TableFields(), err.Data.(map[string]interface{}), dupTransaction)
+				dupTransaction.Close()
+				if dup_error != nil { logger.Error(dup_error.Error()) }
+				err.Data = duplicates
+			}
 			return err
 		}
 
@@ -532,7 +517,7 @@ func (dm *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key st
 
 	l := len(objs)
 	if l > 1 {
-		return nil, NewDMLError(ErrTooManyFound, "too many rows found")
+		return nil, errors.NewFatalError(ErrTooManyFound, "too many rows found", nil)
 	}
 
 	if l == 0 {
@@ -552,7 +537,7 @@ func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, fil
 	selectInfo := NewSelectInfo(m, fields, filterKeys)
 	var q bytes.Buffer
 	if err := selectInfo.sql(&q); err != nil {
-		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+		return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 
 	stmt, err := dm.Prepare(q.String(), tx)
@@ -634,12 +619,12 @@ func (dm *DataManager) PrepareRemoveOperation(record *record.Record) (transactio
 		}
 		defer stmt.Close()
 		if _, err = stmt.Exec(record.Pk()); err != nil {
-			return NewDMLError(ErrDMLFailed, err.Error())
+			return errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 		}
 		return nil
 	}
 	if err := parsedTemplDelete.Execute(&query, deleteInfo); err != nil {
-		return nil, NewDMLError(ErrTemplateFailed, err.Error())
+		return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 	return operation, nil
 
@@ -672,7 +657,7 @@ func (dm *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNod
 	//records data
 	var queryString bytes.Buffer
 	if err := selectInfo.sql(&queryString); err != nil {
-		return nil, 0, NewDMLError(ErrTemplateFailed, err.Error())
+		return nil, 0, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 	statement, err := dm.Prepare(queryString.String(), tx)
 	if err != nil {
@@ -683,7 +668,7 @@ func (dm *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNod
 	count := 0
 	queryString.Reset()
 	if err := countInfo.sql(&queryString); err != nil {
-		return nil, 0, NewDMLError(ErrTemplateFailed, err.Error())
+		return nil, 0, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 	countStatement, err := dm.Prepare(queryString.String(), tx)
 	if err != nil {

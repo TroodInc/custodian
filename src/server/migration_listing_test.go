@@ -6,18 +6,18 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"server/pg"
-	"utils"
 	"server/transactions/file_transaction"
+	"utils"
 
-	"server/object/meta"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
-	"server"
 	"encoding/json"
 	"fmt"
-	"server/pg/migrations/managers"
-	"server/object/description"
+	"server"
 	migrations_description "server/migrations/description"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg/migrations/managers"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
 )
 
 var _ = Describe("Migrations` listing", func() {
@@ -117,7 +117,8 @@ var _ = Describe("Migrations` listing", func() {
 			Expect(body["status"]).To(Equal("OK"))
 			//ensure applied migration was returned
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
-			Expect(body["data"].([]interface{})[0].(map[string]interface{})["migration_id"]).To(Equal(migrationDescription.Id))
+			first := body["data"].([]interface{})[0].(map[string]interface{})
+			Expect(first["Data"].(map[string]interface{})["migration_id"]).To(Equal(migrationDescription.Id))
 		})
 
 		It("Can detail applied migrations", func() {
