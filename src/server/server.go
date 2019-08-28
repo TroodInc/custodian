@@ -97,7 +97,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			}
 
 			for _, path := range paths {
-				if val := abac.GetAttributeByPath(abac_tree, path); val != nil {
+				if val, _ := abac.GetAttributeByPath(abac_tree, path); val != nil {
 					rules = append(rules, val.([]interface{})...)
 				}
 			}
@@ -291,6 +291,22 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			//set transaction to the context
 			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
 
+			auth_mask := r.Context().Value("auth_mask")
+			if auth_mask != nil {
+				restricted := abac.CheckMask(src.single, auth_mask.([]interface{}))
+
+				if len(restricted) > 0{
+					sink.pushError(
+						abac.NewError(
+							fmt.Sprintf("Creating object with fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
+						),
+					)
+					dbTransactionManager.RollbackTransaction(dbTransaction)
+					return
+				}
+			}
+
+
 			if record, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.single, user); err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(err)
@@ -386,7 +402,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					if auth_mask != nil {
 						obj := o.Data
 						for _, path := range auth_mask.([]interface{}) {
-							obj = abac.RemoveMapAttributeByPath(obj, path.(string), true)
+							obj = abac.SetAttributeByPath(obj, path.(string), map[string]string{"access": "denied"})
 						}
 						sink.pushObj(obj)
 					} else {
@@ -434,7 +450,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				auth_mask := request.Context().Value("auth_mask")
 				if auth_mask != nil {
 					for _, path := range auth_mask.([]interface{}) {
-						obj = abac.RemoveMapAttributeByPath(obj, path.(string), true)
+						obj = abac.SetAttributeByPath(obj, path.(string), map[string]string{"access": "denied"})
 					}
 				}
 				data = append(data, obj)
@@ -551,25 +567,19 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			auth_mask := r.Context().Value("auth_mask")
 			if auth_mask != nil {
-				var restricted []string
-				for _, path := range auth_mask.([]interface{}) {
-					path := path.(string)
-					matched := abac.GetAttributeByPath(src.single, path)
-					if matched != nil {
-						restricted = append(restricted, path)
-					}
-				}
+				restricted := abac.CheckMask(src.single, auth_mask.([]interface{}))
 
-				if len(restricted) > 0{
+				if len(restricted) > 0 {
 					sink.pushError(
 						abac.NewError(
 							fmt.Sprintf("Updating fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
-							),
-						)
+						),
+					)
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					return
 				}
 			}
+
 
 			//end access check
 
