@@ -6,24 +6,26 @@ import (
 )
 
 func GetAttributeByPath(obj interface{}, path string) (interface{}, bool) {
-	attributes := strings.Split(path, ".")
-	for n, key := range attributes {
-		switch obj.(type) {
-		case map[string]interface{}:
-			obj = obj.(map[string]interface{})[key]
-		case struct{}, interface{}:
-			structs.DefaultTagName = "json"
-			obj = structs.Map(obj)[key]
-		default:
-			if n == len(attributes) {
-				return obj, true
-			} else {
-				return nil, false
-			}
-		}
+	parts := strings.SplitN(path, ".", 2)
+
+	var current interface{}
+	var ok bool
+
+	switch obj.(type) {
+	case map[string]interface{}:
+		current, ok = obj.(map[string]interface{})[parts[0]]
+	case struct{}, interface{}:
+		structs.DefaultTagName = "json"
+		current, ok = structs.Map(obj)[parts[0]]
 	}
 
-	return obj, true
+	if ok && len(parts) == 1 {
+		return current, true
+	} else if ok && len(parts) == 2 {
+		return GetAttributeByPath(current, parts[1])
+	}
+
+	return nil, false
 }
 
 func SetAttributeByPath(obj map[string]interface{}, path string, value interface{}) map[string]interface{} {

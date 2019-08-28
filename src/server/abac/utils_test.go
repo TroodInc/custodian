@@ -23,15 +23,31 @@ var _ = Describe("Utils", func() {
 	})
 
 	It("Must return field value from path", func() {
-		value, ok := GetAttributeByPath(test_obj, "c.x")
-		Expect(ok).To(BeTrue())
-		Expect(value).To(Equal(10))
+		Context("first level", func() {
+			value, ok := GetAttributeByPath(test_obj, "b")
+			Expect(ok).To(BeTrue())
+			Expect(value).To(Equal(2))
+		})
+
+		Context("Other depth", func() {
+			value, ok := GetAttributeByPath(test_obj, "c.x")
+			Expect(ok).To(BeTrue())
+			Expect(value).To(Equal(10))
+		})
 	})
 
-	It("Must return False when cant get avlue from path", func() {
-		value, ok := GetAttributeByPath(test_obj, "z.y")
-		Expect(ok).To(BeFalse())
-		Expect(value).To(BeNil())
+	It("Must return False when cant get value from path", func() {
+		Context("first level", func() {
+			value, ok := GetAttributeByPath(test_obj, "some_field")
+			Expect(ok).To(BeFalse())
+			Expect(value).To(BeNil())
+		})
+
+		Context("Other depth", func() {
+			value, ok := GetAttributeByPath(test_obj, "z.y")
+			Expect(ok).To(BeFalse())
+			Expect(value).To(BeNil())
+		})
 	})
 
 	It("Must remove map attributes", func() {
