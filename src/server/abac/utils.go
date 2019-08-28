@@ -5,9 +5,9 @@ import (
 	"strings"
 )
 
-func GetAttributeByPath(obj interface{}, path string) interface{} {
+func GetAttributeByPath(obj interface{}, path string) (interface{}, bool) {
 	attributes := strings.Split(path, ".")
-	for _, key := range attributes {
+	for n, key := range attributes {
 		switch obj.(type) {
 		case map[string]interface{}:
 			obj = obj.(map[string]interface{})[key]
@@ -15,12 +15,30 @@ func GetAttributeByPath(obj interface{}, path string) interface{} {
 			structs.DefaultTagName = "json"
 			obj = structs.Map(obj)[key]
 		default:
-			return obj
+			if n == len(attributes) {
+				return obj, true
+			} else {
+				return nil, false
+			}
 		}
+	}
+
+	return obj, true
+}
+
+func SetAttributeByPath(obj map[string]interface{}, path string, value interface{}) map[string]interface{} {
+	parts := strings.SplitN(path, ".", 2)
+	current, ok := obj[parts[0]]
+	if ok && len(parts) == 1 {
+		obj[parts[0]] = value
+		return obj
+	} else if ok && len(parts) == 2  {
+		obj[parts[0]] = SetAttributeByPath(current.(map[string]interface{}), parts[1], value)
 	}
 
 	return obj
 }
+
 
 func RemoveMapAttributeByPath(obj map[string]interface{}, path string, set_null bool) map[string]interface{} {
 	parts := strings.SplitN(path, ".", 2)
@@ -39,4 +57,19 @@ func RemoveMapAttributeByPath(obj map[string]interface{}, path string, set_null 
 	}
 
 	return obj
+}
+
+func CheckMask(obj map[string]interface{}, mask []interface{})  []string {
+	var restricted []string
+	if mask != nil {
+		for _, path := range mask {
+			path := path.(string)
+			_, matched := GetAttributeByPath(obj, path)
+			if matched {
+				restricted = append(restricted, path)
+			}
+		}
+	}
+	return restricted
+
 }

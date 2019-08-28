@@ -128,13 +128,13 @@ func (this *TroodABACResolver) reveal(operand interface{}, value interface{}) (i
 		operand = splited[1]
 		is_filter = true
 	} else if splited[0] == "sbj" || splited[0] == "ctx" {
-		operand = GetAttributeByPath(this.datasource[splited[0]], splited[1])
+		operand, _ = GetAttributeByPath(this.datasource[splited[0]], splited[1])
 	}
 
 	if v, ok := value.(string); ok {
 		splited := strings.SplitN(v, ".", 2)
 		if splited[0] == "sbj" || splited[0] == "ctx" {
-			value = GetAttributeByPath(this.datasource[splited[0]], splited[1])
+			value, _ = GetAttributeByPath(this.datasource[splited[0]], splited[1])
 		}
 	}
 
