@@ -192,9 +192,9 @@ var _ = Describe("Server", func() {
 			}
 			encodedMetaData, _ := json.Marshal(createData)
 
-			url := fmt.Sprintf("%s/data/single/%s?depth=2", appConfig.UrlPrefix, objectB.Name)
+			url := fmt.Sprintf("%s/data/%s?depth=2", appConfig.UrlPrefix, objectB.Name)
 
-			var request, _ = http.NewRequest("PUT", url, bytes.NewBuffer(encodedMetaData))
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 			request.Header.Set("Content-Type", "application/json")
 			httpServer.Handler.ServeHTTP(recorder, request)
 			responseBody := recorder.Body.String()
@@ -211,9 +211,9 @@ var _ = Describe("Server", func() {
 			}
 			encodedMetaData, _ := json.Marshal(createData)
 
-			url := fmt.Sprintf("%s/data/single/%s?depth=2,exclude=a", appConfig.UrlPrefix, objectB.Name)
+			url := fmt.Sprintf("%s/data/%s?depth=2,exclude=a", appConfig.UrlPrefix, objectB.Name)
 
-			var request, _ = http.NewRequest("PUT", url, bytes.NewBuffer(encodedMetaData))
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 			request.Header.Set("Content-Type", "application/json")
 			httpServer.Handler.ServeHTTP(recorder, request)
 			responseBody := recorder.Body.String()

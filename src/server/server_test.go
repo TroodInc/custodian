@@ -108,7 +108,7 @@ var _ = Describe("Server", func() {
 			Context("and valid HTTP request object", func() {
 				encodedMetaData, _ := json.Marshal(metaData)
 
-				var request, _ = http.NewRequest("PUT", fmt.Sprintf("%s/meta", appConfig.UrlPrefix), bytes.NewBuffer(encodedMetaData))
+				var request, _ = http.NewRequest("POST", fmt.Sprintf("%s/meta", appConfig.UrlPrefix), bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
 
 				httpServer.Handler.ServeHTTP(recorder, request)
@@ -163,7 +163,7 @@ var _ = Describe("Server", func() {
 
 			Context("and DELETE request performed by URL with specified record ID", func() {
 
-				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, metaObj.Name, int(firstRecord.Data["id"].(float64)))
+				url := fmt.Sprintf("%s/data/%s/%d", appConfig.UrlPrefix, metaObj.Name, int(firstRecord.Data["id"].(float64)))
 				var request, _ = http.NewRequest("DELETE", url, bytes.NewBuffer([]byte{}))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)

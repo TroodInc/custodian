@@ -111,7 +111,7 @@ var _ = Describe("Server", func() {
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
-			url := fmt.Sprintf("%s/data/bulk/%s?depth=1", appConfig.UrlPrefix, aMetaObj.Name)
+			url := fmt.Sprintf("%s/data/%s?depth=1", appConfig.UrlPrefix, aMetaObj.Name)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -134,7 +134,7 @@ var _ = Describe("Server", func() {
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
-			url := fmt.Sprintf("%s/data/bulk/%s?depth=1&q=limit(0,10)", appConfig.UrlPrefix, aMetaObj.Name)
+			url := fmt.Sprintf("%s/data/%s?depth=1&q=limit(0,10)", appConfig.UrlPrefix, aMetaObj.Name)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -153,7 +153,7 @@ var _ = Describe("Server", func() {
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
-			url := fmt.Sprintf("%s/data/bulk/%s?depth=1", appConfig.UrlPrefix, aMetaObj.Name)
+			url := fmt.Sprintf("%s/data/%s?depth=1", appConfig.UrlPrefix, aMetaObj.Name)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -181,7 +181,7 @@ var _ = Describe("Server", func() {
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
-			url := fmt.Sprintf("%s/data/bulk/%s?depth=1&q=eq(name,B),limit(0,5)", appConfig.UrlPrefix, aMetaObj.Name)
+			url := fmt.Sprintf("%s/data/%s?depth=1&q=eq(name,B),limit(0,5)", appConfig.UrlPrefix, aMetaObj.Name)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -384,7 +384,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can exclude inner link`s subtree", func() {
-							url := fmt.Sprintf("%s/data/bulk/c?depth=2&exclude=b", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/c?depth=2&exclude=b", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -397,7 +397,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can exclude regular field", func() {
-							url := fmt.Sprintf("%s/data/bulk/a?depth=2&exclude=name", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/a?depth=2&exclude=name", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -411,7 +411,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can exclude regular field of inner link", func() {
-							url := fmt.Sprintf("%s/data/bulk/c?depth=2&exclude=b.name", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/c?depth=2&exclude=b.name", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -424,7 +424,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can exclude regular field of outer link", func() {
-							url := fmt.Sprintf("%s/data/bulk/a?depth=2&exclude=d_set.name", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/a?depth=2&exclude=d_set.name", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -438,7 +438,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can include inner link as key value", func() {
-							url := fmt.Sprintf("%s/data/bulk/c?depth=1&only=a", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/c?depth=1&only=a", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -452,7 +452,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can include inner link`s field", func() {
-							url := fmt.Sprintf("%s/data/bulk/c?depth=1&only=b.name", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/c?depth=1&only=b.name", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -468,7 +468,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can exclude regular field of outer link", func() {
-							url := fmt.Sprintf("%s/data/bulk/a?depth=1&only=d_set.name", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/a?depth=1&only=d_set.name", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -483,7 +483,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can include more than one inner link`s subtrees together", func() {
-							url := fmt.Sprintf("%s/data/bulk/c?depth=1&only=a.id&only=b.id", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/c?depth=1&only=a.id&only=b.id", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -498,7 +498,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can include and exclude fields at once", func() {
-							url := fmt.Sprintf("%s/data/bulk/c?depth=2&only=a.id&exclude=b", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/c?depth=2&only=a.id&exclude=b", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -513,7 +513,7 @@ var _ = Describe("Server", func() {
 						})
 
 						It("Can exclude outer link`s tree", func() {
-							url := fmt.Sprintf("%s/data/bulk/a?depth=1&exclude=d_set", appConfig.UrlPrefix)
+							url := fmt.Sprintf("%s/data/a?depth=1&exclude=d_set", appConfig.UrlPrefix)
 
 							var request, _ = http.NewRequest("GET", url, nil)
 							httpServer.Handler.ServeHTTP(recorder, request)
@@ -587,7 +587,7 @@ var _ = Describe("Server", func() {
 
 							It("Can exclude a field of a record which is linked by the generic relation", func() {
 
-								url := fmt.Sprintf("%s/data/bulk/e?depth=2&exclude=target.a.name", appConfig.UrlPrefix)
+								url := fmt.Sprintf("%s/data/e?depth=2&exclude=target.a.name", appConfig.UrlPrefix)
 
 								var request, _ = http.NewRequest("GET", url, nil)
 								httpServer.Handler.ServeHTTP(recorder, request)
@@ -602,7 +602,7 @@ var _ = Describe("Server", func() {
 							})
 
 							It("Can exclude a record which is linked by the generic relation", func() {
-								url := fmt.Sprintf("%s/data/bulk/e?depth=2&exclude=target", appConfig.UrlPrefix)
+								url := fmt.Sprintf("%s/data/e?depth=2&exclude=target", appConfig.UrlPrefix)
 
 								var request, _ = http.NewRequest("GET", url, nil)
 								httpServer.Handler.ServeHTTP(recorder, request)
@@ -616,7 +616,7 @@ var _ = Describe("Server", func() {
 
 							It("Can include a field of a record which is linked by the generic relation", func() {
 
-								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target.a.name", appConfig.UrlPrefix)
+								url := fmt.Sprintf("%s/data/e?depth=1&only=target.a.name", appConfig.UrlPrefix)
 
 								var request, _ = http.NewRequest("GET", url, nil)
 								httpServer.Handler.ServeHTTP(recorder, request)
@@ -633,7 +633,7 @@ var _ = Describe("Server", func() {
 
 							It("Can include a field of a record which is linked by the generic relation and its nested item at once", func() {
 
-								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target.a.name&only=target.a.d_set", appConfig.UrlPrefix)
+								url := fmt.Sprintf("%s/data/e?depth=1&only=target.a.name&only=target.a.d_set", appConfig.UrlPrefix)
 
 								var request, _ = http.NewRequest("GET", url, nil)
 								httpServer.Handler.ServeHTTP(recorder, request)
@@ -649,8 +649,8 @@ var _ = Describe("Server", func() {
 
 							It("Applies policies regardless of specification`s order in query", func() {
 
-								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target&only=target.a", appConfig.UrlPrefix)
-								reversedOrderUrl := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target.a&only=target", appConfig.UrlPrefix)
+								url := fmt.Sprintf("%s/data/e?depth=1&only=target&only=target.a", appConfig.UrlPrefix)
+								reversedOrderUrl := fmt.Sprintf("%s/data/e?depth=1&only=target.a&only=target", appConfig.UrlPrefix)
 
 								var request, _ = http.NewRequest("GET", url, nil)
 								httpServer.Handler.ServeHTTP(recorder, request)
@@ -666,7 +666,7 @@ var _ = Describe("Server", func() {
 
 							It("Can include a generic field", func() {
 
-								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target", appConfig.UrlPrefix)
+								url := fmt.Sprintf("%s/data/e?depth=1&only=target", appConfig.UrlPrefix)
 
 								var request, _ = http.NewRequest("GET", url, nil)
 								httpServer.Handler.ServeHTTP(recorder, request)
@@ -683,7 +683,7 @@ var _ = Describe("Server", func() {
 
 							It("Can include a generic field and its subtree", func() {
 
-								url := fmt.Sprintf("%s/data/bulk/e?depth=1&only=target&only=target.a.name", appConfig.UrlPrefix)
+								url := fmt.Sprintf("%s/data/e?depth=1&only=target&only=target.a.name", appConfig.UrlPrefix)
 
 								var request, _ = http.NewRequest("GET", url, nil)
 								httpServer.Handler.ServeHTTP(recorder, request)

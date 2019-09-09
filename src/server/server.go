@@ -210,7 +210,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.PUT(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
+	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
 		metaDescriptionList, _, _ := metaStore.List()
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
 			js.pushError(err)
@@ -257,7 +257,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.POST(cs.root+"/meta/:name", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+	app.router.PATCH(cs.root+"/meta/:name", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		metaDescriptionList, _, _ := metaStore.List()
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
 			js.pushError(err)
@@ -282,7 +282,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	//RecordSetOperations operations
-	app.router.PUT(cs.root+"/data/single/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
+	app.router.POST(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
@@ -292,74 +292,73 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
 
 			auth_mask := r.Context().Value("auth_mask")
-			if auth_mask != nil {
-				restricted := abac.CheckMask(src.single, auth_mask.([]interface{}))
 
-				if len(restricted) > 0{
-					sink.pushError(
-						abac.NewError(
-							fmt.Sprintf("Creating object with fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
-						),
-					)
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					return
+			if src.single != nil {
+				if auth_mask != nil {
+					restricted := abac.CheckMask(src.single, auth_mask.([]interface{}))
+
+					if len(restricted) > 0 {
+						sink.pushError(
+							abac.NewError(
+								fmt.Sprintf("Creating object with fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
+							),
+						)
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						return
+					}
 				}
-			}
 
-
-			if record, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.single, user); err != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(err)
-			} else {
-				var depth = 1
-				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
-					depth = i
-				}
-				objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
-				pkValue, _ := objectMeta.Key.ValueAsString(record.Data[objectMeta.Key.Name])
-				if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
-					err != nil {
+				if record, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.single, user); err != nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(err)
 				} else {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushObj(record.Data)
+					var depth = 1
+					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+						depth = i
+					}
+					objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
+					pkValue, _ := objectMeta.Key.ValueAsString(record.Data[objectMeta.Key.Name])
+					if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
+						err != nil {
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						sink.pushError(err)
+					} else {
+						dbTransactionManager.CommitTransaction(dbTransaction)
+						sink.pushObj(record.Data)
+					}
 				}
-			}
-		}
-	}))
 
-	app.router.PUT(cs.root+"/data/bulk/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		user := request.Context().Value("auth_user").(auth.User)
+			} else if src.list != nil {
 
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
+				var i = 0
+				var result []interface{}
+				e := dataProcessor.BulkCreateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
+					if i < len(src.list) {
+						i += 1
+						return src.list[i-1], nil
+					} else {
+						return nil, nil
+					}
 
-			var i = 0
-			var result []interface{}
-			e := dataProcessor.BulkCreateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-				if i < len(src.list) {
-					i += 1
-					return src.list[i-1], nil
+				}, func(obj map[string]interface{}) error { result = append(result, obj); return nil }, user)
+				if e != nil {
+					dbTransactionManager.RollbackTransaction(dbTransaction)
+					sink.pushError(e)
 				} else {
-					return nil, nil
+					dbTransactionManager.CommitTransaction(dbTransaction)
+					defer sink.pushList(result, len(result))
 				}
-
-			}, func(obj map[string]interface{}) error { result = append(result, obj); return nil }, user)
-			if e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
-			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				defer sink.pushList(result, len(result))
 			}
 		}
 	}))
 
-	app.router.GET(cs.root+"/data/single/:name/:key", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+	//app.router.POST(cs.root+"/data/bulk/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+	//	user := request.Context().Value("auth_user").(auth.User)
+	//
+	//
+	//}))
+
+	app.router.GET(cs.root+"/data/:name/:key", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
@@ -414,7 +413,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.GET(cs.root+"/data/bulk/:name", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+	app.router.GET(cs.root+"/data/:name", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
@@ -466,7 +465,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.DELETE(cs.root+"/data/single/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
+	app.router.DELETE(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
 
 		user := r.Context().Value("auth_user").(auth.User)
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
@@ -508,7 +507,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.DELETE(cs.root+"/data/bulk/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
+	app.router.DELETE(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
@@ -534,7 +533,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.POST(cs.root+"/data/single/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, u url.Values, r *http.Request) {
+	app.router.PATCH(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, u url.Values, r *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
@@ -616,7 +615,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.POST(cs.root+"/data/bulk/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
+	app.router.PATCH(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {

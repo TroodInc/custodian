@@ -142,7 +142,7 @@ var _ = Describe("ABAC rules handling", func() {
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
-				url := fmt.Sprintf("%s/data/single/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
+				url := fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 
 				var request, _ = http.NewRequest("GET", url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
@@ -163,7 +163,7 @@ var _ = Describe("ABAC rules handling", func() {
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
-				url := fmt.Sprintf("%s/data/single/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
+				url := fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 
 				var request, _ = http.NewRequest("GET", url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
@@ -192,7 +192,7 @@ var _ = Describe("ABAC rules handling", func() {
 									},
 								},
 							},
-							"data_POST": []interface{}{
+							"data_PATCH": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
@@ -231,7 +231,7 @@ var _ = Describe("ABAC rules handling", func() {
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
-				url = fmt.Sprintf("%s/data/single/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
+				url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 			})
 
 			It("Should return error when trying to retrieve a record of object A", func() {
@@ -250,7 +250,7 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				encodedMetaData, _ := json.Marshal(updateData)
 
-				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+				var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
@@ -284,7 +284,7 @@ var _ = Describe("ABAC rules handling", func() {
 				aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "admin"}, auth.User{})
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
-				url = fmt.Sprintf("%s/data/single/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
+				url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 			})
 
 			It("Should return a record of object A", func() {
@@ -303,7 +303,7 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				encodedMetaData, _ := json.Marshal(updateData)
 
-				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+				var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
@@ -337,7 +337,7 @@ var _ = Describe("ABAC rules handling", func() {
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 
-			url = fmt.Sprintf("%s/data/single/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
+			url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 		})
 
 		Context("Default resoution set to deny globaly", func() {
