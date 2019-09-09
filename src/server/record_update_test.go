@@ -189,9 +189,9 @@ var _ = Describe("Server", func() {
 				}
 				encodedMetaData, _ := json.Marshal(updateData)
 
-				url := fmt.Sprintf("%s/data/single/%s/%d", appConfig.UrlPrefix, objectA.Name, int(record.Data["id"].(float64)))
+				url := fmt.Sprintf("%s/data/%s/%d", appConfig.UrlPrefix, objectA.Name, int(record.Data["id"].(float64)))
 
-				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+				var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
@@ -232,9 +232,9 @@ var _ = Describe("Server", func() {
 			}
 			encodedMetaData, _ := json.Marshal(updateData)
 
-			url := fmt.Sprintf("%s/data/single/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
+			url := fmt.Sprintf("%s/data/%s/%d?depth=2", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
 
-			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
 			request.Header.Set("Content-Type", "application/json")
 			httpServer.Handler.ServeHTTP(recorder, request)
 			responseBody := recorder.Body.String()
@@ -249,9 +249,9 @@ var _ = Describe("Server", func() {
 			}
 			encodedMetaData, _ := json.Marshal(updateData)
 
-			url := fmt.Sprintf("%s/data/single/%s/%d?depth=2,exclude=a", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
+			url := fmt.Sprintf("%s/data/%s/%d?depth=2,exclude=a", appConfig.UrlPrefix, objectB.Name, int(bRecord.Data["id"].(float64)))
 
-			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
 			request.Header.Set("Content-Type", "application/json")
 			httpServer.Handler.ServeHTTP(recorder, request)
 			responseBody := recorder.Body.String()

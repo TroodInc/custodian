@@ -63,7 +63,7 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 		if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
 			return nil, e
 		} else {
-			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
+			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data", DbTransaction: transaction, omitOuters: omitOuters}
 
 			//
 			root := &Node{
@@ -99,7 +99,7 @@ func (processor *Processor) ShadowGet(transaction transactions.DbTransaction, ob
 	if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
 		return nil, e
 	} else {
-		ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/single", DbTransaction: transaction, omitOuters: omitOuters}
+		ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data", DbTransaction: transaction, omitOuters: omitOuters}
 
 		root := &Node{
 			KeyField:     objectMeta.Key,
