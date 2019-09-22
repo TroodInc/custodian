@@ -212,7 +212,7 @@ var _ = Describe("Create test", func() {
 
 		Context("having Reason object", func() {
 			reasonMetaDescription := description.MetaDescription{
-				Name: "reason",
+				Name: "test_reason",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -230,7 +230,7 @@ var _ = Describe("Create test", func() {
 
 			Context("and Lead object referencing Reason object", func() {
 				leadMetaDescription := description.MetaDescription{
-					Name: "lead",
+					Name: "test_lead",
 					Key:  "id",
 					Cas:  false,
 					Fields: []description.Field{
@@ -251,7 +251,7 @@ var _ = Describe("Create test", func() {
 							Type:     description.FieldTypeObject,
 							Optional: true,
 							LinkType: description.LinkTypeInner,
-							LinkMeta: "reason",
+							LinkMeta: "test_reason",
 						},
 					},
 				}
@@ -274,7 +274,7 @@ var _ = Describe("Create test", func() {
 	It("can create record without specifying any value", func() {
 		Context("having an object with optional fields", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -307,7 +307,7 @@ var _ = Describe("Create test", func() {
 	It("can create record with null value for optional field", func() {
 		Context("having an object", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -339,7 +339,7 @@ var _ = Describe("Create test", func() {
 	It("Can create records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -375,7 +375,7 @@ var _ = Describe("Create test", func() {
 	It("Can insert numeric value into string field", func() {
 		Context("having an object with string field", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{

@@ -390,7 +390,7 @@ var _ = Describe("Data", func() {
 	It("returns a list of related outer links as a list of ids", func() {
 		Context("having an object with outer link to another object", func() {
 			orderMetaDescription := description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -409,7 +409,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(globalTransaction, orderMetaObj)
 
 			paymentMetaDescription := description.MetaDescription{
-				Name: "payment",
+				Name: "test_payment",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -425,7 +425,7 @@ var _ = Describe("Data", func() {
 						Name:     "order_id",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "order",
+						LinkMeta: "test_order",
 						Optional: true,
 					},
 				},
@@ -435,7 +435,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(globalTransaction, paymentMetaObj)
 
 			orderMetaDescription = description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -453,7 +453,7 @@ var _ = Describe("Data", func() {
 						Optional:       true,
 						LinkType:       description.LinkTypeOuter,
 						OuterLinkField: "order_id",
-						LinkMeta:       "payment",
+						LinkMeta:       "test_payment",
 					},
 				},
 			}
@@ -996,7 +996,7 @@ var _ = Describe("Data", func() {
 	It("omits outer links if omit_outers flag specified", func() {
 		Context("having an object with outer link to another object", func() {
 			orderMetaDescription := description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -1015,7 +1015,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(globalTransaction, orderMetaObj)
 
 			paymentMetaDescription := description.MetaDescription{
-				Name: "payment",
+				Name: "test_payment",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -1031,7 +1031,7 @@ var _ = Describe("Data", func() {
 						Name:     "order_id",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "order",
+						LinkMeta: "test_order",
 						Optional: true,
 					},
 				},
@@ -1041,7 +1041,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(globalTransaction, paymentMetaObj)
 
 			orderMetaDescription = description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -1059,7 +1059,7 @@ var _ = Describe("Data", func() {
 						Optional:       true,
 						LinkType:       description.LinkTypeOuter,
 						OuterLinkField: "order_id",
-						LinkMeta:       "payment",
+						LinkMeta:       "test_payment",
 					},
 				},
 			}
