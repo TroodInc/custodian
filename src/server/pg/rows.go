@@ -98,13 +98,13 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					//
 					value := values[j].(*sql.NullString)
 					assembledValue, ok := result[i][fieldDescription.Name]
-					var castAssembledValue types.GenericInnerLink
+					var castAssembledValue *types.GenericInnerLink
 					if !ok || assembledValue == nil {
 						// create new otherwise
-						castAssembledValue = types.GenericInnerLink{}
+						castAssembledValue = &types.GenericInnerLink{}
 					} else {
 						// get already assembled value if it exists
-						castAssembledValue = assembledValue.(types.GenericInnerLink)
+						castAssembledValue = assembledValue.(*types.GenericInnerLink)
 					}
 					//fill corresponding value
 					if meta.IsGenericFieldTypeColumn(columnName) {

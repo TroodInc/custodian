@@ -1,25 +1,25 @@
 package server_test
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"net/http"
-	"fmt"
 	"server/pg"
 
 	"bytes"
 	"encoding/json"
-	"utils"
 	"server/object/meta"
 	"server/transactions/file_transaction"
+	"utils"
 
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
 	"net/http/httptest"
 	"server"
-	"server/object/description"
 	"server/auth"
 	"server/data"
+	"server/object/description"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
 )
 
 var _ = Describe("Server", func() {
@@ -176,14 +176,9 @@ var _ = Describe("Server", func() {
 				Expect(responseBody).To(Equal(`{"data":{"id":1},"status":"OK"}`))
 
 				Context("and the number of records should be equal to 1 and existing record is not deleted one", func() {
-					matchedRecords := []map[string]interface{}{}
-					callbackFunction := func(obj map[string]interface{}) error {
-						matchedRecords = append(matchedRecords, obj)
-						return nil
-					}
-					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "", nil, nil, 1, false, callbackFunction)
+					_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "", nil, nil, 1, false)
 					Expect(matchedRecords).To(HaveLen(1))
-					Expect(matchedRecords[0]["id"]).To(Not(Equal(firstRecord.Data["id"])))
+					Expect(matchedRecords[0].Data["id"]).To(Not(Equal(firstRecord.Data["id"])))
 				})
 			})
 		})

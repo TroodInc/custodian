@@ -192,8 +192,8 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
-			targetValue := bSet[0].(map[string]interface{})["target"].(map[string]interface{})
-			Expect(targetValue[types.GenericInnerLinkObjectKey].(string)).To(Equal("a"))
+			targetValue := bSet[0].(*record.Record).Data["target"].(*record.Record)
+			Expect(targetValue.Data[types.GenericInnerLinkObjectKey].(string)).To(Equal("a"))
 		})
 
 		It("can create record with nested records referenced by outer generic link, referenced record does not exist", func() {
@@ -251,12 +251,7 @@ var _ = Describe("Data", func() {
 			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "anotherbrecord"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			matchedRecords := []map[string]interface{}{}
-			callbackFunction := func(obj map[string]interface{}) error {
-				matchedRecords = append(matchedRecords, obj)
-				return nil
-			}
-			_, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false, callbackFunction)
+			_, matchedRecords, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 		})

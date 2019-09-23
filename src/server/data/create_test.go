@@ -493,12 +493,7 @@ var _ = Describe("Create test", func() {
 
 		//ensure through object record has been created
 		filter := fmt.Sprintf("eq(%s,%s)", aMeta.Name, record.PkAsString())
-		matchedRecords := make([]map[string]interface{}, 0)
-		callbackFunction := func(obj map[string]interface{}) error {
-			matchedRecords = append(matchedRecords, obj)
-			return nil
-		}
-		dataProcessor.GetBulk(globalTransaction.DbTransaction, aMeta.FindField("cs").LinkThrough.Name, filter, nil, nil, 1, true, callbackFunction)
+		_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, aMeta.FindField("cs").LinkThrough.Name, filter, nil, nil, 1, true)
 		Expect(matchedRecords).To(HaveLen(1))
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})

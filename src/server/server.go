@@ -324,7 +324,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 						sink.pushError(err)
 					} else {
 						dbTransactionManager.CommitTransaction(dbTransaction)
-						sink.pushObj(record.Data)
+						sink.pushObj(record.GetData())
 					}
 				}
 
@@ -351,12 +351,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			}
 		}
 	}))
-
-	//app.router.POST(cs.root+"/data/bulk/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-	//	user := request.Context().Value("auth_user").(auth.User)
-	//
-	//
-	//}))
 
 	app.router.GET(cs.root+"/data/:name/:key", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
@@ -399,13 +393,13 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					dbTransactionManager.CommitTransaction(dbTransaction)
 					auth_mask := request.Context().Value("auth_mask")
 					if auth_mask != nil {
-						obj := o.Data
+						obj := o.GetData()
 						for _, path := range auth_mask.([]interface{}) {
 							obj = abac.SetAttributeByPath(obj, path.(string), map[string]string{"access": "denied"})
 						}
 						sink.pushObj(obj)
 					} else {
-						sink.pushObj(o.Data)
+						sink.pushObj(o.GetData())
 					}
 
 				}
@@ -444,22 +438,26 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				filters = auth_filter.(*abac.FilterExpression).String()
 			}
 
-			var data []interface{}
-			count, e := dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters, func(obj map[string]interface{}) error {
-				auth_mask := request.Context().Value("auth_mask")
-				if auth_mask != nil {
-					for _, path := range auth_mask.([]interface{}) {
-						obj = abac.SetAttributeByPath(obj, path.(string), map[string]string{"access": "denied"})
-					}
-				}
-				data = append(data, obj)
-				return nil
-			})
+			data := make([]interface{}, 0)
+			count, records, e := dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters)
+
 			if e != nil {
 				sink.pushError(e)
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 			} else {
-				defer sink.pushList(data, count)
+				for _, obj := range records {
+					auth_mask := request.Context().Value("auth_mask")
+					item := obj.GetData()
+					if auth_mask != nil {
+						for _, path := range auth_mask.([]interface{}) {
+							item = abac.SetAttributeByPath(item, path.(string), map[string]string{"access": "denied"})
+						}
+					}
+					data = append(data, item)
+				}
+
+
+				sink.pushList(data, count)
 				dbTransactionManager.CommitTransaction(dbTransaction)
 			}
 		}
@@ -604,7 +602,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 						sink.pushError(err)
 					} else {
 						dbTransactionManager.CommitTransaction(dbTransaction)
-						sink.pushObj(recordData.Data)
+						sink.pushObj(recordData.GetData())
 					}
 
 				} else {

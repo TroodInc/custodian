@@ -1,9 +1,9 @@
 package record
 
 import (
-	"server/object/meta"
 	"server/data/types"
 	"server/object/description"
+	"server/object/meta"
 	"time"
 )
 
@@ -12,6 +12,38 @@ type Record struct {
 	Data    map[string]interface{}
 	RawData map[string]interface{}
 	Links   []*types.LazyLink
+}
+
+func (record *Record) GetData() map[string]interface{} {
+	data := make(map[string]interface{})
+	for key, val := range record.Data {
+		switch val.(type) {
+			case *Record:
+				data[key] = val.(*Record).GetData()
+
+			case *types.GenericInnerLink:
+				data[key] = val.(*types.GenericInnerLink).AsMap()
+
+			case []interface{}:
+				list := make([]interface{}, 0)
+				for _, item := range val.([]interface{}) {
+					switch item.(type) {
+						case *Record:
+							list = append(list, item.(*Record).GetData())
+						case *types.GenericInnerLink:
+							list = append(list, item.(*types.GenericInnerLink).AsMap())
+						default:
+							list = append(list, item)
+					}
+				}
+				data[key] = list
+
+			default:
+				data[key] = val
+		}
+	}
+
+	return data
 }
 
 //replace links with their records` values

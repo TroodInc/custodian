@@ -13,7 +13,7 @@ import (
 type RecordSetNotification struct {
 	recordSet *record.RecordSet
 	isRoot    bool
-	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error)
+	getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error)
 	getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)
 	dbTransaction     transactions.DbTransaction
 	Actions           []*description.Action
@@ -22,7 +22,7 @@ type RecordSetNotification struct {
 	CurrentState      map[int]*record.RecordSet
 }
 
-func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error), getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *RecordSetNotification {
+func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error), getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *RecordSetNotification {
 	actions := recordSet.Meta.ActionSet.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,
@@ -83,16 +83,15 @@ func (notification *RecordSetNotification) captureState(state map[int]*record.Re
 		state[action.Id()] = &record.RecordSet{Meta: notification.recordSet.Meta, Records: make([]*record.Record, 0)}
 
 		if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
-			recordsSink := func(recordData map[string]interface{}) error {
+			//get data within current transaction
+			_, objects, _ := notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, nil, nil, 1, true)
 
+			for _, obj := range objects {
 				state[action.Id()].Records = append(
 					state[action.Id()].Records,
-					record.NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(recordData, action, notification.getRecordsCallback)),
+					record.NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(obj, action, notification.getRecordsCallback)),
 				)
-				return nil
 			}
-			//get data within current transaction
-			notification.getRecordsCallback(notification.dbTransaction, notification.recordSet.Meta.Name, recordsFilter, nil, nil, 1, true, recordsSink)
 		}
 		//fill DataSet with empty values
 		if len(state[action.Id()].Records) == 0 {
@@ -131,7 +130,7 @@ func (notification *RecordSetNotification) getRecordsFilter() string {
 }
 
 //Build object to use in notification
-func (notification *RecordSetNotification) buildRecordStateObject(recordData map[string]interface{}, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error)) map[string]interface{} {
+func (notification *RecordSetNotification) buildRecordStateObject(recordData *record.Record, action *description.Action, getRecordsCallback func(transaction transactions.DbTransaction, objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error)) map[string]interface{} {
 
 	stateObject := make(map[string]interface{}, 0)
 
@@ -139,15 +138,15 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData map
 	if action.Method != description.MethodRemove {
 		keys, _ := utils.GetMapKeysValues(notification.recordSet.Records[0].Data)
 		for _, key := range keys {
-			if value, ok := recordData[key]; ok {
+			if value, ok := recordData.Data[key]; ok {
 				stateObject[key] = value
 			}
 		}
 	} else {
 		//copy entire record data if it is being removed
-		stateObject = utils.CloneMap(recordData)
+		stateObject = utils.CloneMap(recordData.Data)
 	}
-	currentRecord := record.NewRecord(notification.recordSet.Meta, recordData)
+	currentRecord := record.NewRecord(notification.recordSet.Meta, recordData.Data)
 	//include values listed in IncludeValues
 	for alias, getterConfig := range action.IncludeValues {
 		stateObject[alias] = currentRecord.GetValue(getterConfig, notification.dbTransaction, notification.getRecordCallback)

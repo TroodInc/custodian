@@ -96,14 +96,9 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["ordering"]).To(Equal(float64(10)))
+				Expect(matchedRecords[0].Data["ordering"]).To(Equal(float64(10)))
 			})
 		})
 	})
@@ -156,14 +151,9 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["ordering"]).To(Equal(float64(10.98)))
+				Expect(matchedRecords[0].Data["ordering"]).To(Equal(float64(10.98)))
 			})
 		})
 	})
@@ -216,14 +206,9 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["is_active"]).To(BeTrue())
+				Expect(matchedRecords[0].Data["is_active"]).To(BeTrue())
 			})
 		})
 	})
@@ -276,14 +261,9 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["name"]).To(Equal("Not specified"))
+				Expect(matchedRecords[0].Data["name"]).To(Equal("Not specified"))
 			})
 		})
 	})
@@ -336,14 +316,9 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["date"]).To(Equal("2018-05-22"))
+				Expect(matchedRecords[0].Data["date"]).To(Equal("2018-05-22"))
 			})
 		})
 	})
@@ -396,14 +371,9 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["datetime"]).To(Equal("2018-05-29T10:29:58.627755Z"))
+				Expect(matchedRecords[0].Data["datetime"]).To(Equal("2018-05-29T10:29:58.627755Z"))
 			})
 		})
 	})
@@ -456,15 +426,10 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 
-				Expect(matchedRecords[0]["time"]).To(Equal("15:29:58+07:00"))
+				Expect(matchedRecords[0].Data["time"]).To(Equal("15:29:58+07:00"))
 			})
 		})
 	})
