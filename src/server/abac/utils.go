@@ -2,6 +2,7 @@ package abac
 
 import (
 	"github.com/fatih/structs"
+	"reflect"
 	"strings"
 )
 
@@ -74,4 +75,25 @@ func CheckMask(obj map[string]interface{}, mask []interface{})  []string {
 	}
 	return restricted
 
+}
+
+func cleanupType(value interface{}) interface{} {
+	v := reflect.ValueOf(value)
+
+	floatType := reflect.TypeOf(float64(0))
+	if v.Type().ConvertibleTo(floatType) {
+		return v.Convert(floatType).Float()
+	}
+
+	return value
+}
+
+func str_in (list []string, item string) bool {
+	for i := range list {
+		if list[i] == item {
+			return true
+		}
+	}
+
+	return false
 }
