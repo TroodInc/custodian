@@ -3,6 +3,7 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/data/record"
 	"server/pg"
 	"server/data"
 	"server/auth"
@@ -218,8 +219,8 @@ var _ = Describe("Data", func() {
 			Expect(bRecord.Data).To(HaveKey("as"))
 			Expect(bRecord.Data["as"]).To(HaveLen(2))
 			Expect(bRecord.Data["as"].([]interface{})).To(HaveLen(2))
-			Expect(bRecord.Data["as"].([]interface{})[0].(map[string]interface{})["id"]).To(Equal(1.0))
-			Expect(bRecord.Data["as"].([]interface{})[1].(map[string]interface{})["id"]).To(Equal(2.0))
+			Expect(bRecord.Data["as"].([]interface{})[0].(*record.Record).Data["id"]).To(Equal(1.0))
+			Expect(bRecord.Data["as"].([]interface{})[1].(*record.Record).Data["id"]).To(Equal(2.0))
 		})
 	})
 })

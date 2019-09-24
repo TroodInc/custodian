@@ -89,7 +89,8 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 			} else if recordData == nil {
 				return nil, nil
 			} else {
-				return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
+				return recordData, nil
+				//return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
 			}
 		}
 	}
@@ -119,16 +120,17 @@ func (processor *Processor) ShadowGet(transaction transactions.DbTransaction, ob
 		} else if recordData == nil {
 			return nil, nil
 		} else {
-			return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
+			return recordData, nil
+			//return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
 		}
 	}
 }
 
-func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
+func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (int, []*Record, error) {
 	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true); e != nil {
-		return 0, e
+		return 0, nil, e
 	} else if !ok {
-		return 0, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
+		return 0, nil, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
 
@@ -153,25 +155,22 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
-			return 0, errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
+			return 0, nil, errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
 		}
 
 		records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
 
 		if e != nil {
-			return recordsCount, e
+			return recordsCount, nil, e
 		}
-		for _, record := range records {
-			record = root.FillRecordValues(record, searchContext)
-			sink(record)
-		}
-		return recordsCount, nil
+
+		return recordsCount, records, nil
 	}
 }
 
 //Todo: this method is a shadow of GetBulk, the only difference is that it gets Meta object, not meta`s name
 //perhaps it should become public and replace current GetBulk
-func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *meta.Meta, filter string, depth int, omitOuters bool, sink func(map[string]interface{}) error) (int, error) {
+func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *meta.Meta, filter string, depth int, omitOuters bool, sink func(record *Record) error) (int, error) {
 	searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
 	root := &Node{
 		KeyField:     metaObj.Key,
@@ -198,7 +197,6 @@ func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction
 		return recordsCount, e
 	}
 	for _, record := range records {
-		record = root.FillRecordValues(record, searchContext)
 		sink(record)
 	}
 	return recordsCount, nil

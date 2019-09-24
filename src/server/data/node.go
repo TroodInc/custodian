@@ -5,6 +5,7 @@ import (
 	"server/object/meta"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"server/data/types"
+	. "server/data/record"
 	"server/object/description"
 	"strings"
 	"fmt"
@@ -145,11 +146,20 @@ func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMet
 	return castValue, err
 }
 
-func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]map[string]interface{}, int, error) {
-	return sc.dm.GetRql(node, rqlNode, node.SelectFields.FieldList, sc.DbTransaction)
+func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]*Record, int, error) {
+	var results []*Record
+	raw, count, err := sc.dm.GetRql(node, rqlNode, node.SelectFields.FieldList, sc.DbTransaction)
+
+	if err == nil {
+		for _, obj := range raw  {
+			results = append(results, node.FillRecordValues(NewRecord(node.Meta, obj), sc))
+		}
+	}
+
+	return results, count, err
 }
 
-func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error) {
+func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 	var fields []*meta.FieldDescription = nil
 	var objectMeta *meta.Meta
 	var pkValue interface{}
@@ -163,8 +173,8 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 			objectMeta = node.Meta
 			pkValue = key
 		} else {
-			objectMeta = node.MetaList.GetByName(key.(types.GenericInnerLink).ObjectName)
-			pkValue = key.(types.GenericInnerLink).Pk
+			objectMeta = node.MetaList.GetByName(key.(*types.GenericInnerLink).ObjectName)
+			pkValue = key.(*types.GenericInnerLink).Pk
 			if pkValue == "" {
 				return nil, nil
 			}
@@ -186,7 +196,10 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (interface{}, error
 	if node.IsOfGenericType() {
 		obj[types.GenericInnerLinkObjectKey] = objectMeta.Name
 	}
-	return obj, nil
+
+	return node.FillRecordValues(NewRecord(objectMeta, obj), sc), nil
+
+	//return obj, nil
 }
 
 func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]interface{}, error) {
@@ -211,7 +224,7 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 			}
 		} else {
 			for i, obj := range records {
-				result[i] = obj
+				result[i] = NewRecord(node.Meta, obj)
 			}
 		}
 		return result, nil
@@ -242,7 +255,7 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 			}
 		} else {
 			for i, obj := range records {
-				result[i] = obj
+				result[i] = NewRecord(objectMeta, obj)
 			}
 		}
 		return result, nil
@@ -430,14 +443,14 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode descriptio
 	return node.RetrievePolicy.Apply(node)
 }
 
-func (node *Node) FillRecordValues(record map[string]interface{}, searchContext SearchContext) map[string]interface{} {
+func (node *Node) FillRecordValues(record *Record, searchContext SearchContext) *Record {
 	nodeCopy := node
 	//node may mutate during resolving of generic fields, thus local copy of node is required
 	for nodeResults := []ResultNode{{nodeCopy, record}}; len(nodeResults) > 0; nodeResults = nodeResults[1:] {
 		childNodesResults, _ := nodeResults[0].getFilledChildNodes(searchContext)
 		nodeResults = append(nodeResults, childNodesResults...)
 	}
-	return transformValues(record)
+	return record
 }
 
 //traverse values and prepare them for output
@@ -453,7 +466,7 @@ func transformValues(values map[string]interface{}) map[string]interface{} {
 					castValue[i] = transformValues(castValueItem)
 				}
 			}
-		case types.GenericInnerLink:
+		case *types.GenericInnerLink:
 			values[key] = castValue.AsMap()
 		}
 	}

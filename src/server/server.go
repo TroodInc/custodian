@@ -5,6 +5,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"server/data/record"
 	"github.com/getsentry/raven-go"
 	"github.com/julienschmidt/httprouter"
 	"io/ioutil"
@@ -19,7 +20,6 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/errors"
-	"server/data/record"
 	. "server/errors"
 	"server/migrations"
 	"server/migrations/constructor"
@@ -51,33 +51,15 @@ func GetApp(cs *CustodianServer) *CustodianApp {
 
 func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
-	if user, err := app.authenticator.Authenticate(req); err == nil {
+	if user, abac_data, err := app.authenticator.Authenticate(req); err == nil {
 		ctx := context.WithValue(req.Context(), "auth_user", user)
 
 		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
 		if handler != nil {
 			var res= strings.Split(opts.ByName("name"), "?")[0]
-			var action= ""
-
 			splited := strings.Split(req.URL.Path, "/")
-
-			abac_tree := user.ABAC[os.Getenv("SERVICE_DOMAIN")]
-
-			abac_default_resolution := "allow"
-
-			if abac_tree != nil {
-				if domain_default_resolution, ok := abac_tree.(map[string]interface{})["_default_resolution"]; ok {
-					abac_default_resolution = domain_default_resolution.(string)
-				} else if abac_global_resolution, ok := user.ABAC["_default_resolution"]; ok {
-					abac_default_resolution = abac_global_resolution.(string)
-				}
-			}
-
-			ctx = context.WithValue(ctx, "ABAC_DEFAULT_RESOLUTION", abac_default_resolution)
-
-			var rules []interface{}
-
+			action := ""
 			if res != "" {
 				if splited[2] == "meta" {
 					action = "meta_"
@@ -92,17 +74,33 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				}
 			}
 
-			paths := []string{
-				res + "." + action + req.Method, res + "." + action + "*", res + ".*",
+			var abac_tree = map[string]interface{}{"_default_resolution": "allow"}
+			if tree, ok := abac_data[os.Getenv("SERVICE_DOMAIN")]; ok {
+				abac_tree = tree.(map[string]interface{})
 			}
 
-			for _, path := range paths {
-				if val, _ := abac.GetAttributeByPath(abac_tree, path); val != nil {
-					rules = append(rules, val.([]interface{})...)
+			abac_default_resolution := "allow"
+			if abac_tree != nil {
+				if domain_default_resolution, ok := abac_tree["_default_resolution"]; ok {
+					abac_default_resolution = domain_default_resolution.(string)
+				} else if abac_global_resolution, ok := abac_data["_default_resolution"]; ok {
+					abac_default_resolution = abac_global_resolution.(string)
 				}
 			}
 
-			ctx = context.WithValue(ctx, "rules", rules)
+			abac_resolver := abac.GetTroodABAC(
+				map[string]interface{}{
+					"sbj": user,
+				},
+				abac_tree,
+			)
+
+			ctx = context.WithValue(ctx, "ABAC_DEFAULT_RESOLUTION", abac_default_resolution)
+
+			ctx = context.WithValue(ctx, "resource", res)
+			ctx = context.WithValue(ctx, "action", action + req.Method)
+			ctx = context.WithValue(ctx, "abac", abac_resolver)
+
 		}
 
 		app.router.ServeHTTP(w, req.WithContext(ctx))
@@ -291,11 +289,12 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			//set transaction to the context
 			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
 
-			auth_mask := r.Context().Value("auth_mask")
+			abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
+			_, rule := abac_resolver.Check(objectName, "data_POST")
 
 			if src.single != nil {
-				if auth_mask != nil {
-					restricted := abac.CheckMask(src.single, auth_mask.([]interface{}))
+				if rule != nil {
+					restricted := abac.CheckMask(src.single, rule.Mask)
 
 					if len(restricted) > 0 {
 						sink.pushError(
@@ -324,7 +323,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 						sink.pushError(err)
 					} else {
 						dbTransactionManager.CommitTransaction(dbTransaction)
-						sink.pushObj(record.Data)
+						sink.pushObj(record.GetData())
 					}
 				}
 
@@ -352,12 +351,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	//app.router.POST(cs.root+"/data/bulk/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-	//	user := request.Context().Value("auth_user").(auth.User)
-	//
-	//
-	//}))
-
 	app.router.GET(cs.root+"/data/:name/:key", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
@@ -383,31 +376,16 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 				} else {
-					auth_filter := request.Context().Value("auth_filter")
-					if auth_filter != nil {
-						filterExpression := auth_filter.(*abac.FilterExpression)
-						ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), o, dbTransaction, dataProcessor.Get))
-						if err != nil {
-							sink.pushError(err)
-						}
-						if !ok {
-							sink.pushError(abac.NewError("Permission denied"))
-							dbTransactionManager.RollbackTransaction(dbTransaction)
-							return
-						}
-					}
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					auth_mask := request.Context().Value("auth_mask")
-					if auth_mask != nil {
-						obj := o.Data
-						for _, path := range auth_mask.([]interface{}) {
-							obj = abac.SetAttributeByPath(obj, path.(string), map[string]string{"access": "denied"})
-						}
-						sink.pushObj(obj)
-					} else {
-						sink.pushObj(o.Data)
+					abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
+					pass, result := abac_resolver.MaskRecord(o, "data_GET")
+					if !pass {
+						sink.pushError(abac.NewError("Permission denied"))
+						dbTransactionManager.RollbackTransaction(dbTransaction)
+						return
 					}
 
+					dbTransactionManager.CommitTransaction(dbTransaction)
+					sink.pushObj(result.(*record.Record).GetData())
 				}
 			}
 		}
@@ -417,8 +395,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			//pq := make(url.Values)
-
+			abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
 			//set transaction to the context
 			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
 
@@ -432,34 +409,34 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				omitOuters = true
 			}
 
-			auth_filter := request.Context().Value("auth_filter")
+			_, rule := abac_resolver.Check(p.ByName("name"), "data_GET") // ??
+
 			user_filters := q.Get("q")
 
 			var filters = ""
-			if auth_filter != nil && user_filters != "" {
-				filters = auth_filter.(*abac.FilterExpression).String() + "," + user_filters
+			if rule != nil && rule.Filter != nil && user_filters != "" {
+				filters = rule.Filter.String() + "," + user_filters
 			} else if user_filters != "" {
 				filters = user_filters
-			} else if auth_filter != nil {
-				filters = auth_filter.(*abac.FilterExpression).String()
+			} else if rule != nil && rule.Filter != nil {
+				filters = rule.Filter.String()
 			}
 
-			var data []interface{}
-			count, e := dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters, func(obj map[string]interface{}) error {
-				auth_mask := request.Context().Value("auth_mask")
-				if auth_mask != nil {
-					for _, path := range auth_mask.([]interface{}) {
-						obj = abac.SetAttributeByPath(obj, path.(string), map[string]string{"access": "denied"})
-					}
-				}
-				data = append(data, obj)
-				return nil
-			})
+			data := make([]interface{}, 0)
+			count, records, e := dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters)
+
 			if e != nil {
 				sink.pushError(e)
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 			} else {
-				defer sink.pushList(data, count)
+				for _, obj := range records {
+					pass, rec := abac_resolver.MaskRecord(obj, "data_GET")
+					if pass {
+						data = append(data, rec.(*record.Record).GetData())
+					}
+				}
+
+				sink.pushList(data, count)
 				dbTransactionManager.CommitTransaction(dbTransaction)
 			}
 		}
@@ -481,18 +458,12 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			if err != nil || recordToUpdate == nil {
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 			} else {
-				auth_filter := r.Context().Value("auth_filter")
-				if auth_filter != nil {
-					filterExpression := auth_filter.(*abac.FilterExpression)
-					ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), recordToUpdate, dbTransaction, dataProcessor.Get))
-					if err != nil {
-						sink.pushError(err)
-					}
-					if !ok {
-						sink.pushError(abac.NewError("Permission denied"))
-						dbTransactionManager.RollbackTransaction(dbTransaction)
-						return
-					}
+				abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
+				pass, _ := abac_resolver.CheckRecord(recordToUpdate, "data_DELETE")
+				if !pass {
+					sink.pushError(abac.NewError("Permission denied"))
+					dbTransactionManager.RollbackTransaction(dbTransaction)
+					return
 				}
 				//end access check
 
@@ -549,36 +520,28 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 			} else {
-				auth_filter := r.Context().Value("auth_filter")
-				if auth_filter != nil {
-					filterExpression := auth_filter.(*abac.FilterExpression)
-					ok, err := filterExpression.Match(record.PopulateRecordValues(filterExpression.ReferencedAttributes(), recordToUpdate, dbTransaction, dataProcessor.Get))
-					if err != nil {
-						sink.pushError(err)
-					}
-					if !ok {
-						sink.pushError(abac.NewError("Permission denied"))
+				abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
+				pass, rule := abac_resolver.CheckRecord(recordToUpdate, "data_PATCH")
+				if !pass {
+					sink.pushError(abac.NewError("Permission denied"))
+					dbTransactionManager.RollbackTransaction(dbTransaction)
+					return
+				}
+
+				if rule != nil {
+					restricted := abac.CheckMask(src.single, rule.Mask)
+
+					if len(restricted) > 0 {
+						sink.pushError(
+							abac.NewError(
+								fmt.Sprintf("Updating fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
+							),
+						)
 						dbTransactionManager.RollbackTransaction(dbTransaction)
 						return
 					}
 				}
 			}
-
-			auth_mask := r.Context().Value("auth_mask")
-			if auth_mask != nil {
-				restricted := abac.CheckMask(src.single, auth_mask.([]interface{}))
-
-				if len(restricted) > 0 {
-					sink.pushError(
-						abac.NewError(
-							fmt.Sprintf("Updating fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
-						),
-					)
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					return
-				}
-			}
-
 
 			//end access check
 
@@ -604,7 +567,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 						sink.pushError(err)
 					} else {
 						dbTransactionManager.CommitTransaction(dbTransaction)
-						sink.pushObj(recordData.Data)
+						sink.pushObj(recordData.GetData())
 					}
 
 				} else {
@@ -870,55 +833,27 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 		}
 
 		ctx := req.Context()
-		rules := ctx.Value("rules").([]interface{})
-		user := ctx.Value("auth_user")
 
-		if user != nil {
-			var resolver_context = make(map[string]interface{})
+		var resolver_context = make(map[string]interface{})
 
-			if src != nil {
-				resolver_context["data"] = src.GetData()
-			}
+		if src != nil {
+			resolver_context["data"] = src.GetData()
+		}
 
-			var params = make(map[string]interface{})
-			for _, param := range p {
-				params[param.Key] = param.Value
-			}
-			resolver_context["params"] = params
+		var params = make(map[string]interface{})
+		for _, param := range p {
+			params[param.Key] = param.Value
+		}
+		resolver_context["params"] = params
+		resolver_context["query"] = req.URL.Query()
 
-			resolver_context["query"] = req.URL.Query()
+		abac_resolver := ctx.Value("abac").(abac.TroodABAC)
+		abac_resolver.DataSource["ctx"] = resolver_context
 
-			resolver := abac.GetTroodABACResolver(map[string]interface{}{
-				"sbj": user,
-				"ctx": resolver_context,
-			}, )
-
-			if rules != nil {
-				resolution := ctx.Value("ABAC_DEFAULT_RESOLUTION")
-				for _, item := range rules {
-					rule := item.(map[string]interface{})
-					fmt.Println("ABAC:  matched rule", rule)
-					passed, res, filter := resolver.EvaluateRule(rule)
-
-					if passed {
-						if filter != nil {
-							fmt.Println("ABAC:  filters ", filter)
-							ctx = context.WithValue(ctx, "auth_filter", filter)
-						}
-
-						if rule["mask"] != nil {
-							ctx = context.WithValue(ctx, "auth_mask", rule["mask"])
-						}
-
-						resolution = res
-						break
-					}
-				}
-
-				if resolution != "allow" {
-					returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-					return
-				}
+		if passed, rule := abac_resolver.Check(ctx.Value("resource").(string), ctx.Value("action").(string)); passed {
+			if rule != nil && rule.Result != "allow" {
+				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
+				return
 			}
 		}
 

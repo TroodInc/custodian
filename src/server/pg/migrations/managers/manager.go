@@ -44,8 +44,8 @@ func (mm *MigrationManager) List(dbTransaction transactions.DbTransaction, filte
 	}
 
 	var appliedMigrations []interface{}
-	callbackFunction := func(obj map[string]interface{}) error {
-		appliedMigrations = append(appliedMigrations, *record.NewRecord(historyMeta, obj))
+	callbackFunction := func(obj *record.Record) error {
+		appliedMigrations = append(appliedMigrations, *record.NewRecord(historyMeta, obj.Data))
 		return nil
 	}
 
@@ -263,8 +263,8 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, t
 	}
 
 	var latestMigrations []record.Record
-	callbackFunction := func(obj map[string]interface{}) error {
-		latestMigrations = append(latestMigrations, *record.NewRecord(historyMeta, obj))
+	callbackFunction := func(obj *record.Record) error {
+		latestMigrations = append(latestMigrations, *record.NewRecord(historyMeta, obj.Data))
 		return nil
 	}
 	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager)
@@ -312,8 +312,8 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string, trans
 	rqlFilter := "eq(object," + objectName + "),sort(-order),limit(0,1)"
 
 	var lastMigrationData map[string]interface{}
-	callbackFunction := func(obj map[string]interface{}) error {
-		lastMigrationData = obj
+	callbackFunction := func(obj *record.Record) error {
+		lastMigrationData = obj.Data
 		return nil
 	}
 	_, err = processor.ShadowGetBulk(transaction, historyMeta, rqlFilter, 1, true, callbackFunction)
@@ -348,8 +348,8 @@ func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transact
 	rqlFilter := "gt(order," + url.QueryEscape(strconv.Itoa(int(migration.Data["order"].(float64)))) + "),sort(-order)"
 
 	var subsequentMigrations []record.Record
-	callbackFunction := func(obj map[string]interface{}) error {
-		subsequentMigrations = append(subsequentMigrations, *record.NewRecord(historyMeta, obj))
+	callbackFunction := func(obj *record.Record) error {
+		subsequentMigrations = append(subsequentMigrations, *record.NewRecord(historyMeta, obj.Data))
 		return nil
 	}
 	_, err = processor.ShadowGetBulk(transaction, historyMeta, rqlFilter, 1, true, callbackFunction)

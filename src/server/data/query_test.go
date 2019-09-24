@@ -71,16 +71,11 @@ var _ = Describe("Data", func() {
 			Context("and two records with dates that differ by a week", func() {
 				record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"date": "2018-05-29"}, auth.User{})
 				dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"date": "2018-05-22"}, auth.User{})
-				matchedRecords := []map[string]interface{}{}
 				Expect(err).To(BeNil())
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
 				Context("query by date returns correct result", func() {
-					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "gt(date,2018-05-23)", nil, nil, 1, false, callbackFunction)
+					_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "gt(date,2018-05-23)", nil, nil, 1, false)
 					Expect(matchedRecords).To(HaveLen(1))
-					Expect(matchedRecords[0]["id"]).To(Equal(record.Data["id"]))
+					Expect(matchedRecords[0].Data["id"]).To(Equal(record.Data["id"]))
 				})
 			})
 
@@ -114,12 +109,6 @@ var _ = Describe("Data", func() {
 			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"id": "ANOTHERPKVALUE"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			matchedRecords := []map[string]interface{}{}
-			callbackFunction := func(obj map[string]interface{}) error {
-				matchedRecords = append(matchedRecords, obj)
-				return nil
-			}
-
 			By("having another object, containing A object as a link")
 
 			metaDescription = description.MetaDescription{
@@ -151,9 +140,9 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			Context("query by PK returns correct result", func() {
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, "eq(a,PKVALUE)", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, "eq(a,PKVALUE)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["id"]).To(Equal("id"))
+				Expect(matchedRecords[0].Data["id"]).To(Equal("id"))
 			})
 
 		})
@@ -189,15 +178,10 @@ var _ = Describe("Data", func() {
 				record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"created": "2018-05-29T15:29:58.627755+05:00"}, auth.User{})
 				Expect(err).To(BeNil())
 				dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"created": "2018-05-22T15:29:58.627755+05:00"}, auth.User{})
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
 				Context("query by 'created' field returns correct result", func() {
-					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "gt(created,2018-05-23)", nil, nil, 1, false, callbackFunction)
+					_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "gt(created,2018-05-23)", nil, nil, 1, false)
 					Expect(matchedRecords).To(HaveLen(1))
-					Expect(matchedRecords[0]["id"]).To(Equal(record.Data["id"]))
+					Expect(matchedRecords[0].Data["id"]).To(Equal(record.Data["id"]))
 				})
 			})
 
@@ -231,17 +215,12 @@ var _ = Describe("Data", func() {
 			Context("and two records with 'created_time' values that differ by several hours", func() {
 				record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"created_time": "14:00:00 +05:00"}, auth.User{})
 				dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"created_time": "09:00:00 +05:00"}, auth.User{})
-				matchedRecords := []map[string]interface{}{}
 				Expect(err).To(BeNil())
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
 				Context("query by 'created' field returns correct result", func() {
 					//query by value greater than 10:00:00 +05:00
-					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "gt(created_time,10%3A00%3A00%20%2B05%3A00)", nil, nil, 1, false, callbackFunction)
+					_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "gt(created_time,10%3A00%3A00%20%2B05%3A00)", nil, nil, 1, false)
 					Expect(matchedRecords).To(HaveLen(1))
-					Expect(matchedRecords[0]["id"]).To(Equal(record.Data["id"]))
+					Expect(matchedRecords[0].Data["id"]).To(Equal(record.Data["id"]))
 				})
 			})
 
@@ -280,18 +259,12 @@ var _ = Describe("Data", func() {
 				Expect(err).To(BeNil())
 				dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
 
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-
 				Context("query by date returns correct result", func() {
 					query := fmt.Sprintf("in(id,(%d,%d))", int(recordOne.Data["id"].(float64)), int(recordTwo.Data["id"].(float64)))
-					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, query, nil, nil, 1, false, callbackFunction)
+					_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, query, nil, nil, 1, false)
 					Expect(matchedRecords).To(HaveLen(2))
-					Expect(matchedRecords[0]["id"]).To(Equal(recordOne.Data["id"]))
-					Expect(matchedRecords[1]["id"]).To(Equal(recordTwo.Data["id"]))
+					Expect(matchedRecords[0].Data["id"]).To(Equal(recordOne.Data["id"]))
+					Expect(matchedRecords[1].Data["id"]).To(Equal(recordTwo.Data["id"]))
 				})
 			})
 
@@ -323,14 +296,9 @@ var _ = Describe("Data", func() {
 			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"name": "order2"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			matchedRecords := []map[string]interface{}{}
-			callbackFunction := func(obj map[string]interface{}) error {
-				matchedRecords = append(matchedRecords, obj)
-				return nil
-			}
 			Context("DataManager queries record with 'in' expression by single value", func() {
 				query := fmt.Sprintf("in(id,(%d))", int(recordOne.Data["id"].(float64)))
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, query, nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, query, nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 			})
 		})
@@ -370,16 +338,11 @@ var _ = Describe("Data", func() {
 				By("and one mismatching record")
 				dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{"name": "Some Other dog"}, auth.User{})
 
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
 				Context("query by date returns correct result", func() {
-					dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "like(name,*Person*)", nil, nil, 1, false, callbackFunction)
+					_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "like(name,*Person*)", nil, nil, 1, false)
 					Expect(matchedRecords).To(HaveLen(2))
-					Expect(matchedRecords[0]["id"]).To(Equal(firstPersonRecord.Data["id"]))
-					Expect(matchedRecords[1]["id"]).To(Equal(secondPersonRecord.Data["id"]))
+					Expect(matchedRecords[0].Data["id"]).To(Equal(firstPersonRecord.Data["id"]))
+					Expect(matchedRecords[1].Data["id"]).To(Equal(secondPersonRecord.Data["id"]))
 				})
 			})
 
@@ -390,7 +353,7 @@ var _ = Describe("Data", func() {
 	It("returns a list of related outer links as a list of ids", func() {
 		Context("having an object with outer link to another object", func() {
 			orderMetaDescription := description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -409,7 +372,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(globalTransaction, orderMetaObj)
 
 			paymentMetaDescription := description.MetaDescription{
-				Name: "payment",
+				Name: "test_payment",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -425,7 +388,7 @@ var _ = Describe("Data", func() {
 						Name:     "order_id",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "order",
+						LinkMeta: "test_order",
 						Optional: true,
 					},
 				},
@@ -435,7 +398,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(globalTransaction, paymentMetaObj)
 
 			orderMetaDescription = description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -453,7 +416,7 @@ var _ = Describe("Data", func() {
 						Optional:       true,
 						LinkType:       description.LinkTypeOuter,
 						OuterLinkField: "order_id",
-						LinkMeta:       "payment",
+						LinkMeta:       "test_payment",
 					},
 				},
 			}
@@ -471,15 +434,10 @@ var _ = Describe("Data", func() {
 				record, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, paymentMetaObj.Name, map[string]interface{}{"order_id": record.Data["id"]}, auth.User{})
 				Expect(err).To(BeNil())
 
-				matchedRecords := []map[string]interface{}{}
-				callbackFunction := func(obj map[string]interface{}) error {
-					matchedRecords = append(matchedRecords, obj)
-					return nil
-				}
-				dataProcessor.GetBulk(globalTransaction.DbTransaction, orderMetaObj.Name, "", nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, orderMetaObj.Name, "", nil, nil, 1, false)
 
 				Expect(matchedRecords).To(HaveLen(1))
-				payments, ok := matchedRecords[0]["payments"].([]interface{})
+				payments, ok := matchedRecords[0].Data["payments"].([]interface{})
 				Expect(ok).To(BeTrue())
 				Expect(payments).To(HaveLen(2))
 				paymentId, ok := payments[0].(float64)
@@ -556,18 +514,12 @@ var _ = Describe("Data", func() {
 			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"a": aRecordTwo.Data["id"]}, auth.User{})
 			Expect(err).To(BeNil())
 
-			matchedRecords := []map[string]interface{}{}
-			callbackFunction := func(obj map[string]interface{}) error {
-				matchedRecords = append(matchedRecords, obj)
-				return nil
-			}
-
 			Context("query by a`s attribute returns correct result", func() {
 				query := fmt.Sprintf("eq(a.name,%s)", aRecordOne.Data["name"])
-				_, err = dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, query, nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, query, nil, nil, 1, false)
 				Expect(err).To(BeNil())
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["id"]).To(Equal(bRecordOne.Data["id"]))
+				Expect(matchedRecords[0].Data["id"]).To(Equal(bRecordOne.Data["id"]))
 			})
 
 		})
@@ -630,19 +582,13 @@ var _ = Describe("Data", func() {
 			bRecordOne, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaDescription.Name, map[string]interface{}{"name": "B record"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			matchedRecords := []map[string]interface{}{}
-			callbackFunction := func(obj map[string]interface{}) error {
-				matchedRecords = append(matchedRecords, obj)
-				return nil
-			}
-
 			Context("query by a`s attribute returns correct result", func() {
 				query := fmt.Sprintf("eq(id,%s)", strconv.Itoa(int(bRecordOne.Data["id"].(float64))))
-				_, err = dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, query, nil, nil, 1, false, callbackFunction)
+				_, matchedRecords, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObj.Name, query, nil, nil, 1, false)
 				Expect(err).To(BeNil())
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]).To(HaveKey("a"))
-				Expect(matchedRecords[0]["a"]).To(BeNil())
+				Expect(matchedRecords[0].Data).To(HaveKey("a"))
+				Expect(matchedRecords[0].Data["a"]).To(BeNil())
 			})
 		})
 	})
@@ -782,23 +728,17 @@ var _ = Describe("Data", func() {
 			)
 			Expect(err).To(BeNil())
 
-			matchedRecords := make([]map[string]interface{}, 0)
-			callbackFunction := func(obj map[string]interface{}) error {
-				matchedRecords = append(matchedRecords, obj)
-				return nil
-			}
 			Context("query by date returns correct result", func() {
-				_, err = dataProcessor.GetBulk(
+				_, matchedRecords, err := dataProcessor.GetBulk(
 					globalTransaction.DbTransaction,
 					dMetaDescription.Name,
 					fmt.Sprintf("eq(c.b.a.name,%s)", "Arecord"), nil, nil,
 					1,
 					false,
-					callbackFunction,
 				)
 				Expect(err).To(BeNil())
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0]["id"]).To(Equal(dRecord.Data["id"]))
+				Expect(matchedRecords[0].Data["id"]).To(Equal(dRecord.Data["id"]))
 			})
 		})
 	})
@@ -903,23 +843,17 @@ var _ = Describe("Data", func() {
 		)
 		Expect(err).To(BeNil())
 
-		matchedRecords := make([]map[string]interface{}, 0)
-		callbackFunction := func(obj map[string]interface{}) error {
-			matchedRecords = append(matchedRecords, obj)
-			return nil
-		}
 		Context("query by date returns correct result", func() {
-			_, err = dataProcessor.GetBulk(
+			_, matchedRecords, err := dataProcessor.GetBulk(
 				globalTransaction.DbTransaction,
 				cMetaDescription.Name,
 				fmt.Sprintf("eq(target_object.b.a.name,%s)", "Arecord"), nil, nil,
 				1,
 				false,
-				callbackFunction,
 			)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
-			Expect(matchedRecords[0]["id"]).To(Equal(cRecord.Data["id"]))
+			Expect(matchedRecords[0].Data["id"]).To(Equal(cRecord.Data["id"]))
 		})
 	})
 
@@ -972,31 +906,25 @@ var _ = Describe("Data", func() {
 		)
 		Expect(err).To(BeNil())
 
-		records := make([]map[string]interface{}, 0)
-		callbackFunction := func(obj map[string]interface{}) error {
-			records = append(records, obj)
-			return nil
-		}
 		Context("query by date returns correct result", func() {
-			_, err = dataProcessor.GetBulk(
+			_, records, err := dataProcessor.GetBulk(
 				globalTransaction.DbTransaction,
 				aMetaDescription.Name,
 				"sort(+name)", nil, nil,
 				1,
 				false,
-				callbackFunction,
 			)
 			Expect(err).To(BeNil())
 			Expect(records).To(HaveLen(3))
-			Expect(records[1]["id"]).To(Equal(aNilNameFirst.Data["id"]))
-			Expect(records[2]["id"]).To(Equal(aNilNameSecond.Data["id"]))
+			Expect(records[1].Data["id"]).To(Equal(aNilNameFirst.Data["id"]))
+			Expect(records[2].Data["id"]).To(Equal(aNilNameSecond.Data["id"]))
 		})
 	})
 
 	It("omits outer links if omit_outers flag specified", func() {
 		Context("having an object with outer link to another object", func() {
 			orderMetaDescription := description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -1015,7 +943,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(globalTransaction, orderMetaObj)
 
 			paymentMetaDescription := description.MetaDescription{
-				Name: "payment",
+				Name: "test_payment",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -1031,7 +959,7 @@ var _ = Describe("Data", func() {
 						Name:     "order_id",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "order",
+						LinkMeta: "test_order",
 						Optional: true,
 					},
 				},
@@ -1041,7 +969,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(globalTransaction, paymentMetaObj)
 
 			orderMetaDescription = description.MetaDescription{
-				Name: "order",
+				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -1059,7 +987,7 @@ var _ = Describe("Data", func() {
 						Optional:       true,
 						LinkType:       description.LinkTypeOuter,
 						OuterLinkField: "order_id",
-						LinkMeta:       "payment",
+						LinkMeta:       "test_payment",
 					},
 				},
 			}
@@ -1072,15 +1000,10 @@ var _ = Describe("Data", func() {
 			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, orderMetaObj.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			matchedRecords := []map[string]interface{}{}
-			callbackFunction := func(obj map[string]interface{}) error {
-				matchedRecords = append(matchedRecords, obj)
-				return nil
-			}
-			dataProcessor.GetBulk(globalTransaction.DbTransaction, orderMetaObj.Name, "", nil, nil, 1, true, callbackFunction)
+			_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, orderMetaObj.Name, "", nil, nil, 1, true)
 
 			Expect(matchedRecords).To(HaveLen(1))
-			Expect(matchedRecords[0]).NotTo(HaveKey("payments"))
+			Expect(matchedRecords[0].Data).NotTo(HaveKey("payments"))
 		})
 	})
 
@@ -1161,17 +1084,11 @@ var _ = Describe("Data", func() {
 			)
 			Expect(err).To(BeNil())
 
-			//
-			matchedRecords := []map[string]interface{}{}
-			callbackFunction := func(obj map[string]interface{}) error {
-				matchedRecords = append(matchedRecords, obj)
-				return nil
-			}
-			_, err = dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObject.Name, fmt.Sprintf("eq(as.name,%s)", aRecordName), nil, nil, 2, true, callbackFunction)
+			_, matchedRecords, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, bMetaObject.Name, fmt.Sprintf("eq(as.name,%s)", aRecordName), nil, nil, 2, true)
 			Expect(err).To(BeNil())
 
 			Expect(matchedRecords).To(HaveLen(1))
-			Expect(matchedRecords[0]["id"]).To(Equal(bRecord.Pk()))
+			Expect(matchedRecords[0].Data["id"]).To(Equal(bRecord.Pk()))
 		})
 	})
 })

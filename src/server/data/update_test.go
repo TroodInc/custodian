@@ -621,28 +621,28 @@ var _ = Describe("Data", func() {
 			},
 		}
 
-		record, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+		obj, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check returned data
-		Expect(record.Data).To(HaveKey("b_set"))
-		bSetData := record.Data["b_set"].([]interface{})
+		Expect(obj.Data).To(HaveKey("b_set"))
+		bSetData := obj.Data["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
+		obj, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
 		Expect(err).To(BeNil())
-		Expect(record.Data).To(HaveKey("b_set"))
-		bSetData = record.Data["b_set"].([]interface{})
+		Expect(obj.Data).To(HaveKey("b_set"))
+		bSetData = obj.Data["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
-		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
-		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
+		Expect(bSetData[0].(*record.Record).Data["name"]).To(Equal("B record"))
+		Expect(bSetData[1].(*record.Record).Data["name"]).To(Equal("New B Record"))
 		//	check B record is deleted
 		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
+		obj, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
 		Expect(err).To(BeNil())
-		Expect(record).To(BeNil())
+		Expect(obj).To(BeNil())
 	})
 
 	It("Processes delete logic for outer records which are not presented in update data. `SetNull` strategy case ", func() {
@@ -669,28 +669,28 @@ var _ = Describe("Data", func() {
 			},
 		}
 
-		record, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+		obj, err := dataProcessor.UpdateRecord(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check returned data
-		Expect(record.Data).To(HaveKey("b_set"))
-		bSetData := record.Data["b_set"].([]interface{})
+		Expect(obj.Data).To(HaveKey("b_set"))
+		bSetData := obj.Data["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
+		obj, err = dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
 		Expect(err).To(BeNil())
-		Expect(record.Data).To(HaveKey("b_set"))
-		bSetData = record.Data["b_set"].([]interface{})
+		Expect(obj.Data).To(HaveKey("b_set"))
+		bSetData = obj.Data["b_set"].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
-		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
-		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
+		Expect(bSetData[0].(*record.Record).Data["name"]).To(Equal("B record"))
+		Expect(bSetData[1].(*record.Record).Data["name"]).To(Equal("New B Record"))
 		//	check B record is not deleted
 		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
+		obj, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
 		Expect(err).To(BeNil())
-		Expect(record).NotTo(BeNil())
+		Expect(obj).NotTo(BeNil())
 	})
 
 	It("Processes delete logic for outer records which are not presented in update data. `Restrict` strategy case ", func() {

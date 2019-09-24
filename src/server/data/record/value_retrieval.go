@@ -51,7 +51,7 @@ func getSimpleValue(targetRecord *Record, keyParts []string, transaction transac
 func getGenericValue(targetRecord *Record, getterConfig map[string]interface{}, transaction transactions.DbTransaction, getRecordCallback func(transaction transactions.DbTransaction, objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*Record, error)) interface{} {
 	genericFieldName := getterConfig["field"].(string)
 
-	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), transaction, getRecordCallback, ).(map[string]interface{})
+	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."), transaction, getRecordCallback, ).(*types.GenericInnerLink).AsMap()
 	for _, objectCase := range getterConfig["cases"].([]interface{}) {
 		castObjectCase := objectCase.(map[string]interface{})
 		if genericFieldValue[types.GenericInnerLinkObjectKey] == castObjectCase["object"] {
