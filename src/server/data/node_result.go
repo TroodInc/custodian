@@ -1,7 +1,6 @@
 package data
 
 import (
-	"fmt"
 	"server/data/record"
 	"server/data/types"
 	"server/object/description"
@@ -84,9 +83,6 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 		} else if !childNode.plural && childNode.IsOfGenericType() {
 			k := resultNode.values.Data[childNode.LinkField.Name]
 			//skip resolving if generic field value is nil
-			if _, ok := k.(*record.Record); ok {
-				fmt.Println(resultNode.values.GetData())
-			}
 			if k == nil || k.(*types.GenericInnerLink).ObjectName == "" {
 				continue
 			}

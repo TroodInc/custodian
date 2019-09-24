@@ -62,11 +62,10 @@ func RemoveMapAttributeByPath(obj map[string]interface{}, path string, set_null 
 	return obj
 }
 
-func CheckMask(obj map[string]interface{}, mask []interface{})  []string {
+func CheckMask(obj map[string]interface{}, mask []string)  []string {
 	var restricted []string
 	if mask != nil {
 		for _, path := range mask {
-			path := path.(string)
 			_, matched := GetAttributeByPath(obj, path)
 			if matched {
 				restricted = append(restricted, path)
