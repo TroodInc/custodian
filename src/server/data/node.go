@@ -164,22 +164,27 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 	var objectMeta *meta.Meta
 	var pkValue interface{}
 
+	switch key.(type) {
+	case *Record:
+		pkValue = key.(*Record).Pk()
+	case *types.GenericInnerLink:
+		pkValue = key.(*types.GenericInnerLink).Pk
+	default:
+		pkValue = key
+	}
+
 	switch {
 	case node.IsOfRegularType():
 		objectMeta = node.Meta
-		pkValue = key
 	case node.IsOfGenericType():
 		if node.plural {
 			objectMeta = node.Meta
-			pkValue = key
 		} else {
 			switch key.(type) {
 			case *Record:
 				objectMeta = node.MetaList.GetByName(key.(*Record).Meta.Name)
-				pkValue = key.(*Record).Pk()
 			case *types.GenericInnerLink:
 				objectMeta = node.MetaList.GetByName(key.(*types.GenericInnerLink).ObjectName)
-				pkValue = key.(*types.GenericInnerLink).Pk
 			}
 
 			if pkValue == "" {
