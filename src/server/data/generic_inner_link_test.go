@@ -633,7 +633,7 @@ var _ = Describe("Data", func() {
 			Expect(targetValue.Data["name"].(string)).To(Equal(aRecord.Data["name"]))
 		})
 
-		XIt("can retrieve record containing nested generic relations", func() {
+		It("can retrieve record containing nested generic relations", func() {
 
 			Describe("Having object A", havingObjectA)
 			Describe("And having object B with generic link to A", havingObjectBWithGenericLinkToA)
@@ -653,8 +653,9 @@ var _ = Describe("Data", func() {
 
 			bRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "c", strconv.Itoa(int(cRecord.Data["id"].(float64))), nil, nil, 3, false)
 			Expect(err).To(BeNil())
-			Expect(bRecord.Data["target"].(map[string]interface{})["_object"].(string)).To(Equal("b"))
-			Expect(bRecord.Data["target"].(map[string]interface{})["target"].(map[string]interface{})["name"].(string)).To(Equal("A record"))
+			data := bRecord.GetData()
+			Expect(data["target"].(map[string]interface{})["_object"].(string)).To(Equal("b"))
+			Expect(data["target"].(map[string]interface{})["target"].(map[string]interface{})["name"].(string)).To(Equal("A record"))
 		})
 
 		It("can retrieve record containing null generic inner value", func() {

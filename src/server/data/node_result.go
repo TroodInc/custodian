@@ -4,6 +4,7 @@ import (
 	"server/data/record"
 	"server/data/types"
 	"server/object/description"
+	"server/object/meta"
 )
 
 type ResultNode struct {
@@ -83,7 +84,10 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 		} else if !childNode.plural && childNode.IsOfGenericType() {
 			k := resultNode.values.Data[childNode.LinkField.Name]
 			//skip resolving if generic field value is nil
-			if k == nil || k.(*types.GenericInnerLink).ObjectName == "" {
+			if k == nil {
+				continue
+			}
+			if k, ok := k.(*types.GenericInnerLink); ok && k.ObjectName == ""{
 				continue
 			}
 			//retrieve policy for generic fields is specific for each record, so it should be build on the go
@@ -99,7 +103,15 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			childNode.OnlyLink = childNode.Depth > ctx.depthLimit
 			childNode.ChildNodes = *NewChildNodes()
 			childNode.RetrievePolicy = retrievePolicyForThisMeta
-			childNodeLinkMeta := childNode.LinkField.LinkMetaList.GetByName(k.(*types.GenericInnerLink).ObjectName)
+
+			var childNodeLinkMeta *meta.Meta
+			switch k.(type) {
+			case *types.GenericInnerLink:
+				childNodeLinkMeta = childNode.LinkField.LinkMetaList.GetByName(k.(*types.GenericInnerLink).ObjectName)
+			case *record.Record:
+				childNodeLinkMeta = childNode.LinkField.LinkMetaList.GetByName(k.(*record.Record).Meta.Name)
+			}
+
 			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.Key, childNodeLinkMeta.TableFields())
 			childNode.Meta = childNodeLinkMeta
 			childNode.KeyField = childNodeLinkMeta.Key

@@ -173,8 +173,15 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 			objectMeta = node.Meta
 			pkValue = key
 		} else {
-			objectMeta = node.MetaList.GetByName(key.(*types.GenericInnerLink).ObjectName)
-			pkValue = key.(*types.GenericInnerLink).Pk
+			switch key.(type) {
+			case *Record:
+				objectMeta = node.MetaList.GetByName(key.(*Record).Meta.Name)
+				pkValue = key.(*Record).Pk()
+			case *types.GenericInnerLink:
+				objectMeta = node.MetaList.GetByName(key.(*types.GenericInnerLink).ObjectName)
+				pkValue = key.(*types.GenericInnerLink).Pk
+			}
+
 			if pkValue == "" {
 				return nil, nil
 			}
