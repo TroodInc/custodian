@@ -51,7 +51,7 @@ const (
 //{{ if isLast $key .Cols}}{{else}},{{end}}
 const (
 	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
-	templFixSequence = `SELECT setval('{{.Table}}_{{.Field}}_seq',(SELECT CAST(MAX({{.Field}}) AS INT) FROM {{.Table}}), true);`
+	templFixSequence = `SELECT setval('{{.Table}}_{{.Field}}_seq',(SELECT CAST(MAX("{{.Field}}") AS INT) FROM {{.Table}}), true);`
 	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
 	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
 	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
@@ -331,7 +331,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 	}
 
 	rFields := m.TableFields()
-	updateInfo := &dml_info.UpdateInfo{GetTableName(m.Name), getFieldsColumnsNames(rFields), make([]string, 0), make([]string, 0)}
+	updateInfo := &dml_info.UpdateInfo{GetTableName(m.Name), dml_info.EscapeColumns(getFieldsColumnsNames(rFields)), make([]string, 0), make([]string, 0)}
 	updateFields := make([]string, 0, len(recordValues[0]))
 	valueExtractors := make([]func(interface{}) interface{}, 0, len(recordValues[0]))
 	currentColumnIndex := 0
@@ -469,14 +469,13 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 	for _, field := range insertFields {
 		if f := m.FindField(field); f != nil {
 			def := f.Default()
-			if d, ok := def.(description.DefExpr); ok && d.Func == "nextval" {
+			if d, ok := def.(description.DefExpr); ok && d.Func == "nextval" && f.Type == description.FieldTypeNumber {
 				if err := parsedTemplFixSequense.Execute(&fixSeqDML, map[string]interface{}{
 					"Table": insertInfo.Table,
 					"Field": field,
 				}); err != nil {
 					return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 				}
-				logger.Info(fixSeqDML.String())
 			}
 		}
 	}

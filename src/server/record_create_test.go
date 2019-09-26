@@ -237,18 +237,22 @@ var _ = Describe("Server", func() {
 			request, _ := http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 			request.Header.Set("Content-Type", "application/json")
 			httpServer.Handler.ServeHTTP(recorder, request)
-			Expect(recorder.Body.String()).To(Equal(`{"data":{"a":1,"id":777,"name":"B record name"},"status":"OK"}`))
+			result := recorder.Body.String()
+			Expect(result).To(Equal(`{"data":{"a":1,"id":777,"name":"B record name"},"status":"OK"}`))
 
-			createData = map[string]interface{}{
+			nextData := map[string]interface{}{
 				"name": "B record name",
 				"a":    aRecord.Data["id"],
 			}
 
-			encodedMetaData, _ = json.Marshal(createData)
-			request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
-			request.Header.Set("Content-Type", "application/json")
-			httpServer.Handler.ServeHTTP(recorder, request)
-			Expect(recorder.Body.String()).To(Equal(`{"data":{"a":1,"id":778,"name":"B record name"},"status":"OK"}`))
+			recorderNext := httptest.NewRecorder()
+
+			encodedNextData, _ := json.Marshal(nextData)
+			requestNext, _ := http.NewRequest("POST", url, bytes.NewBuffer(encodedNextData))
+			requestNext.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorderNext, requestNext)
+			resultNext := recorderNext.Body.String()
+			Expect(resultNext).To(Equal(`{"data":{"a":1,"id":778,"name":"B record name"},"status":"OK"}`))
 		})
 	})
 })
