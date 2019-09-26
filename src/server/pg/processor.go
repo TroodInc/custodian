@@ -50,13 +50,15 @@ const (
 
 //{{ if isLast $key .Cols}}{{else}},{{end}}
 const (
-	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}}`
+	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
+	templFixSequence = `SELECT setval('{{.Table}}_{{.Field}}_seq',(SELECT CAST(MAX({{.Field}}) AS INT) FROM {{.Table}}), true);`
 	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
 	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
 	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
 )
 
 var funcs = template.FuncMap{"join": strings.Join}
+var parsedTemplFixSequense = template.Must(template.New("dml_fixsequense").Funcs(funcs).Parse(templFixSequence))
 var parsedTemplInsert = template.Must(template.New("dml_insert").Funcs(funcs).Parse(templInsert))
 var parsedTemplSelect = template.Must(template.New("dml_select").Funcs(funcs).Parse(templSelect))
 var parsedTemplDelete = template.Must(template.New("dml_delete").Funcs(funcs).Parse(templDelete))
@@ -463,6 +465,22 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 		return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 
+	var fixSeqDML bytes.Buffer
+	for _, field := range insertFields {
+		if f := m.FindField(field); f != nil {
+			def := f.Default()
+			if d, ok := def.(description.DefExpr); ok && d.Func == "nextval" {
+				if err := parsedTemplFixSequense.Execute(&fixSeqDML, map[string]interface{}{
+					"Table": insertInfo.Table,
+					"Field": field,
+				}); err != nil {
+					return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
+				}
+				logger.Info(fixSeqDML.String())
+			}
+		}
+	}
+
 	return func(dbTransaction transactions.DbTransaction) error {
 		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
 		binds := make([]interface{}, 0, len(insertColumns)*len(recordsValues))
@@ -487,6 +505,9 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 				if dup_error != nil { logger.Error(dup_error.Error()) }
 				err.Data = duplicates
 			}
+			return err
+		}
+		if _, err := dbTransaction.(*PgTransaction).Exec(fixSeqDML.String()); err != nil {
 			return err
 		}
 
