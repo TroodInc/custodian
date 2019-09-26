@@ -50,13 +50,15 @@ const (
 
 //{{ if isLast $key .Cols}}{{else}},{{end}}
 const (
-	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}}`
+	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
+	templFixSequence = `SELECT setval('{{.Table}}_{{.Field}}_seq',(SELECT CAST(MAX("{{.Field}}") AS INT) FROM {{.Table}}), true);`
 	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
 	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
 	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
 )
 
 var funcs = template.FuncMap{"join": strings.Join}
+var parsedTemplFixSequense = template.Must(template.New("dml_fixsequense").Funcs(funcs).Parse(templFixSequence))
 var parsedTemplInsert = template.Must(template.New("dml_insert").Funcs(funcs).Parse(templInsert))
 var parsedTemplSelect = template.Must(template.New("dml_select").Funcs(funcs).Parse(templSelect))
 var parsedTemplDelete = template.Must(template.New("dml_delete").Funcs(funcs).Parse(templDelete))
@@ -77,15 +79,14 @@ func (selectInfo *SelectInfo) sql(sql *bytes.Buffer) error {
 }
 
 func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filterKeys []string) *SelectInfo {
-	sqlHelper := dml_info.SqlHelper{}
 	whereExpression := ""
 	for i, key := range filterKeys {
 		if i > 0 {
 			whereExpression += " AND "
 		}
-		whereExpression += sqlHelper.EscapeColumn(key) + "=$" + strconv.Itoa(i+1)
+		whereExpression += dml_info.EscapeColumn(key) + "=$" + strconv.Itoa(i+1)
 	}
-	return &SelectInfo{From: GetTableName(objectMeta.Name), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
+	return &SelectInfo{From: GetTableName(objectMeta.Name), Cols: dml_info.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
 }
 
 func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
@@ -330,7 +331,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 	}
 
 	rFields := m.TableFields()
-	updateInfo := dml_info.NewUpdateInfo(GetTableName(m.Name), getFieldsColumnsNames(rFields), make([]string, 0), make([]string, 0))
+	updateInfo := &dml_info.UpdateInfo{GetTableName(m.Name), dml_info.EscapeColumns(getFieldsColumnsNames(rFields)), make([]string, 0), make([]string, 0)}
 	updateFields := make([]string, 0, len(recordValues[0]))
 	valueExtractors := make([]func(interface{}) interface{}, 0, len(recordValues[0]))
 	currentColumnIndex := 0
@@ -464,6 +465,21 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 		return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 
+	var fixSeqDML bytes.Buffer
+	for _, field := range insertFields {
+		if f := m.FindField(field); f != nil {
+			def := f.Default()
+			if d, ok := def.(description.DefExpr); ok && d.Func == "nextval" && f.Type == description.FieldTypeNumber {
+				if err := parsedTemplFixSequense.Execute(&fixSeqDML, map[string]interface{}{
+					"Table": insertInfo.Table,
+					"Field": field,
+				}); err != nil {
+					return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
+				}
+			}
+		}
+	}
+
 	return func(dbTransaction transactions.DbTransaction) error {
 		//prepare binds only on executing step otherwise the foregin key may be absent (tx sequence)
 		binds := make([]interface{}, 0, len(insertColumns)*len(recordsValues))
@@ -488,6 +504,9 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 				if dup_error != nil { logger.Error(dup_error.Error()) }
 				err.Data = duplicates
 			}
+			return err
+		}
+		if _, err := dbTransaction.(*PgTransaction).Exec(fixSeqDML.String()); err != nil {
 			return err
 		}
 
@@ -610,8 +629,7 @@ func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTrans
 
 func (dm *DataManager) PrepareRemoveOperation(record *record.Record) (transactions.Operation, error) {
 	var query bytes.Buffer
-	sqlHelper := dml_info.SqlHelper{}
-	deleteInfo := dml_info.NewDeleteInfo(GetTableName(record.Meta.Name), []string{sqlHelper.EscapeColumn(record.Meta.Key.Name) + " IN (" + sqlHelper.BindValues(1, 1) + ")"})
+	deleteInfo := dml_info.NewDeleteInfo(GetTableName(record.Meta.Name), []string{dml_info.EscapeColumn(record.Meta.Key.Name) + " IN (" + dml_info.BindValues(1, 1) + ")"})
 	operation := func(dbTransaction transactions.DbTransaction) error {
 		stmt, err := dbTransaction.(*PgTransaction).Prepare(query.String())
 		if err != nil {

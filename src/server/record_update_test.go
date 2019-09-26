@@ -78,9 +78,6 @@ var _ = Describe("Server", func() {
 					Name:     "name",
 					Type:     description.FieldTypeString,
 					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
 				},
 			},
 		}
@@ -109,9 +106,6 @@ var _ = Describe("Server", func() {
 					Name:     "name",
 					Type:     description.FieldTypeString,
 					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
 				},
 				{
 					Name:           "b_set",
@@ -149,9 +143,6 @@ var _ = Describe("Server", func() {
 					Name:     "name",
 					Type:     description.FieldTypeString,
 					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
 				},
 				{
 					Name:     "a",

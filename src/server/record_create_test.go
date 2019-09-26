@@ -222,5 +222,37 @@ var _ = Describe("Server", func() {
 				Expect(responseBody).To(Equal(`{"data":{"a":1,"id":1,"name":"B record name"},"status":"OK"}`))
 			})
 		})
+
+		It("must set id sequence properly after creating records with forced Id's", func() {
+			createData := map[string]interface{}{
+				"id": 777,
+				"name": "B record name",
+				"a":    aRecord.Data["id"],
+			}
+
+			encodedMetaData, _ := json.Marshal(createData)
+
+			url := fmt.Sprintf("%s/data/%s?depth=2,exclude=a", appConfig.UrlPrefix, objectB.Name)
+
+			request, _ := http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+			result := recorder.Body.String()
+			Expect(result).To(Equal(`{"data":{"a":1,"id":777,"name":"B record name"},"status":"OK"}`))
+
+			nextData := map[string]interface{}{
+				"name": "B record name",
+				"a":    aRecord.Data["id"],
+			}
+
+			recorderNext := httptest.NewRecorder()
+
+			encodedNextData, _ := json.Marshal(nextData)
+			requestNext, _ := http.NewRequest("POST", url, bytes.NewBuffer(encodedNextData))
+			requestNext.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorderNext, requestNext)
+			resultNext := recorderNext.Body.String()
+			Expect(resultNext).To(Equal(`{"data":{"a":1,"id":778,"name":"B record name"},"status":"OK"}`))
+		})
 	})
 })
