@@ -77,15 +77,14 @@ func (selectInfo *SelectInfo) sql(sql *bytes.Buffer) error {
 }
 
 func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filterKeys []string) *SelectInfo {
-	sqlHelper := dml_info.SqlHelper{}
 	whereExpression := ""
 	for i, key := range filterKeys {
 		if i > 0 {
 			whereExpression += " AND "
 		}
-		whereExpression += sqlHelper.EscapeColumn(key) + "=$" + strconv.Itoa(i+1)
+		whereExpression += dml_info.EscapeColumn(key) + "=$" + strconv.Itoa(i+1)
 	}
-	return &SelectInfo{From: GetTableName(objectMeta.Name), Cols: sqlHelper.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
+	return &SelectInfo{From: GetTableName(objectMeta.Name), Cols: dml_info.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
 }
 
 func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
@@ -330,7 +329,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 	}
 
 	rFields := m.TableFields()
-	updateInfo := dml_info.NewUpdateInfo(GetTableName(m.Name), getFieldsColumnsNames(rFields), make([]string, 0), make([]string, 0))
+	updateInfo := &dml_info.UpdateInfo{GetTableName(m.Name), getFieldsColumnsNames(rFields), make([]string, 0), make([]string, 0)}
 	updateFields := make([]string, 0, len(recordValues[0]))
 	valueExtractors := make([]func(interface{}) interface{}, 0, len(recordValues[0]))
 	currentColumnIndex := 0
@@ -610,8 +609,7 @@ func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTrans
 
 func (dm *DataManager) PrepareRemoveOperation(record *record.Record) (transactions.Operation, error) {
 	var query bytes.Buffer
-	sqlHelper := dml_info.SqlHelper{}
-	deleteInfo := dml_info.NewDeleteInfo(GetTableName(record.Meta.Name), []string{sqlHelper.EscapeColumn(record.Meta.Key.Name) + " IN (" + sqlHelper.BindValues(1, 1) + ")"})
+	deleteInfo := dml_info.NewDeleteInfo(GetTableName(record.Meta.Name), []string{dml_info.EscapeColumn(record.Meta.Key.Name) + " IN (" + dml_info.BindValues(1, 1) + ")"})
 	operation := func(dbTransaction transactions.DbTransaction) error {
 		stmt, err := dbTransaction.(*PgTransaction).Prepare(query.String())
 		if err != nil {
