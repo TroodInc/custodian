@@ -93,10 +93,8 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 					"sbj": user,
 				},
 				abac_tree,
+				abac_default_resolution,
 			)
-
-			ctx = context.WithValue(ctx, "ABAC_DEFAULT_RESOLUTION", abac_default_resolution)
-
 			ctx = context.WithValue(ctx, "resource", res)
 			ctx = context.WithValue(ctx, "action", action + req.Method)
 			ctx = context.WithValue(ctx, "abac", abac_resolver)
@@ -852,6 +850,11 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 
 		if passed, rule := abac_resolver.Check(ctx.Value("resource").(string), ctx.Value("action").(string)); passed {
 			if rule != nil && rule.Result != "allow" {
+				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
+				return
+			}
+		} else {
+			if abac_resolver.DefaultResolution != "allow" {
 				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
 				return
 			}

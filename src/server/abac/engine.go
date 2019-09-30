@@ -7,9 +7,9 @@ import (
 )
 
 type TroodABAC struct {
-	RulesTree map[string]interface{}
-	DataSource map[string]interface{}
-	CurrentRule map[string]interface{}
+	RulesTree         map[string]interface{}
+	DataSource        map[string]interface{}
+	DefaultResolution string
 }
 
 type ABACRule struct {
@@ -29,7 +29,7 @@ const gtOperator = "gt"
 var operations map[string]func(interface{}, interface{}) (bool, interface{})
 var aggregation map[string]func([]interface{}, interface{}) (bool, *FilterExpression)
 
-func GetTroodABAC(datasource map[string]interface{}, rules map[string]interface{}) TroodABAC {
+func GetTroodABAC(datasource map[string]interface{}, rules map[string]interface{}, defaultResolution string) TroodABAC {
 	operations = map[string]func(interface{}, interface{}) (bool, interface{}){
 		eqOperator:  operatorExact,
 		notOperator: operatorNot,
@@ -46,7 +46,7 @@ func GetTroodABAC(datasource map[string]interface{}, rules map[string]interface{
 	return TroodABAC{
 		rules,
 		datasource,
-		nil,
+		defaultResolution,
 	}
 }
 
@@ -181,7 +181,7 @@ func (abac *TroodABAC) Check(resource string, action string) (bool, *ABACRule) {
 		}
 	}
 
-	return abac.RulesTree["_default_resolution"] == "allow", nil
+	return abac.DefaultResolution == "allow", nil
 }
 
 func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *ABACRule)  {
@@ -189,7 +189,7 @@ func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *AB
 
 	if rule != nil && rule.Filter != nil {
 		if ok, _ := rule.Filter.Match(obj.GetData()); !ok {
-			return abac.RulesTree["_default_resolution"] == "allow", rule
+			return abac.DefaultResolution == "allow", rule
 		}
 	}
 
