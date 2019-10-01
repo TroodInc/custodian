@@ -47,6 +47,7 @@ var _ = Describe("Abac Engine", func() {
 			"ctx": nil,
 		},
 		nil,
+		"allow",
 	)
 
 	Describe("Operators", func() {
@@ -369,6 +370,7 @@ var _ = Describe("Abac Engine", func() {
 					"ctx": nil,
 				},
 				abac_tree,
+				"deny",
 			)
 
 			client, _ := dataProcessor.Get(
