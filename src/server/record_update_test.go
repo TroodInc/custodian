@@ -159,6 +159,95 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
+	factoryObjectCWithObjectsLinkToA := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+		cMetaDescription := description.MetaDescription{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+				{
+					Name:     "as",
+					Type:     description.FieldTypeObjects,
+					LinkType: description.LinkTypeInner,
+					LinkMeta: "a",
+				},
+			},
+		}
+		(&description.NormalizationService{}).Normalize(&cMetaDescription)
+		cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(globalTransaction, cMetaObj)
+		Expect(err).To(BeNil())
+		return cMetaObj
+	}
+
+	It("Cant update M2M field by adding objects", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		aMetaObject := factoryObjectA(globalTransaction)
+		cMetaObject := factoryObjectCWithObjectsLinkToA(globalTransaction)
+
+		aRecordFirst, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction, aMetaObject.Name,
+			map[string]interface{}{"name": "first obj m2m test"}, auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		aRecordSecond, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction, aMetaObject.Name,
+			map[string]interface{}{"name": "second obj m2m test"}, auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		aRecordThird, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction, aMetaObject.Name,
+			map[string]interface{}{"name": "third obj m2m test"}, auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+
+		cRecord, err := dataProcessor.CreateRecord(
+			globalTransaction.DbTransaction, cMetaObject.Name,
+			map[string]interface{}{
+				"name": "root obj m2m test", "as":[]interface{}{aRecordFirst.Pk(), aRecordSecond.Pk()},
+			},
+			auth.User{},
+		)
+		Expect(err).To(BeNil())
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
+		url := fmt.Sprintf("%s/data/%s/%d", appConfig.UrlPrefix, cMetaObject.Name, int(cRecord.Data["id"].(float64)))
+
+		encodedMetaData, _ := json.Marshal(map[string]interface{}{
+			"as":  []interface{}{aRecordFirst.Pk(), aRecordSecond.Pk(), aRecordThird.Pk()},
+		})
+
+		var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		Expect(recorder.Code).To(Equal(200))
+
+		var body map[string]interface{}
+		json.Unmarshal([]byte(recorder.Body.String()), &body)
+		Expect(body["data"].(map[string]interface{})["as"]).To(Equal([]interface{}{
+			aRecordFirst.Pk(), aRecordSecond.Pk(), aRecordThird.Pk(),
+		}))
+	})
+
 	It("updates record with the given id, omitting id specified in body", func() {
 		Context("having a record of given object", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
