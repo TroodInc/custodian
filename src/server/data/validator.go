@@ -277,8 +277,8 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 		if len(beingAddedIds) > 0 {
 			filter := fmt.Sprintf("eq(%s,%s),in(%s,(%s))", fieldDescription.Meta.Name, record.PkAsString(), fieldDescription.LinkMeta.Name, beingAddedIds)
 			_, toExclude, _ := vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true)
-			removedCount := 0
 			for _, obj := range toExclude {
+				removedCount := 0
 				for i := range recordsToProcess {
 					j := i - removedCount
 					if recordsToProcess[j].Data[fieldDescription.LinkMeta.Name] == obj.Data[fieldDescription.LinkMeta.Name] {
