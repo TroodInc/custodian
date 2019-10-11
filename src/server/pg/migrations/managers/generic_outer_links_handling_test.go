@@ -18,14 +18,15 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath)
+
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -122,21 +123,18 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 			_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
 			Expect(err).To(BeNil())
+			err = globalTransactionManager.CommitTransaction(globalTransaction)
+			Expect(err).To(BeNil())
 
-			aMetaObj, _, err := metaStore.Get(globalTransaction, "a", false)
+			aMetaObj, _, err := metaStore.Get("a", false)
 			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b"))).NotTo(BeNil())
 			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
 
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
 		})
 
 		Context("having object B", func() {
 			var bMetaDescription *description.MetaDescription
 			BeforeEach(func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				bMetaDescription = description.NewMetaDescription(
 					"b",
 					"id",
@@ -155,10 +153,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
-				err = metaStore.Create(globalTransaction, bMetaObj)
-				Expect(err).To(BeNil())
-
-				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				err = metaStore.Create(bMetaObj)
 				Expect(err).To(BeNil())
 			})
 
@@ -188,15 +183,13 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 				_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
-
-				aMetaObj, _, err := metaStore.Get(globalTransaction, "a", false)
-				Expect(err).To(BeNil())
-				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b"))).NotTo(BeNil())
-				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
-
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
+				aMetaObj, _, err := metaStore.Get("a", false)
+				Expect(err).To(BeNil())
+				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b"))).NotTo(BeNil())
+				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
 			})
 
 			It("removes and adds reverse generic outer links while inner generic field`s LinkMetaList is being updated", func() {
@@ -244,7 +237,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				cMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
-				err = metaStore.Create(globalTransaction, cMetaObj)
+				err = metaStore.Create(cMetaObj)
 				Expect(err).To(BeNil())
 
 				//LinkMetaList is being changed
@@ -270,18 +263,18 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 				_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
 
-				aMetaObj, _, err := metaStore.Get(globalTransaction, "a", false)
+				aMetaObj, _, err := metaStore.Get("a", false)
 				Expect(err).To(BeNil())
 				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b"))).To(BeNil())
 
-				cMetaObj, _, err = metaStore.Get(globalTransaction, "c", false)
+				cMetaObj, _, err = metaStore.Get("c", false)
 				Expect(err).To(BeNil())
 				Expect(cMetaObj.FindField(meta.ReverseInnerLinkName("b"))).NotTo(BeNil())
 				Expect(cMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
 
-				err = globalTransactionManager.CommitTransaction(globalTransaction)
-				Expect(err).To(BeNil())
 			})
 
 			It("renames reverse generic outer links if object which owns inner generic link is being renamed", func() {
@@ -332,7 +325,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
-				aMetaObj, _, err := metaStore.Get(globalTransaction, "a", false)
+				aMetaObj, _, err := metaStore.Get("a", false)
 				Expect(err).To(BeNil())
 
 				Expect(aMetaObj.FindField("bb_set")).NotTo(BeNil())
@@ -384,7 +377,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
-				metaObj, _, err := metaStore.Get(globalTransaction, metaDescription.Name, false)
+				metaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
 
 				Expect(metaObj.FindField(meta.ReverseInnerLinkName("b"))).To(BeNil())
@@ -436,7 +429,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
-				metaObj, _, err := metaStore.Get(globalTransaction, metaDescription.Name, false)
+				metaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
 				Expect(metaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
 			})

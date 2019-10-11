@@ -18,33 +18,25 @@ import (
 var _ = Describe("Store", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
+
+		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
 	})
 
 	It("Having an record for person with null value", func() {
@@ -74,14 +66,14 @@ var _ = Describe("Store", func() {
 		}
 		metaDescription, _ := metaStore.NewMeta(&meta)
 
-		err := metaStore.Create(globalTransaction, metaDescription)
+		err := metaStore.Create(metaDescription)
 		Expect(err).To(BeNil())
 
 		//create record
 		recordData := map[string]interface{}{
 			"name": "Sergey",
 		}
-		record, _ := dataProcessor.CreateRecord(globalTransaction.DbTransaction, meta.Name, recordData, auth.User{})
+		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, auth.User{})
 		Expect(record.Data).To(HaveKey("gender"))
 	})
 })

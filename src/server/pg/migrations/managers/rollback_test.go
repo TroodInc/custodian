@@ -17,7 +17,6 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
@@ -25,7 +24,10 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	migrationManager := NewMigrationManager(
+		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+	)
 
 	flushDb := func() {
 		//Flush meta/database
@@ -34,7 +36,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 		err = metaStore.Flush(globalTransaction)
 		Expect(err).To(BeNil())
 		// drop history
-		err = NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).DropHistory(globalTransaction.DbTransaction)
+		err = NewMigrationManager(
+			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		).DropHistory(globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -104,7 +108,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 			// ensure operation was rolled back
-			aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+			aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
 			Expect(aMeta).To(BeNil())
 			Expect(err).NotTo(BeNil())
 		})
@@ -155,7 +159,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 				// ensure operation was rolled back
-				aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+				aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
 				Expect(err).To(BeNil())
 				Expect(aMeta.FindField("title")).To(BeNil())
 			})
@@ -195,7 +199,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 				// ensure operation was rolled back
-				aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+				aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
 				Expect(err).To(BeNil())
 				Expect(aMeta.FindField("title")).NotTo(BeNil())
 			})
@@ -205,9 +209,6 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 				BeforeEach(func() {
 					//Create object A by applying a migration
-					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-					Expect(err).To(BeNil())
-
 					field := description.Field{
 						Name:     "new_title",
 						Type:     description.FieldTypeString,
@@ -226,9 +227,10 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 						},
 					}
 
+					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+					Expect(err).To(BeNil())
 					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, globalTransaction, true)
 					Expect(err).To(BeNil())
-
 					globalTransactionManager.CommitTransaction(globalTransaction)
 				})
 
@@ -246,7 +248,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 					Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 					// ensure operation was rolled back
-					aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+					aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
 					Expect(err).To(BeNil())
 					Expect(aMeta.FindField("new_title")).To(BeNil())
 					Expect(aMeta.FindField("title")).NotTo(BeNil())
@@ -302,11 +304,11 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 			// ensure operation was rolled back
-			aMeta, _, err := metaStore.Get(globalTransaction, "updated_a", false)
+			aMeta, _, err := metaStore.Get("updated_a", false)
 			Expect(aMeta).To(BeNil())
 			Expect(err).NotTo(BeNil())
 
-			aMeta, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+			aMeta, _, err = metaStore.Get(aMetaDescription.Name, false)
 			Expect(aMeta).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})
@@ -344,7 +346,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 			// ensure operation was rolled back
-			aMeta, _, err := metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+			aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
 			Expect(aMeta).NotTo(BeNil())
 			Expect(err).To(BeNil())
 		})

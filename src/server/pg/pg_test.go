@@ -20,31 +20,18 @@ import (
 var _ = Describe("PG MetaStore test", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
@@ -72,9 +59,9 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			meta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, meta)
+			err = metaStore.Create(meta)
 			Expect(err).To(BeNil())
-			object, _, err := metaStore.Get(globalTransaction, metaDescription.Name, true)
+			object, _, err := metaStore.Get(metaDescription.Name, true)
 			Expect(err).To(BeNil())
 			Expect(object.Name).To(BeEquivalentTo(metaDescription.Name))
 		})
@@ -103,11 +90,13 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			meta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, meta)
+			err = metaStore.Create(meta)
 			Expect(err).To(BeNil())
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			_, err = metaStore.Remove(globalTransaction, metaDescription.Name, true)
+			globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
-			_, objectRetrieved, err := metaStore.Get(globalTransaction, metaDescription.Name, true)
+			_, objectRetrieved, err := metaStore.Get(metaDescription.Name, true)
 			Expect(err).To(Not(BeNil()))
 
 			Expect(objectRetrieved).To(BeEquivalentTo(false))
@@ -132,7 +121,7 @@ var _ = Describe("PG MetaStore test", func() {
 				},
 			}
 			metaObj, _ := metaStore.NewMeta(&metaDescription)
-			metaStore.Create(globalTransaction, metaObj)
+			metaStore.Create(metaObj)
 			Context("and 'update' method is called with an object containing fields with reserved words", func() {
 				updatedMetaDescription := description.MetaDescription{
 					Name: "order",
@@ -154,9 +143,9 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 				}
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
-				_, err := metaStore.Update(globalTransaction, updatedMetaDescription.Name, updatedMetaObj, true)
+				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
 				Expect(err).To(BeNil())
-				metaObj, _, err := metaStore.Get(globalTransaction, metaDescription.Name, true)
+				metaObj, _, err := metaStore.Get(metaDescription.Name, true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(2))
@@ -188,7 +177,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, metaObj)
+			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 			Context("and 'remove' method is called", func() {
 				updatedMetaDescription := description.MetaDescription{
@@ -208,8 +197,8 @@ var _ = Describe("PG MetaStore test", func() {
 				}
 				updatedMetaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(globalTransaction, updatedMetaDescription.Name, updatedMetaObj, true)
-				metaObj, _, err = metaStore.Get(globalTransaction, metaDescription.Name, true)
+				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
+				metaObj, _, err = metaStore.Get(metaDescription.Name, true)
 				Expect(err).To(BeNil())
 
 				Expect(len(metaObj.Fields)).To(BeEquivalentTo(1))
@@ -242,10 +231,10 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
+				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}$", record.Data["date"].(string))
 				Expect(matched).To(BeTrue())
@@ -280,10 +269,10 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
+				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$", record.Data["time"].(string))
 				Expect(matched).To(BeTrue())
@@ -316,10 +305,10 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				record, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
+				record, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				matched, _ := regexp.MatchString("^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}.[0-9]+Z$", record.Data["created"].(string))
 				Expect(matched).To(BeTrue())
@@ -346,10 +335,10 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 			Context("and record is created", func() {
-				_, recordCreateError := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{}, auth.User{})
+				_, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				Context("Mandatory field added", func() {
 					updatedMetaDescription := description.MetaDescription{
@@ -375,7 +364,7 @@ var _ = Describe("PG MetaStore test", func() {
 					}
 					metaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 					Expect(err).To(BeNil())
-					ok, err := metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+					ok, err := metaStore.Update(metaObj.Name, metaObj, true)
 					Expect(ok).To(BeTrue())
 					Expect(err).To(BeNil())
 				})
@@ -407,13 +396,13 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, metaObj)
+			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"order": "value"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			record, err := dataProcessor.Get(globalTransaction.DbTransaction, metaObj.Name, "1", nil, nil, 1, false)
+			record, err := dataProcessor.Get(metaObj.Name, "1", nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(record.Data["order"]).To(Equal("value"))
 

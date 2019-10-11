@@ -17,33 +17,21 @@ import (
 var _ = Describe("Store", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
+
 	It("Changes field`s 'optional' attribute from 'false' to 'true' with corresponding database column altering", func() {
 		Describe("Having an object with required field", func() {
 			//create meta
@@ -69,7 +57,7 @@ var _ = Describe("Store", func() {
 			objectMeta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
 
-			err = metaStore.Create(globalTransaction, objectMeta)
+			err = metaStore.Create(objectMeta)
 			Expect(err).To(BeNil())
 
 			Describe("this field is specified as optional and object is updated", func() {
@@ -95,12 +83,14 @@ var _ = Describe("Store", func() {
 				objectMeta, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(BeNil())
 
-				_, err = metaStore.Update(globalTransaction, objectMeta.Name, objectMeta, true)
+				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-
 				metaDdl, err := pg.MetaDDLFromDB(tx, objectMeta.Name)
+				globalTransactionManager.CommitTransaction(globalTransaction)
+
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeTrue())
 			})
@@ -132,7 +122,7 @@ var _ = Describe("Store", func() {
 			}
 			objectMeta, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, objectMeta)
+			err = metaStore.Create(objectMeta)
 			Expect(err).To(BeNil())
 
 			Describe("this field is specified as optional and object is updated", func() {
@@ -157,12 +147,14 @@ var _ = Describe("Store", func() {
 				}
 				objectMeta, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(BeNil())
-				_, err = metaStore.Update(globalTransaction, objectMeta.Name, objectMeta, true)
+				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-
 				metaDdl, err := pg.MetaDDLFromDB(tx, objectMeta.Name)
+				globalTransactionManager.CommitTransaction(globalTransaction)
+
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeFalse())
 			})
