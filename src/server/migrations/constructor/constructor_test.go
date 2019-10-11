@@ -21,7 +21,6 @@ var _ = Describe("Migration Constructor", func() {
 	appConfig := utils.GetConfig()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
@@ -29,9 +28,11 @@ var _ = Describe("Migration Constructor", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
 	var globalTransaction *transactions.GlobalTransaction
 
-	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath))
+	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath, globalTransactionManager))
 
 	flushDb := func() {
 		var err error
