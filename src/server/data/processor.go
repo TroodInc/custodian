@@ -33,11 +33,12 @@ type DataManager interface {
 type Processor struct {
 	metaStore   *meta.MetaStore
 	dataManager DataManager
+	transactionManager transactions.DbTransactionManager
 	vCache      map[string]objectClassValidator
 }
 
-func NewProcessor(m *meta.MetaStore, d DataManager) (*Processor, error) {
-	return &Processor{metaStore: m, dataManager: d, vCache: make(map[string]objectClassValidator)}, nil
+func NewProcessor(m *meta.MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
+	return &Processor{m, d, t, make(map[string]objectClassValidator)}, nil
 }
 
 type SearchContext struct {
@@ -56,11 +57,16 @@ func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
 	}
 	return false
 }
-func (processor *Processor) Get(transaction transactions.DbTransaction, objectClass, key string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (*Record, error) {
+func (processor *Processor) Get(objectClass, key string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (*Record, error) {
+
+	transaction, _ := processor.transactionManager.BeginTransaction()
+
 	if objectMeta, e := processor.GetMeta(transaction, objectClass); e != nil {
+		processor.transactionManager.RollbackTransaction(transaction)
 		return nil, e
 	} else {
 		if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
+			processor.transactionManager.RollbackTransaction(transaction)
 			return nil, e
 		} else {
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data", DbTransaction: transaction, omitOuters: omitOuters}
@@ -81,16 +87,19 @@ func (processor *Processor) Get(transaction transactions.DbTransaction, objectCl
 
 			err := root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
 			if err != nil {
+				processor.transactionManager.RollbackTransaction(transaction)
 				return nil, err
 			}
 
 			if recordData, e := root.Resolve(ctx, pk); e != nil {
+				processor.transactionManager.RollbackTransaction(transaction)
 				return nil, e
 			} else if recordData == nil {
+				processor.transactionManager.RollbackTransaction(transaction)
 				return nil, nil
 			} else {
+				processor.transactionManager.CommitTransaction(transaction)
 				return recordData, nil
-				//return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
 			}
 		}
 	}
@@ -126,12 +135,13 @@ func (processor *Processor) ShadowGet(transaction transactions.DbTransaction, ob
 	}
 }
 
-func (processor *Processor) GetBulk(transaction transactions.DbTransaction, objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (int, []*Record, error) {
-	if businessObject, ok, e := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true); e != nil {
+func (processor *Processor) GetBulk(objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (int, []*Record, error) {
+	if businessObject, ok, e := processor.metaStore.Get(objectName, true); e != nil {
 		return 0, nil, e
 	} else if !ok {
 		return 0, nil, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
+		transaction, _ := processor.transactionManager.BeginTransaction()
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
 
 		//make and apply retrieves policy
@@ -155,15 +165,17 @@ func (processor *Processor) GetBulk(transaction transactions.DbTransaction, obje
 
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
+			processor.transactionManager.RollbackTransaction(transaction)
 			return 0, nil, errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
 		}
 
 		records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
 
 		if e != nil {
+			processor.transactionManager.RollbackTransaction(transaction)
 			return recordsCount, nil, e
 		}
-
+		processor.transactionManager.CommitTransaction(transaction)
 		return recordsCount, records, nil
 	}
 }
@@ -233,7 +245,7 @@ func (dn *DNode) recursivelyFillOuterChildNodes() {
 }
 
 func (processor *Processor) GetMeta(transaction transactions.DbTransaction, objectName string) (*meta.Meta, error) {
-	objectMeta, ok, err := processor.metaStore.Get(&transactions.GlobalTransaction{DbTransaction: transaction}, objectName, true)
+	objectMeta, ok, err := processor.metaStore.Get(objectName, true)
 	if err != nil {
 		return nil, err
 	}
@@ -243,16 +255,21 @@ func (processor *Processor) GetMeta(transaction transactions.DbTransaction, obje
 	return objectMeta, nil
 }
 
-func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransaction, objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
+func (processor *Processor) CreateRecord(objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
 	// get MetaDescription
+
+	dbTransaction, err := processor.transactionManager.BeginTransaction()
+
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
+		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, err
 	}
 
 	// extract processing node
 	recordProcessingNode, err := new(RecordProcessingTreeBuilder).Build(&Record{Meta: objectMeta, Data: recordData}, processor, dbTransaction)
 	if err != nil {
+		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, err
 	}
 
@@ -274,6 +291,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 				isRoot,
 				recordSetNotificationPool,
 			); err != nil {
+				processor.transactionManager.RollbackTransaction(dbTransaction)
 				return nil, err
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeUpdate {
@@ -283,6 +301,7 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 				isRoot,
 				recordSetNotificationPool,
 			); err != nil {
+				processor.transactionManager.RollbackTransaction(dbTransaction)
 				return nil, err
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeRemove {
@@ -294,13 +313,15 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 					recordPkAsStr,
 					user,
 				); err != nil {
+					processor.transactionManager.RollbackTransaction(dbTransaction)
 					return nil, err
 				}
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeRetrieve {
 			for i, record := range recordSetOperation.RecordSet.Records {
-				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
+				retrievedRecord, err := processor.Get(record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
 				if err != nil {
+					processor.transactionManager.RollbackTransaction(dbTransaction)
 					return nil, err
 				} else {
 					retrievedRecord.Links = record.Links
@@ -317,6 +338,8 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 		}
 	}
 
+	processor.transactionManager.CommitTransaction(dbTransaction)
+
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
@@ -326,11 +349,14 @@ func (processor *Processor) CreateRecord(dbTransaction transactions.DbTransactio
 	return NewRecord(objectMeta, recordData), nil
 }
 
-func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTransaction, objectName string, next func() (map[string]interface{}, error), sink func(map[string]interface{}) error, user auth.User) (err error) {
+func (processor *Processor) BulkCreateRecords(objectName string, next func() (map[string]interface{}, error), user auth.User) ([]interface{}, error) {
+	dbTransaction, err := processor.transactionManager.BeginTransaction()
+
 	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
-		return err
+		processor.transactionManager.RollbackTransaction(dbTransaction)
+		return nil, err
 	}
 
 	// create notification pool
@@ -340,17 +366,19 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 	// collect records` data to update
 	records, err := processor.consumeRecords(next, objectMeta, false)
 	if err != nil {
-		return err
+		processor.transactionManager.RollbackTransaction(dbTransaction)
+		return nil, err
 	}
 
 	//assemble RecordSetOperations
 	var recordProcessingNode *RecordProcessingNode
-	rootRecordSets := make([] *RecordSet, 0)
+	rootRecordSets := make([]interface{}, 0)
 	for _, record := range records {
 		// extract processing node
 		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(record, processor, dbTransaction)
 		if err != nil {
-			return err
+			processor.transactionManager.RollbackTransaction(dbTransaction)
+			return nil, err
 		}
 		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
 
@@ -363,7 +391,8 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 					isRoot,
 					recordSetNotificationPool,
 				); err != nil {
-					return err
+					processor.transactionManager.RollbackTransaction(dbTransaction)
+					return nil, err
 				}
 			} else if recordSetOperation.Type == RecordOperationTypeCreate {
 				if _, err := processor.createRecordSet(
@@ -372,7 +401,8 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 					isRoot,
 					recordSetNotificationPool,
 				); err != nil {
-					return err
+					processor.transactionManager.RollbackTransaction(dbTransaction)
+					return nil, err
 				}
 			} else if recordSetOperation.Type == RecordOperationTypeRemove {
 				for _, record := range recordSetOperation.RecordSet.Records {
@@ -383,7 +413,8 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 						recordPkAsStr,
 						user,
 					); err != nil {
-						return err
+						processor.transactionManager.RollbackTransaction(dbTransaction)
+						return nil, err
 					}
 				}
 
@@ -400,11 +431,11 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 	}
 
 	if err != nil {
-		return err
+		processor.transactionManager.RollbackTransaction(dbTransaction)
+		return nil, err
 	}
 
-	// feed updated data to the sink
-	processor.feedRecordSets(rootRecordSets, sink)
+	processor.transactionManager.CommitTransaction(dbTransaction)
 
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
@@ -413,17 +444,21 @@ func (processor *Processor) BulkCreateRecords(dbTransaction transactions.DbTrans
 		recordSetNotificationPool.Push(user)
 	}
 
-	return nil
+	return rootRecordSets, nil
 }
 
-func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransaction, objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecord *Record, err error) {
+func (processor *Processor) UpdateRecord(objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecord *Record, err error) {
+	dbTransaction, _ := processor.transactionManager.BeginTransaction()
+
 	// get MetaDescription
 	objectMeta, err := processor.GetMeta(dbTransaction, objectName)
 	if err != nil {
+		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, err
 	}
 	// get and fill key value
 	if pkValue, e := objectMeta.Key.ValueFromString(key); e != nil {
+		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, e
 	} else {
 		//recordData data must contain valid recordData`s PK value
@@ -432,6 +467,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 	// extract processing node
 	recordProcessingNode, err := new(RecordProcessingTreeBuilder).Build(&Record{Meta: objectMeta, Data: recordData}, processor, dbTransaction)
 	if err != nil {
+		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, err
 	}
 
@@ -451,6 +487,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 				isRoot,
 				recordSetNotificationPool,
 			); err != nil {
+				processor.transactionManager.RollbackTransaction(dbTransaction)
 				return nil, err
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeCreate {
@@ -460,6 +497,7 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 				isRoot,
 				recordSetNotificationPool,
 			); err != nil {
+				processor.transactionManager.RollbackTransaction(dbTransaction)
 				return nil, err
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeRemove {
@@ -471,14 +509,16 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 					recordPkAsStr,
 					user,
 				); err != nil {
+					processor.transactionManager.RollbackTransaction(dbTransaction)
 					return nil, err
 				}
 			}
 
 		} else if recordSetOperation.Type == RecordOperationTypeRetrieve {
 			for i, record := range recordSetOperation.RecordSet.Records {
-				retrievedRecord, err := processor.Get(dbTransaction, record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
+				retrievedRecord, err := processor.Get(record.Meta.Name, record.PkAsString(), nil, nil, 1, true)
 				if err != nil {
+					processor.transactionManager.RollbackTransaction(dbTransaction)
 					return nil, err
 				} else {
 					retrievedRecord.Links = record.Links
@@ -493,6 +533,9 @@ func (processor *Processor) UpdateRecord(dbTransaction transactions.DbTransactio
 			recordSetOperation.RecordSet.CollapseLinks()
 		}
 	}
+
+	processor.transactionManager.CommitTransaction(dbTransaction)
+
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all recordSetsSplitByObjects in the pool
@@ -601,7 +644,7 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 	var err error
 
 	//get pk
-	recordToRemove, err := processor.Get(dbTransaction, objectName, key, nil, nil, 1, false)
+	recordToRemove, err := processor.Get(objectName, key, nil, nil, 1, false)
 	if err != nil {
 		return nil, err
 	}
@@ -653,7 +696,7 @@ func (processor *Processor) BulkDeleteRecords(dbTransaction transactions.DbTrans
 	for _, record := range records {
 
 		//get pk
-		recordToRemove, err := processor.Get(dbTransaction, objectName, record.PkAsString(), nil, nil, 1, false)
+		recordToRemove, err := processor.Get(objectName, record.PkAsString(), nil, nil, 1, false)
 		if err != nil {
 			return err
 		}

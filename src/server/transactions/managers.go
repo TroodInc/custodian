@@ -15,16 +15,16 @@ type MetaDescriptionTransactionManager interface {
 }
 
 type GlobalTransactionManager struct {
-	metaDescriptionTransactionManager MetaDescriptionTransactionManager
-	dbTransactionManager              DbTransactionManager
+	MetaDescriptionTransactionManager MetaDescriptionTransactionManager
+	DbTransactionManager              DbTransactionManager
 }
 
 func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*description.MetaDescription) (*GlobalTransaction, error) {
-	dbTransaction, err := g.dbTransactionManager.BeginTransaction()
+	dbTransaction, err := g.DbTransactionManager.BeginTransaction()
 	if err != nil {
 		return nil, err
 	}
-	metaDescriptionTransaction, err := g.metaDescriptionTransactionManager.BeginTransaction(metaDescriptionList)
+	metaDescriptionTransaction, err := g.MetaDescriptionTransactionManager.BeginTransaction(metaDescriptionList)
 	if err != nil {
 		return nil, err
 	}
@@ -32,24 +32,24 @@ func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*descr
 }
 
 func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransaction) (error) {
-	if err := g.dbTransactionManager.CommitTransaction(transaction.DbTransaction); err != nil {
+	if err := g.DbTransactionManager.CommitTransaction(transaction.DbTransaction); err != nil {
 		return err
 	}
-	if err := g.metaDescriptionTransactionManager.CommitTransaction(transaction.MetaDescriptionTransaction); err != nil {
+	if err := g.MetaDescriptionTransactionManager.CommitTransaction(transaction.MetaDescriptionTransaction); err != nil {
 		return err
 	}
 	return nil
 }
 
 func (g *GlobalTransactionManager) RollbackTransaction(transaction *GlobalTransaction) {
-	g.dbTransactionManager.RollbackTransaction(transaction.DbTransaction)
-	g.metaDescriptionTransactionManager.RollbackTransaction(transaction.MetaDescriptionTransaction)
+	g.DbTransactionManager.RollbackTransaction(transaction.DbTransaction)
+	g.MetaDescriptionTransactionManager.RollbackTransaction(transaction.MetaDescriptionTransaction)
 }
 
 func NewGlobalTransactionManager(metaDescriptionTransactionManager MetaDescriptionTransactionManager,
 	dbTransactionManager DbTransactionManager) *GlobalTransactionManager {
 	return &GlobalTransactionManager{
-		metaDescriptionTransactionManager: metaDescriptionTransactionManager,
-		dbTransactionManager:              dbTransactionManager,
+		MetaDescriptionTransactionManager: metaDescriptionTransactionManager,
+		DbTransactionManager:              dbTransactionManager,
 	}
 }
