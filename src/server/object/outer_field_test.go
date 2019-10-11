@@ -16,30 +16,17 @@ import (
 var _ = Describe("Outer field", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
 		metaStore.Flush(globalTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
@@ -61,7 +48,7 @@ var _ = Describe("Outer field", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
+		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
@@ -90,7 +77,7 @@ var _ = Describe("Outer field", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
+		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 		return bMetaObj
 	}
@@ -120,7 +107,7 @@ var _ = Describe("Outer field", func() {
 		(&description.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
@@ -136,7 +123,7 @@ var _ = Describe("Outer field", func() {
 
 		// check meta fields
 		fieldName := "b_set"
-		aMeta, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, true)
+		aMeta, _, err := metaStore.Get(aMetaObj.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
 		Expect(aMeta.Fields[1].Name).To(Equal(fieldName))
@@ -151,7 +138,7 @@ var _ = Describe("Outer field", func() {
 
 		havingBMeta()
 
-		aMetaObj, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, false)
+		aMetaObj, _, err := metaStore.Get(aMetaObj.Name, false)
 		Expect(err).To(BeNil())
 		bSetField := aMetaObj.FindField("b_set")
 		Expect(bSetField).NotTo(BeNil())
@@ -166,7 +153,7 @@ var _ = Describe("Outer field", func() {
 		havingBMeta()
 		havingAMetaWithManuallySetBSetLink()
 		// A meta contains automatically generated outer link to B
-		aMetaObj, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, false)
+		aMetaObj, _, err := metaStore.Get(aMetaObj.Name, false)
 		aMetaObjForExport := aMetaObj.ForExport()
 		encodedData, err := json.Marshal(aMetaObjForExport)
 		Expect(err).To(BeNil())
@@ -183,7 +170,7 @@ var _ = Describe("Outer field", func() {
 		havingBMeta()
 
 		// A meta contains automatically generated outer link to B
-		aMetaObj, _, err := metaStore.Get(globalTransaction, aMetaObj.Name, false)
+		aMetaObj, _, err := metaStore.Get(aMetaObj.Name, false)
 		Expect(err).To(BeNil())
 		Expect(aMetaObj.FindField("b_set")).NotTo(BeNil())
 
@@ -212,11 +199,11 @@ var _ = Describe("Outer field", func() {
 		(&description.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 		Expect(err).To(BeNil())
 
 		// A meta should contain only custom_b_set, b_set should be removed
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaDescription.Name, false)
+		aMetaObj, _, err = metaStore.Get(aMetaDescription.Name, false)
 		Expect(err).To(BeNil())
 		Expect(aMetaObj.FindField("custom_b_set")).NotTo(BeNil())
 		Expect(aMetaObj.FindField("custom_b_set").QueryMode).To(BeTrue())
