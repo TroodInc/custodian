@@ -1,13 +1,12 @@
 package notifications
 
 import (
-	"server/data/record"
-	"strconv"
-	"utils"
 	"server/auth"
+	"server/data/record"
 	"server/data/types"
 	"server/object/description"
-	"server/transactions"
+	"strconv"
+	"utils"
 )
 
 type RecordSetNotification struct {
@@ -15,14 +14,13 @@ type RecordSetNotification struct {
 	isRoot    bool
 	getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error)
 	getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)
-	dbTransaction     transactions.DbTransaction
 	Actions           []*description.Action
 	Method            description.Method
 	PreviousState     map[int]*record.RecordSet
 	CurrentState      map[int]*record.RecordSet
 }
 
-func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error), getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *RecordSetNotification {
+func NewRecordSetNotification(recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error), getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *RecordSetNotification {
 	actions := recordSet.Meta.ActionSet.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,
@@ -33,7 +31,6 @@ func NewRecordSetNotification(dbTransaction transactions.DbTransaction, recordSe
 		CurrentState:       make(map[int]*record.RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
 		getRecordsCallback: getRecordsCallback,
 		getRecordCallback:  getRecordCallback,
-		dbTransaction:      dbTransaction,
 	}
 }
 
@@ -149,7 +146,7 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData *re
 	currentRecord := record.NewRecord(notification.recordSet.Meta, recordData.Data)
 	//include values listed in IncludeValues
 	for alias, getterConfig := range action.IncludeValues {
-		stateObject[alias] = currentRecord.GetValue(getterConfig, notification.dbTransaction, notification.getRecordCallback)
+		stateObject[alias] = currentRecord.GetValue(getterConfig, notification.getRecordCallback)
 		//remove key if alias is not equal to actual getterConfig and stateObject already
 		// contains value under the getterConfig key, that is getterConfig key should be replaced with alias
 

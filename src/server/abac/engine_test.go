@@ -1,10 +1,9 @@
 package abac
 
 import (
-	"fmt"
+	"encoding/json"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"encoding/json"
 	"server/auth"
 	"server/data"
 	"server/data/record"
@@ -201,18 +200,15 @@ var _ = Describe("Abac Engine", func() {
 	Describe("Abac hierachical objects test", func() {
 		appConfig := utils.GetConfig()
 		syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-		metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 		dataManager, _ := syncer.NewDataManager()
-		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 		//transaction managers
 		fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 		globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-		var globalTransaction *transactions.GlobalTransaction
-
-		globalTransaction, _ = globalTransactionManager.BeginTransaction(nil)
+		metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 		abac_tree := json_to_object(`{
 			"t_client": {
@@ -250,7 +246,7 @@ var _ = Describe("Abac Engine", func() {
 				},
 			})
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, metaEmployee)
+			err = metaStore.Create(metaEmployee)
 			Expect(err).To(BeNil())
 
 			metaClient, err := metaStore.NewMeta(&description.MetaDescription{
@@ -273,7 +269,7 @@ var _ = Describe("Abac Engine", func() {
 				},
 			})
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, metaClient)
+			err = metaStore.Create(metaClient)
 			Expect(err).To(BeNil())
 
 			metaPayment, err := metaStore.NewMeta(&description.MetaDescription{
@@ -294,7 +290,7 @@ var _ = Describe("Abac Engine", func() {
 				},
 			})
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, metaPayment)
+			err = metaStore.Create(metaPayment)
 			Expect(err).To(BeNil())
 
 			mdClientNew := description.MetaDescription{
@@ -323,36 +319,32 @@ var _ = Describe("Abac Engine", func() {
 			metaClientNew, err := metaStore.NewMeta(&mdClientNew)
 			Expect(err).To(BeNil())
 
-			_, err = metaStore.Update(globalTransaction, metaClient.Name, metaClientNew, true)
+			_, err = metaStore.Update(metaClient.Name, metaClientNew, true)
 			Expect(err).To(BeNil())
 
-
-			recordEmployee, err := dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction, metaEmployee.Name,
-				map[string]interface{}{}, auth.User{},
-			)
+			recordEmployee, err := dataProcessor.CreateRecord(metaEmployee.Name, map[string]interface{}{}, auth.User{})
 
 			recordClient_1, err := dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction, metaClient.Name,
+				metaClient.Name,
 				map[string]interface{}{
 					"name": "client_1", "total": 9000, "owner": 1, "manager": 1, "employee": recordEmployee.Data["id"],
 				}, auth.User{},
 			)
 
 			_, err = dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction, metaClient.Name,
+				metaClient.Name,
 				map[string]interface{}{
 					"name": "client_1", "total": 100500, "owner": 2, "employee": recordEmployee.Data["id"],
 				}, auth.User{},
 			)
 
 			_, err = dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction, metaPayment.Name,
+				metaPayment.Name,
 				map[string]interface{}{"client": recordClient_1.Data["id"], "responsible": 1, "total": 1488}, auth.User{},
 			)
 
 			_, err = dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction, metaPayment.Name,
+				metaPayment.Name,
 				map[string]interface{}{"client": recordClient_1.Data["id"], "responsible": 2, "total": 7777}, auth.User{},
 			)
 
@@ -374,17 +366,13 @@ var _ = Describe("Abac Engine", func() {
 			)
 
 			client, _ := dataProcessor.Get(
-				globalTransaction.DbTransaction, "t_client", "1",
+				"t_client", "1",
 				nil, nil, 2, false,
 			)
-
-			fmt.Println("object to check", client.Data)
 
 			ok, filtered := abac.MaskRecord(client, "data_GET")
 
 			Expect(ok).To(BeTrue())
-
-			fmt.Println(filtered.(*record.Record))
 
 			Expect(filtered.(*record.Record).Data["employee"]).To(Equal(map[string]string{"access": "denied"}))
 			Expect(filtered.(*record.Record).Data["total"]).To(Equal(map[string]string{"access": "denied"}))

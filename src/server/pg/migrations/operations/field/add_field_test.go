@@ -32,7 +32,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		//Flush meta/database
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		err = metaStore.Flush(globalTransaction)
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	}

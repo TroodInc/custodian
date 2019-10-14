@@ -235,50 +235,31 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
-			js.pushError(err)
+		if ok, e := metaStore.Remove(p.ByName("name"), false); ok {
+			js.pushObj(nil)
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "global_transaction", globalTransaction))
+			if e != nil {
 
-			if ok, e := metaStore.Remove(globalTransaction, p.ByName("name"), false); ok {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushObj(nil)
+				js.pushError(e)
 			} else {
-				if e != nil {
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(e)
-				} else {
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(&ServerError{Status: http.StatusNotFound, Code: ErrNotFound})
-				}
+
+				js.pushError(&ServerError{Status: http.StatusNotFound, Code: ErrNotFound})
 			}
 		}
 	}))
 
 	app.router.PATCH(cs.root+"/meta/:name", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
+		metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
+		if err != nil {
 			js.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "global_transaction", globalTransaction))
-
-			metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
-			if err != nil {
-				js.pushError(err)
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				return
-			}
-			if _, err := metaStore.Update(p.ByName("name"), metaObj, true); err == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushObj(metaObj.ForExport())
-			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(err)
-			}
+			return
 		}
+		if _, err := metaStore.Update(p.ByName("name"), metaObj, true); err == nil {
+			js.pushObj(metaObj.ForExport())
+		} else {
+			js.pushError(err)
+		}
+
 	}))
 
 	//RecordSetOperations operations
@@ -444,35 +425,32 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	app.router.DELETE(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
 
 		user := r.Context().Value("auth_user").(auth.User)
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+
+		objectName := p.ByName("name")
+		recordPkValue := p.ByName("key")
+		//set transaction to the context
+
+
+		//process access check
+		recordToUpdate, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
+		if err != nil || recordToUpdate == nil {
+			sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 		} else {
-			objectName := p.ByName("name")
-			recordPkValue := p.ByName("key")
-			//set transaction to the context
-			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
+			abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
+			pass, _ := abac_resolver.CheckRecord(recordToUpdate, "data_DELETE")
+			if !pass {
+				sink.pushError(abac.NewError("Permission denied"))
 
-			//process access check
-			recordToUpdate, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
-			if err != nil || recordToUpdate == nil {
-				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
+				return
+			}
+			//end access check
+
+			if removedData, e := dataProcessor.RemoveRecord(objectName, recordPkValue, user); e != nil {
+
+				sink.pushError(e)
 			} else {
-				abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
-				pass, _ := abac_resolver.CheckRecord(recordToUpdate, "data_DELETE")
-				if !pass {
-					sink.pushError(abac.NewError("Permission denied"))
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					return
-				}
-				//end access check
 
-				if removedData, e := dataProcessor.RemoveRecord(dbTransaction, objectName, recordPkValue, user); e != nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(e)
-				} else {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushObj(removedData)
-				}
+				sink.pushObj(removedData)
 			}
 		}
 	}))

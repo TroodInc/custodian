@@ -18,27 +18,18 @@ import (
 var _ = Describe("Record tree extractor", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		metaStore.Flush()
 	})
 
 	havingAMetaDescription := func() *description.MetaDescription {
@@ -119,7 +110,7 @@ var _ = Describe("Record tree extractor", func() {
 	createMeta := func(metaDescription *description.MetaDescription) *meta.Meta {
 		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, metaObj)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
@@ -132,20 +123,22 @@ var _ = Describe("Record tree extractor", func() {
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
-		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
+		aMeta, _, err = metaStore.Get(aMeta.Name, true)
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		recordNode, err := new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 
 		By("It should only contain B record marked with 'setNull' strategy")
 		Expect(err).To(BeNil())
@@ -165,20 +158,22 @@ var _ = Describe("Record tree extractor", func() {
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
-		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
+		aMeta, _, err = metaStore.Get(aMeta.Name, true)
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		_, err = new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 
 		By("It should return error")
 		Expect(err).NotTo(BeNil())
@@ -193,20 +188,22 @@ var _ = Describe("Record tree extractor", func() {
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
-		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMeta.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(globalTransaction, aMeta.Name, true)
+		aMeta, _, err = metaStore.Get(aMeta.Name, true)
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		recordNode, err := new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 
 		By("It should contain B record marked with 'cascade' strategy, which contains C record containing 'cascade' strategy")
 		Expect(err).To(BeNil())

@@ -308,7 +308,6 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 			for _, record := range recordSetOperation.RecordSet.Records {
 				recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
 				if _, err := processor.RemoveRecord(
-					dbTransaction,
 					record.Meta.Name,
 					recordPkAsStr,
 					user,
@@ -408,7 +407,6 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 				for _, record := range recordSetOperation.RecordSet.Records {
 					recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
 					if _, err := processor.RemoveRecord(
-						dbTransaction,
 						record.Meta.Name,
 						recordPkAsStr,
 						user,
@@ -504,7 +502,6 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 			for _, record := range recordSetOperation.RecordSet.Records {
 				recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
 				if _, err := processor.RemoveRecord(
-					dbTransaction,
 					record.Meta.Name,
 					recordPkAsStr,
 					user,
@@ -600,7 +597,6 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 				for _, record := range recordSetOperation.RecordSet.Records {
 					recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
 					if _, err := processor.RemoveRecord(
-						dbTransaction,
 						record.Meta.Name,
 						recordPkAsStr,
 						user,
@@ -640,7 +636,7 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 }
 
 //TODO: Refactor this method similarly to UpdateRecord, so notifications could be tested properly, it should affect PrepareDeletes method
-func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransaction, objectName string, key string, user auth.User) (map[string]interface{}, error) {
+func (processor *Processor) RemoveRecord(objectName string, key string, user auth.User) (map[string]interface{}, error) {
 	var err error
 
 	//get pk
@@ -657,16 +653,20 @@ func (processor *Processor) RemoveRecord(dbTransaction transactions.DbTransactio
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//fill node
+	dbTransaction, err := processor.transactionManager.BeginTransaction()
 	removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
 	if err != nil {
+		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, err
 	}
 
 	err = processor.dataManager.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool, processor)
 	if err != nil {
+		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, err
 	}
 
+	processor.transactionManager.CommitTransaction(dbTransaction)
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
@@ -769,7 +769,7 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
 	recordSet.PrepareData(RecordOperationTypeUpdate)
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, recordSet, isRoot, description.MethodUpdate, processor.GetBulk, processor.Get)
+	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, description.MethodUpdate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -794,7 +794,7 @@ func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransac
 func (processor *Processor) createRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
 	recordSet.PrepareData(RecordOperationTypeCreate)
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(dbTransaction, recordSet, isRoot, description.MethodCreate, processor.GetBulk, processor.Get)
+	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, description.MethodCreate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)

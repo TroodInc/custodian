@@ -32,7 +32,7 @@ var _ = Describe("PG MetaStore test", func() {
 	BeforeEach(func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 

@@ -25,7 +25,6 @@ var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -35,7 +34,11 @@ var _ = Describe("Server", func() {
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath)
+
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	migrationManager := managers.NewMigrationManager(
+		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+	)
 
 	BeforeEach(func() {
 		//setup server
@@ -47,10 +50,12 @@ var _ = Describe("Server", func() {
 		//Flush meta/database
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		err = metaStore.Flush(globalTransaction)
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 		// drop history
-		err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).DropHistory(globalTransaction.DbTransaction)
+		err = managers.NewMigrationManager(
+			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		).DropHistory(globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -111,7 +116,7 @@ var _ = Describe("Server", func() {
 		//check response status
 		Expect(body["status"]).To(Equal("OK"))
 		//ensure meta has been created
-		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		aMeta, _, err := metaStore.Get("a", false)
 		Expect(err).To(BeNil())
 		Expect(aMeta).NotTo(BeNil())
 
@@ -167,12 +172,12 @@ var _ = Describe("Server", func() {
 		//check response status
 		Expect(body["status"]).To(Equal("OK"))
 		//ensure meta has been created
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		aMeta, _, err := metaStore.Get("a", false)
 		Expect(err).NotTo(BeNil())
 		Expect(aMeta).To(BeNil())
 
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
 		appliedMigrations, err := migrationManager.GetPrecedingMigrationsForObject("a", globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 		Expect(appliedMigrations).To(HaveLen(1))
@@ -251,14 +256,9 @@ var _ = Describe("Server", func() {
 		Expect(body["status"]).To(Equal("OK"))
 		//ensure meta has been renamed
 
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		dMeta, _, err := metaStore.Get(globalTransaction, "d", false)
+		dMeta, _, err := metaStore.Get("d", false)
 		Expect(err).To(BeNil())
 		Expect(dMeta).NotTo(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Can delete object by application of migration", func() {
@@ -331,14 +331,9 @@ var _ = Describe("Server", func() {
 		Expect(body["status"]).To(Equal("OK"))
 		//ensure meta has been renamed
 
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		dMeta, _, err := metaStore.Get(globalTransaction, "d", false)
+		dMeta, _, err := metaStore.Get("d", false)
 		Expect(dMeta).To(BeNil())
 		Expect(err).NotTo(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Can add field by application of migration", func() {
@@ -402,15 +397,10 @@ var _ = Describe("Server", func() {
 		Expect(body["status"]).To(Equal("OK"))
 		//ensure meta has been renamed
 
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		aMeta, _, err := metaStore.Get("a", false)
 		Expect(err).To(BeNil())
 
 		Expect(aMeta.Fields).To(HaveLen(2))
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Can rename field by application of migration", func() {
@@ -480,16 +470,11 @@ var _ = Describe("Server", func() {
 		Expect(body["status"]).To(Equal("OK"))
 		//ensure meta has been renamed
 
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		aMeta, _, err := metaStore.Get("a", false)
 		Expect(err).To(BeNil())
 
 		Expect(aMeta.Fields).To(HaveLen(2))
 		Expect(aMeta.FindField("some_new_field")).NotTo(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Can remove field by appliance of migration", func() {
@@ -558,15 +543,10 @@ var _ = Describe("Server", func() {
 		Expect(body["status"]).To(Equal("OK"))
 		//ensure meta has been renamed
 
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		aMeta, _, err := metaStore.Get(globalTransaction, "a", false)
+		aMeta, _, err := metaStore.Get("a", false)
 		Expect(err).To(BeNil())
 
 		Expect(aMeta.Fields).To(HaveLen(1))
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Does`nt apply migration with invalid parent ID", func() {

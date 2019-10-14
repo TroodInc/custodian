@@ -25,42 +25,32 @@ import (
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
 		recorder = httptest.NewRecorder()
-
 	})
 
 	AfterEach(func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-
-		metaStore.Flush(globalTransaction)
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	factoryObjectA := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectA := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -86,12 +76,12 @@ var _ = Describe("Server", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, metaObj)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
 
-	factoryObjectB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectB := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
@@ -123,12 +113,12 @@ var _ = Describe("Server", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, metaObj)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
 
-	factoryObjectAWithManuallySetOuterLinkToB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -163,7 +153,7 @@ var _ = Describe("Server", func() {
 		(&description.NormalizationService{}).Normalize(&metaDescription)
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+		_, err = metaStore.Update(metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
@@ -171,18 +161,11 @@ var _ = Describe("Server", func() {
 		var aRecord *record.Record
 		var objectB *meta.Meta
 		BeforeEach(func() {
+			objectA := factoryObjectA()
+			objectB = factoryObjectB()
+			factoryObjectAWithManuallySetOuterLinkToB()
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			objectA := factoryObjectA(globalTransaction)
-			aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
-			Expect(err).To(BeNil())
-
-			objectB = factoryObjectB(globalTransaction)
-			factoryObjectAWithManuallySetOuterLinkToB(globalTransaction)
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			aRecord, _ = dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		})
 
 		It("creates record and outputs its data respecting depth", func() {

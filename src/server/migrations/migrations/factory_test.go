@@ -35,7 +35,7 @@ var _ = Describe("Migration Factory", func() {
 		//Flush meta/database
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		err = metaStore.Flush(globalTransaction)
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 		err = globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())

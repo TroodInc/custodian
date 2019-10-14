@@ -17,27 +17,18 @@ import (
 var _ = Describe("RecordSetOperations removal", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		metaStore.Flush()
 	})
 
 	It("Can remove records with cascade relation", func() {
@@ -59,10 +50,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
+		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
 		//
@@ -90,24 +81,24 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
+		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
 
 		//remove A record
-		removedData, err := dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		removedData, err := dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
-		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, nil, nil, 1, false)
+		record, _ := dataProcessor.Get(aMetaObj.Name, aKey, nil, nil, 1, false)
 		Expect(record).To(BeNil())
 
 		//check B record does not exist
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, nil, nil, 1, false)
+		record, err = dataProcessor.Get(bMetaObj.Name, bKey, nil, nil, 1, false)
 		Expect(record).To(BeNil())
 
 		//check removed data tree
@@ -135,10 +126,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
+		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
 		//
@@ -167,24 +158,24 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
+		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
 
 		//remove A record
-		removedData, err := dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		removedData, err := dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
-		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, nil, nil, 1, false)
+		record, _ := dataProcessor.Get(aMetaObj.Name, aKey, nil, nil, 1, false)
 		Expect(record).To(BeNil())
 
 		//check B record exists
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, nil, nil, 1, false)
+		record, err = dataProcessor.Get(bMetaObj.Name, bKey, nil, nil, 1, false)
 		Expect(record).To(Not(BeNil()))
 		Expect(record.Data["a"]).To(BeNil())
 
@@ -212,10 +203,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
+		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
 		//
@@ -244,15 +235,15 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
+		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
 
 		//remove A record
-		_, err = dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		_, err = dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(Not(BeNil()))
 	})
 
@@ -275,10 +266,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
+		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
 		//
@@ -307,12 +298,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
+		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
 		bRecord, err := dataProcessor.CreateRecord(
-			globalTransaction.DbTransaction,
 			bMetaObj.Name,
 			map[string]interface{}{"target_object": map[string]interface{}{"_object": aMetaObj.Name, "id": aKey}},
 			auth.User{},
@@ -321,15 +311,15 @@ var _ = Describe("RecordSetOperations removal", func() {
 		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
 
 		//remove A record
-		removedData, err := dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		removedData, err := dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
-		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, nil, nil, 1, false)
+		record, _ := dataProcessor.Get(aMetaObj.Name, aKey, nil, nil, 1, false)
 		Expect(record).To(BeNil())
 
 		//check B record exists, but generic field value has null value
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, nil, nil, 1, false)
+		record, err = dataProcessor.Get(bMetaObj.Name, bKey, nil, nil, 1, false)
 		Expect(record).To(Not(BeNil()))
 		Expect(record.Data).To(HaveKey("target_object"))
 		Expect(record.Data["target_object"]).To(BeNil())
@@ -357,10 +347,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
+		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{}, auth.User{})
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
 		//
@@ -389,12 +379,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
+		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
 		bRecord, err := dataProcessor.CreateRecord(
-			globalTransaction.DbTransaction,
 			bMetaObj.Name,
 			map[string]interface{}{"target_object": map[string]interface{}{"_object": aMetaObj.Name, "id": aKey}},
 			auth.User{},
@@ -403,15 +392,15 @@ var _ = Describe("RecordSetOperations removal", func() {
 		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
 
 		//remove A record
-		removedData, err := dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, aKey, auth.User{})
+		removedData, err := dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
 		Expect(err).To(BeNil())
 
 		//check A record does not exist
-		record, _ := dataProcessor.Get(globalTransaction.DbTransaction, aMetaObj.Name, aKey, nil, nil, 1, false)
+		record, _ := dataProcessor.Get(aMetaObj.Name, aKey, nil, nil, 1, false)
 		Expect(record).To(BeNil())
 
 		//check B record does not exist
-		record, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObj.Name, bKey, nil, nil, 1, false)
+		record, err = dataProcessor.Get(bMetaObj.Name, bKey, nil, nil, 1, false)
 		Expect(record).To(BeNil())
 
 		//check removed data tree

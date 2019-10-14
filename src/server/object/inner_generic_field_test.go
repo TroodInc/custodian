@@ -25,21 +25,12 @@ var _ = Describe("Inner generic field", func() {
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 
 	It("can create object with inner generic field", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
-
 		By("having two objects: A and B")
 		aMetaDescription := description.MetaDescription{
 			Name: "a",
@@ -108,6 +99,7 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		//check database columns
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		Expect(err).To(BeNil())
 
@@ -117,6 +109,7 @@ var _ = Describe("Inner generic field", func() {
 		columns := make([]pg.Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(3))
 		// check meta fields
 		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
@@ -155,9 +148,6 @@ var _ = Describe("Inner generic field", func() {
 	})
 
 	It("can remove generic field from object", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
 
 		By("having object A with generic field")
 		metaDescription := description.MetaDescription{
@@ -207,6 +197,8 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		//check database columns
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
 		tableName := pg.GetTableName(metaObj.Name)
@@ -215,6 +207,7 @@ var _ = Describe("Inner generic field", func() {
 		columns := make([]pg.Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
@@ -226,10 +219,6 @@ var _ = Describe("Inner generic field", func() {
 	})
 
 	It("does not leave orphan links in LinkMetaList on object removal", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
-
 		By("having two objects A and B reference by generic field of object C")
 		aMetaDescription := description.MetaDescription{
 			Name: "a",
@@ -297,7 +286,7 @@ var _ = Describe("Inner generic field", func() {
 
 		By("since object A is deleted, it should be removed from LinkMetaList")
 
-		_, err = metaStore.Remove(globalTransaction, aMetaObj.Name, false)
+		_, err = metaStore.Remove(aMetaObj.Name, false)
 		Expect(err).To(BeNil())
 
 		cMetaObj, _, err := metaStore.Get(cMetaDescription.Name, true)

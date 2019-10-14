@@ -18,26 +18,20 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
@@ -64,7 +58,7 @@ var _ = Describe("Data", func() {
 			}
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, aMetaObj)
+			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.MetaDescription{
@@ -91,13 +85,12 @@ var _ = Describe("Data", func() {
 			}
 			bMetaObject, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(globalTransaction, bMetaObject)
+			metaStore.Create(bMetaObject)
 
 			aRecordName := "Some-A-record"
 			anotherARecordName := "Another-some-A-record"
 			//create B record with A record
 			bRecord, err := dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction,
 				bMetaObject.Name,
 				map[string]interface{}{
 					"as": []interface{}{
@@ -115,7 +108,6 @@ var _ = Describe("Data", func() {
 
 			//create B record which should not be in query result
 			_, err = dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction,
 				bMetaObject.Name,
 				map[string]interface{}{},
 				auth.User{},
@@ -123,7 +115,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			//
-			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObject.Name, bRecord.PkAsString(), nil, nil, 1, false)
+			bRecord, err = dataProcessor.Get(bMetaObject.Name, bRecord.PkAsString(), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("as"))
 			Expect(bRecord.Data).To(HaveLen(2))
@@ -155,7 +147,7 @@ var _ = Describe("Data", func() {
 			}
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, aMetaObj)
+			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.MetaDescription{
@@ -182,13 +174,12 @@ var _ = Describe("Data", func() {
 			}
 			bMetaObject, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Create(globalTransaction, bMetaObject)
+			metaStore.Create(bMetaObject)
 
 			aRecordName := "Some-A-record"
 			anotherARecordName := "Another-some-A-record"
 			//create B record with A record
 			bRecord, err := dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction,
 				bMetaObject.Name,
 				map[string]interface{}{
 					"as": []interface{}{
@@ -206,7 +197,6 @@ var _ = Describe("Data", func() {
 
 			//create B record which should not be in query result
 			_, err = dataProcessor.CreateRecord(
-				globalTransaction.DbTransaction,
 				bMetaObject.Name,
 				map[string]interface{}{},
 				auth.User{},
@@ -214,7 +204,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			//
-			bRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, bMetaObject.Name, bRecord.PkAsString(), nil, nil, 2, false)
+			bRecord, err = dataProcessor.Get(bMetaObject.Name, bRecord.PkAsString(), nil, nil, 2, false)
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("as"))
 			Expect(bRecord.Data["as"]).To(HaveLen(2))

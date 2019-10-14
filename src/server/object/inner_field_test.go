@@ -24,13 +24,9 @@ var _ = Describe("Inner generic field", func() {
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
-
 
 	It("automatically creates reverse outer link field", func() {
 		aMetaDescription := description.MetaDescription{

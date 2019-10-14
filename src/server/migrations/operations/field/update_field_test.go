@@ -30,7 +30,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 	BeforeEach(func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 

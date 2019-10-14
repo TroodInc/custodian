@@ -33,7 +33,7 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 		var err error
 		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
@@ -70,7 +70,7 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		metaStore.Flush(globalTransaction)
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 

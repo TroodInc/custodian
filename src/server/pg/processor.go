@@ -596,13 +596,13 @@ func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTrans
 		if err != nil {
 			return err
 		}
-		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
+		recordSetNotification = notifications.NewRecordSetNotification(&record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
 	default:
 		operation, err = dm.PrepareRemoveOperation(recordNode.Record)
 		if err != nil {
 			return err
 		}
-		recordSetNotification = notifications.NewRecordSetNotification(dbTransaction, &record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
+		recordSetNotification = notifications.NewRecordSetNotification(&record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
 	}
 	//process child records
 	for _, recordNodes := range recordNode.Children {

@@ -21,34 +21,18 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		err := metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		metaStore.Flush()
 	})
 
 	Describe("Querying records with generic fields` values", func() {
@@ -80,7 +64,7 @@ var _ = Describe("Data", func() {
 			}
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, aMetaObj)
+			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 		}
 
@@ -115,7 +99,7 @@ var _ = Describe("Data", func() {
 			(&description.NormalizationService{}).Normalize(&bMetaDescription)
 			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, bMetaObj)
+			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
 		}
 
@@ -151,17 +135,17 @@ var _ = Describe("Data", func() {
 			(&description.NormalizationService{}).Normalize(&aMetaDescription)
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
+			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 			Expect(err).To(BeNil())
 		}
 
 		havingARecordOfObjectA := func() {
-			aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", map[string]interface{}{"name": "A record"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord("a", map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "brecord"}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "brecord"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -173,7 +157,7 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
+			aRecord, err := dataProcessor.Get("a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
@@ -188,7 +172,7 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			aRecord, err := dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 3, false)
+			aRecord, err := dataProcessor.Get("a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 3, false)
 			Expect(err).To(BeNil())
 			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
@@ -202,7 +186,7 @@ var _ = Describe("Data", func() {
 			havingObjectAWithGenericOuterLinkToB()
 
 			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{}}}
-			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", aRecordData, auth.User{})
+			aRecord, err := dataProcessor.CreateRecord("a", aRecordData, auth.User{})
 
 			Expect(err).To(BeNil())
 			Expect(aRecord.Data).To(HaveKey("b_set"))
@@ -217,11 +201,11 @@ var _ = Describe("Data", func() {
 			Describe("And having object B", havingObjectBWithGenericLinkToA)
 			Describe("And having object A with manually set outer link to B", havingObjectAWithGenericOuterLinkToB)
 
-			bRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{}, auth.User{})
+			bRecord, err := dataProcessor.CreateRecord("b", map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
 			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{"id": bRecord.Data["id"]}}}
-			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, "a", aRecordData, auth.User{})
+			aRecord, err := dataProcessor.CreateRecord( "a", aRecordData, auth.User{})
 
 			//check returned data
 			Expect(err).To(BeNil())
@@ -231,7 +215,7 @@ var _ = Describe("Data", func() {
 			Expect(bSetData[0].(float64)).To(Equal(bRecord.Data["id"]))
 
 			//check queried data
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
+			aRecord, err = dataProcessor.Get( "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 
 			Expect(aRecord.Data).To(HaveKey("b_set"))
@@ -248,10 +232,10 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "anotherbrecord"}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord( "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "anotherbrecord"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			_, matchedRecords, err := dataProcessor.GetBulk(globalTransaction.DbTransaction, "a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false)
+			_, matchedRecords, err := dataProcessor.GetBulk("a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 		})

@@ -42,34 +42,29 @@ func get_server(user *auth.User) *http.Server {
 var _ = Describe("ABAC rules handling", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	var user *auth.User
 
 	flushDb := func() {
-		var err error
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
 	}
 
-	factoryObjectA := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectA := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -97,7 +92,7 @@ var _ = Describe("ABAC rules handling", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, metaObj)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
@@ -135,11 +130,9 @@ var _ = Describe("ABAC rules handling", func() {
 			It("Should return error when trying to retrieve a record of object A", func() {
 				user.Role = "manager"
 				httpServer = get_server(user)
+				aObject := factoryObjectA()
 
-				aObject := factoryObjectA(globalTransaction)
-				aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record"}, auth.User{})
-
-				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				aRecord, err := dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 				Expect(err).To(BeNil())
 
 				url := fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
@@ -157,10 +150,10 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And this user has the role 'admin'", func() {
 			It("Should return a record of object A", func() {
 				httpServer = get_server(user)
-				aObject := factoryObjectA(globalTransaction)
-				aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+				aObject := factoryObjectA()
 
-				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				aRecord, err := dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+
 				Expect(err).To(BeNil())
 
 				url := fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
@@ -225,10 +218,8 @@ var _ = Describe("ABAC rules handling", func() {
 			var aRecord *record.Record
 
 			JustBeforeEach(func() {
-				aObject = factoryObjectA(globalTransaction)
-				aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
-				Expect(err).To(BeNil())
-				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				aObject = factoryObjectA()
+				aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
 				Expect(err).To(BeNil())
 
 				url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
@@ -280,9 +271,8 @@ var _ = Describe("ABAC rules handling", func() {
 			var aRecord *record.Record
 
 			JustBeforeEach(func() {
-				aObject = factoryObjectA(globalTransaction)
-				aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "admin"}, auth.User{})
-				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				aObject = factoryObjectA()
+				aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "admin"}, auth.User{})
 				Expect(err).To(BeNil())
 				url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 			})
@@ -331,10 +321,8 @@ var _ = Describe("ABAC rules handling", func() {
 
 		var url string
 		JustBeforeEach(func() {
-			aObject := factoryObjectA(globalTransaction)
-			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
-			Expect(err).To(BeNil())
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
+			aObject := factoryObjectA()
+			aRecord, err := dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())

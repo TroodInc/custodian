@@ -38,7 +38,7 @@ var _ = Describe("Migration Constructor", func() {
 		var err error
 		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
 
 		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)

@@ -26,18 +26,11 @@ var _ = Describe("File MetaDescription driver", func() {
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("can restore objects on rollback", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
 
 		Context("having an object", func() {
 			metaDescription := description.MetaDescription{
@@ -52,6 +45,9 @@ var _ = Describe("File MetaDescription driver", func() {
 					},
 				},
 			}
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
 			fileMetaDriver.Create(globalTransaction.MetaDescriptionTransaction, metaDescription)
 
 			Context("and this object is removed within transaction", func() {
@@ -70,6 +66,8 @@ var _ = Describe("File MetaDescription driver", func() {
 					fileMetaDriver.Remove(metaDescription.Name)
 				})
 			})
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 	})
 

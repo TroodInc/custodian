@@ -25,42 +25,33 @@ import (
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
 		recorder = httptest.NewRecorder()
-
 	})
 
 	AfterEach(func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
-		metaStore.Flush(globalTransaction)
+		metaStore.Flush()
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	factoryObjectA := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectA := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -83,12 +74,12 @@ var _ = Describe("Server", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, metaObj)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
 
-	factoryObjectAWithManuallySetOuterLinkToB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -120,12 +111,12 @@ var _ = Describe("Server", func() {
 		(&description.NormalizationService{}).Normalize(&metaDescription)
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+		_, err = metaStore.Update(metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
 
-	factoryObjectB := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectB := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
@@ -154,12 +145,12 @@ var _ = Describe("Server", func() {
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, metaObj)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
 
-	factoryObjectCWithObjectsLinkToA := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectCWithObjectsLinkToA := func() *meta.Meta {
 		cMetaDescription := description.MetaDescription{
 			Name: "c",
 			Key:  "id",
@@ -189,45 +180,42 @@ var _ = Describe("Server", func() {
 		(&description.NormalizationService{}).Normalize(&cMetaDescription)
 		cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, cMetaObj)
+		err = metaStore.Create(cMetaObj)
 		Expect(err).To(BeNil())
 		return cMetaObj
 	}
 
 	It("Cant update M2M field by adding objects", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		aMetaObject := factoryObjectA(globalTransaction)
-		cMetaObject := factoryObjectCWithObjectsLinkToA(globalTransaction)
+		aMetaObject := factoryObjectA()
+		cMetaObject := factoryObjectCWithObjectsLinkToA()
 
 		aRecordFirst, err := dataProcessor.CreateRecord(
-			globalTransaction.DbTransaction, aMetaObject.Name,
+			aMetaObject.Name,
 			map[string]interface{}{"name": "first obj m2m test"}, auth.User{},
 		)
 		Expect(err).To(BeNil())
 
 		aRecordSecond, err := dataProcessor.CreateRecord(
-			globalTransaction.DbTransaction, aMetaObject.Name,
+			aMetaObject.Name,
 			map[string]interface{}{"name": "second obj m2m test"}, auth.User{},
 		)
 		Expect(err).To(BeNil())
 
 		aRecordThird, err := dataProcessor.CreateRecord(
-			globalTransaction.DbTransaction, aMetaObject.Name,
+			aMetaObject.Name,
 			map[string]interface{}{"name": "third obj m2m test"}, auth.User{},
 		)
 		Expect(err).To(BeNil())
 
 
 		cRecord, err := dataProcessor.CreateRecord(
-			globalTransaction.DbTransaction, cMetaObject.Name,
+			cMetaObject.Name,
 			map[string]interface{}{
 				"name": "root obj m2m test", "as":[]interface{}{aRecordFirst.Pk(), aRecordSecond.Pk()},
 			},
 			auth.User{},
 		)
 		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 
 		url := fmt.Sprintf("%s/data/%s/%d", appConfig.UrlPrefix, cMetaObject.Name, int(cRecord.Data["id"].(float64)))
 
@@ -250,17 +238,13 @@ var _ = Describe("Server", func() {
 
 	It("updates record with the given id, omitting id specified in body", func() {
 		Context("having a record of given object", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
+			objectA := factoryObjectA()
 
-			objectA := factoryObjectA(globalTransaction)
-			record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
+			record, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
 			Expect(err).To(BeNil())
 			//create another record to ensure only specified record is affected by update
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{"name": "SomeName"}, auth.User{})
 			Expect(err).To(BeNil())
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			Context("and PUT request performed by URL with specified record ID with wrong id specified in body", func() {
 				updateData := map[string]interface{}{
@@ -289,20 +273,15 @@ var _ = Describe("Server", func() {
 		var objectB *meta.Meta
 
 		BeforeEach(func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			objectA := factoryObjectA()
+			objectB = factoryObjectB()
+			factoryObjectAWithManuallySetOuterLinkToB()
+
+			aRecord, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			objectA := factoryObjectA(globalTransaction)
-			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
 			Expect(err).To(BeNil())
-
-			objectB = factoryObjectB(globalTransaction)
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
-			Expect(err).To(BeNil())
-
-			factoryObjectAWithManuallySetOuterLinkToB(globalTransaction)
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("updates record and outputs its data respecting depth", func() {

@@ -30,10 +30,7 @@ var _ = Describe("PG MetaStore test", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		metaStore.Flush()
 	})
 
 	It("can create object with fields containing reserved words", func() {
@@ -92,9 +89,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(meta)
 			Expect(err).To(BeNil())
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			_, err = metaStore.Remove(globalTransaction, metaDescription.Name, true)
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			_, err = metaStore.Remove(metaDescription.Name, true)
 			Expect(err).To(BeNil())
 			_, objectRetrieved, err := metaStore.Get(metaDescription.Name, true)
 			Expect(err).To(Not(BeNil()))

@@ -24,10 +24,8 @@ var _ = Describe("Outer generic field", func() {
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("can create object with manually specified outer generic field", func() {
@@ -519,10 +517,8 @@ var _ = Describe("Outer generic field", func() {
 		//
 
 		By("and object B is removed")
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		_, err = metaStore.Remove(globalTransaction, bMetaObj.Name, true)
+		_, err = metaStore.Remove(bMetaObj.Name, true)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		By("outer link should be removed from object A")
 		// check meta fields
 		aMetaObj, _, err = metaStore.Get(aMetaDescription.Name, true)
