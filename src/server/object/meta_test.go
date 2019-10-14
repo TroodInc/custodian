@@ -13,7 +13,7 @@ import (
 	"database/sql"
 )
 
-var _ = XDescribe("The PG MetaStore", func() {
+var _ = Describe("The PG MetaStore", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 
@@ -69,7 +69,7 @@ var _ = XDescribe("The PG MetaStore", func() {
 		})
 	})
 
-	It("can remove object without leaving orphan outer links", func() {
+	XIt("can remove object without leaving orphan outer links", func() {
 		Context("having two objects with mutual links", func() {
 			aMetaDescription := description.MetaDescription{
 				Name: "a",
@@ -217,7 +217,7 @@ var _ = XDescribe("The PG MetaStore", func() {
 		})
 	})
 
-	It("can remove object`s inner link field without leaving orphan outer links", func() {
+	XIt("can remove object`s inner link field without leaving orphan outer links", func() {
 		Context("having objects A and B with mutual links", func() {
 			aMetaDescription := description.MetaDescription{
 				Name: "a",
