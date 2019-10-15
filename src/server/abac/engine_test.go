@@ -230,7 +230,11 @@ var _ = Describe("Abac Engine", func() {
 					{"result": "deny", "rule": { "sbj.role": { "not": "admin"} }, "mask": [] }
 				]
 			}
-	}`)
+		}`)
+
+		AfterEach(func() {
+			metaStore.Flush()
+		})
 
 		It("Must filter Custodian Nodes", func() {
 			metaEmployee, err := metaStore.NewMeta(&description.MetaDescription{

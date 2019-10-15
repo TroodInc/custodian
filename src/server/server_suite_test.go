@@ -11,7 +11,7 @@ import (
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	if ci := os.Getenv("TEAMCITY_VERSION"); ci != "" {
+	if ci := os.Getenv("CI"); ci != "" {
 		teamcityReporter := reporters.NewTeamCityReporter(os.Stdout)
 		RunSpecsWithCustomReporters(t, "Server Suite", []Reporter{teamcityReporter})
 	} else {

@@ -1,6 +1,8 @@
 package field_test
 
 import (
+	"github.com/onsi/ginkgo/reporters"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -9,5 +11,10 @@ import (
 
 func TestField(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "NewField Suite")
+	if ci := os.Getenv("CI"); ci != "" {
+		teamcityReporter := reporters.NewTeamCityReporter(os.Stdout)
+		RunSpecsWithCustomReporters(t, "NewField Suite", []Reporter{teamcityReporter})
+	} else {
+		RunSpecs(t, "NewField Suite")
+	}
 }

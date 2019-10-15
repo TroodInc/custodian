@@ -1,6 +1,8 @@
 package constructor_test
 
 import (
+	"github.com/onsi/ginkgo/reporters"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -9,5 +11,10 @@ import (
 
 func TestConstructor(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Constructor Suite")
+	if ci := os.Getenv("CI"); ci != "" {
+		teamcityReporter := reporters.NewTeamCityReporter(os.Stdout)
+		RunSpecsWithCustomReporters(t, "Constructor Suite", []Reporter{teamcityReporter})
+	} else {
+		RunSpecs(t, "Constructor Suite")
+	}
 }

@@ -69,10 +69,10 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
-	XIt("can remove object without leaving orphan outer links", func() {
+	It("can remove object without leaving orphan outer links", func() {
 		Context("having two objects with mutual links", func() {
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: "a_0dfzt",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -92,7 +92,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_yk94t",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -109,7 +109,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMeta.Name,
 					},
 				},
 			}
@@ -119,7 +119,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			aMetaDescription = description.MetaDescription{
-				Name: "a",
+				Name: aMeta.Name,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -136,7 +136,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Type:           description.FieldTypeObject,
 						Optional:       true,
 						LinkType:       description.LinkTypeOuter,
-						LinkMeta:       "b",
+						LinkMeta:       bMeta.Name,
 						OuterLinkField: "a_fk",
 					},
 				},
@@ -160,7 +160,7 @@ var _ = Describe("The PG MetaStore", func() {
 	It("can remove object without leaving orphan inner links", func() {
 		Context("having two objects with mutual links", func() {
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: "a_h44gs",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -179,7 +179,7 @@ var _ = Describe("The PG MetaStore", func() {
 			metaStore.Create(aMeta)
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_ikkmn",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -196,7 +196,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMeta.Name,
 					},
 				},
 			}
@@ -420,7 +420,7 @@ var _ = Describe("The PG MetaStore", func() {
 	It("creates inner link with 'on_delete' behavior defined as 'CASCADE' by default", func() {
 		By("having an object A")
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_94udg",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -436,7 +436,7 @@ var _ = Describe("The PG MetaStore", func() {
 		By("and having an object B referencing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_x8pyv",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -488,7 +488,7 @@ var _ = Describe("The PG MetaStore", func() {
 	It("creates inner link with 'on_delete' behavior defined as 'CASCADE' when manually specified", func() {
 		By("having an object A")
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_8ndp9",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -504,7 +504,7 @@ var _ = Describe("The PG MetaStore", func() {
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_v28qj",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -558,7 +558,7 @@ var _ = Describe("The PG MetaStore", func() {
 	It("creates inner link with 'on_delete' behavior defined as 'SET NULL' when manually specified", func() {
 		By("having an object A")
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_1iglw",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -574,7 +574,7 @@ var _ = Describe("The PG MetaStore", func() {
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_exnpf",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -627,7 +627,7 @@ var _ = Describe("The PG MetaStore", func() {
 	It("creates inner link with 'on_delete' behavior defined as 'RESTRICT' when manually specified", func() {
 		By("having an object A")
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_ccrau",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -643,7 +643,7 @@ var _ = Describe("The PG MetaStore", func() {
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_jd593",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -696,7 +696,7 @@ var _ = Describe("The PG MetaStore", func() {
 	It("creates inner link with 'on_delete' behavior defined as 'RESTRICT' when manually specified", func() {
 		By("having an object A")
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_6h6e4",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -712,7 +712,7 @@ var _ = Describe("The PG MetaStore", func() {
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_bczna",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
