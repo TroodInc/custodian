@@ -133,7 +133,7 @@ var _ = Describe("Data", func() {
 			return bRecord
 		}
 
-		XIt("makes correct notification messages on record removal with `cascade` remove", func() {
+		It("makes correct notification messages on record removal with `cascade` remove", func() {
 
 			bRecord := havingBRecord()
 			Expect(bRecord).NotTo(BeNil())
@@ -170,7 +170,7 @@ var _ = Describe("Data", func() {
 			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecord.Pk()))
 		})
 
-		XIt("makes correct notification messages on record removal with `setNull` remove", func() {
+		It("makes correct notification messages on record removal with `setNull` remove", func() {
 			bRecord := havingBRecord()
 			aMetaObj := havingObjectA(description.OnDeleteSetNull)
 			dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"b": bRecord.Pk().(float64)}, auth.User{})

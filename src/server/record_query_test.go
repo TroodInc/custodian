@@ -307,7 +307,7 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 		})
 
-		XIt("Can exclude inner link`s subtree", func() {
+		It("Can exclude inner link`s subtree", func() {
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&exclude=b", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -406,7 +406,7 @@ var _ = Describe("Server", func() {
 			Expect(dSet[0].(map[string]interface{})).To(HaveKey("id"))
 		})
 
-		XIt("Can include more than one inner link`s subtrees together", func() {
+		It("Can include more than one inner link`s subtrees together", func() {
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=1&only=a.id&only=b.id", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -498,7 +498,7 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 		})
 
-		XIt("Can exclude a field of a record which is linked by the generic relation", func() {
+		It("Can exclude a field of a record which is linked by the generic relation", func() {
 
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=2&exclude=target.a.name", appConfig.UrlPrefix)
 
@@ -527,7 +527,7 @@ var _ = Describe("Server", func() {
 			Expect(body["data"].([]interface{})[0]).NotTo(HaveKey("target"))
 		})
 
-		XIt("Can include a field of a record which is linked by the generic relation", func() {
+		It("Can include a field of a record which is linked by the generic relation", func() {
 
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a.name", appConfig.UrlPrefix)
 
@@ -544,7 +544,7 @@ var _ = Describe("Server", func() {
 			Expect(targetData["name"].(string)).To(Equal(aRecord.Data["name"]))
 		})
 
-		XIt("Can include a field of a record which is linked by the generic relation and its nested item at once", func() {
+		It("Can include a field of a record which is linked by the generic relation and its nested item at once", func() {
 
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a.name&only=target.a.d_set", appConfig.UrlPrefix)
 
@@ -594,7 +594,7 @@ var _ = Describe("Server", func() {
 			Expect(recordData).NotTo(HaveKey("name"))
 		})
 
-		XIt("Can include a generic field and its subtree", func() {
+		It("Can include a generic field and its subtree", func() {
 
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target&only=target.a.name", appConfig.UrlPrefix)
 

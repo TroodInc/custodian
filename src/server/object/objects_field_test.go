@@ -1,6 +1,7 @@
 package object
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/pg"
@@ -58,9 +59,9 @@ var _ = Describe("Objects field", func() {
 		Expect(metaDescription.Fields[0].LinkType).To(Equal(description.LinkTypeInner))
 	})
 
-	XIt("can build meta with 'objects' field and filled 'throughLink'", func() {
+	It("can build meta with 'objects' field and filled 'throughLink'", func() {
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_cyq6u",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -75,7 +76,7 @@ var _ = Describe("Objects field", func() {
 			},
 		}
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: "b_6ru7k",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -90,7 +91,7 @@ var _ = Describe("Objects field", func() {
 			},
 		}
 		updatedAMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: aMetaDescription.Name,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -125,7 +126,7 @@ var _ = Describe("Objects field", func() {
 		updatedAMetaObj, err := metaStore.NewMeta(&updatedAMetaDescription)
 		Expect(err).To(BeNil())
 		Expect(updatedAMetaObj.Fields).To(HaveLen(2))
-		Expect(updatedAMetaObj.Fields[1].LinkMeta.Name).To(Equal("b"))
+		Expect(updatedAMetaObj.Fields[1].LinkMeta.Name).To(Equal(bMetaDescription.Name))
 		Expect(updatedAMetaObj.Fields[1].Type).To(Equal(description.FieldTypeObjects))
 		Expect(updatedAMetaObj.Fields[1].LinkType).To(Equal(description.LinkTypeInner))
 
@@ -136,13 +137,13 @@ var _ = Describe("Objects field", func() {
 		throughMeta, _, err := metaStore.Get(updatedAMetaObj.Fields[1].LinkThrough.Name, false)
 		Expect(err).To(BeNil())
 
-		Expect(throughMeta.Name).To(Equal("a__b"))
+		Expect(throughMeta.Name).To(Equal(fmt.Sprintf("%s__%s", aMetaDescription.Name, bMetaDescription.Name)))
 		Expect(throughMeta.Fields).To(HaveLen(3))
 
-		Expect(throughMeta.Fields[1].Name).To(Equal("a"))
+		Expect(throughMeta.Fields[1].Name).To(Equal(aMetaDescription.Name))
 		Expect(throughMeta.Fields[1].Type).To(Equal(description.FieldTypeObject))
 
-		Expect(throughMeta.Fields[2].Name).To(Equal("b"))
+		Expect(throughMeta.Fields[2].Name).To(Equal(bMetaDescription.Name))
 		Expect(throughMeta.Fields[2].Type).To(Equal(description.FieldTypeObject))
 	})
 })

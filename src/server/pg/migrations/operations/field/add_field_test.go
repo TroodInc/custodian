@@ -128,7 +128,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
-	XIt("creates constraint for specified column in the database", func() {
+	It("creates constraint for specified column in the database", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 

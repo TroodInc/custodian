@@ -462,7 +462,7 @@ var _ = Describe("Create test", func() {
 		Expect(existingBRecordData["name"].(string)).To(Equal("Existing B record"))
 	})
 
-	XIt("can create record with nested records within 'Objects' field at once", func() {
+	It("can create record with nested records within 'Objects' field at once", func() {
 		aMeta := havingObjectA()
 		havingObjectC()
 		aMeta = havingObjectAWithObjectsLinkToB()
@@ -489,7 +489,7 @@ var _ = Describe("Create test", func() {
 		Expect(matchedRecords).To(HaveLen(1))
 	})
 
-	XIt("can create record with nested records within 'Objects' field at once with data of mixed type(both new and existing)", func() {
+	It("can create record with nested records within 'Objects' field at once with data of mixed type(both new and existing)", func() {
 		aMeta := havingObjectA()
 		cMeta := havingObjectC()
 		aMeta = havingObjectAWithObjectsLinkToB()

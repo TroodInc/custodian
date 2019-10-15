@@ -326,7 +326,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
-		XIt("changes IFK name if field is renamed", func() {
+		It("changes IFK name if field is renamed", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 

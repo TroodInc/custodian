@@ -217,10 +217,10 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
-	XIt("can remove object`s inner link field without leaving orphan outer links", func() {
+	It("can remove object`s inner link field without leaving orphan outer links", func() {
 		Context("having objects A and B with mutual links", func() {
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: "a_zez5b",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -239,7 +239,7 @@ var _ = Describe("The PG MetaStore", func() {
 			metaStore.Create(aMeta)
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_uo8c6",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -256,7 +256,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMeta.Name,
 					},
 				},
 			}
@@ -266,7 +266,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			aMetaDescription = description.MetaDescription{
-				Name: "a",
+				Name: aMeta.Name,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -283,7 +283,7 @@ var _ = Describe("The PG MetaStore", func() {
 						Type:           description.FieldTypeObject,
 						Optional:       true,
 						LinkType:       description.LinkTypeOuter,
-						LinkMeta:       "b",
+						LinkMeta:       bMeta.Name,
 						OuterLinkField: "a_fk",
 					},
 				},
@@ -294,7 +294,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			Context("and inner link field was removed from object B", func() {
 				bMetaDescription := description.MetaDescription{
-					Name: "b",
+					Name: "b_uo8c6",
 					Key:  "id",
 					Cas:  false,
 					Fields: []description.Field{
