@@ -29,7 +29,8 @@ var _ = Describe("Create test", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	havingObjectA := func() *meta.Meta {

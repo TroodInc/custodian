@@ -28,7 +28,8 @@ var _ = Describe("Data", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	Describe("Data retrieve depending on outer link modes values", func() {

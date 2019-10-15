@@ -26,7 +26,8 @@ var _ = Describe("Node", func() {
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	It("can fill child nodes with circular dependency", func() {

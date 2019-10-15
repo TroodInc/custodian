@@ -30,7 +30,8 @@ var _ = Describe("Data", func() {
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	Describe("RecordSetNotification state capturing", func() {

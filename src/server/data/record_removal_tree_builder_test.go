@@ -29,7 +29,8 @@ var _ = Describe("Record tree extractor", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	havingAMetaDescription := func() *description.MetaDescription {

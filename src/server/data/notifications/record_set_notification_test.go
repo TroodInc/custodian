@@ -3,18 +3,18 @@ package notifications_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"server/data"
-	"utils"
 	"server/auth"
-	"server/object/meta"
-	"server/object/description"
+	"server/data"
 	. "server/data/notifications"
-	"server/transactions/file_transaction"
+	"server/data/record"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/data/record"
+	"server/transactions/file_transaction"
 	"strconv"
+	"utils"
 )
 
 var _ = Describe("Data", func() {
@@ -31,7 +31,8 @@ var _ = Describe("Data", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	Describe("RecordSetNotification state capturing", func() {
@@ -173,11 +174,11 @@ var _ = Describe("Data", func() {
 			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 			err = globalTransaction.DbTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
+			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			recordSet.CollapseLinks()
 
 			recordSetNotification.CaptureCurrentState()
-			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			//previous state for create operation should contain empty objects
 			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
@@ -235,11 +236,11 @@ var _ = Describe("Data", func() {
 			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 			err = globalTransaction.DbTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
+			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			recordSet.CollapseLinks()
 
 			recordSetNotification.CaptureCurrentState()
-			globalTransactionManager.CommitTransaction(globalTransaction)
 			//only last_name specified for update, thus first_name should not be included in notification message
 			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
 			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(4))

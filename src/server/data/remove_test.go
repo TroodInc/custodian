@@ -28,7 +28,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	It("Can remove records with cascade relation", func() {
