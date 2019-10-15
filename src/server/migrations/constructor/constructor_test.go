@@ -30,21 +30,13 @@ var _ = Describe("Migration Constructor", func() {
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
 	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath, globalTransactionManager))
 
 	flushDb := func() {
-		var err error
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	}
-	BeforeEach(flushDb)
+
 	AfterEach(flushDb)
 
 	Describe("Separate operations` generation", func() {

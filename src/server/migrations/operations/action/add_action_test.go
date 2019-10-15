@@ -24,18 +24,12 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
 	var metaDescription *description.MetaDescription
 
 	//setup transaction
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+	AfterEach(func() {
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup MetaDescription
@@ -54,18 +48,16 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 				},
 			},
 		}
-		var err error
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup teardown
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("adds an action into metaDescription`s file", func() {
@@ -73,8 +65,10 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 		action := description.Action{Name: "new_action", Method: description.MethodCreate, Protocol: description.REST, Args: []string{"http://localhost:3000/some-handler"}}
 
 		operation := NewAddActionOperation(&action)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(objectMeta).NotTo(BeNil())
 
 		//ensure MetaDescription contains added field

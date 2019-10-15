@@ -32,15 +32,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 	flushDb := func() {
 		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		err = metaStore.Flush()
-		Expect(err).To(BeNil())
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	}
 
-	BeforeEach(flushDb)
 	AfterEach(flushDb)
 
 	//setup MetaDescription

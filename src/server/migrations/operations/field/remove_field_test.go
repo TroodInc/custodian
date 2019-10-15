@@ -24,18 +24,7 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
 	var metaDescription *description.MetaDescription
-
-	//setup transaction
-	BeforeEach(func() {
-		var err error
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
 
 	//setup MetaDescription
 	BeforeEach(func() {
@@ -59,24 +48,24 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 				},
 			},
 		}
-		var err error
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup teardown
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("removes a field from metaDescription`s file", func() {
 		operation := NewRemoveFieldOperation(metaDescription.FindField("name"))
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(objectMeta).NotTo(BeNil())
 
 		//ensure MetaDescription has been removed from file

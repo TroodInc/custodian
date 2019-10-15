@@ -24,18 +24,12 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
 	var metaDescription *description.MetaDescription
 
 	//setup transaction
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+	AfterEach(func() {
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup MetaDescription
@@ -56,19 +50,17 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		}
 
 		operation := CreateObjectOperation{MetaDescription: metaDescription}
-
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaDescription).NotTo(BeNil())
 	})
 
 	//setup teardown
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("renames metaDescription`s file", func() {
@@ -76,8 +68,10 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		updatedMetaDescription.Name = "b"
 
 		operation := RenameObjectOperation{MetaDescription: updatedMetaDescription}
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		updatedMetaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(updatedMetaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file
@@ -107,8 +101,8 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 				},
 			},
 		}
-
 		createOperation := CreateObjectOperation{MetaDescription: bMetaDescription}
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		bMetaDescription, err := createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(bMetaDescription).NotTo(BeNil())
@@ -116,6 +110,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		//
 		renameOperation := RenameObjectOperation{bMetaDescription}
 		renamedMetaObj, err := renameOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		globalTransactionManager.CommitTransaction(globalTransaction)
 
 		// Ensure migration has not been applied
 		Expect(err).NotTo(BeNil())

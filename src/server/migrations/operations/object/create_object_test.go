@@ -24,18 +24,12 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
 	var metaDescription *description.MetaDescription
 
 	//setup transaction
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+	AfterEach(func() {
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup MetaDescription
@@ -56,21 +50,13 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		}
 	})
 
-	//setup teardown
-	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
 	It("stores MetaDescription to file", func() {
 
 		operation := CreateObjectOperation{MetaDescription: metaDescription}
-
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file

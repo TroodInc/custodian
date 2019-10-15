@@ -27,11 +27,9 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 	var metaDescription *description.MetaDescription
 
 	//setup transaction
-	BeforeEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+	AfterEach(func() {
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup MetaDescription
