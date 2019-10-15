@@ -44,15 +44,13 @@ var _ = Describe("Server", func() {
 	})
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	factoryObjectA := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_qbhbj",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -83,7 +81,7 @@ var _ = Describe("Server", func() {
 
 	factoryObjectB := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "b",
+			Name: "b_bezv9",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -107,7 +105,7 @@ var _ = Describe("Server", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: "a_qbhbj",
 				},
 			},
 		}
@@ -120,7 +118,7 @@ var _ = Describe("Server", func() {
 
 	factoryObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_qbhbj",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -144,7 +142,7 @@ var _ = Describe("Server", func() {
 					Name:           "b_set",
 					Type:           description.FieldTypeArray,
 					LinkType:       description.LinkTypeOuter,
-					LinkMeta:       "b",
+					LinkMeta:       "b_bezv9",
 					OuterLinkField: "a",
 					Optional:       true,
 				},

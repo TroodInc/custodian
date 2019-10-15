@@ -1,6 +1,8 @@
 package server_test
 
 import (
+	"github.com/onsi/ginkgo/reporters"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -9,5 +11,10 @@ import (
 
 func TestServer(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Server Suite")
+	if ci := os.Getenv("TEAMCITY_VERSION"); ci != "" {
+		teamcityReporter := reporters.NewTeamCityReporter(os.Stdout)
+		RunSpecsWithCustomReporters(t, "Server Suite", []Reporter{teamcityReporter})
+	} else {
+		RunSpecs(t, "Server Suite")
+	}
 }

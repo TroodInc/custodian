@@ -53,21 +53,15 @@ var _ = Describe("Server", func() {
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 		// drop history
-		err = managers.NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).DropHistory(globalTransaction.DbTransaction)
+		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
 
-	BeforeEach(flushDb)
 	AfterEach(flushDb)
 
 	It("Can create object by application of migration", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
 		migrationDescriptionData := map[string]interface{}{
 			"id":        "b5df723r",
 			"applyTo":   "",
@@ -119,8 +113,6 @@ var _ = Describe("Server", func() {
 		aMeta, _, err := metaStore.Get("a", false)
 		Expect(err).To(BeNil())
 		Expect(aMeta).NotTo(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Can fake migration appliance", func() {

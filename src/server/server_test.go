@@ -44,7 +44,8 @@ var _ = Describe("Server", func() {
 	})
 
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	It("can create the object", func() {

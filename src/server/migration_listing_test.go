@@ -51,9 +51,7 @@ var _ = Describe("Migrations` listing", func() {
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 		// drop history
-		err = managers.NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).DropHistory(globalTransaction.DbTransaction)
+		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)

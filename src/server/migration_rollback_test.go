@@ -48,20 +48,16 @@ var _ = Describe("Rollback migrations", func() {
 
 	flushDb := func() {
 		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		err = metaStore.Flush()
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 		// drop history
-		err = managers.NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).DropHistory(globalTransaction.DbTransaction)
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-
+		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
+		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
 
-	BeforeEach(flushDb)
 	AfterEach(flushDb)
 
 	Context("Having applied `create` migration for object A", func() {

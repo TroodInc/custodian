@@ -44,11 +44,8 @@ var _ = Describe("Server", func() {
 	})
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		metaStore.Flush()
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	factoryObjectA := func() *meta.Meta {
