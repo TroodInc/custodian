@@ -34,11 +34,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 	flushDb := func() {
 		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		err = metaStore.Flush()
-		Expect(err).To(BeNil())
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	}
 

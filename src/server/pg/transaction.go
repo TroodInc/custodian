@@ -8,6 +8,7 @@ import (
 type PgTransaction struct {
 	*sql.Tx
 	Manager transactions.DbTransactionManager
+	Counter int
 }
 
 func (pt *PgTransaction) Prepare(q string) (*Stmt, error) {

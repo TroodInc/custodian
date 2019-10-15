@@ -30,7 +30,8 @@ var _ = Describe("PG MetaStore test", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush()
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	It("can create object with fields containing reserved words", func() {

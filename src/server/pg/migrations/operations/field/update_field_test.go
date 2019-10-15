@@ -32,13 +32,10 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	flushDb := func() {
 		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		err = metaStore.Flush()
-		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
-	BeforeEach(flushDb)
+
 	AfterEach(flushDb)
 
 	Describe("Simple field case", func() {
