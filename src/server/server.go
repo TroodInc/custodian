@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"server/data/record"
 	"github.com/getsentry/raven-go"
 	"github.com/julienschmidt/httprouter"
 	"io/ioutil"
@@ -20,6 +19,7 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/errors"
+	"server/data/record"
 	. "server/errors"
 	"server/migrations"
 	"server/migrations/constructor"
@@ -177,11 +177,11 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		globalTransactionManager,
 	)
 
-	dataProcessor, _ := data.NewProcessor(
-		metaStore,
-		dataManager,
-		dbTransactionManager,
-	)
+	getDataProcessor := func () *data.Processor {
+		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+		processor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+		return processor
+	}
 
 	if err != nil {
 		logger.Error("Failed to create syncer: %s", err.Error())
@@ -264,6 +264,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	//RecordSetOperations operations
 	app.router.POST(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
+		dataProcessor := getDataProcessor()
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")
 
@@ -332,46 +333,39 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/data/:name/:key", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+		dataProcessor := getDataProcessor()
+
+		var depth = 2
+		if i, e := strconv.Atoi(q.Get("depth")); e == nil {
+			depth = i
+		}
+
+		var omitOuters = false
+		if len(q.Get("omit_outers")) > 0 {
+			omitOuters = true
+		}
+
+		if o, e := dataProcessor.Get(p.ByName("name"), p.ByName("key"), q["only"], q["exclude"], depth, omitOuters); e != nil {
+			sink.pushError(e)
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
-
-			var depth = 2
-			if i, e := strconv.Atoi(q.Get("depth")); e == nil {
-				depth = i
-			}
-
-			var omitOuters = false
-			if len(q.Get("omit_outers")) > 0 {
-				omitOuters = true
-			}
-
-			if o, e := dataProcessor.Get(p.ByName("name"), p.ByName("key"), q["only"], q["exclude"], depth, omitOuters); e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
+			if o == nil {
+				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 			} else {
-				if o == nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
-				} else {
-					abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
-					pass, result := abac_resolver.MaskRecord(o, "data_GET")
-					if !pass {
-						sink.pushError(abac.NewError("Permission denied"))
-						dbTransactionManager.RollbackTransaction(dbTransaction)
-						return
-					}
-
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushObj(result.(*record.Record).GetData())
+				abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
+				pass, result := abac_resolver.MaskRecord(o, "data_GET")
+				if !pass {
+					sink.pushError(abac.NewError("Permission denied"))
+					return
 				}
+
+				sink.pushObj(result.(*record.Record).GetData())
 			}
 		}
+
 	}))
 
 	app.router.GET(cs.root+"/data/:name", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+		dataProcessor := getDataProcessor()
 		abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
 		var depth = 2
 		if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
@@ -414,7 +408,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.DELETE(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
-
+		dataProcessor := getDataProcessor()
 		user := r.Context().Value("auth_user").(auth.User)
 
 		objectName := p.ByName("name")
@@ -447,6 +441,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.DELETE(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
+		dataProcessor := getDataProcessor()
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
@@ -473,6 +468,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.PATCH(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, u url.Values, r *http.Request) {
+		dataProcessor := getDataProcessor()
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")
 		recordPkValue := p.ByName("key")
@@ -507,38 +503,34 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 		//TODO: building record data respecting "depth" argument should be implemented inside dataProcessor
 		//also "FillRecordValues" also should be moved from Node struct
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+
+		if updatedRecord, e := dataProcessor.UpdateRecord(objectName, recordPkValue, src.single, user); e != nil {
+			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
+				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg, nil})
+			} else {
+				sink.pushError(e)
+			}
 		} else {
-			if updatedRecord, e := dataProcessor.UpdateRecord(objectName, recordPkValue, src.single, user); e != nil {
-				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg, nil})
+			if updatedRecord != nil {
+				var depth = 1
+				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+					depth = i
+				}
+				if recordData, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
+					err != nil {
+					sink.pushError(err)
 				} else {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(e)
+					sink.pushObj(recordData.GetData())
 				}
 			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				if updatedRecord != nil {
-					var depth = 1
-					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
-						depth = i
-					}
-					if recordData, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
-						err != nil {
-						sink.pushError(err)
-					} else {
-						sink.pushObj(recordData.GetData())
-					}
-				} else {
-					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
-				}
+				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 			}
 		}
+
 	}))
 
 	app.router.PATCH(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
+		dataProcessor := getDataProcessor()
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
