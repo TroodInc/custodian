@@ -76,7 +76,7 @@ var _ = Describe("Data", func() {
 
 	})
 
-	XIt("Can perform bulk update", func() {
+	It("Can perform bulk update", func() {
 		By("Having Position object")
 
 		positionMetaDescription := description.MetaDescription{

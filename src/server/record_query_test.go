@@ -81,6 +81,78 @@ var _ = Describe("Server", func() {
 		return  aMetaObj
 	}
 
+	makeObjectD := func() *meta.Meta{
+		dMetaDescription := description.MetaDescription{
+			Name: "d_5frz7",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "a",
+					LinkMeta: "a_lxsgk",
+					Type:     description.FieldTypeObject,
+					LinkType: description.LinkTypeInner,
+					Optional: false,
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+			},
+		}
+
+		dMetaObj, err := metaStore.NewMeta(&dMetaDescription)
+		err = metaStore.Create(dMetaObj)
+		Expect(err).To(BeNil())
+		return dMetaObj
+	}
+
+	updateObjctAWithDSet := func() *meta.Meta {
+		aMetaDescription := description.MetaDescription{
+			Name: "a_lxsgk",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+				{
+					Name:           "d_set",
+					Type:           description.FieldTypeArray,
+					Optional:       true,
+					LinkType:       description.LinkTypeOuter,
+					LinkMeta:       "d_5frz7",
+					OuterLinkField: "a",
+					RetrieveMode:   true,
+					QueryMode:      true,
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		Expect(err).To(BeNil())
+		return aMetaObj
+	}
+
 	Context("Having object A", func() {
 		var aMetaObj *meta.Meta
 		BeforeEach(func() {
@@ -230,69 +302,9 @@ var _ = Describe("Server", func() {
 			cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
 			err = metaStore.Create(cMetaObj)
 
-			dMetaDescription := description.MetaDescription{
-				Name: "d_5frz7",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:     "a",
-						LinkMeta: aMetaObj.Name,
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
-						Optional: false,
-					},
-					{
-						Name:     "name",
-						Type:     description.FieldTypeString,
-						Optional: true,
-					},
-				},
-			}
+			dMetaObj := makeObjectD()
 
-			dMetaObj, err := metaStore.NewMeta(&dMetaDescription)
-			err = metaStore.Create(dMetaObj)
-
-			aMetaDescription := description.MetaDescription{
-				Name: aMetaObj.Name,
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:     "name",
-						Type:     description.FieldTypeString,
-						Optional: true,
-					},
-					{
-						Name:           "d_set",
-						Type:           description.FieldTypeArray,
-						Optional:       true,
-						LinkType:       description.LinkTypeOuter,
-						LinkMeta:       dMetaObj.Name,
-						OuterLinkField: "a",
-						RetrieveMode:   true,
-						QueryMode:      true,
-					},
-				},
-			}
-			aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
-			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+			aMetaObj = updateObjctAWithDSet()
 
 			aRecord, err = dataProcessor.CreateRecord( aMetaObj.Name, map[string]interface{}{"name": "a record"}, auth.User{})
 			Expect(err).To(BeNil())
@@ -455,6 +467,9 @@ var _ = Describe("Server", func() {
 
 		BeforeEach(func() {
 			aMetaObj := makeObjectA()
+			makeObjectD()
+			aMetaObj = updateObjctAWithDSet()
+
 			metaDescription := description.MetaDescription{
 				Name: "e_m7o1b",
 				Key:  "id",
@@ -500,7 +515,7 @@ var _ = Describe("Server", func() {
 
 		It("Can exclude a field of a record which is linked by the generic relation", func() {
 
-			url := fmt.Sprintf("%s/data/e_m7o1b?depth=2&exclude=target.a.name", appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/data/e_m7o1b?depth=2&exclude=target.a_lxsgk.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -529,7 +544,7 @@ var _ = Describe("Server", func() {
 
 		It("Can include a field of a record which is linked by the generic relation", func() {
 
-			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a.name", appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a_lxsgk.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -546,7 +561,7 @@ var _ = Describe("Server", func() {
 
 		It("Can include a field of a record which is linked by the generic relation and its nested item at once", func() {
 
-			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a.name&only=target.a.d_set", appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a_lxsgk.name&only=target.a_lxsgk.d_set", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -596,7 +611,7 @@ var _ = Describe("Server", func() {
 
 		It("Can include a generic field and its subtree", func() {
 
-			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target&only=target.a.name", appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target&only=target.a_lxsgk.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)

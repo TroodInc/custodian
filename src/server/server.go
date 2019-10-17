@@ -372,53 +372,44 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/data/:name", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+		abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
+		var depth = 2
+		if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
+			depth = i
+		}
+
+		var omitOuters = false
+		if len(q.Get("omit_outers")) > 0 {
+			omitOuters = true
+		}
+
+		_, rule := abac_resolver.Check(p.ByName("name"), "data_GET") // ??
+
+		user_filters := q.Get("q")
+
+		var filters = ""
+		if rule != nil && rule.Filter != nil && user_filters != "" {
+			filters = rule.Filter.String() + "," + user_filters
+		} else if user_filters != "" {
+			filters = user_filters
+		} else if rule != nil && rule.Filter != nil {
+			filters = rule.Filter.String()
+		}
+
+		result := make([]interface{}, 0)
+		count, records, e := dataProcessor.GetBulk(p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters)
+
+		if e != nil {
+			sink.pushError(e)
 		} else {
-			abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
-
-			var depth = 2
-			if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
-				depth = i
-			}
-
-			var omitOuters = false
-			if len(q.Get("omit_outers")) > 0 {
-				omitOuters = true
-			}
-
-			_, rule := abac_resolver.Check(p.ByName("name"), "data_GET") // ??
-
-			user_filters := q.Get("q")
-
-			var filters = ""
-			if rule != nil && rule.Filter != nil && user_filters != "" {
-				filters = rule.Filter.String() + "," + user_filters
-			} else if user_filters != "" {
-				filters = user_filters
-			} else if rule != nil && rule.Filter != nil {
-				filters = rule.Filter.String()
-			}
-
-			data := make([]interface{}, 0)
-			count, records, e := dataProcessor.GetBulk(p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters)
-
-			if e != nil {
-				sink.pushError(e)
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-			} else {
-				for _, obj := range records {
-					pass, rec := abac_resolver.MaskRecord(obj, "data_GET")
-					if pass {
-						data = append(data, rec.(*record.Record).GetData())
-					}
+			for _, obj := range records {
+				pass, rec := abac_resolver.MaskRecord(obj, "data_GET")
+				if pass {
+					result = append(result, rec.(*record.Record).GetData())
 				}
-
-				sink.pushList(data, count)
-				dbTransactionManager.CommitTransaction(dbTransaction)
 			}
+
+			sink.pushList(result, count)
 		}
 	}))
 
