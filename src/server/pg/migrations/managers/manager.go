@@ -26,6 +26,7 @@ type MigrationManager struct {
 	dataManager           *pg.DataManager
 	metaDescriptionSyncer meta.MetaDescriptionSyncer
 	migrationStorage      *storage.MigrationStorage
+	globalTransactionManager *transactions.GlobalTransactionManager
 }
 
 func (mm *MigrationManager) GetDescription(dbTransaction transactions.DbTransaction, migrationId string) (*migrations_description.MigrationDescription, error) {
@@ -49,7 +50,7 @@ func (mm *MigrationManager) List(dbTransaction transactions.DbTransaction, filte
 		return nil
 	}
 
-	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager)
+	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +268,7 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, t
 		latestMigrations = append(latestMigrations, *record.NewRecord(historyMeta, obj.Data))
 		return nil
 	}
-	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager)
+	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
 	if err != nil {
 		return nil, err
 
@@ -304,7 +305,7 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string, trans
 		return nil, err
 	}
 
-	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager)
+	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
 	if err != nil {
 		return nil, err
 
@@ -334,7 +335,7 @@ func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transact
 		return nil, err
 	}
 
-	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager)
+	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
 	if err != nil {
 		return nil, err
 
@@ -540,6 +541,6 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 	return meta.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func NewMigrationManager(metaStore *meta.MetaStore, manager *pg.DataManager, syncer meta.MetaDescriptionSyncer, migrationStoragePath string) *MigrationManager {
-	return &MigrationManager{metaStore: metaStore, dataManager: manager, metaDescriptionSyncer: syncer, migrationStorage: storage.NewMigrationStorage(migrationStoragePath)}
+func NewMigrationManager(metaStore *meta.MetaStore, manager *pg.DataManager, syncer meta.MetaDescriptionSyncer, migrationStoragePath string, gtm *transactions.GlobalTransactionManager) *MigrationManager {
+	return &MigrationManager{metaStore, manager, syncer, storage.NewMigrationStorage(migrationStoragePath), gtm}
 }

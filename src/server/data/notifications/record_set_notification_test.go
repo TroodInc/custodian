@@ -3,50 +3,36 @@ package notifications_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"server/data"
-	"utils"
 	"server/auth"
-	"server/object/meta"
-	"server/object/description"
+	"server/data"
 	. "server/data/notifications"
-	"server/transactions/file_transaction"
+	"server/data/record"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/data/record"
+	"server/transactions/file_transaction"
 	"strconv"
+	"utils"
 )
 
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	Describe("RecordSetNotification state capturing", func() {
@@ -109,7 +95,7 @@ var _ = Describe("Data", func() {
 			}
 			aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, aMetaObj)
+			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 		}
 
@@ -132,19 +118,19 @@ var _ = Describe("Data", func() {
 			}
 			bMetaObj, err = metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, bMetaObj)
+			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
 		}
 
 		havingARecord := func(bRecordId float64) {
 			By("Having a record of A object")
-			aRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", "b": bRecordId}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", "b": bRecordId}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecord, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, bMetaObj.Name, map[string]interface{}{}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
@@ -153,7 +139,6 @@ var _ = Describe("Data", func() {
 			havingObjectA()
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				globalTransaction.DbTransaction,
 				&record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}},
 				true,
 				description.MethodCreate,
@@ -161,21 +146,19 @@ var _ = Describe("Data", func() {
 				dataProcessor.Get,
 			)
 			recordSetNotification.CapturePreviousState()
+
 			//previous state for create operation should contain empty objects
 			Expect(recordSetNotification.PreviousState[0].Records).To(HaveLen(1))
 			Expect(recordSetNotification.PreviousState[0].Records[0]).To(BeNil())
 		})
 
 		It("can capture current record state on create", func() {
-
 			havingObjectB()
 			havingObjectA()
-
 			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}}
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -184,13 +167,14 @@ var _ = Describe("Data", func() {
 			)
 
 			//assemble operations
-
 			operation, err := dataManager.PrepareCreateOperation(recordSet.Meta, recordSet.Data())
 			Expect(err).To(BeNil())
 
 			// execute operation
+			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 			err = globalTransaction.DbTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
+			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			recordSet.CollapseLinks()
 
@@ -212,7 +196,6 @@ var _ = Describe("Data", func() {
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -221,7 +204,6 @@ var _ = Describe("Data", func() {
 			)
 
 			recordSetNotification.CaptureCurrentState()
-
 			//only last_name specified for recordSet, thus first_name should not be included in notification message
 			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
 			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(3))
@@ -237,8 +219,8 @@ var _ = Describe("Data", func() {
 			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
+
 			recordSetNotification := NewRecordSetNotification(
-				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -251,13 +233,14 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			// execute operation
+			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 			err = globalTransaction.DbTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
+			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			recordSet.CollapseLinks()
 
 			recordSetNotification.CaptureCurrentState()
-
 			//only last_name specified for update, thus first_name should not be included in notification message
 			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
 			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(4))
@@ -274,7 +257,6 @@ var _ = Describe("Data", func() {
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -282,10 +264,9 @@ var _ = Describe("Data", func() {
 				dataProcessor.Get,
 			)
 
-			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecord.Data["id"].(float64))), auth.User{})
+			dataProcessor.RemoveRecord(aMetaObj.Name, strconv.Itoa(int(aRecord.Data["id"].(float64))), auth.User{})
 
 			recordSetNotification.CaptureCurrentState()
-
 			//only last_name specified for update, thus first_name should not be included in notification message
 			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
 			Expect(recordSetNotification.CurrentState[0].Records[0]).To(BeNil())
@@ -301,7 +282,6 @@ var _ = Describe("Data", func() {
 
 			//make recordSetNotification
 			recordSetNotification := NewRecordSetNotification(
-				globalTransaction.DbTransaction,
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -310,7 +290,7 @@ var _ = Describe("Data", func() {
 			)
 			recordSetNotification.CapturePreviousState()
 
-			dataProcessor.RemoveRecord(globalTransaction.DbTransaction, aMetaObj.Name, strconv.Itoa(int(aRecord.Pk().(float64))), auth.User{})
+			dataProcessor.RemoveRecord(aMetaObj.Name, strconv.Itoa(int(aRecord.Pk().(float64))), auth.User{})
 			recordSetNotification.CaptureCurrentState()
 			notificationsData := recordSetNotification.BuildNotificationsData(
 				recordSetNotification.PreviousState[0],

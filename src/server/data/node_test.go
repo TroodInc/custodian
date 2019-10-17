@@ -16,7 +16,6 @@ import (
 var _ = Describe("Node", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
@@ -24,18 +23,11 @@ var _ = Describe("Node", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	It("can fill child nodes with circular dependency", func() {
@@ -54,7 +46,7 @@ var _ = Describe("Node", func() {
 			}
 			objectAMeta, err := metaStore.NewMeta(&objectA)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, objectAMeta)
+			err = metaStore.Create(objectAMeta)
 			Expect(err).To(BeNil())
 
 			objectB := description.MetaDescription{
@@ -77,7 +69,7 @@ var _ = Describe("Node", func() {
 			}
 			objectBMeta, err := metaStore.NewMeta(&objectB)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, objectBMeta)
+			err = metaStore.Create(objectBMeta)
 			Expect(err).To(BeNil())
 
 			objectC := description.MetaDescription{
@@ -100,7 +92,7 @@ var _ = Describe("Node", func() {
 			}
 			objectCMeta, err := metaStore.NewMeta(&objectC)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, objectCMeta)
+			err = metaStore.Create(objectCMeta)
 			Expect(err).To(BeNil())
 
 			objectA = description.MetaDescription{
@@ -123,7 +115,7 @@ var _ = Describe("Node", func() {
 			}
 			objectAMeta, err = metaStore.NewMeta(&objectA)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, objectA.Name, objectAMeta, true)
+			_, err = metaStore.Update(objectA.Name, objectAMeta, true)
 			Expect(err).To(BeNil())
 
 			Describe("", func() {

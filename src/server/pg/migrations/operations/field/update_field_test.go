@@ -1,44 +1,41 @@
 package field
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
-	"server/object/meta"
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
-	"server/object/description"
-	"server/pg/migrations/operations/object"
 	"database/sql"
 	"github.com/getlantern/deepcopy"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
+	"server/pg/migrations/operations/object"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
 	var fieldToUpdate description.Field
 
 	flushDb := func() {
 		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
-	BeforeEach(flushDb)
+
 	AfterEach(flushDb)
 
 	Describe("Simple field case", func() {

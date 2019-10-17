@@ -162,13 +162,26 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	syncer, err := pg.NewSyncer(cs.db)
 	dataManager, _ := syncer.NewDataManager()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	migrationManager := managers.NewMigrationManager(
+		metaStore, dataManager,
+		metaDescriptionSyncer,
+		config.MigrationStoragePath,
+		globalTransactionManager,
+	)
+
+	dataProcessor, _ := data.NewProcessor(
+		metaStore,
+		dataManager,
+		dbTransactionManager,
+	)
 
 	if err != nil {
 		logger.Error("Failed to create syncer: %s", err.Error())
@@ -189,20 +202,11 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		//there is no need to retrieve list of objects when not modifying them
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
-			js.pushError(err)
+		//set transaction to the context
+		if metaObj, _, e := metaStore.Get(p.ByName("name"), true); e == nil {
+			js.pushObj(metaObj.ForExport())
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction))
-
-			if metaObj, _, e := metaStore.Get(globalTransaction, p.ByName("name"), true); e == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushObj(metaObj.ForExport())
-			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(e)
-			}
+			js.pushError(e)
 		}
 	}))
 
@@ -220,7 +224,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				return
 			}
-			if e := metaStore.Create(globalTransaction, metaObj); e == nil {
+			if e := metaStore.Create(metaObj); e == nil {
 				globalTransactionManager.CommitTransaction(globalTransaction)
 				js.pushObj(metaObj.ForExport())
 			} else {
@@ -231,122 +235,100 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
-			js.pushError(err)
+		if ok, e := metaStore.Remove(p.ByName("name"), false); ok {
+			js.pushObj(nil)
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "global_transaction", globalTransaction))
+			if e != nil {
 
-			if ok, e := metaStore.Remove(globalTransaction, p.ByName("name"), false); ok {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushObj(nil)
+				js.pushError(e)
 			} else {
-				if e != nil {
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(e)
-				} else {
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(&ServerError{Status: http.StatusNotFound, Code: ErrNotFound})
-				}
+
+				js.pushError(&ServerError{Status: http.StatusNotFound, Code: ErrNotFound})
 			}
 		}
 	}))
 
 	app.router.PATCH(cs.root+"/meta/:name", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
+		metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
+		if err != nil {
 			js.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "global_transaction", globalTransaction))
-
-			metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
-			if err != nil {
-				js.pushError(err)
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				return
-			}
-			if _, err := metaStore.Update(globalTransaction, p.ByName("name"), metaObj, true); err == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushObj(metaObj.ForExport())
-			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(err)
-			}
+			return
 		}
+		if _, err := metaStore.Update(p.ByName("name"), metaObj, true); err == nil {
+			js.pushObj(metaObj.ForExport())
+		} else {
+			js.pushError(err)
+		}
+
 	}))
 
 	//RecordSetOperations operations
 	app.router.POST(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			//set transaction to the context
-			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
 
-			abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
-			_, rule := abac_resolver.Check(objectName, "data_POST")
+		//set transaction to the context
+		//*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
 
-			if src.single != nil {
-				if rule != nil {
-					restricted := abac.CheckMask(src.single, rule.Mask)
+		abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
+		_, rule := abac_resolver.Check(objectName, "data_POST")
 
-					if len(restricted) > 0 {
-						sink.pushError(
-							abac.NewError(
-								fmt.Sprintf("Creating object with fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
-							),
-						)
-						dbTransactionManager.RollbackTransaction(dbTransaction)
-						return
-					}
-				}
+		if src.single != nil {
+			if rule != nil {
+				restricted := abac.CheckMask(src.single, rule.Mask)
 
-				if record, err := dataProcessor.CreateRecord(dbTransaction, objectName, src.single, user); err != nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(err)
-				} else {
-					var depth = 1
-					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
-						depth = i
-					}
-					objectMeta, _ := dataProcessor.GetMeta(dbTransaction, objectName)
-					pkValue, _ := objectMeta.Key.ValueAsString(record.Data[objectMeta.Key.Name])
-					if record, err := dataProcessor.Get(dbTransaction, objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
-						err != nil {
-						dbTransactionManager.RollbackTransaction(dbTransaction)
-						sink.pushError(err)
-					} else {
-						dbTransactionManager.CommitTransaction(dbTransaction)
-						sink.pushObj(record.GetData())
-					}
-				}
-
-			} else if src.list != nil {
-
-				var i = 0
-				var result []interface{}
-				e := dataProcessor.BulkCreateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-					if i < len(src.list) {
-						i += 1
-						return src.list[i-1], nil
-					} else {
-						return nil, nil
-					}
-
-				}, func(obj map[string]interface{}) error { result = append(result, obj); return nil }, user)
-				if e != nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(e)
-				} else {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					defer sink.pushList(result, len(result))
+				if len(restricted) > 0 {
+					sink.pushError(
+						abac.NewError(
+							fmt.Sprintf("Creating object with fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
+						),
+					)
+					return
 				}
 			}
+
+			if record, err := dataProcessor.CreateRecord(objectName, src.single, user); err != nil {
+				//dbTransactionManager.RollbackTransaction(dbTransaction)
+				sink.pushError(err)
+			} else {
+				var depth = 1
+				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+					depth = i
+				}
+
+				pkValue, _ := record.Meta.Key.ValueAsString(record.Data[record.Meta.Key.Name])
+				if record, err := dataProcessor.Get(objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
+					err != nil {
+					//dbTransactionManager.RollbackTransaction(dbTransaction)
+					sink.pushError(err)
+				} else {
+					//dbTransactionManager.CommitTransaction(dbTransaction)
+					sink.pushObj(record.GetData())
+				}
+			}
+
+		} else if src.list != nil {
+
+			var i = 0
+			records, e := dataProcessor.BulkCreateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
+				if i < len(src.list) {
+					i += 1
+					return src.list[i-1], nil
+				} else {
+					return nil, nil
+				}
+
+			}, user)
+
+			if e != nil {
+				//dbTransactionManager.RollbackTransaction(dbTransaction)
+				sink.pushError(e)
+			} else {
+				//dbTransactionManager.CommitTransaction(dbTransaction)
+				sink.pushList(records, len(records))
+			}
 		}
+
 	}))
 
 	app.router.GET(cs.root+"/data/:name/:key", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
@@ -366,7 +348,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				omitOuters = true
 			}
 
-			if o, e := dataProcessor.Get(dbTransaction, p.ByName("name"), p.ByName("key"), q["only"], q["exclude"], depth, omitOuters); e != nil {
+			if o, e := dataProcessor.Get(p.ByName("name"), p.ByName("key"), q["only"], q["exclude"], depth, omitOuters); e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
@@ -390,88 +372,76 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/data/:name", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+		abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
+		var depth = 2
+		if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
+			depth = i
+		}
+
+		var omitOuters = false
+		if len(q.Get("omit_outers")) > 0 {
+			omitOuters = true
+		}
+
+		_, rule := abac_resolver.Check(p.ByName("name"), "data_GET") // ??
+
+		user_filters := q.Get("q")
+
+		var filters = ""
+		if rule != nil && rule.Filter != nil && user_filters != "" {
+			filters = rule.Filter.String() + "," + user_filters
+		} else if user_filters != "" {
+			filters = user_filters
+		} else if rule != nil && rule.Filter != nil {
+			filters = rule.Filter.String()
+		}
+
+		result := make([]interface{}, 0)
+		count, records, e := dataProcessor.GetBulk(p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters)
+
+		if e != nil {
+			sink.pushError(e)
 		} else {
-			abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
-
-			var depth = 2
-			if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
-				depth = i
-			}
-
-			var omitOuters = false
-			if len(q.Get("omit_outers")) > 0 {
-				omitOuters = true
-			}
-
-			_, rule := abac_resolver.Check(p.ByName("name"), "data_GET") // ??
-
-			user_filters := q.Get("q")
-
-			var filters = ""
-			if rule != nil && rule.Filter != nil && user_filters != "" {
-				filters = rule.Filter.String() + "," + user_filters
-			} else if user_filters != "" {
-				filters = user_filters
-			} else if rule != nil && rule.Filter != nil {
-				filters = rule.Filter.String()
-			}
-
-			data := make([]interface{}, 0)
-			count, records, e := dataProcessor.GetBulk(dbTransaction, p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters)
-
-			if e != nil {
-				sink.pushError(e)
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-			} else {
-				for _, obj := range records {
-					pass, rec := abac_resolver.MaskRecord(obj, "data_GET")
-					if pass {
-						data = append(data, rec.(*record.Record).GetData())
-					}
+			for _, obj := range records {
+				pass, rec := abac_resolver.MaskRecord(obj, "data_GET")
+				if pass {
+					result = append(result, rec.(*record.Record).GetData())
 				}
-
-				sink.pushList(data, count)
-				dbTransactionManager.CommitTransaction(dbTransaction)
 			}
+
+			sink.pushList(result, count)
 		}
 	}))
 
 	app.router.DELETE(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
 
 		user := r.Context().Value("auth_user").(auth.User)
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
+
+		objectName := p.ByName("name")
+		recordPkValue := p.ByName("key")
+		//set transaction to the context
+
+
+		//process access check
+		recordToUpdate, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
+		if err != nil || recordToUpdate == nil {
+			sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 		} else {
-			objectName := p.ByName("name")
-			recordPkValue := p.ByName("key")
-			//set transaction to the context
-			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
+			abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
+			pass, _ := abac_resolver.CheckRecord(recordToUpdate, "data_DELETE")
+			if !pass {
+				sink.pushError(abac.NewError("Permission denied"))
 
-			//process access check
-			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
-			if err != nil || recordToUpdate == nil {
-				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
+				return
+			}
+			//end access check
+
+			if removedData, e := dataProcessor.RemoveRecord(objectName, recordPkValue, user); e != nil {
+
+				sink.pushError(e)
 			} else {
-				abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
-				pass, _ := abac_resolver.CheckRecord(recordToUpdate, "data_DELETE")
-				if !pass {
-					sink.pushError(abac.NewError("Permission denied"))
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					return
-				}
-				//end access check
 
-				if removedData, e := dataProcessor.RemoveRecord(dbTransaction, objectName, recordPkValue, user); e != nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(e)
-				} else {
-					dbTransactionManager.CommitTransaction(dbTransaction)
-					sink.pushObj(removedData)
-				}
+				sink.pushObj(removedData)
 			}
 		}
 	}))
@@ -503,49 +473,44 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.PATCH(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, u url.Values, r *http.Request) {
+		user := r.Context().Value("auth_user").(auth.User)
+		objectName := p.ByName("name")
+		recordPkValue := p.ByName("key")
+
+		//process access check
+		recordToUpdate, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
+		if err != nil {
+			sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
+		} else {
+			abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
+			pass, rule := abac_resolver.CheckRecord(recordToUpdate, "data_PATCH")
+			if !pass {
+				sink.pushError(abac.NewError("Permission denied"))
+				return
+			}
+
+			if rule != nil {
+				restricted := abac.CheckMask(src.single, rule.Mask)
+
+				if len(restricted) > 0 {
+					sink.pushError(
+						abac.NewError(
+							fmt.Sprintf("Updating fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
+						),
+					)
+					return
+				}
+			}
+		}
+
+		//end access check
+
+		//TODO: building record data respecting "depth" argument should be implemented inside dataProcessor
+		//also "FillRecordValues" also should be moved from Node struct
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
 		} else {
-			//set transaction to the context
-			*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
-			user := r.Context().Value("auth_user").(auth.User)
-			objectName := p.ByName("name")
-			recordPkValue := p.ByName("key")
-
-			//process access check
-			recordToUpdate, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
-			if err != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
-			} else {
-				abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
-				pass, rule := abac_resolver.CheckRecord(recordToUpdate, "data_PATCH")
-				if !pass {
-					sink.pushError(abac.NewError("Permission denied"))
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					return
-				}
-
-				if rule != nil {
-					restricted := abac.CheckMask(src.single, rule.Mask)
-
-					if len(restricted) > 0 {
-						sink.pushError(
-							abac.NewError(
-								fmt.Sprintf("Updating fields [%s] restricted by ABAC rule", strings.Join(restricted, ",")),
-							),
-						)
-						dbTransactionManager.RollbackTransaction(dbTransaction)
-						return
-					}
-				}
-			}
-
-			//end access check
-
-			//TODO: building record data respecting "depth" argument should be implemented inside dataProcessor
-			//also "FillRecordValues" also should be moved from Node struct
-			if updatedRecord, e := dataProcessor.UpdateRecord(dbTransaction, objectName, recordPkValue, src.single, user); e != nil {
+			if updatedRecord, e := dataProcessor.UpdateRecord(objectName, recordPkValue, src.single, user); e != nil {
 				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
 					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg, nil})
@@ -554,22 +519,19 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					sink.pushError(e)
 				}
 			} else {
+				dbTransactionManager.CommitTransaction(dbTransaction)
 				if updatedRecord != nil {
 					var depth = 1
 					if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
 						depth = i
 					}
-					if recordData, err := dataProcessor.Get(dbTransaction, objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
+					if recordData, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
 						err != nil {
-						dbTransactionManager.RollbackTransaction(dbTransaction)
 						sink.pushError(err)
 					} else {
-						dbTransactionManager.CommitTransaction(dbTransaction)
 						sink.pushObj(recordData.GetData())
 					}
-
 				} else {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 				}
 			}
@@ -623,7 +585,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return
 			}
 
-			migrationConstructor := constructor.NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath))
+			migrationConstructor := constructor.NewMigrationConstructor(migrationManager)
 
 			var currentMetaDescription *description.MetaDescription
 			if len(migrationMetaDescription.PreviousName) != 0 {
@@ -671,7 +633,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			fake := len(q.Get("fake")) > 0
 
-			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
+
 			var updatedMetaDescription *description.MetaDescription
 			if !fake {
 				updatedMetaDescription, err = migrationManager.Apply(migrationDescription, globalTransaction, true)
@@ -707,7 +669,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			//set transaction to the context
 			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
 
-			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
 			migrationList, err := migrationManager.List(dbTransaction, q.Get("q"))
 			if err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
@@ -727,7 +688,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			//set transaction to the context
 			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
 
-			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
 			migrationDescription, err := migrationManager.GetDescription(dbTransaction, p.ByName("migration_id"))
 			if err != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
@@ -748,7 +708,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction.DbTransaction))
 
 			fake := len(q.Get("fake")) > 0
-			migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, config.MigrationStoragePath)
 
 			if !fake {
 				migrationId, ok := requestData.single["migrationId"]

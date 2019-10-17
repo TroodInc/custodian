@@ -1,6 +1,8 @@
 package migrations
 
 import (
+	"github.com/onsi/ginkgo/reporters"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -9,5 +11,10 @@ import (
 
 func TestMigrations(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Migrations Suite")
+	if ci := os.Getenv("CI"); ci != "" {
+		teamcityReporter := reporters.NewTeamCityReporter(os.Stdout)
+		RunSpecsWithCustomReporters(t, "Migrations Suite", []Reporter{teamcityReporter})
+	} else {
+		RunSpecs(t, "Migrations Suite")
+	}
 }

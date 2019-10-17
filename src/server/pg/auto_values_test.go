@@ -19,32 +19,18 @@ import (
 var _ = Describe("PG Auto Values Test", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	Context("Having an object with fields with autoOnUpdate set to true", func() {
@@ -84,19 +70,19 @@ var _ = Describe("PG Auto Values Test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 		})
 
 		It("can set auto values", func() {
-			record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 1}, auth.User{})
+			record, err := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 1}, auth.User{})
 			Expect(err).To(BeNil())
 
 			Expect(record.Data["datetime"]).To(BeNil())
 			Expect(record.Data["date"]).To(BeNil())
 			Expect(record.Data["time"]).To(BeNil())
 
-			record, err = dataProcessor.UpdateRecord(globalTransaction.DbTransaction, metaObj.Name, record.PkAsString(), record.Data, auth.User{})
+			record, err = dataProcessor.UpdateRecord(metaObj.Name, record.PkAsString(), record.Data, auth.User{})
 
 			Expect(record.Data["datetime"]).NotTo(BeNil())
 			Expect(record.Data["date"]).NotTo(BeNil())
@@ -141,12 +127,12 @@ var _ = Describe("PG Auto Values Test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 		})
 
 		It("can set auto values", func() {
-			record, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 1}, auth.User{})
+			record, err := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 1}, auth.User{})
 			Expect(err).To(BeNil())
 
 			Expect(record.Data["datetime"]).NotTo(BeNil())

@@ -19,33 +19,19 @@ import (
 var _ = Describe("PG MetaStore test", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-	})
-
-	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("can modify object adding number field with static default integer value", func() {
@@ -64,11 +50,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
 			Expect(err).To(BeNil())
 
 			By("adding a number field to the object")
@@ -92,11 +78,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true, )
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, )
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
+				_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0].Data["ordering"]).To(Equal(float64(10)))
 			})
@@ -119,11 +105,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
 			Expect(err).To(BeNil())
 
 			By("adding a number field to the object")
@@ -147,11 +133,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
+				_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0].Data["ordering"]).To(Equal(float64(10.98)))
 			})
@@ -174,11 +160,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
 			Expect(err).To(BeNil())
 
 			By("adding a boolean field to the object")
@@ -202,11 +188,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
+				_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0].Data["is_active"]).To(BeTrue())
 			})
@@ -229,11 +215,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
 			Expect(err).To(BeNil())
 
 			By("adding a string field to the object")
@@ -257,11 +243,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
+				_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0].Data["name"]).To(Equal("Not specified"))
 			})
@@ -284,11 +270,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
 			Expect(err).To(BeNil())
 
 			By("adding a date field to the object")
@@ -312,11 +298,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
+				_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0].Data["date"]).To(Equal("2018-05-22"))
 			})
@@ -339,11 +325,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
 			Expect(err).To(BeNil())
 
 			By("adding a datetime field to the object")
@@ -367,11 +353,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
+				_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0].Data["datetime"]).To(Equal("2018-05-29T10:29:58.627755Z"))
 			})
@@ -394,11 +380,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			metaCreateError := metaStore.Create(globalTransaction, metaObj)
+			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
 
 			By("creating record of this object")
-			_, err = dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
+			_, err = dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"id": 44}, auth.User{})
 			Expect(err).To(BeNil())
 
 			By("adding a time field to the object")
@@ -422,11 +408,11 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
-				_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "eq(id,44)", nil, nil, 1, false)
+				_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "eq(id,44)", nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 
 				Expect(matchedRecords[0].Data["time"]).To(Equal("15:29:58+07:00"))

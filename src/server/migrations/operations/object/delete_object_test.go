@@ -16,27 +16,16 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
-	var globalTransaction *transactions.GlobalTransaction
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
-	//setup transaction
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
 
 	//setup MetaDescription
 	BeforeEach(func() {
@@ -56,26 +45,26 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		}
 
 		//factory new MetaDescription
-		var err error
 		//sync its MetaDescription
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup teardown
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("removes MetaDescription`s file", func() {
 		operation := DeleteObjectOperation{}
 		metaName := metaDescription.Name
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		metaObj, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaObj).To(BeNil())
 
 		//ensure meta`s file has been removed
