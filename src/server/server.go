@@ -175,6 +175,11 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		panic(err)
 	}
 
+	app.router.ServeFiles("/static/*filepath", http.Dir("/home/static"))
+	app.router.GET(cs.root+"/swagger", func(w http.ResponseWriter, req *http.Request, p httprouter.Params){
+		http.ServeFile(w, req, "/home/static/swagger_ui.html")
+	})
+
 	//object operations
 	app.router.GET(cs.root+"/meta", CreateJsonAction(func(src *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
 		if metaList, _, err := metaStore.List(); err == nil {
