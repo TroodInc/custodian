@@ -34,11 +34,7 @@ func (r *RecordRemovalTreeBuilder) makeGenericFilter(innerField *meta.FieldDescr
 func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRemovalNode, processor *Processor, dbTransaction transactions.DbTransaction) error {
 	for _, field := range recordNode.Record.Meta.Fields {
 		if field.Type == description.FieldTypeArray || (field.Type == description.FieldTypeGeneric && field.LinkType == description.LinkTypeOuter) {
-			relatedRecords := make([]map[string]interface{}, 0)
-			callbackFunction := func(obj map[string]interface{}) error {
-				relatedRecords = append(relatedRecords, obj)
-				return nil
-			}
+			var relatedRecords []*record.Record
 
 			pkAsString, err := recordNode.Record.Meta.Key.ValueAsString(recordNode.Record.Pk())
 			if err != nil {
@@ -50,7 +46,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 			} else if field.Type == description.FieldTypeGeneric {
 				filter = r.makeGenericFilter(field.OuterLinkField, recordNode.Record.Meta.Name, pkAsString)
 			}
-			_, err = processor.GetBulk(dbTransaction, field.LinkMeta.Name, filter, nil, nil, 1, false, callbackFunction)
+			_, relatedRecords, err = processor.GetBulk(dbTransaction, field.LinkMeta.Name, filter, nil, nil, 1, false)
 			if err != nil {
 				return err
 			}
@@ -59,7 +55,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 				recordNode.Children[field.Name] = make([]*RecordRemovalNode, 0)
 				for _, relatedRecord := range relatedRecords {
 					newRecordNode := NewRecordRemovalNode(
-						record.NewRecord(field.LinkMeta, relatedRecord),
+						record.NewRecord(field.LinkMeta, relatedRecord.Data),
 						field.OuterLinkField.OnDeleteStrategy(),
 						recordNode,
 						field.OuterLinkField,

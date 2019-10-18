@@ -152,16 +152,15 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 		}
 		if len(idFilters) > 0 {
 			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
-			callbackFunction := func(obj map[string]interface{}) error {
-				if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
-					recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkMeta, obj))
-				} else if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteSetNull {
-					obj[fieldDescription.OuterLinkField.Name] = nil
-					recordsToProcess = append(recordsToProcess, NewRecord(fieldDescription.LinkMeta, obj))
+			_, records, _ := vs.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true)
+			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
+				recordsToRemove = records
+			} else if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteSetNull {
+				for _, item := range records {
+					item.Data[fieldDescription.OuterLinkField.Name] = nil
+					recordsToProcess = append(recordsToProcess, item)
 				}
-				return nil
 			}
-			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true, callbackFunction)
 		}
 		if len(recordsToRemove) > 0 {
 			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
@@ -271,28 +270,23 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 			excludeFilter := fmt.Sprintf("not(in(%s,(%s)))", fieldDescription.LinkMeta.Name, beingAddedIds)
 			filter = fmt.Sprintf("%s,%s",filter,excludeFilter)
 		}
-		callbackFunction := func(obj map[string]interface{}) error {
-			recordsToRemove = append(recordsToRemove, NewRecord(fieldDescription.LinkThrough, obj))
-			return nil
-		}
-		vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true, callbackFunction)
+		_, recordsToRemove, _ = vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true)
 	}
 	//get records which are already attached and remove them from list of records to process
 	if !record.IsPhantom() {
 		if len(beingAddedIds) > 0 {
 			filter := fmt.Sprintf("eq(%s,%s),in(%s,(%s))", fieldDescription.Meta.Name, record.PkAsString(), fieldDescription.LinkMeta.Name, beingAddedIds)
-			callbackFunction := func(obj map[string]interface{}) error {
+			_, toExclude, _ := vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true)
+			for _, obj := range toExclude {
 				removedCount := 0
 				for i := range recordsToProcess {
 					j := i - removedCount
-					if recordsToProcess[j].Data[fieldDescription.LinkMeta.Name] == obj[fieldDescription.LinkMeta.Name] {
+					if recordsToProcess[j].Data[fieldDescription.LinkMeta.Name] == obj.Data[fieldDescription.LinkMeta.Name] {
 						recordsToProcess = append(recordsToProcess[:j], recordsToProcess[j+1:]...)
 						removedCount++
 					}
 				}
-				return nil
 			}
-			vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true, callbackFunction)
 		}
 	}
 	return recordsToProcess, recordsToRemove, recordsToRetrieve, nil

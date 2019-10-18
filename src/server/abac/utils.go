@@ -2,6 +2,7 @@ package abac
 
 import (
 	"github.com/fatih/structs"
+	"reflect"
 	"strings"
 )
 
@@ -61,11 +62,10 @@ func RemoveMapAttributeByPath(obj map[string]interface{}, path string, set_null 
 	return obj
 }
 
-func CheckMask(obj map[string]interface{}, mask []interface{})  []string {
+func CheckMask(obj map[string]interface{}, mask []string)  []string {
 	var restricted []string
 	if mask != nil {
 		for _, path := range mask {
-			path := path.(string)
 			_, matched := GetAttributeByPath(obj, path)
 			if matched {
 				restricted = append(restricted, path)
@@ -74,4 +74,25 @@ func CheckMask(obj map[string]interface{}, mask []interface{})  []string {
 	}
 	return restricted
 
+}
+
+func cleanupType(value interface{}) interface{} {
+	v := reflect.ValueOf(value)
+
+	floatType := reflect.TypeOf(float64(0))
+	if v.Type().ConvertibleTo(floatType) {
+		return v.Convert(floatType).Float()
+	}
+
+	return value
+}
+
+func str_in (list []string, item string) bool {
+	for i := range list {
+		if list[i] == item {
+			return true
+		}
+	}
+
+	return false
 }

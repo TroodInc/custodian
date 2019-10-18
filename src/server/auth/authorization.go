@@ -48,13 +48,13 @@ func (this *AuthError) Serialize () map[string]string {
 }
 
 type Authenticator interface {
-	Authenticate(*http.Request) (User, error)
+	Authenticate(*http.Request) (User, map[string]interface{}, error)
 }
 
 type EmptyAuthenticator struct {}
 
-func (this *EmptyAuthenticator) Authenticate(req *http.Request) (User, error) {
-	return User{}, nil
+func (this *EmptyAuthenticator) Authenticate(req *http.Request) (User, map[string]interface{}, error) {
+	return User{}, nil, nil
 }
 
 type TroodAuthenticator struct {
@@ -81,7 +81,7 @@ func GetServiceToken() (string, error) {
 	return "", errors.New("SERVICE_AUTH_SECRET or SERVICE_DOMAIN not found")
 }
 
-func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, error){
+func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, map[string]interface{}, error){
 	var auth_header = req.Header.Get("Authorization")
 
 	if auth_header != "" {
@@ -107,16 +107,16 @@ func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, error){
 			user, err := this.FetchUser(auth_response.Body)
 
 			if err == nil {
-				return user, nil
+				return user, user.ABAC, nil
 			}
 
-			return User{}, NewError("Cant achieve user object")
+			return User{}, nil, NewError("Cant achieve user object")
 		}
 
-		return User{}, NewError("Authorization failed")
+		return User{}, nil, NewError("Authorization failed")
 	}
 
-	return User{}, NewError("No Authorization header found")
+	return User{}, nil, NewError("No Authorization header found")
 }
 
 

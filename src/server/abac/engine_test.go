@@ -1,9 +1,20 @@
 package abac
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"encoding/json"
+	"server/auth"
+	"server/data"
+	"server/data/record"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 type User struct {
@@ -14,15 +25,15 @@ type User struct {
 	Profile map[string]interface{} `json:"profile"`
 }
 
-func json_to_condition(json_condition string) map[string]interface{} {
+func json_to_object(json_obj string) map[string]interface{} {
 	var condition map[string]interface{}
 
-	json.Unmarshal([]byte(json_condition), &condition)
+	json.Unmarshal([]byte(json_obj), &condition)
 	return condition
 }
 
 var _ = Describe("Abac Engine", func() {
-	resolver := GetTroodABACResolver(
+	resolver := GetTroodABAC(
 		map[string]interface{}{
 			"sbj": User{
 				10,
@@ -35,6 +46,8 @@ var _ = Describe("Abac Engine", func() {
 				}},
 			"ctx": nil,
 		},
+		nil,
+		"allow",
 	)
 
 	Describe("Operators", func() {
@@ -96,7 +109,7 @@ var _ = Describe("Abac Engine", func() {
 	Describe("Rules", func() {
 
 		It("must evaluate sbj EQ condition", func() {
-			condition := json_to_condition(`{"sbj.role": "admin"}`)
+			condition := json_to_object(`{"sbj.role": "admin"}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -104,7 +117,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate sbj IN condition", func() {
-			condition := json_to_condition(`{"sbj.role": {"in": ["manager", "admin"]}}`)
+			condition := json_to_object(`{"sbj.role": {"in": ["manager", "admin"]}}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -112,7 +125,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate sbj NOT condition", func() {
-			condition := json_to_condition(`{"sbj.role": {"not": "manager"}}`)
+			condition := json_to_object(`{"sbj.role": {"not": "manager"}}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -120,7 +133,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate OR sbj condition", func() {
-			condition := json_to_condition(`{"or": [
+			condition := json_to_object(`{"or": [
 				{"sbj.role": {"not": "manager"}},
 				{"sbj.id": 5}
 			]}`)
@@ -130,7 +143,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate AND sbj condition", func() {
-			condition := json_to_condition(`{"and": [
+			condition := json_to_object(`{"and": [
 				{"sbj.role": {"not": "manager"}},
 				{"sbj.id": 10}	
 			]}`)
@@ -140,7 +153,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate and or condition", func() {
-			condition := json_to_condition(`{
+			condition := json_to_object(`{
                 "or": [
 					{"obj.executor.account": "sbj.id"},
 					{"obj.responsible.account": "sbj.id"}
@@ -152,7 +165,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate wildcard value", func() {
-			condition := json_to_condition(`{"sbj.role": "*"}`)
+			condition := json_to_object(`{"sbj.role": "*"}`)
 			result, _ := resolver.evaluateCondition(condition)
 			Expect(result).To(BeTrue())
 		})
@@ -160,7 +173,7 @@ var _ = Describe("Abac Engine", func() {
 
 	Describe("Building filter expression", func() {
 		It("Can parse rule and build correct filter expression", func() {
-			condition := json_to_condition(`{
+			condition := json_to_object(`{
                 "or": [
 					{"obj.executor.account": "sbj.id"},
 					{"obj.responsible.account": "sbj.id"}
@@ -179,9 +192,203 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("Returns nil if there are no suitable rules to build filter expression", func() {
-			condition := json_to_condition(`{"sbj.role": "admin"}`)
-			_, _, filterExpression := resolver.EvaluateRule(map[string]interface{}{"rule": condition, "result": "allow"})
-			Expect(filterExpression).To(BeNil())
+			condition := json_to_object(`{"sbj.role": "admin"}`)
+			_, rule := resolver.EvaluateRule(map[string]interface{}{"rule": condition, "result": "allow"})
+			Expect(rule.Filter).To(BeNil())
+		})
+	})
+
+	Describe("Abac hierachical objects test", func() {
+		appConfig := utils.GetConfig()
+		syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+		metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
+
+		dataManager, _ := syncer.NewDataManager()
+		dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
+		//transaction managers
+		fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+		globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+
+		var globalTransaction *transactions.GlobalTransaction
+
+		globalTransaction, _ = globalTransactionManager.BeginTransaction(nil)
+
+		abac_tree := json_to_object(`{
+			"t_client": {
+				"data_GET": [
+					{ "result": "allow", "rule": { "sbj.role": "admin" }, "mask": [] },
+					{ "result": "allow", "rule": { "sbj.role": "partner", "obj.owner": "sbj.id" }, "mask": [] },
+					{ "result": "allow", "rule": { "sbj.role": "manager", "obj.manager": "sbj.id"}, "mask": ["total"] }
+				]
+			},
+			"t_payment": {
+				"data_GET": [
+					{"result": "allow", "rule": { "sbj.role": { "in": ["admin", "partner"] } }, "mask": [] },
+					{"result": "allow", "rule": { "sbj.role": "manager", "obj.responsible": "sbj.id" }, "mask": [] }
+				]
+			},
+			"t_employee": {
+				"data_GET": [
+					{"result": "allow", "rule": { "sbj.role": "admin" }, "mask": [] },
+					{"result": "deny", "rule": { "sbj.role": { "not": "admin"} }, "mask": [] }
+				]
+			}
+	}`)
+
+		It("Must filter Custodian Nodes", func() {
+			metaEmployee, err := metaStore.NewMeta(&description.MetaDescription{
+				Name: "t_employee",
+				Key: "id",
+				Cas: false,
+				Fields: []description.Field {
+					{
+						Name: "id", Type: description.FieldTypeNumber, Optional: true,
+						Def: map[string]interface{}{ "func": "nextval", },
+					},
+					{ Name: "total", Type: description.FieldTypeNumber, Optional: true, },
+				},
+			})
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, metaEmployee)
+			Expect(err).To(BeNil())
+
+			metaClient, err := metaStore.NewMeta(&description.MetaDescription{
+				Name: "t_client",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id", Type: description.FieldTypeNumber, Optional: true,
+						Def: map[string]interface{}{ "func": "nextval", },
+					},
+					{ Name: "name", Type: description.FieldTypeString, Optional: true, },
+					{ Name: "total", Type: description.FieldTypeNumber, Optional: true, },
+					{ Name: "owner", Type: description.FieldTypeNumber, Optional: true, },
+					{ Name: "manager", Type: description.FieldTypeNumber, Optional: true, },
+					{
+						Name: "employee", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
+						LinkMeta: "t_employee", Optional: false,
+					},
+				},
+			})
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, metaClient)
+			Expect(err).To(BeNil())
+
+			metaPayment, err := metaStore.NewMeta(&description.MetaDescription{
+				Name: "t_payment",
+				Key: "id",
+				Cas: false,
+				Fields: []description.Field {
+					{
+						Name: "id", Type: description.FieldTypeNumber, Optional: true,
+						Def: map[string]interface{}{ "func": "nextval", },
+					},
+					{
+						Name: "client", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
+						LinkMeta: "t_client", Optional: false,
+					},
+					{ Name: "responsible", Type: description.FieldTypeNumber, Optional: false, },
+					{ Name: "total", Type: description.FieldTypeNumber, Optional: true, },
+				},
+			})
+			Expect(err).To(BeNil())
+			err = metaStore.Create(globalTransaction, metaPayment)
+			Expect(err).To(BeNil())
+
+			mdClientNew := description.MetaDescription{
+				Name: "t_client",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id", Type: description.FieldTypeNumber, Optional: true,
+						Def: map[string]interface{}{ "func": "nextval", },
+					},
+					{ Name: "name", Type: description.FieldTypeString, Optional: true, },
+					{ Name: "total", Type: description.FieldTypeNumber, Optional: true, },
+					{ Name: "owner", Type: description.FieldTypeNumber, Optional: true, },
+					{ Name: "manager", Type: description.FieldTypeNumber, Optional: true, },
+					{
+						Name: "employee", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
+						LinkMeta: "t_employee", Optional: false,
+					},{
+						Name: "payments", Type: description.FieldTypeArray, LinkType: description.LinkTypeOuter,
+						LinkMeta: "t_payment",  OuterLinkField: "client", Optional: true,
+					},
+				},
+			}
+			(&description.NormalizationService{}).Normalize(&mdClientNew)
+			metaClientNew, err := metaStore.NewMeta(&mdClientNew)
+			Expect(err).To(BeNil())
+
+			_, err = metaStore.Update(globalTransaction, metaClient.Name, metaClientNew, true)
+			Expect(err).To(BeNil())
+
+
+			recordEmployee, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction, metaEmployee.Name,
+				map[string]interface{}{}, auth.User{},
+			)
+
+			recordClient_1, err := dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction, metaClient.Name,
+				map[string]interface{}{
+					"name": "client_1", "total": 9000, "owner": 1, "manager": 1, "employee": recordEmployee.Data["id"],
+				}, auth.User{},
+			)
+
+			_, err = dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction, metaClient.Name,
+				map[string]interface{}{
+					"name": "client_1", "total": 100500, "owner": 2, "employee": recordEmployee.Data["id"],
+				}, auth.User{},
+			)
+
+			_, err = dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction, metaPayment.Name,
+				map[string]interface{}{"client": recordClient_1.Data["id"], "responsible": 1, "total": 1488}, auth.User{},
+			)
+
+			_, err = dataProcessor.CreateRecord(
+				globalTransaction.DbTransaction, metaPayment.Name,
+				map[string]interface{}{"client": recordClient_1.Data["id"], "responsible": 2, "total": 7777}, auth.User{},
+			)
+
+			abac := GetTroodABAC(
+				map[string]interface{}{
+					"sbj": User{
+						1,
+						"manager@demo.com",
+						"active",
+						"manager",
+						map[string]interface{}{
+							"id": 1,
+							"name": "John",
+						}},
+					"ctx": nil,
+				},
+				abac_tree,
+				"deny",
+			)
+
+			client, _ := dataProcessor.Get(
+				globalTransaction.DbTransaction, "t_client", "1",
+				nil, nil, 2, false,
+			)
+
+			fmt.Println("object to check", client.Data)
+
+			ok, filtered := abac.MaskRecord(client, "data_GET")
+
+			Expect(ok).To(BeTrue())
+
+			fmt.Println(filtered.(*record.Record))
+
+			Expect(filtered.(*record.Record).Data["employee"]).To(Equal(map[string]string{"access": "denied"}))
+			Expect(filtered.(*record.Record).Data["total"]).To(Equal(map[string]string{"access": "denied"}))
+			Expect(filtered.(*record.Record).Data["payments"]).To(HaveLen(1))
 		})
 	})
 })
