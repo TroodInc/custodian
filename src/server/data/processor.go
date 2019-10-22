@@ -348,7 +348,7 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 	return NewRecord(objectMeta, recordData), nil
 }
 
-func (processor *Processor) BulkCreateRecords(objectName string, next func() (map[string]interface{}, error), user auth.User) ([]interface{}, error) {
+func (processor *Processor) BulkCreateRecords(objectName string, next func() (map[string]interface{}, error), user auth.User) ([]*Record, error) {
 	dbTransaction, err := processor.transactionManager.BeginTransaction()
 
 	// get MetaDescription
@@ -428,6 +428,11 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 		}
 	}
 
+	var result []*Record
+	for _, rs := range rootRecordSets {
+		result = append(result, rs.(*RecordSet).Records...)
+	}
+
 	if err != nil {
 		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, err
@@ -442,7 +447,7 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 		recordSetNotificationPool.Push(user)
 	}
 
-	return rootRecordSets, nil
+	return result, nil
 }
 
 func (processor *Processor) UpdateRecord(objectName, key string, recordData map[string]interface{}, user auth.User) (updatedRecord *Record, err error) {

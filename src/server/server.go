@@ -268,9 +268,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		user := r.Context().Value("auth_user").(auth.User)
 		objectName := p.ByName("name")
 
-		//set transaction to the context
-		//*r = *r.WithContext(context.WithValue(r.Context(), "db_transaction", dbTransaction))
-
 		abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
 		_, rule := abac_resolver.Check(objectName, "data_POST")
 
@@ -289,7 +286,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			}
 
 			if record, err := dataProcessor.CreateRecord(objectName, src.single, user); err != nil {
-				//dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(err)
 			} else {
 				var depth = 1
@@ -300,10 +296,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				pkValue, _ := record.Meta.Key.ValueAsString(record.Data[record.Meta.Key.Name])
 				if record, err := dataProcessor.Get(objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
 					err != nil {
-					//dbTransactionManager.RollbackTransaction(dbTransaction)
 					sink.pushError(err)
 				} else {
-					//dbTransactionManager.CommitTransaction(dbTransaction)
 					sink.pushObj(record.GetData())
 				}
 			}
@@ -322,11 +316,13 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			}, user)
 
 			if e != nil {
-				//dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
-				//dbTransactionManager.CommitTransaction(dbTransaction)
-				sink.pushList(records, len(records))
+				result := make([]interface{}, 0)
+				for _, obj := range records {
+					result = append(result, obj.GetData())
+				}
+				sink.pushList(result, len(result))
 			}
 		}
 
