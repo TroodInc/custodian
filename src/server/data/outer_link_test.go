@@ -17,33 +17,19 @@ import (
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
 	})
 
 	Describe("Data retrieve depending on outer link modes values", func() {
@@ -65,7 +51,7 @@ var _ = Describe("Data", func() {
 			}
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, aMetaObj)
+			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 			return aMetaObj
 		}
@@ -95,7 +81,7 @@ var _ = Describe("Data", func() {
 			}
 			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, bMetaObj)
+			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
 			return bMetaObj
 		}
@@ -127,7 +113,7 @@ var _ = Describe("Data", func() {
 			(&description.NormalizationService{}).Normalize(&aMetaDescription)
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(globalTransaction, aMetaObj.Name, aMetaObj, true)
+			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 			Expect(err).To(BeNil())
 			return aMetaObj
 		}
@@ -138,10 +124,10 @@ var _ = Describe("Data", func() {
 			havingObjectBLinkedToA()
 			objectA := havingObjectAWithManuallySpecifiedOuterLinkToB()
 
-			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{}, auth.User{})
+			aRecord, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), nil, nil, 1, false)
+			aRecord, err = dataProcessor.Get(objectA.Name, aRecord.PkAsString(), nil, nil, 1, false)
 			Expect(aRecord.Data).To(HaveKey("b_set"))
 		})
 
@@ -150,10 +136,10 @@ var _ = Describe("Data", func() {
 			objectA := havingObjectA()
 			havingObjectBLinkedToA()
 
-			aRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, objectA.Name, map[string]interface{}{}, auth.User{})
+			aRecord, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			aRecord, err = dataProcessor.Get(globalTransaction.DbTransaction, objectA.Name, aRecord.PkAsString(), nil, nil, 1, false)
+			aRecord, err = dataProcessor.Get(objectA.Name, aRecord.PkAsString(), nil, nil, 1, false)
 			Expect(aRecord.Data).NotTo(HaveKey("b_set"))
 		})
 	})

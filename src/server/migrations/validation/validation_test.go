@@ -25,7 +25,6 @@ var _ = Describe("Migration Validation Service", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -35,8 +34,11 @@ var _ = Describe("Migration Validation Service", func() {
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath)
+	migrationManager := managers.NewMigrationManager(
+		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+	)
 
 	migrationValidationService := validation.NewMigrationValidationService(migrationManager, appConfig.MigrationStoragePath)
 
@@ -50,10 +52,10 @@ var _ = Describe("Migration Validation Service", func() {
 		//Flush meta/database
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		err = metaStore.Flush(globalTransaction)
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 		// drop history
-		err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).DropHistory(globalTransaction.DbTransaction)
+		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)

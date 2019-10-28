@@ -18,27 +18,23 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
 	flushDb := func() {
 		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
 
 	//setup transaction
-	BeforeEach(flushDb)
 	AfterEach(flushDb)
 
 	//setup MetaDescription

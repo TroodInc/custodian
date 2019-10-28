@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"server/object/description"
 	"server/object/meta"
+	"server/transactions"
 	"utils"
 
 	"github.com/Q-CIS-DEV/go-rql-parser"
@@ -17,7 +18,7 @@ import (
 var _ = Describe("RQL test", func(){
 	appConfig := utils.GetConfig()
 	syncer, _ := NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer,transactions.NewGlobalTransactionManager(nil, nil) )
 
 	metaDescription := description.MetaDescription{
 		Name: "test",

@@ -21,27 +21,22 @@ var _ = Describe("Migration Factory", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
 	flushDb := func() {
 		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	}
 
-	BeforeEach(flushDb)
 	AfterEach(flushDb)
 
 	//setup MetaDescription
@@ -321,7 +316,7 @@ var _ = Describe("Migration Factory", func() {
 				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
-				err = metaStore.Create(globalTransaction, bMetaObj)
+				err = metaStore.Create(bMetaObj)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -388,7 +383,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				cMetaDescription := description.NewMetaDescription(
@@ -409,7 +404,7 @@ var _ = Describe("Migration Factory", func() {
 				cMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
-				err = metaStore.Create(globalTransaction, cMetaObj)
+				err = metaStore.Create(cMetaObj)
 				Expect(err).To(BeNil())
 
 				//LinkMetaList is being changed
@@ -474,7 +469,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				renamedBMetaDescription := bMetaDescription.Clone()
@@ -528,7 +523,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
@@ -579,7 +574,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath).Apply(migrationDescription, globalTransaction, false)
+				_, err = managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager).Apply(migrationDescription, globalTransaction, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{

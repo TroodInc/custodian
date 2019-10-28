@@ -15,44 +15,22 @@ import (
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("automatically creates reverse outer link field", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
-
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: "a_g0ua9",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -67,11 +45,11 @@ var _ = Describe("Inner generic field", func() {
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, aMetaObj)
+		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: "b_p5sab",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -92,13 +70,13 @@ var _ = Describe("Inner generic field", func() {
 		}
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(globalTransaction, bMetaObj)
+		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		aMetaObj, _, err = metaStore.Get(globalTransaction, aMetaObj.Name, true)
+		aMetaObj, _, err = metaStore.Get(aMetaObj.Name, true)
 		Expect(err).To(BeNil())
 
-		reverseField := aMetaObj.FindField("b_set")
+		reverseField := aMetaObj.FindField("b_p5sab_set")
 		Expect(reverseField).NotTo(BeNil())
 		Expect(reverseField.Type).To(Equal(description.FieldTypeArray))
 		Expect(reverseField.LinkType).To(Equal(description.LinkTypeOuter))

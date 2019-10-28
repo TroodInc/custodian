@@ -17,39 +17,20 @@ var _ = Describe("File MetaDescription driver", func() {
 	fileMetaDriver := meta.NewFileMetaDescriptionSyncer("./")
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(fileMetaDriver.Remove, fileMetaDriver.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
-	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		err = metaStore.Flush(globalTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("can restore objects on rollback", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		defer func() { globalTransactionManager.CommitTransaction(globalTransaction) }()
 
 		Context("having an object", func() {
 			metaDescription := description.MetaDescription{
@@ -64,6 +45,9 @@ var _ = Describe("File MetaDescription driver", func() {
 					},
 				},
 			}
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
 			fileMetaDriver.Create(globalTransaction.MetaDescriptionTransaction, metaDescription)
 
 			Context("and this object is removed within transaction", func() {
@@ -82,6 +66,8 @@ var _ = Describe("File MetaDescription driver", func() {
 					fileMetaDriver.Remove(metaDescription.Name)
 				})
 			})
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 	})
 

@@ -1,6 +1,8 @@
 package pg_test
 
 import (
+	"github.com/onsi/ginkgo/reporters"
+	"os"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -9,5 +11,10 @@ import (
 
 func TestPg(t *testing.T) {
 	RegisterFailHandler(Fail)
-	RunSpecs(t, "Pg Suite")
+	if ci := os.Getenv("CI"); ci != "" {
+		teamcityReporter := reporters.NewTeamCityReporter(os.Stdout)
+		RunSpecsWithCustomReporters(t, "Pg Suite", []Reporter{teamcityReporter})
+	} else {
+		RunSpecs(t, "Pg Suite")
+	}
 }

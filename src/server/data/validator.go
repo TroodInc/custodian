@@ -152,7 +152,7 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 		}
 		if len(idFilters) > 0 {
 			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
-			_, records, _ := vs.processor.GetBulk(dbTransaction, fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true)
+			_, records, _ := vs.processor.GetBulk(fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true)
 			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
 				recordsToRemove = records
 			} else if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteSetNull {
@@ -270,13 +270,13 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 			excludeFilter := fmt.Sprintf("not(in(%s,(%s)))", fieldDescription.LinkMeta.Name, beingAddedIds)
 			filter = fmt.Sprintf("%s,%s",filter,excludeFilter)
 		}
-		_, recordsToRemove, _ = vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true)
+		_, recordsToRemove, _ = vs.processor.GetBulk(fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true)
 	}
 	//get records which are already attached and remove them from list of records to process
 	if !record.IsPhantom() {
 		if len(beingAddedIds) > 0 {
 			filter := fmt.Sprintf("eq(%s,%s),in(%s,(%s))", fieldDescription.Meta.Name, record.PkAsString(), fieldDescription.LinkMeta.Name, beingAddedIds)
-			_, toExclude, _ := vs.processor.GetBulk(dbTransaction, fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true)
+			_, toExclude, _ := vs.processor.GetBulk(fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true)
 			for _, obj := range toExclude {
 				removedCount := 0
 				for i := range recordsToProcess {

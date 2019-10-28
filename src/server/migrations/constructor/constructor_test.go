@@ -21,7 +21,6 @@ var _ = Describe("Migration Constructor", func() {
 	appConfig := utils.GetConfig()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
@@ -29,21 +28,15 @@ var _ = Describe("Migration Constructor", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath))
+	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath, globalTransactionManager))
 
 	flushDb := func() {
-		var err error
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	}
-	BeforeEach(flushDb)
+
 	AfterEach(flushDb)
 
 	Describe("Separate operations` generation", func() {

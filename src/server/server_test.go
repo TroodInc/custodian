@@ -25,42 +25,27 @@ import (
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager)
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	var globalTransaction *transactions.GlobalTransaction
+	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
-		var err error
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-
-		globalTransaction, err = globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
 		recorder = httptest.NewRecorder()
-
 	})
 
 	AfterEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-		metaStore.Flush(globalTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("can create the object", func() {
@@ -125,7 +110,7 @@ var _ = Describe("Server", func() {
 				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
 				Expect(err).To(BeNil())
 
-				meta, _, err := metaStore.Get(globalTransaction, "person", true)
+				meta, _, err := metaStore.Get("person", true)
 				Expect(err).To(BeNil())
 				Expect(meta.ActionSet.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
 				Expect(meta.ActionSet.Original[0].IncludeValues["amount"]).To(Equal("amount"))
@@ -152,14 +137,12 @@ var _ = Describe("Server", func() {
 			}
 			metaObj, err := metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(globalTransaction, metaObj)
+			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 
-			firstRecord, err := dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{}, auth.User{})
+			firstRecord, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
-			dataProcessor.CreateRecord(globalTransaction.DbTransaction, metaDescription.Name, map[string]interface{}{}, auth.User{})
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{}, auth.User{})
 
 			Context("and DELETE request performed by URL with specified record ID", func() {
 
@@ -176,7 +159,7 @@ var _ = Describe("Server", func() {
 				Expect(responseBody).To(Equal(`{"data":{"id":1},"status":"OK"}`))
 
 				Context("and the number of records should be equal to 1 and existing record is not deleted one", func() {
-					_, matchedRecords, _ := dataProcessor.GetBulk(globalTransaction.DbTransaction, metaObj.Name, "", nil, nil, 1, false)
+					_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "", nil, nil, 1, false)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0].Data["id"]).To(Not(Equal(firstRecord.Data["id"])))
 				})

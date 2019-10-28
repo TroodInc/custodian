@@ -30,4 +30,5 @@ type DbTransaction interface {
 type GlobalTransaction struct {
 	MetaDescriptionTransaction MetaDescriptionTransaction
 	DbTransaction              DbTransaction
+	Counter int
 }
