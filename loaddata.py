@@ -34,8 +34,8 @@ if __name__ == "__main__":
 
 
         def apply_fixture(name, data):
-            response = requests.put(
-                'http://127.0.0.1:8000/custodian/data/bulk/{}'.format(name),
+            response = requests.post(
+                'http://127.0.0.1:8000/custodian/data/{}'.format(name),
                 json=data,
                 headers={'Authorization': get_service_token()}
             )
