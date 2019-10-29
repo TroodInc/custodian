@@ -1,0 +1,333 @@
+openapi: 3.0.2
+info:
+  title: ''
+  version: ''
+tags:
+  - name: Meta
+    description: "Object schema management endpoints"
+  - name: Record
+    description: "Data endpoints"
+paths:
+  /meta/:
+    get:
+      tags:
+        - Meta
+      operationId: listMeta
+      parameters: []
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Meta'
+          description: ''
+    post:
+      tags:
+        - Meta
+      operationId: createMeta
+      parameters: []
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Meta'
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meta'
+          description: ''
+  /meta/{name}/:
+    get:
+      tags:
+        - Meta
+      operationId: retrieveMeta
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: A unique integer value identifying this account.
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meta'
+          description: ''
+    patch:
+      tags:
+        - Meta
+      operationId: updateMeta
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: A unique integer value identifying this account.
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                login:
+                  type: string
+                  maxLength: 64
+                status:
+                  enum:
+                    - active
+                    - disabled
+                    - deleted
+                active:
+                  type: boolean
+                role:
+                  type: integer
+                  nullable: true
+                type:
+                  enum:
+                    - user
+                    - service
+                cidr:
+                  type: string
+                  maxLength: 20
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meta'
+          description: ''
+    delete:
+      tags:
+        - Meta
+      operationId: destroyMeta
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: A unique integer value identifying this account.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ''
+  /data/{name}/:
+    get:
+      tags:
+        - Record
+      operationId: listRecords
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: An object name.
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+          description: ''
+    post:
+      tags:
+        - Record
+      operationId: createRecord
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: An object name.
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                login:
+                  type: string
+                  maxLength: 64
+                status:
+                  enum:
+                    - active
+                    - disabled
+                    - deleted
+                active:
+                  type: boolean
+                role:
+                  type: integer
+                  nullable: true
+                type:
+                  enum:
+                    - user
+                    - service
+                cidr:
+                  type: string
+                  maxLength: 20
+              required:
+                - login
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Meta'
+          description: ''
+  /data/{name}/{pk}:
+    get:
+      tags:
+        - Record
+      operationId: getRecord
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: An object name.
+          schema:
+            type: string
+        - name: pk
+          in: path
+          required: true
+          description: An object primary key value.
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+          description: ''
+    patch:
+      tags:
+        - Record
+      operationId: updateRecord
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: An object name.
+          schema:
+            type: string
+        - name: pk
+          in: path
+          required: true
+          description: An object primary key value.
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                name:
+                  type: string
+                  maxLength: 128
+                status:
+                  enum:
+                    - active
+                    - disabled
+                    - deleted
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+          description: ''
+    delete:
+      tags:
+        - Record
+      operationId: destroyAccountRole
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: An object name.
+          schema:
+            type: string
+        - name: pk
+          in: path
+          required: true
+          description: An object primary key value.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ''
+
+components:
+  schemas:
+    Meta:
+      type: object
+      properties:
+        name:
+          type: string
+        key:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/Field'
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Action"
+        cas:
+          type: boolean
+
+    Field:
+      type: object
+      properties:
+        name:
+          type: string
+        type:
+          type: string
+          enum:
+            - number
+            - string
+            - generic
+            - object
+            - objects
+            - array
+            - date
+            - datetime
+        optional:
+          type: boolean
+        unique:
+          type: boolean
+
+    Action:
+      type: object
+      properties:
+        name:
+          type: string
+        method:
+          type: string
+          enum:
+            - create
+            - delete
+            - update
+        protocol:
+          type: string
+          enum:
+            - REST
+        args:
+          type: array
+          items:
+            type: string
+        activeIfNotRoot:
+          type: boolean
+        includeValues:
+          type: object
+
+
+    Record:
+      type: object

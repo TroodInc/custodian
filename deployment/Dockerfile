@@ -15,6 +15,7 @@ COPY ./src/server /go/src/server
 COPY ./src/utils /go/src/utils
 COPY ./deployment/wait-for-it.sh /go/bin
 COPY ./main.go /go/src/app
+COPY ./docs/_static /home/static
 
 RUN go get -d -v
 RUN go install -v
