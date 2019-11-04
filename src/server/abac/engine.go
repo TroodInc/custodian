@@ -176,12 +176,12 @@ func (abac *TroodABAC) Check(resource string, action string) (bool, *ABACRule) {
 		for _, rule := range rules {
 			passed, rule := abac.EvaluateRule(rule.(map[string]interface{}))
 			if  passed {
-				return rule.Result == "allow", rule
+				return passed, rule
 			}
 		}
 	}
 
-	return abac.DefaultResolution == "allow", nil
+	return false, nil
 }
 
 func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *ABACRule)  {

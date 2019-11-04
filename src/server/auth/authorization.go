@@ -26,6 +26,7 @@ type User struct {
 	Role 	string	`json:"role"`
 	ABAC 	map[string]interface{}  `json:"abac"`
 	LinkedObject map[string]interface{}  `json:"linked_object"`
+	Authorized bool `json:"authorized"`
 }
 
 func NewError(text string) error {
@@ -48,13 +49,13 @@ func (this *AuthError) Serialize () map[string]string {
 }
 
 type Authenticator interface {
-	Authenticate(*http.Request) (User, map[string]interface{}, error)
+	Authenticate(*http.Request) (*User, map[string]interface{}, error)
 }
 
 type EmptyAuthenticator struct {}
 
-func (this *EmptyAuthenticator) Authenticate(req *http.Request) (User, map[string]interface{}, error) {
-	return User{}, nil, nil
+func (this *EmptyAuthenticator) Authenticate(req *http.Request) (*User, map[string]interface{}, error) {
+	return &User{Authorized: false}, nil, nil
 }
 
 type TroodAuthenticator struct {
@@ -81,7 +82,7 @@ func GetServiceToken() (string, error) {
 	return "", errors.New("SERVICE_AUTH_SECRET or SERVICE_DOMAIN not found")
 }
 
-func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, map[string]interface{}, error){
+func (this *TroodAuthenticator) Authenticate(req *http.Request) (*User, map[string]interface{}, error){
 	var auth_header = req.Header.Get("Authorization")
 
 	if auth_header != "" {
@@ -107,28 +108,37 @@ func (this *TroodAuthenticator) Authenticate(req *http.Request) (User, map[strin
 			user, err := this.FetchUser(auth_response.Body)
 
 			if err == nil {
+				user.Authorized = true
 				return user, user.ABAC, nil
 			}
 
-			return User{}, nil, NewError("Cant achieve user object")
+			return nil, nil, NewError("Cant achieve user object")
 		}
 
-		return User{}, nil, NewError("Authorization failed")
+		return nil, nil, NewError("Authorization failed")
 	}
 
-	return User{}, nil, NewError("No Authorization header found")
+	if rules_response, err := http.Get(this.AuthUrl + "/api/v1.0/abac?domain=" + os.Getenv("SERVICE_DOMAIN")); err == nil {
+		var rules map[string]interface{}
+		body, _ := ioutil.ReadAll(rules_response.Body)
+		err = json.Unmarshal(body, &rules)
+		return &User{Authorized: false}, rules["data"].(map[string]interface{}), nil
+	} else {
+		return nil, nil, err
+	}
+
 }
 
 
-func (this *TroodAuthenticator) FetchUser(buff io.ReadCloser) (User, error)  {
+func (this *TroodAuthenticator) FetchUser(buff io.ReadCloser) (*User, error)  {
 	response := AuthResponse{}
 	body, err := ioutil.ReadAll(buff)
 	if err == nil {
 		err = json.Unmarshal(body, &response)
 
-		return response.User, nil
+		return &response.User, nil
 
 	} else {
-		return User{}, err
+		return nil, err
 	}
 }
