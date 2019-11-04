@@ -25,8 +25,11 @@ type User struct {
 	Status 	string	`json:"status"`
 	Role 	string	`json:"role"`
 	ABAC 	map[string]interface{}  `json:"abac"`
-	LinkedObject map[string]interface{}  `json:"linked_object"`
+	Profile map[string]interface{}  `json:"profile"`
 	Authorized bool `json:"authorized"`
+
+	// @todo: remove LinkedObject field as deprecated at 26 Nov 2019
+	LinkedObject map[string]interface{}  `json:"linked_object"`
 }
 
 func NewError(text string) error {
