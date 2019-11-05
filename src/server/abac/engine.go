@@ -176,12 +176,12 @@ func (abac *TroodABAC) Check(resource string, action string) (bool, *ABACRule) {
 		for _, rule := range rules {
 			passed, rule := abac.EvaluateRule(rule.(map[string]interface{}))
 			if  passed {
-				return passed, rule
+				return rule.Result == "allow", rule
 			}
 		}
 	}
 
-	return false, nil
+	return abac.DefaultResolution == "allow", nil
 }
 
 func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *ABACRule)  {
@@ -189,7 +189,7 @@ func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *AB
 
 	if rule != nil && rule.Filter != nil {
 		if ok, _ := rule.Filter.Match(obj.GetData()); !ok {
-			return passed, rule
+			return abac.DefaultResolution == "allow", rule
 		}
 	}
 
@@ -200,7 +200,7 @@ func (abac *TroodABAC) MaskRecord(obj *record.Record, action string) (bool, inte
 
 	ok, rule := abac.CheckRecord(obj, action)
 
-	if ok && rule != nil && rule.Result == "allow" {
+	if ok && rule != nil {
 		for field := range rule.Mask {
 			SetAttributeByPath(obj.Data, rule.Mask[field], map[string]string{"access": "denied"})
 		}
