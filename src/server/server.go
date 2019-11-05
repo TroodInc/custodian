@@ -52,7 +52,7 @@ func GetApp(cs *CustodianServer) *CustodianApp {
 func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if user, abac_data, err := app.authenticator.Authenticate(req); err == nil {
-		ctx := context.WithValue(req.Context(), "auth_user", user)
+		ctx := context.WithValue(req.Context(), "auth_user", *user)
 
 		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
@@ -90,7 +90,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			abac_resolver := abac.GetTroodABAC(
 				map[string]interface{}{
-					"sbj": user,
+					"sbj": *user,
 				},
 				abac_tree,
 				abac_default_resolution,

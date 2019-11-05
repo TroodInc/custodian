@@ -189,7 +189,7 @@ func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *AB
 
 	if rule != nil && rule.Filter != nil {
 		if ok, _ := rule.Filter.Match(obj.GetData()); !ok {
-			return abac.DefaultResolution == "allow", rule
+			return passed, rule
 		}
 	}
 
