@@ -200,36 +200,38 @@ func (abac *TroodABAC) MaskRecord(obj *record.Record, action string) (bool, inte
 
 	ok, rule := abac.CheckRecord(obj, action)
 
-	if ok && rule != nil {
-		for field := range rule.Mask {
-			SetAttributeByPath(obj.Data, rule.Mask[field], map[string]string{"access": "denied"})
-		}
+	if ok {
+		if rule != nil {
+			for field := range rule.Mask {
+				SetAttributeByPath(obj.Data, rule.Mask[field], map[string]string{"access": "denied"})
+			}
 
-		for key, val := range obj.Data {
-			if !str_in(rule.Mask, key) {
-				field := obj.Meta.FindField(key)
+			for key, val := range obj.Data {
+				if !str_in(rule.Mask, key) {
+					field := obj.Meta.FindField(key)
 
-				switch field.Type {
-				case description.FieldTypeObject:
-					// Then Apply masks for sub-object
-					if item, ok := val.(*record.Record); ok {
-						_, obj.Data[key] = abac.MaskRecord(item, action);
-					}
+					switch field.Type {
+					case description.FieldTypeObject:
+						// Then Apply masks for sub-object
+						if item, ok := val.(*record.Record); ok {
+							_, obj.Data[key] = abac.MaskRecord(item, action);
+						}
 
-				case description.FieldTypeArray:
-					val := val.([]interface{})
-					var sub_set []*record.Record
-					// Skip records with no access and apply mask on remained
-					for i := range val {
-						if item, ok := val[i].(*record.Record); ok {
-							if ok, sub := abac.MaskRecord(item, action); ok {
-								sub_set = append(sub_set, sub.(*record.Record))
+					case description.FieldTypeArray:
+						val := val.([]interface{})
+						var sub_set []*record.Record
+						// Skip records with no access and apply mask on remained
+						for i := range val {
+							if item, ok := val[i].(*record.Record); ok {
+								if ok, sub := abac.MaskRecord(item, action); ok {
+									sub_set = append(sub_set, sub.(*record.Record))
+								}
 							}
 						}
+
+						obj.Data[key] = sub_set
+
 					}
-
-					obj.Data[key] = sub_set
-
 				}
 			}
 		}

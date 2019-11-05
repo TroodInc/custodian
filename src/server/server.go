@@ -800,7 +800,11 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 		abac_resolver := ctx.Value("abac").(abac.TroodABAC)
 		abac_resolver.DataSource["ctx"] = resolver_context
 
-		if passed, _ := abac_resolver.Check(ctx.Value("resource").(string), ctx.Value("action").(string)); passed {
+		passed, _ := abac_resolver.Check(
+			ctx.Value("resource").(string), ctx.Value("action").(string),
+		)
+
+		if !passed {
 			returnError(w, abac.NewError("Access restricted by ABAC access rule"))
 			return
 		}
