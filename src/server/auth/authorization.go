@@ -26,8 +26,8 @@ type User struct {
 	Role 	string	`json:"role"`
 	ABAC 	map[string]interface{}  `json:"abac"`
 	Authorized bool `json:"authorized"`
-
-	// @todo: remove LinkedObject field as deprecated at 26 Nov 2019
+	Profile map[string]interface{}  `json:"profile"`
+  // @todo: remove LinkedObject field as deprecated at 26 Nov 2019
 	LinkedObject map[string]interface{}  `json:"linked_object"`
 }
 
