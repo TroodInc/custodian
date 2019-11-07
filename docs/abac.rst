@@ -5,25 +5,29 @@ ABAC Configuration
 Subject attributes
 ------------------
 
-.. class:: sbj
+.. object:: sbj
 
     .. attribute:: id
 
         System-wide user ID
 
-	.. attribute:: login
+
+    .. attribute:: login
 
         User login string
 
-	.. attribute:: authorized
+
+    .. attribute:: authorized
 
         Authorization status, can be ``True`` for authorizaed or ``False`` for anonimous user
 
-	.. attribute:: role
+
+    .. attribute:: role
 
         User role from TroodAuthorization service
 
-	.. attribute:: profile
+
+    .. attribute:: profile
 
         Map with additional user profile fields
 
@@ -31,15 +35,17 @@ Subject attributes
 Context attributes
 ------------------
 
-.. class:: ctx
+.. object:: ctx
 
     .. attribute:: data
 
         Map POST json body
 
+
     .. attribute:: params
 
         List of url path chunks
+
 
     .. attribute:: query
 
