@@ -5,51 +5,47 @@ ABAC Configuration
 Subject attributes
 ------------------
 
-.. object:: sbj
+.. attribute:: sbj.id
 
-    .. attribute:: id
-
-        System-wide user ID
+    System-wide user ID
 
 
-    .. attribute:: login
+.. attribute:: sbj.login
 
-        User login string
-
-
-    .. attribute:: authorized
-
-        Authorization status, can be ``True`` for authorizaed or ``False`` for anonimous user
+    User login string
 
 
-    .. attribute:: role
+.. attribute:: sbj.authorized
 
-        User role from TroodAuthorization service
+    Authorization status, can be ``True`` for authorizaed or ``False`` for anonimous user
 
 
-    .. attribute:: profile
+.. attribute:: sbj.role
 
-        Map with additional user profile fields
+    User role from TroodAuthorization service
+
+
+.. attribute:: sbj.profile
+
+    Map with additional user profile fields
 
 
 Context attributes
 ------------------
 
-.. object:: ctx
+.. attribute:: ctx.data
 
-    .. attribute:: data
-
-        Map POST json body
+    Map POST json body
 
 
-    .. attribute:: params
+.. attribute:: ctx.params
 
-        List of url path chunks
+    List of url path chunks
 
 
-    .. attribute:: query
+.. attribute:: ctx.query
 
-        Map of GET query params
+    Map of GET query params
 
 
 Resources
