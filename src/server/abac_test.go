@@ -379,7 +379,7 @@ var _ = Describe("ABAC rules handling", func() {
 				Expect(body["status"].(string)).To(Equal("OK"))
 			})
 
-			It("Must allow if no rules mutched but domain result is overriden to allow", func() {
+			It("Must allow if no rules matched but domain result is overriden to allow", func() {
 				abac_tree[SERVICE_DOMAIN].(map[string]interface{})["_default_resolution"] = "allow"
 				user = &auth.User{
 					Role: "test", ABAC: abac_tree,

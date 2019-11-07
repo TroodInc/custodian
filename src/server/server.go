@@ -52,7 +52,7 @@ func GetApp(cs *CustodianServer) *CustodianApp {
 func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if user, abac_data, err := app.authenticator.Authenticate(req); err == nil {
-		ctx := context.WithValue(req.Context(), "auth_user", user)
+		ctx := context.WithValue(req.Context(), "auth_user", *user)
 
 		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
@@ -90,7 +90,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			abac_resolver := abac.GetTroodABAC(
 				map[string]interface{}{
-					"sbj": user,
+					"sbj": *user,
 				},
 				abac_tree,
 				abac_default_resolution,
@@ -800,16 +800,13 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 		abac_resolver := ctx.Value("abac").(abac.TroodABAC)
 		abac_resolver.DataSource["ctx"] = resolver_context
 
-		if passed, rule := abac_resolver.Check(ctx.Value("resource").(string), ctx.Value("action").(string)); passed {
-			if rule != nil && rule.Result != "allow" {
-				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-				return
-			}
-		} else {
-			if abac_resolver.DefaultResolution != "allow" {
-				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-				return
-			}
+		passed, _ := abac_resolver.Check(
+			ctx.Value("resource").(string), ctx.Value("action").(string),
+		)
+
+		if !passed {
+			returnError(w, abac.NewError("Access restricted by ABAC access rule"))
+			return
 		}
 
 		query  := make(url.Values)
