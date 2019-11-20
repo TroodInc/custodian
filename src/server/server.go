@@ -443,29 +443,25 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	app.router.DELETE(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
-			user := request.Context().Value("auth_user").(auth.User)
-			var i = 0
-			e := dataProcessor.BulkDeleteRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-				if i < len(src.list) {
-					i += 1
-					return src.list[i-1], nil
-				} else {
-					return nil, nil
-				}
-			}, user)
-			if e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				defer sink.pushError(e)
+
+		user := request.Context().Value("auth_user").(auth.User)
+		var i = 0
+		e := dataProcessor.BulkDeleteRecords(p.ByName("name"), func() (map[string]interface{}, error) {
+			if i < len(src.list) {
+				i += 1
+				return src.list[i-1], nil
 			} else {
-				defer sink.pushObj(nil)
-				dbTransactionManager.CommitTransaction(dbTransaction)
+				return nil, nil
 			}
+		}, user)
+		if e != nil {
+
+			defer sink.pushError(e)
+		} else {
+			defer sink.pushObj(nil)
+
 		}
+
 	}))
 
 	app.router.PATCH(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, u url.Values, r *http.Request) {
