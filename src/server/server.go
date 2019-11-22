@@ -147,15 +147,7 @@ func (cs *CustodianServer) SetAuthenticator(authenticator auth.Authenticator) {
 
 //TODO: "enableProfiler" option should be configured like other options
 func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
-	if cs.authenticator == nil {
-		if cs.auth_url != "" {
-			cs.authenticator = &auth.TroodAuthenticator{
-				cs.auth_url,
-			}
-		} else {
-			cs.authenticator = &auth.EmptyAuthenticator{}
-		}
-	}
+	cs.authenticator = auth.GetAuthenticator()
 	app := GetApp(cs)
 
 	//MetaDescription routes
