@@ -12,7 +12,7 @@ import (
 	"encoding/base64"
 	"crypto/hmac"
 	"crypto/sha1"
-	"github.com/go-redis/redis/v7"
+	"github.com/go-redis/redis"
 )
 
 type AuthResponse struct {
@@ -57,9 +57,10 @@ func GetAuthenticator() Authenticator {
 	case "TROOD":
 		service_url := os.Getenv("TROOD_AUTH_SERVICE_URL")
 
-		cache_url := os.Getenv("REDIS_URL")
-		if cache_url != "" {
-			redis_options := redis.ParseURL(cache_url)
+		cache_type := os.Getenv("CACHE_TYPE")
+		redis_url := os.Getenv("REDIS_URL")
+		if cache_type == "REDIS" && redis_url != "" {
+			redis_options, _ := redis.ParseURL(redis_url)
 			cache_client := redis.NewClient(redis_options)
 
 			return &TroodAuthenticator{service_url, cache_client};
@@ -137,10 +138,11 @@ func (tauth *TroodAuthenticator) getUserFromCache(token string) (*User, error) {
 	if tauth.cache != nil {
 		token_parts := strings.Split(token, " ");
 
-		data, err := tauth.cache.Get(token_parts[1]).Result()
+		data, err := tauth.cache.Get("AUTH:"+token_parts[1]).Result()
 		if err == nil {
 			var user User
-			err := json.Unmarshal(data, user)
+			err := json.Unmarshal([]byte(data), &user)
+			user.Authorized = true
 
 			return &user, err
 		}

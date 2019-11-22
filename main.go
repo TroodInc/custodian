@@ -65,14 +65,6 @@ func main() {
 			srv.SetRoot(p[0])
 			return nil
 		}},
-		"-d": {1, func(p []string) error {
-			srv.SetDb(p[0])
-			return nil
-		}},
-		"--auth": {1, func(p []string) error {
-			srv.SetAuthUrl(p[0])
-			return nil
-		}},
 	}
 
 	args := os.Args[1:]

@@ -7,6 +7,7 @@ import (
 	"server/transactions"
 	"server/object/description"
 	"server/object/meta"
+	"github.com/xo/dburl"
 )
 
 type Syncer struct {
@@ -19,7 +20,7 @@ Example of the PgTransaction info:
     - user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full
 */
 func NewSyncer(dbInfo string) (*Syncer, error) {
-	db, err := sql.Open("postgres", dbInfo)
+	db, err := dburl.Open(dbInfo)
 	if err != nil {
 		return nil, err
 	}
