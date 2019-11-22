@@ -38,11 +38,6 @@ func init() {
 // -a - address to use. Default value is empty.
 // -p - port to use. Default value is 8080.
 // -r - path root to use. Default value is "/custodian".
-// -d - PostrgeSQL connection string. For example:
-// --auth - Authorization service url
-//host=infra-pdb01 user=custodian password=custodian dbname=custodian_test sslmode=disable
-//For more information see https://godoc.org/github.com/lib/pq
-//
 //Setup example: ./custodian -d "host=infra-pdb01 user=custodian password=custodian dbname=custodian_test sslmode=disable"
 
 //TODO: The application has 2 ways of configuration now: command line arguments and dotenv file
