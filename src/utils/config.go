@@ -46,7 +46,7 @@ func getRealWorkingDirectory() string {
 func GetConfig() *AppConfig {
 
 	var appConfig = AppConfig{
-		UrlPrefix:               "",
+		UrlPrefix:               "/custodian",
 		DbConnectionUrl:     "postgres://custodian:custodian@127.0.0.1:5432/custodian?sslmode=disable",
 		SentryDsn:               "",
 		EnableProfiler:          false,

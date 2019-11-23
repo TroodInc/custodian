@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -39,7 +39,7 @@ var _ = Describe("Server", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)
 		recorder = httptest.NewRecorder()
 	})
 

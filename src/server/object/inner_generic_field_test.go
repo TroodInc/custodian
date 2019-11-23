@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers

@@ -15,7 +15,7 @@ import (
 
 var _ = Describe("MigrationManager", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
