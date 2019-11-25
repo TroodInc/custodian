@@ -3,30 +3,48 @@ package pg
 import (
 	"database/sql"
 	"fmt"
+	"github.com/xo/dburl"
+	"log"
 	"logger"
-	"server/transactions"
 	"server/object/description"
 	"server/object/meta"
+	"server/transactions"
+	"time"
 )
 
 type Syncer struct {
 	db *sql.DB
 }
 
-/*
-Example of the PgTransaction info:
-    - user=%s password=%s dbname=%s sslmode=disable
-    - user=bob password=secret host=1.2.3.4 port=5432 dbname=mydb sslmode=verify-full
-*/
-func NewSyncer(dbInfo string) (*Syncer, error) {
-	db, err := sql.Open("postgres", dbInfo)
+func getDBConnection(dbInfo string) *sql.DB {
+	db, err := dburl.Open(dbInfo)
 	if err != nil {
-		return nil, err
+		logger.Error("%", err)
+		logger.Error("Could not connect to Postgres.")
+
+		return &sql.DB{}
 	}
-	if err := db.Ping(); err != nil {
-		return nil, err
+
+	return db
+}
+
+var activeDBConnection *sql.DB
+func NewSyncer(dbInfo string) (*Syncer, error) {
+	if activeDBConnection == nil {
+		activeDBConnection = getDBConnection(dbInfo)
 	}
-	return &Syncer{db: db}, nil
+	alive := activeDBConnection.Ping()
+
+	for alive != nil {
+		log.Print("Connection to Postgres was lost. Waiting for 5s...")
+		activeDBConnection.Close()
+		time.Sleep(5 * time.Second)
+		log.Print("Reconnecting...")
+		activeDBConnection = getDBConnection(dbInfo)
+		alive = activeDBConnection.Ping()
+	}
+
+	return &Syncer{db: activeDBConnection}, nil
 }
 
 func (syncer *Syncer) Close() error {

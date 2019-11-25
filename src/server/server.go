@@ -133,14 +133,6 @@ func (cs *CustodianServer) SetRoot(r string) {
 	cs.root = r
 }
 
-func (cs *CustodianServer) SetDb(d string) {
-	cs.db = d
-}
-
-func (cs *CustodianServer) SetAuthUrl(s string) {
-	cs.auth_url = s
-}
-
 func (cs *CustodianServer) SetAuthenticator(authenticator auth.Authenticator) {
 	cs.authenticator = authenticator
 }
@@ -148,18 +140,13 @@ func (cs *CustodianServer) SetAuthenticator(authenticator auth.Authenticator) {
 //TODO: "enableProfiler" option should be configured like other options
 func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	if cs.authenticator == nil {
-		if cs.auth_url != "" {
-			cs.authenticator = &auth.TroodAuthenticator{
-				cs.auth_url,
-			}
-		} else {
-			cs.authenticator = &auth.EmptyAuthenticator{}
-		}
+		cs.authenticator = auth.GetAuthenticator()
 	}
+
 	app := GetApp(cs)
 
 	//MetaDescription routes
-	syncer, err := pg.NewSyncer(cs.db)
+	syncer, err := pg.NewSyncer(config.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
