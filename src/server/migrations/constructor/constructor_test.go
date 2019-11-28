@@ -20,7 +20,7 @@ import (
 var _ = Describe("Migration Constructor", func() {
 	appConfig := utils.GetConfig()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers

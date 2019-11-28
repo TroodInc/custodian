@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("Rollback migrations", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
 	var httpServer *http.Server
@@ -42,7 +42,7 @@ var _ = Describe("Rollback migrations", func() {
 
 	BeforeEach(func() {
 		//setup server
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)
 		recorder = httptest.NewRecorder()
 	})
 

@@ -199,7 +199,7 @@ var _ = Describe("Abac Engine", func() {
 
 	Describe("Abac hierachical objects test", func() {
 		appConfig := utils.GetConfig()
-		syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+		syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 		dataManager, _ := syncer.NewDataManager()
 		//transaction managers
