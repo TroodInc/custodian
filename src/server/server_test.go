@@ -24,7 +24,7 @@ import (
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -39,7 +39,7 @@ var _ = Describe("Server", func() {
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
-		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions).Setup(appConfig)
+		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)
 		recorder = httptest.NewRecorder()
 	})
 
@@ -106,10 +106,6 @@ var _ = Describe("Server", func() {
 				Expect(body["status"].(string)).To(Equal("OK"))
 				Expect(body["data"].(map[string]interface{})["name"]).To(Equal("person"))
 
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
-				Expect(err).To(BeNil())
-
 				meta, _, err := metaStore.Get("person", true)
 				Expect(err).To(BeNil())
 				Expect(meta.ActionSet.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
@@ -151,10 +147,6 @@ var _ = Describe("Server", func() {
 				request.Header.Set("Content-Type", "application/json")
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
-
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				defer func() { globalTransactionManager.RollbackTransaction(globalTransaction) }()
-				Expect(err).To(BeNil())
 
 				Expect(responseBody).To(Equal(`{"data":{"id":1},"status":"OK"}`))
 

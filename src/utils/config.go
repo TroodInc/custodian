@@ -1,15 +1,14 @@
 package utils
 
 import (
-	"github.com/joho/godotenv"
 	"os"
-	"strings"
 	"path"
+	"strings"
 )
 
 type AppConfig struct {
 	UrlPrefix               string
-	DbConnectionOptions     string
+	DbConnectionUrl     string
 	SentryDsn               string
 	EnableProfiler          bool
 	DisableSafePanicHandler bool
@@ -46,11 +45,9 @@ func getRealWorkingDirectory() string {
 //get Application configuration based on dotenv
 func GetConfig() *AppConfig {
 
-	godotenv.Load(getRealWorkingDirectory() + "/.env")
-
 	var appConfig = AppConfig{
 		UrlPrefix:               "/custodian",
-		DbConnectionOptions:     "host=localhost port=5432 dbname=custodian sslmode=disable",
+		DbConnectionUrl:     "postgres://custodian:custodian@127.0.0.1:5432/custodian?sslmode=disable",
 		SentryDsn:               "",
 		EnableProfiler:          false,
 		DisableSafePanicHandler: true,
@@ -65,8 +62,8 @@ func GetConfig() *AppConfig {
 		appConfig.SentryDsn = sentryDsn
 	}
 
-	if dbConnectionOptions := os.Getenv("DB_CONNECTION_OPTIONS"); len(dbConnectionOptions) > 0 {
-		appConfig.DbConnectionOptions = dbConnectionOptions
+	if dbConnectionUrl := os.Getenv("DATABASE_URL"); len(dbConnectionUrl) > 0 {
+		appConfig.DbConnectionUrl = dbConnectionUrl
 	}
 
 	if enableProfiler := os.Getenv("ENABLE_PROFILER"); len(enableProfiler) > 0 {

@@ -30,7 +30,7 @@ func get_server(user *auth.User) *http.Server {
 	os.Setenv("SERVICE_DOMAIN", SERVICE_DOMAIN)
 
 	appConfig := utils.GetConfig()
-	custodianServer := server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionOptions)
+	custodianServer := server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl)
 
 	if user != nil {
 		custodianServer.SetAuthenticator(auth.NewMockAuthenticator(*user))
@@ -41,7 +41,7 @@ func get_server(user *auth.User) *http.Server {
 
 var _ = Describe("ABAC rules handling", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionOptions)
+	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -379,7 +379,7 @@ var _ = Describe("ABAC rules handling", func() {
 				Expect(body["status"].(string)).To(Equal("OK"))
 			})
 
-			It("Must allow if no rules mutched but domain result is overriden to allow", func() {
+			It("Must allow if no rules matched but domain result is overriden to allow", func() {
 				abac_tree[SERVICE_DOMAIN].(map[string]interface{})["_default_resolution"] = "allow"
 				user = &auth.User{
 					Role: "test", ABAC: abac_tree,

@@ -52,7 +52,7 @@ func GetApp(cs *CustodianServer) *CustodianApp {
 func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 	if user, abac_data, err := app.authenticator.Authenticate(req); err == nil {
-		ctx := context.WithValue(req.Context(), "auth_user", user)
+		ctx := context.WithValue(req.Context(), "auth_user", *user)
 
 		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
@@ -90,7 +90,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 
 			abac_resolver := abac.GetTroodABAC(
 				map[string]interface{}{
-					"sbj": user,
+					"sbj": *user,
 				},
 				abac_tree,
 				abac_default_resolution,
@@ -133,14 +133,6 @@ func (cs *CustodianServer) SetRoot(r string) {
 	cs.root = r
 }
 
-func (cs *CustodianServer) SetDb(d string) {
-	cs.db = d
-}
-
-func (cs *CustodianServer) SetAuthUrl(s string) {
-	cs.auth_url = s
-}
-
 func (cs *CustodianServer) SetAuthenticator(authenticator auth.Authenticator) {
 	cs.authenticator = authenticator
 }
@@ -148,18 +140,13 @@ func (cs *CustodianServer) SetAuthenticator(authenticator auth.Authenticator) {
 //TODO: "enableProfiler" option should be configured like other options
 func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	if cs.authenticator == nil {
-		if cs.auth_url != "" {
-			cs.authenticator = &auth.TroodAuthenticator{
-				cs.auth_url,
-			}
-		} else {
-			cs.authenticator = &auth.EmptyAuthenticator{}
-		}
+		cs.authenticator = auth.GetAuthenticator()
 	}
+
 	app := GetApp(cs)
 
 	//MetaDescription routes
-	syncer, err := pg.NewSyncer(cs.db)
+	syncer, err := pg.NewSyncer(config.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
@@ -187,6 +174,11 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		logger.Error("Failed to create syncer: %s", err.Error())
 		panic(err)
 	}
+
+	app.router.ServeFiles("/static/*filepath", http.Dir("/home/static"))
+	app.router.GET(cs.root+"/swagger", func(w http.ResponseWriter, req *http.Request, p httprouter.Params){
+		http.ServeFile(w, req, "/home/static/swagger_ui.html")
+	})
 
 	//object operations
 	app.router.GET(cs.root+"/meta", CreateJsonAction(func(src *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
@@ -438,29 +430,25 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	app.router.DELETE(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
-			user := request.Context().Value("auth_user").(auth.User)
-			var i = 0
-			e := dataProcessor.BulkDeleteRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-				if i < len(src.list) {
-					i += 1
-					return src.list[i-1], nil
-				} else {
-					return nil, nil
-				}
-			}, user)
-			if e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				defer sink.pushError(e)
+
+		user := request.Context().Value("auth_user").(auth.User)
+		var i = 0
+		e := dataProcessor.BulkDeleteRecords(p.ByName("name"), func() (map[string]interface{}, error) {
+			if i < len(src.list) {
+				i += 1
+				return src.list[i-1], nil
 			} else {
-				defer sink.pushObj(nil)
-				dbTransactionManager.CommitTransaction(dbTransaction)
+				return nil, nil
 			}
+		}, user)
+		if e != nil {
+
+			defer sink.pushError(e)
+		} else {
+			defer sink.pushObj(nil)
+
 		}
+
 	}))
 
 	app.router.PATCH(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, u url.Values, r *http.Request) {
@@ -795,16 +783,13 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 		abac_resolver := ctx.Value("abac").(abac.TroodABAC)
 		abac_resolver.DataSource["ctx"] = resolver_context
 
-		if passed, rule := abac_resolver.Check(ctx.Value("resource").(string), ctx.Value("action").(string)); passed {
-			if rule != nil && rule.Result != "allow" {
-				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-				return
-			}
-		} else {
-			if abac_resolver.DefaultResolution != "allow" {
-				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-				return
-			}
+		passed, _ := abac_resolver.Check(
+			ctx.Value("resource").(string), ctx.Value("action").(string),
+		)
+
+		if !passed {
+			returnError(w, abac.NewError("Access restricted by ABAC access rule"))
+			return
 		}
 
 		query  := make(url.Values)
