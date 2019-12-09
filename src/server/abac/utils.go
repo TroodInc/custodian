@@ -1,11 +1,13 @@
 package abac
 
 import (
-	"github.com/fatih/structs"
 	"reflect"
 	"strings"
+
+	"github.com/fatih/structs"
 )
 
+// GetAttributeByPath : get object attribute by path
 func GetAttributeByPath(obj interface{}, path string) (interface{}, bool) {
 	parts := strings.SplitN(path, ".", 2)
 
@@ -29,40 +31,42 @@ func GetAttributeByPath(obj interface{}, path string) (interface{}, bool) {
 	return nil, false
 }
 
+// SetAttributeByPath : set object attribute by path
 func SetAttributeByPath(obj map[string]interface{}, path string, value interface{}) map[string]interface{} {
 	parts := strings.SplitN(path, ".", 2)
 	current, ok := obj[parts[0]]
 	if ok && len(parts) == 1 {
 		obj[parts[0]] = value
 		return obj
-	} else if ok && len(parts) == 2  {
+	} else if ok && len(parts) == 2 {
 		obj[parts[0]] = SetAttributeByPath(current.(map[string]interface{}), parts[1], value)
 	}
 
 	return obj
 }
 
-
-func RemoveMapAttributeByPath(obj map[string]interface{}, path string, set_null bool) map[string]interface{} {
+// RemoveMapAttributeByPath : remove object attribute by path
+func RemoveMapAttributeByPath(obj map[string]interface{}, path string, setNull bool) map[string]interface{} {
 	parts := strings.SplitN(path, ".", 2)
 
 	current, ok := obj[parts[0]]
 
 	if ok && len(parts) == 1 {
-		if set_null {
+		if setNull {
 			obj[parts[0]] = nil
 		} else {
 			delete(obj, parts[0])
 		}
 		return obj
 	} else if ok && len(parts) == 2 {
-		obj[parts[0]] = RemoveMapAttributeByPath(current.(map[string]interface{}), parts[1], set_null)
+		obj[parts[0]] = RemoveMapAttributeByPath(current.(map[string]interface{}), parts[1], setNull)
 	}
 
 	return obj
 }
 
-func CheckMask(obj map[string]interface{}, mask []string)  []string {
+// CheckMask : check object mask
+func CheckMask(obj map[string]interface{}, mask []string) []string {
 	var restricted []string
 	if mask != nil {
 		for _, path := range mask {
@@ -87,7 +91,7 @@ func cleanupType(value interface{}) interface{} {
 	return value
 }
 
-func str_in (list []string, item string) bool {
+func strIn(list []string, item string) bool {
 	for i := range list {
 		if list[i] == item {
 			return true
