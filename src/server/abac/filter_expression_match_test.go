@@ -15,6 +15,9 @@ var _ = Describe("FilterExpression match", func() {
 					Operator: eqOperator, Operand: "owner.role", Value: "ADMIN",
 				},
 				{
+					Operator: eqOperator, Operand: "owner.is_staff", Value: true,
+				},
+				{
 					Operator: inOperator, Operand: "owner.company", Value: "topline,velitto",
 				},
 				{
@@ -42,6 +45,7 @@ var _ = Describe("FilterExpression match", func() {
 		It("Should successfully validate correct data", func() {
 			recordData := map[string]interface{}{
 				"owner.role":              "ADMIN",
+				"owner.is_staff":		   true,
 				"owner.company":           "topline",
 				"owner.active":            1,
 				"owner.access_level":      65,
@@ -98,6 +102,7 @@ var _ = Describe("FilterExpression match", func() {
 		It("Should unsuccessfully validate data with not matching 'eq' expression", func() {
 			recordData := map[string]interface{}{
 				"owner.role":              "MANAGER",
+				"owner.is_staff":		   false,
 				"owner.company":           "topline",
 				"owner.access_level":      65,
 				"owner.max_booking_level": 5,
