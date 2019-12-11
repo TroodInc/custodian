@@ -81,11 +81,12 @@ func CheckMask(obj map[string]interface{}, mask []string) []string {
 }
 
 func cleanupType(value interface{}) interface{} {
-	v := reflect.ValueOf(value)
-
-	floatType := reflect.TypeOf(float64(0))
-	if v.Type().ConvertibleTo(floatType) {
-		return v.Convert(floatType).Float()
+	if value != nil {
+		v := reflect.ValueOf(value)
+		floatType := reflect.TypeOf(float64(0))
+		if v.Type().ConvertibleTo(floatType) {
+			return v.Convert(floatType).Float()
+		}
 	}
 
 	return value

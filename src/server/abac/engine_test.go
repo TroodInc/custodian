@@ -104,6 +104,14 @@ var _ = Describe("Abac Engine", func() {
 			Expect(value).To(BeIdenticalTo(1))
 			Expect(isFilter).To(BeTrue())
 		})
+
+		It("must reveal non-existing properties as nil", func() {
+			operand, value, isFilter := resolver.reveal("sbj.some.nonexisting.prop", "sbj.another")
+
+			Expect(operand).To(BeNil())
+			Expect(value).To(BeNil())
+			Expect(isFilter).To(BeFalse())
+		})
 	})
 
 	Describe("Rules", func() {
@@ -166,6 +174,12 @@ var _ = Describe("Abac Engine", func() {
 
 		It("must evaluate wildcard value", func() {
 			condition := jsonToObject(`{"sbj.role": "*"}`)
+			result, _ := resolver.evaluateCondition(condition)
+			Expect(result).To(BeTrue())
+		})
+
+		It("must evaluate condition with null/non-existing arguments", func() {
+			condition := jsonToObject(`{"sbj.none.existing.field": null}`)
 			result, _ := resolver.evaluateCondition(condition)
 			Expect(result).To(BeTrue())
 		})
