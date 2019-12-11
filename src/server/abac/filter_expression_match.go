@@ -1,8 +1,8 @@
 package abac
 
 import (
-	"strings"
 	"fmt"
+	"strings"
 )
 
 func matchFilterExpression(filterExpression *FilterExpression, recordValues map[string]interface{}) (bool, error) {
@@ -107,6 +107,8 @@ func valueToString(value interface{}) string {
 		return fmt.Sprintf("%f", float64(castValue))
 	case string:
 		return castValue
+	case bool:
+		return fmt.Sprintf("%t", value)
 	default:
 		return value.(string)
 	}
