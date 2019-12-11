@@ -6,14 +6,16 @@ import (
 	"strings"
 )
 
+// TroodABAC engine structure
 type TroodABAC struct {
 	RulesTree         map[string]interface{}
 	DataSource        map[string]interface{}
 	DefaultResolution string
 }
 
-type ABACRule struct {
-	Mask []string
+// RuleABAC structure
+type RuleABAC struct {
+	Mask   []string
 	Filter *FilterExpression
 	Result string
 }
@@ -29,6 +31,7 @@ const gtOperator = "gt"
 var operations map[string]func(interface{}, interface{}) (bool, interface{})
 var aggregation map[string]func([]interface{}, interface{}) (bool, *FilterExpression)
 
+// GetTroodABAC return TroodABAC engine
 func GetTroodABAC(datasource map[string]interface{}, rules map[string]interface{}, defaultResolution string) TroodABAC {
 	operations = map[string]func(interface{}, interface{}) (bool, interface{}){
 		eqOperator:  operatorExact,
@@ -50,13 +53,14 @@ func GetTroodABAC(datasource map[string]interface{}, rules map[string]interface{
 	}
 }
 
-func (abac *TroodABAC) FindRules(resource string, action string) []interface{}  {
+// FindRules find rules for resource and action
+func (abac *TroodABAC) FindRules(resource string, action string) []interface{} {
 	var rules []interface{}
 
-	action_base := strings.SplitN(action, "_", 2)
+	actionBase := strings.SplitN(action, "_", 2)
 
 	paths := []string{
-		resource + "." + action, resource + "." + action_base[0] + "_*", resource + ".*",
+		resource + "." + action, resource + "." + actionBase[0] + "_*", resource + ".*",
 	}
 
 	for _, path := range paths {
@@ -68,11 +72,12 @@ func (abac *TroodABAC) FindRules(resource string, action string) []interface{}  
 	return rules
 }
 
-func (abac *TroodABAC) EvaluateRule(rule map[string]interface{}) (bool, *ABACRule) {
+// EvaluateRule execute ABAC rule
+func (abac *TroodABAC) EvaluateRule(rule map[string]interface{}) (bool, *RuleABAC) {
 	condition := rule["rule"].(map[string]interface{})
 	passed, filters := abac.evaluateCondition(condition)
 
-	var result ABACRule
+	var result RuleABAC
 
 	if rule["mask"] != nil {
 		for _, val := range rule["mask"].([]interface{}) {
@@ -107,22 +112,22 @@ func (abac *TroodABAC) evaluateCondition(condition map[string]interface{}) (bool
 			operator = eqOperator
 		}
 
-		operand, value, is_filter := abac.reveal(operand, value)
+		operand, value, isFilter := abac.reveal(operand, value)
 
 		var flt *FilterExpression
 		result := true
-		if is_filter {
+		if isFilter {
 			flt = makeFilter(operator, operand.(string), value)
 		} else {
-			if operator_func, ok := operations[operator]; ok {
-				result, _ = operator_func(operand, value)
+			if operatorFunc, ok := operations[operator]; ok {
+				result, _ = operatorFunc(operand, value)
 			}
 
-			if operator_func, ok := aggregation[operator]; ok {
+			if operatorFunc, ok := aggregation[operator]; ok {
 				if operator == inOperator {
-					result, flt = operator_func(value.([]interface{}), operand)
+					result, flt = operatorFunc(value.([]interface{}), operand)
 				} else {
-					result, flt = operator_func(value.([]interface{}), abac)
+					result, flt = operatorFunc(value.([]interface{}), abac)
 				}
 			}
 		}
@@ -148,13 +153,13 @@ func makeFilter(operator string, operand string, value interface{}) *FilterExpre
 
 func (abac *TroodABAC) reveal(operand interface{}, value interface{}) (interface{}, interface{}, bool) {
 
-	var is_filter = false
+	var isFilter = false
 
 	splited := strings.SplitN(operand.(string), ".", 2)
 
 	if splited[0] == "obj" {
 		operand = splited[1]
-		is_filter = true
+		isFilter = true
 	} else if splited[0] == "sbj" || splited[0] == "ctx" {
 		operand, _ = GetAttributeByPath(abac.DataSource[splited[0]], splited[1])
 	}
@@ -166,16 +171,17 @@ func (abac *TroodABAC) reveal(operand interface{}, value interface{}) (interface
 		}
 	}
 
-	return operand, value, is_filter
+	return operand, value, isFilter
 }
 
-func (abac *TroodABAC) Check(resource string, action string) (bool, *ABACRule) {
+// Check : check resource and action
+func (abac *TroodABAC) Check(resource string, action string) (bool, *RuleABAC) {
 	rules := abac.FindRules(resource, action)
 
 	if rules != nil {
 		for _, rule := range rules {
 			passed, rule := abac.EvaluateRule(rule.(map[string]interface{}))
-			if  passed {
+			if passed {
 				return rule.Result == "allow", rule
 			}
 		}
@@ -184,7 +190,8 @@ func (abac *TroodABAC) Check(resource string, action string) (bool, *ABACRule) {
 	return abac.DefaultResolution == "allow", nil
 }
 
-func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *ABACRule)  {
+// CheckRecord : check record and action
+func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *RuleABAC) {
 	passed, rule := abac.Check(obj.Meta.Name, action)
 
 	if rule != nil && rule.Filter != nil {
@@ -196,6 +203,7 @@ func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *AB
 	return passed, rule
 }
 
+// MaskRecord : maskarad object
 func (abac *TroodABAC) MaskRecord(obj *record.Record, action string) (bool, interface{}) {
 
 	ok, rule := abac.CheckRecord(obj, action)
@@ -207,29 +215,29 @@ func (abac *TroodABAC) MaskRecord(obj *record.Record, action string) (bool, inte
 			}
 
 			for key, val := range obj.Data {
-				if !str_in(rule.Mask, key) {
+				if !strIn(rule.Mask, key) {
 					field := obj.Meta.FindField(key)
 
 					switch field.Type {
 					case description.FieldTypeObject:
 						// Then Apply masks for sub-object
 						if item, ok := val.(*record.Record); ok {
-							_, obj.Data[key] = abac.MaskRecord(item, action);
+							_, obj.Data[key] = abac.MaskRecord(item, action)
 						}
 
 					case description.FieldTypeArray:
 						val := val.([]interface{})
-						var sub_set []*record.Record
+						var subSet []*record.Record
 						// Skip records with no access and apply mask on remained
 						for i := range val {
 							if item, ok := val[i].(*record.Record); ok {
 								if ok, sub := abac.MaskRecord(item, action); ok {
-									sub_set = append(sub_set, sub.(*record.Record))
+									subSet = append(subSet, sub.(*record.Record))
 								}
 							}
 						}
 
-						obj.Data[key] = sub_set
+						obj.Data[key] = subSet
 
 					}
 				}
@@ -237,10 +245,8 @@ func (abac *TroodABAC) MaskRecord(obj *record.Record, action string) (bool, inte
 		}
 
 		return true, obj
-	} else {
-		return false, map[string]string{"access": "denied"}
 	}
-
+	return false, map[string]string{"access": "denied"}
 }
 
 func operatorExact(operand interface{}, value interface{}) (bool, interface{}) {
@@ -266,17 +272,17 @@ func operatorIn(value []interface{}, operand interface{}) (bool, *FilterExpressi
 }
 
 func operatorLt(value interface{}, operand interface{}) (bool, interface{}) {
-	f_value := value.(float64)
-	f_operand := operand.(float64)
+	fValue := value.(float64)
+	fOperand := operand.(float64)
 
-	return f_operand < f_value, nil
+	return fOperand < fValue, nil
 }
 
 func operatorGt(value interface{}, operand interface{}) (bool, interface{}) {
-	f_value := value.(float64)
-	f_operand := operand.(float64)
+	fValue := value.(float64)
+	fOperand := operand.(float64)
 
-	return f_operand > f_value, nil
+	return fOperand > fValue, nil
 }
 
 func operatorAnd(value []interface{}, resolver interface{}) (bool, *FilterExpression) {
