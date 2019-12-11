@@ -17,7 +17,7 @@ Subject attributes
 
 .. attribute:: sbj.authorized
 
-    Authorization status, can be ``True`` for authorizaed or ``False`` for anonimous user
+    Authorization status, can be ``True`` for authorized or ``False`` for anonymous user
 
 
 .. attribute:: sbj.role
