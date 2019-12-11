@@ -5,9 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-
 var _ = Describe("Utils", func() {
-	var test_obj = map[string]interface{}{
+	var testObj = map[string]interface{}{
 		"a": 1,
 		"b": 2,
 		"c": map[string]interface{}{
@@ -18,19 +17,19 @@ var _ = Describe("Utils", func() {
 	}
 
 	It("Must update map attributes", func() {
-		obj := SetAttributeByPath(test_obj, "c.z", "update_test")
+		obj := SetAttributeByPath(testObj, "c.z", "update_test")
 		Expect(obj["c"].(map[string]interface{})["z"]).To(Equal("update_test"))
 	})
 
 	It("Must return field value from path", func() {
 		Context("first level", func() {
-			value, ok := GetAttributeByPath(test_obj, "b")
+			value, ok := GetAttributeByPath(testObj, "b")
 			Expect(ok).To(BeTrue())
 			Expect(value).To(Equal(2))
 		})
 
 		Context("Other depth", func() {
-			value, ok := GetAttributeByPath(test_obj, "c.x")
+			value, ok := GetAttributeByPath(testObj, "c.x")
 			Expect(ok).To(BeTrue())
 			Expect(value).To(Equal(10))
 		})
@@ -38,13 +37,13 @@ var _ = Describe("Utils", func() {
 
 	It("Must return False when cant get value from path", func() {
 		Context("first level", func() {
-			value, ok := GetAttributeByPath(test_obj, "some_field")
+			value, ok := GetAttributeByPath(testObj, "some_field")
 			Expect(ok).To(BeFalse())
 			Expect(value).To(BeNil())
 		})
 
 		Context("Other depth", func() {
-			value, ok := GetAttributeByPath(test_obj, "z.y")
+			value, ok := GetAttributeByPath(testObj, "z.y")
 			Expect(ok).To(BeFalse())
 			Expect(value).To(BeNil())
 		})
@@ -52,19 +51,19 @@ var _ = Describe("Utils", func() {
 
 	It("Must remove map attributes", func() {
 		Context("Setting nil", func() {
-			no_b := RemoveMapAttributeByPath(test_obj, "b", true)
-			Expect(no_b["b"]).To(BeNil())
+			noB := RemoveMapAttributeByPath(testObj, "b", true)
+			Expect(noB["b"]).To(BeNil())
 
-			no_c_z := RemoveMapAttributeByPath(test_obj, "c.z", true)
-			Expect(no_c_z["c"].(map[string]interface{})["z"]).To(BeNil())
+			noCZ := RemoveMapAttributeByPath(testObj, "c.z", true)
+			Expect(noCZ["c"].(map[string]interface{})["z"]).To(BeNil())
 		})
 
 		Context("Full remove", func() {
-			no_b := RemoveMapAttributeByPath(test_obj, "b", false)
-			Expect(no_b).NotTo(HaveKey("b"))
+			noB := RemoveMapAttributeByPath(testObj, "b", false)
+			Expect(noB).NotTo(HaveKey("b"))
 
-			no_c_z := RemoveMapAttributeByPath(test_obj, "c.z", false)
-			Expect(no_c_z["c"]).NotTo(HaveKey("z"))
+			noCZ := RemoveMapAttributeByPath(testObj, "c.z", false)
+			Expect(noCZ["c"]).NotTo(HaveKey("z"))
 		})
 
 	})
