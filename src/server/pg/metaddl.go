@@ -32,73 +32,24 @@ func (ds *DdlStatementSet) Add(s *DDLStmt) {
 	*ds = append(*ds, s)
 }
 
-// DDL column type
-type ColumnType int
-
-const (
-	ColumnTypeText     ColumnType = iota + 1
-	ColumnTypeNumeric
-	ColumnTypeBool
-	ColumnTypeDate
-	ColumnTypeTime
-	ColumnTypeDateTime
-)
-
-func (ct ColumnType) DdlType() (string, error) {
-	switch ct {
-	case ColumnTypeText:
-		return "text", nil
-	case ColumnTypeNumeric:
-		return "numeric", nil
-	case ColumnTypeBool:
-		return "bool", nil
-	case ColumnTypeDate:
-		return "date", nil
-	case ColumnTypeDateTime:
-		return "timestamp with time zone", nil
-	case ColumnTypeTime:
-		return "time with time zone", nil
-	default:
-		return "", &DDLError{code: ErrUnsupportedColumnType, msg: "Unsupported column type: " + string(ct)}
-	}
-}
-
-func fieldTypeToColumnType(ft description.FieldType) (ColumnType, bool) {
-	switch ft {
-	case description.FieldTypeString:
-		return ColumnTypeText, true
-	case description.FieldTypeNumber:
-		return ColumnTypeNumeric, true
-	case description.FieldTypeBool:
-		return ColumnTypeBool, true
-	case description.FieldTypeDateTime:
-		return ColumnTypeDateTime, true
-	case description.FieldTypeDate:
-		return ColumnTypeDate, true
-	case description.FieldTypeTime:
-		return ColumnTypeTime, true
-	default:
-		return 0, false
-	}
-}
-
-func dbTypeToColumnType(dt string) (ColumnType, bool) {
+func dbTypeToFieldType(dt string) (description.FieldType, bool) {
 	switch dt {
 	case "text":
-		return ColumnTypeText, true
+		return description.FieldTypeString, true
 	case "numeric":
-		return ColumnTypeNumeric, true
+		return description.FieldTypeNumber, true
 	case "boolean":
-		return ColumnTypeBool, true
+		return description.FieldTypeBool, true
 	case "timestamp with time zone":
-		return ColumnTypeDateTime, true
+		return description.FieldTypeDateTime, true
 	case "date":
-		return ColumnTypeDate, true
+		return description.FieldTypeDate, true
 	case "time with time zone":
-		return ColumnTypeTime, true
+		return description.FieldTypeTime, true
 	default:
 		return 0, false
 	}
+
 }
 
 //DDL table metadata
@@ -114,7 +65,7 @@ type MetaDDL struct {
 // DDL column meta
 type Column struct {
 	Name     string
-	Typ      ColumnType
+	Typ      description.FieldType
 	Optional bool
 	Unique   bool
 	Defval   string
