@@ -22,13 +22,12 @@ func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction
 		}
 	} else {
 		tm.transaction.Counter += 1
-		//fmt.Println("Get DB transaction [", tm.transaction.Counter, "]")
 	}
 
 	return tm.transaction, nil
 }
 
-func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) (error) {
+func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) error {
 	if tm.transaction.Counter == 0 {
 		tx := dbTransaction.Transaction().(*sql.Tx)
 		if err := tx.Commit(); err != nil {
@@ -38,20 +37,18 @@ func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.D
 		tm.transaction = nil
 	} else {
 		tm.transaction.Counter -= 1
-		//fmt.Println("Commit DB transaction [", tm.transaction.Counter, "]")
 	}
 	return nil
 }
 
-func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) (error) {
+func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) error {
 	if tm.transaction.Counter == 0 {
 		tm.transaction = nil
 		return dbTransaction.Transaction().(*sql.Tx).Rollback()
 	} else {
 		tm.transaction.Counter -= 1
-		//fmt.Println("Rollback DB transaction [", tm.transaction.Counter, "]")
-		return nil
 	}
+	return nil
 }
 
 func NewPgDbTransactionManager(dataManager data.DataManager) *PgDbTransactionManager {
