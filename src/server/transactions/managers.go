@@ -50,7 +50,6 @@ func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransact
 	} else {
 		g.transaction.Counter -= 1
 	}
-
 	return nil
 }
 
