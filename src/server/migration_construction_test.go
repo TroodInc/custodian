@@ -24,7 +24,6 @@ import (
 var _ = Describe("Migration`s construction", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -35,6 +34,8 @@ var _ = Describe("Migration`s construction", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(dbTransactionManager)
+	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, syncer, globalTransactionManager)
 
 	BeforeEach(func() {
 		//setup server
@@ -50,7 +51,7 @@ var _ = Describe("Migration`s construction", func() {
 		Expect(err).To(BeNil())
 		// drop history
 		err = managers.NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+			metaStore, migrationStore, dataManager, globalTransactionManager,
 		).DropHistory(globalTransaction.DbTransaction)
 		Expect(err).To(BeNil())
 

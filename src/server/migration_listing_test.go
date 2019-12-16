@@ -23,7 +23,6 @@ import (
 var _ = Describe("Migrations` listing", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -34,8 +33,11 @@ var _ = Describe("Migrations` listing", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+
+	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(dbTransactionManager)
+	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		metaStore, migrationStore, dataManager, globalTransactionManager,
 	)
 
 	BeforeEach(func() {
@@ -96,7 +98,7 @@ var _ = Describe("Migrations` listing", func() {
 				},
 			}
 
-			_, err = migrationManager.Apply(migrationDescription, globalTransaction, true)
+			_, err = migrationManager.Apply(migrationDescription, false, true)
 			Expect(err).To(BeNil())
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())

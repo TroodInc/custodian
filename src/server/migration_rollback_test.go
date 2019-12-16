@@ -25,7 +25,6 @@ import (
 var _ = Describe("Rollback migrations", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
@@ -36,8 +35,11 @@ var _ = Describe("Rollback migrations", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+
+	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(dbTransactionManager)
+	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		metaStore, migrationStore, dataManager, globalTransactionManager,
 	)
 
 	BeforeEach(func() {
@@ -97,7 +99,7 @@ var _ = Describe("Rollback migrations", func() {
 				},
 			}
 
-			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, globalTransaction, true)
+			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, false, true)
 			Expect(err).To(BeNil())
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
@@ -129,7 +131,7 @@ var _ = Describe("Rollback migrations", func() {
 					},
 				}
 
-				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
+				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, false, true)
 				Expect(err).To(BeNil())
 
 				globalTransactionManager.CommitTransaction(globalTransaction)
@@ -161,7 +163,7 @@ var _ = Describe("Rollback migrations", func() {
 						},
 					}
 
-					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, globalTransaction, true)
+					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, false, true)
 					Expect(err).To(BeNil())
 
 					globalTransactionManager.CommitTransaction(globalTransaction)
