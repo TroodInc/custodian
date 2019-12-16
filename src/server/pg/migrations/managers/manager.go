@@ -1,20 +1,20 @@
 package managers
 
 import (
-	"server/errors"
-	"server/transactions"
-	"server/pg"
 	"database/sql"
-	"server/object/meta"
-	"server/object/description"
-	"server/pg/migrations/operations/object"
-	"server/migrations/migrations"
-	_migrations "server/migrations"
+	"encoding/json"
 	"fmt"
-	migrations_description "server/migrations/description"
-	"server/data/record"
 	"server/data"
-	"server/migrations/storage"
+	"server/data/record"
+	"server/errors"
+	_migrations "server/migrations"
+	migrations_description "server/migrations/description"
+	"server/migrations/migrations"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
+	"server/pg/migrations/operations/object"
+	"server/transactions"
 	"net/url"
 	"strconv"
 )
@@ -23,56 +23,56 @@ const historyMetaName = "__custodian_objects_migration_history__"
 
 type MigrationManager struct {
 	metaStore             *meta.MetaStore
+	migrationStore        *meta.MetaStore
 	dataManager           *pg.DataManager
-	metaDescriptionSyncer meta.MetaDescriptionSyncer
-	migrationStorage      *storage.MigrationStorage
 	globalTransactionManager *transactions.GlobalTransactionManager
 }
 
-func (mm *MigrationManager) GetDescription(dbTransaction transactions.DbTransaction, migrationId string) (*migrations_description.MigrationDescription, error) {
-	migrationDescription, err := mm.migrationStorage.Get(migrationId)
+func (mm *MigrationManager) Get(name string) (*record.Record, error) {
+	processor, err := data.NewProcessor(mm.migrationStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
 	if err != nil {
 		return nil, err
 	}
 
-	return migrationDescription, nil
+	historyMeta, err := mm.ensureHistoryTableExists()
+
+	return processor.Get(historyMeta.Name, name, nil, nil, 1, true)
 }
 
-func (mm *MigrationManager) List(dbTransaction transactions.DbTransaction, filter string) ([]interface{}, error) {
-	historyMeta, err := mm.ensureHistoryTableExists(dbTransaction)
-	if err != nil {
-		return nil, err
-	}
+func (mm *MigrationManager) List(filter string) ([]*record.Record, error) {
+	processor, err := data.NewProcessor(mm.migrationStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
+	historyMeta, err := mm.ensureHistoryTableExists()
+	_, appliedMigrations, err := processor.GetBulk(historyMeta.Name, filter, nil, nil, 1, true)
 
-	var appliedMigrations []interface{}
-	callbackFunction := func(obj *record.Record) error {
-		appliedMigrations = append(appliedMigrations, *record.NewRecord(historyMeta, obj.Data))
-		return nil
-	}
-
-	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
-	if err != nil {
-		return nil, err
-	}
-
-	_, err = processor.ShadowGetBulk(dbTransaction, historyMeta, filter, 1, true, callbackFunction)
 	return appliedMigrations, err
 }
 
-func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
-	migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryForward(migrationDescription)
+func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool, fake bool) (updatedMetaDescription *description.MetaDescription, err error) {
+	globalTransaction, _ := mm.globalTransactionManager.BeginTransaction(nil)
+	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryForward(migrationDescription)
 	if err != nil {
-		return nil, err
-	}
-	if err := mm.canApplyMigration(migration, globalTransaction.DbTransaction); err != nil {
+		mm.globalTransactionManager.RollbackTransaction(globalTransaction)
 		return nil, err
 	}
 
-	return mm.runMigration(migration, globalTransaction, shouldRecord)
+	if err := mm.canApplyMigration(migration, globalTransaction.DbTransaction); err != nil {
+		mm.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return nil, err
+	}
+
+	result, err := mm.runMigration(migration, globalTransaction, shouldRecord, fake)
+	if err != nil {
+		mm.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return nil, err
+	}
+
+	mm.globalTransactionManager.CommitTransaction(globalTransaction)
+
+	return result, err
 }
 
 func (mm *MigrationManager) FakeApply(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction) (err error) {
-	migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryForward(migrationDescription)
+	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryForward(migrationDescription)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (mm *MigrationManager) FakeApply(migrationDescription *migrations_descripti
 }
 
 //Rollback object to the given migration`s state
-func (mm *MigrationManager) RollBackTo(migrationId string, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (*description.MetaDescription, error) {
+func (mm *MigrationManager) RollBackTo(migrationId string, globalTransaction *transactions.GlobalTransaction, shouldRecord bool, fake bool) (*description.MetaDescription, error) {
 	subsequentMigrations, err := mm.getSubsequentMigrations(migrationId, globalTransaction.DbTransaction)
 	if err != nil {
 		return nil, err
@@ -94,53 +94,39 @@ func (mm *MigrationManager) RollBackTo(migrationId string, globalTransaction *tr
 
 	var updatedMetaDescription *description.MetaDescription
 	for _, subsequentMigration := range subsequentMigrations {
-		migrationDescription, err := mm.migrationStorage.Get(subsequentMigration.Data["migration_id"].(string))
 		if err != nil {
 			return nil, err
 		}
 
-		updatedMetaDescription, err = mm.rollback(migrationDescription, globalTransaction, shouldRecord)
-		if err != nil {
-			return nil, err
-		}
+		if !fake {
+			updatedMetaDescription, err = mm.rollback(subsequentMigration, globalTransaction, shouldRecord)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryBackward(subsequentMigration)
+			if err != nil {
+				return nil, err
+			}
 
+			err = mm.removeAppliedMigration(migration, globalTransaction.DbTransaction)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 	return updatedMetaDescription, nil
-}
-
-func (mm *MigrationManager) FakeRollbackTo(migrationId string, globalTransaction *transactions.GlobalTransaction) (err error) {
-	subsequentMigrations, err := mm.getSubsequentMigrations(migrationId, globalTransaction.DbTransaction)
-	if err != nil {
-		return err
-	}
-
-	for _, subsequentMigration := range subsequentMigrations {
-		migrationDescription, err := mm.migrationStorage.Get(subsequentMigration.Data["migration_id"].(string))
-		if err != nil {
-			return err
-		}
-
-		migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryBackward(migrationDescription)
-		if err != nil {
-			return err
-		}
-
-		err = mm.removeAppliedMigration(migration, globalTransaction.DbTransaction)
-		if err != nil {
-			return err
-		}
-	}
-	return nil
 }
 
 func (mm *MigrationManager) rollback(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
 	//Get a state which an object was in
 	var previousMetaDescriptionState *description.MetaDescription
 	if len(migrationDescription.DependsOn) > 0 {
-		parentMigrationDescription, err := mm.migrationStorage.Get(migrationDescription.DependsOn[0])
+		parentMigrationRecord, err := mm.Get(migrationDescription.DependsOn[0])
 		if err != nil {
 			return nil, err
 		}
+		parentMigrationDescription := migrations_description.MigrationDescriptionFromRecord(parentMigrationRecord)
 		previousMetaDescriptionState = parentMigrationDescription.MetaDescription
 	}
 
@@ -151,16 +137,16 @@ func (mm *MigrationManager) rollback(migrationDescription *migrations_descriptio
 	}
 
 	//and run it
-	migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryBackward(migrationDescription)
+	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryBackward(migrationDescription)
 	if err != nil {
 		return nil, err
 	}
-	return mm.runMigration(migration, globalTransaction, shouldRecord)
+	return mm.runMigration(migration, globalTransaction, shouldRecord, false)
 }
 
-func (mm *MigrationManager) runMigration(migration *migrations.Migration, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
+func (mm *MigrationManager) runMigration(migration *migrations.Migration, globalTransaction *transactions.GlobalTransaction, shouldRecord bool, fake bool) (updatedMetaDescription *description.MetaDescription, err error) {
 	for _, spawnedMigrationDescription := range migration.RunBefore {
-		if _, err := mm.Apply(spawnedMigrationDescription, globalTransaction, false); err != nil { //do not record applied spawned migrations, because of their ephemeral nature
+		if _, err := mm.Apply(spawnedMigrationDescription,false, fake); err != nil { //do not record applied spawned migrations, because of their ephemeral nature
 			return nil, err
 		}
 	}
@@ -169,7 +155,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, global
 
 	//metaDescription should be retrieved again because it may mutate during runBefore migrations(eg automatically added outer link was removed)
 	if migration.ApplyTo != nil {
-		metaDescriptionToApply, _, err = mm.metaDescriptionSyncer.Get(migration.ApplyTo.Name)
+		metaDescriptionToApply, _, err = mm.metaStore.MetaDescriptionSyncer.Get(migration.ApplyTo.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -177,11 +163,11 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, global
 
 	for _, operation := range migration.Operations {
 		//metaToApply should mutate only within iterations, not inside iteration
-		updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, globalTransaction.MetaDescriptionTransaction, mm.metaDescriptionSyncer)
+		updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, globalTransaction.MetaDescriptionTransaction, mm.metaStore.MetaDescriptionSyncer)
 		if err != nil {
 			return nil, err
 		} else {
-			err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction.DbTransaction, mm.metaDescriptionSyncer)
+			err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction.DbTransaction, mm.metaStore.MetaDescriptionSyncer)
 			if err != nil {
 				return nil, err
 			}
@@ -191,7 +177,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, global
 	}
 
 	for _, spawnedMigrationDescription := range migration.RunAfter {
-		if _, err := mm.Apply(spawnedMigrationDescription, globalTransaction, false); err != nil { //do not record applied spawned migrations, because of their ephemeral nature
+		if _, err := mm.Apply(spawnedMigrationDescription, false, fake); err != nil { //do not record applied spawned migrations, because of their ephemeral nature
 			return nil, err
 		}
 	}
@@ -200,31 +186,9 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, global
 	migration.MigrationDescription.MetaDescription = updatedMetaDescription.Clone()
 	if shouldRecord {
 		if migration.IsForward() {
-			migrationFileName, err := mm.migrationStorage.Store(&migration.MigrationDescription)
-			if err != nil {
-				return nil, err
-			}
-
 			_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
-			if err != nil {
-				if removeErr := mm.migrationStorage.RemoveFile(migrationFileName); removeErr != nil {
-					return nil, errors.NewFatalError(_migrations.MigrationErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error(), nil)
-				}
-				return nil, err
-			}
 		} else {
-			err := mm.migrationStorage.Remove(&migration.MigrationDescription)
-			if err != nil {
-				return nil, err
-			}
-
 			err = mm.removeAppliedMigration(migration, globalTransaction.DbTransaction)
-			if err != nil {
-				if removeErr := mm.migrationStorage.Remove(&migration.MigrationDescription); removeErr != nil {
-					return nil, errors.NewFatalError(_migrations.MigrationErrorWhileWritingMigrationFile, err.Error()+"\r\n"+removeErr.Error(), nil)
-				}
-				return nil, err
-			}
 		}
 	}
 
@@ -232,20 +196,17 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, global
 }
 
 func (mm *MigrationManager) DropHistory(transaction transactions.DbTransaction) error {
-	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return err
 	}
-	if err := mm.migrationStorage.Flush(); err != nil {
-		return err
-	}
-	return object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.metaDescriptionSyncer)
+	return object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.migrationStore.MetaDescriptionSyncer)
 }
 
 //return a list of preceding migrations for the given object
 //*preceding migrations have the same predecessor*
 func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, transaction transactions.DbTransaction) ([]record.Record, error) {
-	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return nil, err
 	}
@@ -278,29 +239,9 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, t
 	return latestMigrations, err
 }
 
-func (mm *MigrationManager) Fake(migrationDescription *migrations_description.MigrationDescription, globalTransaction *transactions.GlobalTransaction, shouldRecord bool) (err error) {
-	migration, err := migrations.NewMigrationFactory(mm.metaDescriptionSyncer).FactoryForward(migrationDescription)
-	if err != nil {
-		return err
-	}
-
-	if err := mm.canApplyMigration(migration, globalTransaction.DbTransaction); err != nil {
-		return err
-	}
-
-	if shouldRecord {
-		_, err = mm.recordAppliedMigration(migration, globalTransaction.DbTransaction)
-		if err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
-
 //return a latest applied migration for the given object
 func (mm *MigrationManager) getLatestMigrationForObject(objectName string, transaction transactions.DbTransaction) (*record.Record, error) {
-	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return nil, err
 	}
@@ -329,8 +270,8 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string, trans
 }
 
 //return a list of migrations which were applied after the given one
-func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transaction transactions.DbTransaction) ([]record.Record, error) {
-	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transaction transactions.DbTransaction) ([]*migrations_description.MigrationDescription, error) {
+	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return nil, err
 	}
@@ -341,24 +282,25 @@ func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transact
 
 	}
 
-	migration, err := processor.ShadowGet(transaction, historyMeta, migrationId, 1, false)
+	migration, err := processor.Get(historyMeta.Name, migrationId, nil, nil, 1, false)
 	if err != nil {
 		return nil, err
 	}
 
 	rqlFilter := "gt(order," + url.QueryEscape(strconv.Itoa(int(migration.Data["order"].(float64)))) + "),sort(-order)"
 
-	var subsequentMigrations []record.Record
-	callbackFunction := func(obj *record.Record) error {
-		subsequentMigrations = append(subsequentMigrations, *record.NewRecord(historyMeta, obj.Data))
-		return nil
+	var subsequentMigrations []*migrations_description.MigrationDescription
+	_, migrationRecords, err := processor.GetBulk(historyMeta.Name, rqlFilter, nil, nil, 1, true)
+
+	for _, mr := range migrationRecords {
+		subsequentMigrations = append(subsequentMigrations, migrations_description.MigrationDescriptionFromRecord(mr))
 	}
-	_, err = processor.ShadowGetBulk(transaction, historyMeta, rqlFilter, 1, true, callbackFunction)
+
 	return subsequentMigrations, err
 }
 
 func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migration, transaction transactions.DbTransaction) (string, error) {
-	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return "", err
 	}
@@ -377,10 +319,15 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 		predecessorId = migration.DependsOn[0]
 	}
 
+	operations, _ := json.Marshal(migration.Operations)
+	meta_sate, _ := json.Marshal(migration.MigrationDescription.MetaDescription)
+
 	migrationRecord := record.NewRecord(historyMeta, map[string]interface{}{
 		"migration_id":   migration.Id,
 		"predecessor_id": predecessorId,
 		"object":         metaName,
+		"operations":  operations,
+		"meta_state": meta_sate,
 	})
 	migrationRecord.PrepareData(record.RecordOperationTypeCreate)
 	operation, err := mm.dataManager.PrepareCreateOperation(historyMeta, []map[string]interface{}{migrationRecord.RawData})
@@ -396,7 +343,7 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 }
 
 func (mm *MigrationManager) removeAppliedMigration(migration *migrations.Migration, transaction transactions.DbTransaction) error {
-	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return err
 	}
@@ -417,8 +364,9 @@ func (mm *MigrationManager) removeAppliedMigration(migration *migrations.Migrati
 	return nil
 }
 
-func (mm *MigrationManager) ensureHistoryTableExists(transaction transactions.DbTransaction) (*meta.Meta, error) {
-	_, err := pg.MetaDDLFromDB(transaction.Transaction().(*sql.Tx), historyMetaName)
+func (mm *MigrationManager) ensureHistoryTableExists() (*meta.Meta, error) {
+	transaction, err := mm.globalTransactionManager.DbTransactionManager.BeginTransaction()
+	_, err = pg.MetaDDLFromDB(transaction.Transaction().(*sql.Tx), historyMetaName)
 	doesNotExist := false
 	if err != nil {
 		switch castError := err.(type) {
@@ -426,23 +374,28 @@ func (mm *MigrationManager) ensureHistoryTableExists(transaction transactions.Db
 			if castError.Code() == pg.ErrNotFound {
 				doesNotExist = true
 			} else {
+				mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 				return nil, err
 			}
 		default:
+			mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 			return nil, err
 		}
 	}
 
 	historyMeta, err := mm.factoryHistoryMeta()
 	if err != nil {
+		mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 		return nil, err
 	}
 
 	if doesNotExist {
-		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, transaction, mm.metaDescriptionSyncer); err != nil {
+		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, transaction, mm.migrationStore.MetaDescriptionSyncer); err != nil {
+			mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 			return nil, err
 		}
 	}
+	mm.globalTransactionManager.DbTransactionManager.CommitTransaction(transaction)
 	return historyMeta, nil
 }
 
@@ -459,7 +412,7 @@ func (mm *MigrationManager) canApplyMigration(migration *migrations.Migration, t
 }
 
 func (mm *MigrationManager) migrationIsNotAppliedYet(migration *migrations.Migration, transaction transactions.DbTransaction) error {
-	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return err
 	}
@@ -482,7 +435,7 @@ func (mm *MigrationManager) migrationIsNotAppliedYet(migration *migrations.Migra
 }
 
 func (mm *MigrationManager) migrationParentIsValid(migration *migrations.Migration, parentMigrationId string, transaction transactions.DbTransaction) error {
-	historyMeta, err := mm.ensureHistoryTableExists(transaction)
+	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return err
 	}
@@ -513,34 +466,38 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 				Name:     "object",
 				Type:     description.FieldTypeString,
 				Optional: false,
-			},
-			{
+			}, {
 				Name:     "migration_id",
 				Type:     description.FieldTypeString,
 				Optional: false,
-			},
-			{
+			}, {
 				Name:     "predecessor_id",
 				Type:     description.FieldTypeString,
 				Optional: false,
-			},
-			{
-				Name:        "created",
+			}, {
+				Name:      "created",
 				Type:        description.FieldTypeDateTime,
 				NowOnCreate: true,
-			},
-			{
+			}, {
 				Name: "order",
 				Type: description.FieldTypeNumber,
 				Def: map[string]interface{}{
 					"func": "nextval",
 				},
+			}, {
+				Name: "operations",
+				Type: description.FieldTypeString,
+				Optional: false,
+			}, {
+				Name: "meta_state",
+				Type: description.FieldTypeString,
+				Optional: false,
 			},
 		},
 	}
 	return meta.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func NewMigrationManager(metaStore *meta.MetaStore, manager *pg.DataManager, syncer meta.MetaDescriptionSyncer, migrationStoragePath string, gtm *transactions.GlobalTransactionManager) *MigrationManager {
-	return &MigrationManager{metaStore, manager, syncer, storage.NewMigrationStorage(migrationStoragePath), gtm}
+func NewMigrationManager(metaStore *meta.MetaStore, migrationStore *meta.MetaStore, manager *pg.DataManager, gtm *transactions.GlobalTransactionManager) *MigrationManager {
+	return &MigrationManager{metaStore, migrationStore, manager, gtm}
 }
