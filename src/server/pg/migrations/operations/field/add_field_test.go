@@ -83,7 +83,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Columns).To(HaveLen(2))
 		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
-		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
+		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 		Expect(metaDdlFromDB.Columns[1].Name).To(Equal("new_field"))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)

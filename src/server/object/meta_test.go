@@ -413,7 +413,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			Expect(err).To(BeNil())
-			Expect(actualMeta.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
+			Expect(actualMeta.Columns[1].Typ).To(Equal(description.FieldTypeString))
 		})
 	})
 
