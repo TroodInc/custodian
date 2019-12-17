@@ -86,8 +86,8 @@ func (mm *MigrationManager) FakeApply(migrationDescription *migrations_descripti
 }
 
 //Rollback object to the given migration`s state
-func (mm *MigrationManager) RollBackTo(migrationId string, globalTransaction *transactions.GlobalTransaction, shouldRecord bool, fake bool) (*description.MetaDescription, error) {
-	subsequentMigrations, err := mm.getSubsequentMigrations(migrationId, globalTransaction.DbTransaction)
+func (mm *MigrationManager) RollBackTo(migrationID string, globalTransaction *transactions.GlobalTransaction, shouldRecord bool, fake bool) (*description.MetaDescription, error) {
+	subsequentMigrations, err := mm.getSubsequentMigrations(migrationID, globalTransaction.DbTransaction)
 	if err != nil {
 		return nil, err
 	}
@@ -195,12 +195,21 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, global
 	return updatedMetaDescription, nil
 }
 
-func (mm *MigrationManager) DropHistory(transaction transactions.DbTransaction) error {
+func (mm *MigrationManager) DropHistory() error {
 	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return err
 	}
-	return object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.migrationStore.MetaDescriptionSyncer)
+
+	transaction, err := mm.globalTransactionManager.DbTransactionManager.BeginTransaction()
+	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.migrationStore.MetaDescriptionSyncer)
+	if err != nil {
+		mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
+		return err
+	}
+
+	mm.globalTransactionManager.DbTransactionManager.CommitTransaction(transaction)
+	return nil
 }
 
 //return a list of preceding migrations for the given object
@@ -232,7 +241,6 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string, t
 	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
 	if err != nil {
 		return nil, err
-
 	}
 	_, err = processor.ShadowGetBulk(transaction, historyMeta, rqlFilter, 1, true, callbackFunction)
 
@@ -249,7 +257,6 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string, trans
 	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
 	if err != nil {
 		return nil, err
-
 	}
 	rqlFilter := "eq(object," + objectName + "),sort(-order),limit(0,1)"
 
@@ -270,7 +277,7 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string, trans
 }
 
 //return a list of migrations which were applied after the given one
-func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transaction transactions.DbTransaction) ([]*migrations_description.MigrationDescription, error) {
+func (mm *MigrationManager) getSubsequentMigrations(migrationID string, transaction transactions.DbTransaction) ([]*migrations_description.MigrationDescription, error) {
 	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
 		return nil, err
@@ -279,10 +286,9 @@ func (mm *MigrationManager) getSubsequentMigrations(migrationId string, transact
 	processor, err := data.NewProcessor(mm.metaStore, mm.dataManager, mm.globalTransactionManager.DbTransactionManager)
 	if err != nil {
 		return nil, err
-
 	}
 
-	migration, err := processor.Get(historyMeta.Name, migrationId, nil, nil, 1, false)
+	migration, err := processor.Get(historyMeta.Name, migrationID, nil, nil, 1, false)
 	if err != nil {
 		return nil, err
 	}

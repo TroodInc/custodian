@@ -1,16 +1,16 @@
 package managers
 
 import (
+	"database/sql"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"server/migrations/description"
+	"server/migrations/migrations"
+	"server/object/meta"
 	"server/pg"
+	pg_transactions "server/pg/transactions"
 	"server/transactions"
 	"utils"
-	pg_transactions "server/pg/transactions"
-	. "github.com/onsi/gomega"
-	"database/sql"
-	"server/migrations/migrations"
-	"server/migrations/description"
-	"server/object/meta"
 )
 
 var _ = Describe("MigrationManager", func() {
@@ -18,30 +18,31 @@ var _ = Describe("MigrationManager", func() {
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+
 	//transaction managers
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(nil, dbTransactionManager)
 
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(dbTransactionManager)
+	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, syncer, globalTransactionManager)
+	migrationManager := NewMigrationManager(
+		metaStore, migrationStore, dataManager, globalTransactionManager,
+	)
 
 	It("Creates migration history table if it does not exists", func() {
+		_, err := migrationManager.ensureHistoryTableExists()
+		Expect(err).To(BeNil())
+
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-
-		_, err = NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).ensureHistoryTableExists(dbTransaction)
-		Expect(err).To(BeNil())
-
 		metaDdl, err := pg.MetaDDLFromDB(dbTransaction.Transaction().(*sql.Tx), historyMetaName)
+		dbTransactionManager.RollbackTransaction(dbTransaction)
 
 		Expect(err).To(BeNil())
 
 		Expect(metaDdl.Table).To(Equal(pg.GetTableName(historyMetaName)))
-		Expect(metaDdl.Columns).To(HaveLen(5))
-
-		dbTransactionManager.RollbackTransaction(dbTransaction)
+		Expect(metaDdl.Columns).To(HaveLen(7))
 	})
 
 	It("Records migration", func() {
@@ -50,9 +51,7 @@ var _ = Describe("MigrationManager", func() {
 		migrationUid := "c1be598d"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
-		migrationHistoryId, err := NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).recordAppliedMigration(migration, dbTransaction)
+		migrationHistoryId, err := migrationManager.recordAppliedMigration(migration, dbTransaction)
 		Expect(err).To(BeNil())
 
 		Expect(migrationHistoryId).To(Equal(migrationUid))
@@ -66,14 +65,10 @@ var _ = Describe("MigrationManager", func() {
 		migrationUid := "c1be598d"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
-		_, err = NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).recordAppliedMigration(migration, dbTransaction)
+		_, err = migrationManager.recordAppliedMigration(migration, dbTransaction)
 		Expect(err).To(BeNil())
 
-		_, err = NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).recordAppliedMigration(migration, dbTransaction)
+		_, err = migrationManager.recordAppliedMigration(migration, dbTransaction)
 		Expect(err).NotTo(BeNil())
 
 		dbTransactionManager.RollbackTransaction(dbTransaction)
