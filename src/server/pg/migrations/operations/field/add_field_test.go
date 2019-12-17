@@ -28,17 +28,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	var metaDescription *description.MetaDescription
 
-	flushDb := func() {
-		//Flush meta/database
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
-	}
-
-	//setup transaction
-	AfterEach(flushDb)
-
 	//setup MetaDescription
 	BeforeEach(func() {
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
+
 		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",

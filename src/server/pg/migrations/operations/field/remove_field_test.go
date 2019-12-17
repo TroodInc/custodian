@@ -1,17 +1,16 @@
 package field
 
 import (
+	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+	"server/object/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
-	"server/pg/migrations/operations/object"
-	"database/sql"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {
@@ -28,14 +27,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	var metaDescription *description.MetaDescription
 
-	flushDb := func() {
+	BeforeEach(func() {
 		//Flush meta/database
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-	}
-
-	//setup transaction
-	AfterEach(flushDb)
+	})
 
 	Describe("Simple field case", func() {
 
@@ -64,20 +60,10 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					},
 				},
 			}
-			//create MetaDescription
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			metaObj, err := metaStore.NewMeta(metaDescription)
 			Expect(err).To(BeNil())
-
-			operation := object.NewCreateObjectOperation(metaDescription)
-
-			metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
-			//sync DB
-			err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
-			//
-			globalTransactionManager.CommitTransaction(globalTransaction)
-
 		})
 
 		It("drops column", func() {
@@ -125,7 +111,6 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	Describe("Inner FK field case", func() {
 		//setup MetaObj
 		BeforeEach(func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			//MetaDescription B
 			bMetaDescription := &description.MetaDescription{
 				Name: "b",
@@ -149,13 +134,12 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					},
 				},
 			}
-			operation := object.NewCreateObjectOperation(bMetaDescription)
 
-			bMetaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			bMetaObj, err := metaStore.NewMeta(bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
 
-			err = operation.SyncDbDescription(bMetaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
 			//MetaDescription A
 			metaDescription = &description.MetaDescription{
 				Name: "a",
@@ -177,17 +161,10 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					},
 				},
 			}
-			//create MetaDescription
-			operation = object.NewCreateObjectOperation(metaDescription)
-			//sync MetaDescription
-			metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			metaObj, err := metaStore.NewMeta(metaDescription)
 			Expect(err).To(BeNil())
-			//sync DB
-			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
-			//
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("Drops IFK if field is being dropped", func() {
