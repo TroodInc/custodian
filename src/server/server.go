@@ -626,7 +626,15 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		} else {
 			result := make([]interface{}, 0)
 			for _, obj := range migrationList {
-				result = append(result, obj.GetData())
+				data := obj.GetData()
+				var meta_state map[string]interface{}
+				var operations map[string]interface{}
+				json.Unmarshal([]byte(fmt.Sprintf("%v", data["meta_state"])), &meta_state)
+				json.Unmarshal([]byte(fmt.Sprintf("%v", data["operations"])), &operations)
+				data["meta_state"] = meta_state
+				data["operations"] = operations
+
+				result = append(result, data)
 			}
 			sink.pushList(result, len(result))
 		}
