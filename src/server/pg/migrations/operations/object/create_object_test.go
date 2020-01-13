@@ -28,13 +28,11 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 	var metaDescription *description.MetaDescription
 
 	//setup transaction
-	AfterEach(func() {
+	BeforeEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-	})
 
 	//setup MetaDescription
-	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -49,12 +47,6 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 				},
 			},
 		}
-	})
-
-	//setup teardown
-	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
 	})
 
 	It("creates corresponding table in the database", func() {

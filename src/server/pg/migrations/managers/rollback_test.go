@@ -104,10 +104,6 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			var secondAppliedMigrationDescription *migrations_description.MigrationDescription
 
 			BeforeEach(func() {
-				//Create object A by applying a migration
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				field := description.Field{
 					Name:     "title",
 					Type:     description.FieldTypeString,
@@ -126,10 +122,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 					},
 				}
 
+				var err error
 				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, true, true)
 				Expect(err).To(BeNil())
-
-				globalTransactionManager.CommitTransaction(globalTransaction)
 			})
 
 			It("It can rollback `AddField` migration", func() {

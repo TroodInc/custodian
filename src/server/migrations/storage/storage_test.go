@@ -13,7 +13,6 @@ var _ = Describe("Migration Storage", func() {
 	migrationStorage := NewMigrationStorage(appConfig.MigrationStoragePath)
 
 	BeforeEach(func() { migrationStorage.Flush() })
-	AfterEach(func() { migrationStorage.Flush() })
 
 	It("stores MigrationMetaDescription to file", func() {
 		metaDescription := &description.MetaDescription{

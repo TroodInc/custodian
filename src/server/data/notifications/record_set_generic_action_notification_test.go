@@ -29,7 +29,7 @@ var _ = Describe("Data", func() {
 
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
-	AfterEach(func() {
+	BeforeEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})

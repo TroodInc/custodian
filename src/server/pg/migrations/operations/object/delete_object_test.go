@@ -28,13 +28,11 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	var metaDescription *description.MetaDescription
 
 	//setup transaction
-	AfterEach(func() {
+	BeforeEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-	})
 
 	//setup MetaDescription
-	BeforeEach(func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		metaDescription = &description.MetaDescription{
 			Name: "a",
@@ -56,12 +54,6 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	//setup teardown
-	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
 	})
 
 	It("removes MetaDescription`s file", func() {

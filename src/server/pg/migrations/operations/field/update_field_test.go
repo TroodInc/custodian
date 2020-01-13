@@ -30,13 +30,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	var metaDescription *description.MetaDescription
 	var fieldToUpdate description.Field
 
-	flushDb := func() {
+	BeforeEach(func() {
 		//Flush meta/database
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-	}
-
-	AfterEach(flushDb)
+	})
 
 	Describe("Simple field case", func() {
 

@@ -27,13 +27,11 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	var metaDescription *description.MetaDescription
 
 	//setup transaction
-	AfterEach(func() {
+	BeforeEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-	})
 
 	//setup MetaDescription
-	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -55,12 +53,6 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaDescription).NotTo(BeNil())
-	})
-
-	//setup teardown
-	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
 	})
 
 	It("renames metaDescription`s file", func() {

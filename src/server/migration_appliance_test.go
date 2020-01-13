@@ -47,18 +47,14 @@ var _ = Describe("Server", func() {
 		//setup server
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)
 		recorder = httptest.NewRecorder()
-	})
 
-	flushDb := func() {
 		// drop history
 		err := migrationManager.DropHistory()
 		Expect(err).To(BeNil())
 		//Flush meta/database
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
-	}
-
-	AfterEach(flushDb)
+	})
 
 	It("Can create object by application of migration", func() {
 		migrationDescriptionData := map[string]interface{}{

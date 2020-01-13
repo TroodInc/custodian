@@ -247,7 +247,7 @@ var _ = Describe("Abac Engine", func() {
 			}
 		}`)
 
-		AfterEach(func() {
+		BeforeEach(func() {
 			metaStore.Flush()
 		})
 

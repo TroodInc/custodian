@@ -29,6 +29,9 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
+
 		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -47,15 +50,9 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		//factory new MetaDescription
 		//sync its MetaDescription
 		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	//setup teardown
-	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
 	})
 
 	It("removes MetaDescription`s file", func() {
