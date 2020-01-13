@@ -1,15 +1,14 @@
 package validation
 
 import (
-	"server/errors"
-	"server/pg/migrations/managers"
-	"server/transactions"
-	"utils"
-	_migrations "server/migrations"
-	"server/migrations/storage"
-	"reflect"
-	"server/migrations/description"
 	"fmt"
+	"reflect"
+	"server/errors"
+	_migrations "server/migrations"
+	"server/migrations/description"
+	"server/migrations/storage"
+	"server/pg/migrations/managers"
+	"utils"
 )
 
 type MigrationValidationService struct {
@@ -19,13 +18,13 @@ type MigrationValidationService struct {
 
 //check if the given migration has no conflicts with already applied migrations
 //check if migration`s list of parents has not changed, so the given migration definitely will not cause conflicts
-func (mv *MigrationValidationService) Validate(migrationDescription *description.MigrationDescription, transaction transactions.DbTransaction) error {
+func (mv *MigrationValidationService) Validate(migrationDescription *description.MigrationDescription) error {
 	metaName, err := migrationDescription.MetaName()
 	if err != nil {
 		return err
 	}
 
-	appliedParentMigrations, err := mv.migrationManager.GetPrecedingMigrationsForObject(metaName, transaction)
+	appliedParentMigrations, err := mv.migrationManager.GetPrecedingMigrationsForObject(metaName)
 	if err != nil {
 		return err
 	}

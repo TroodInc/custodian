@@ -89,7 +89,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			Expect(err).NotTo(BeNil())
 
 			//ensure migration record was deleted
-			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(migrationRecord).To(BeNil())
 			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
@@ -140,7 +140,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				Expect(err).To(BeNil())
 
 				//ensure migration record was deleted
-				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 				Expect(err).To(BeNil())
 				Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
 				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
@@ -180,7 +180,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				Expect(err).To(BeNil())
 
 				//ensure migration record was deleted
-				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 				Expect(err).To(BeNil())
 				Expect(migrationRecord.Data["migration_id"]).To(Equal(secondAppliedMigrationDescription.Id))
 				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
@@ -229,7 +229,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 					Expect(err).To(BeNil())
 
 					//ensure migration record was deleted
-					migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+					migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 					Expect(err).To(BeNil())
 					Expect(migrationRecord.Data["migration_id"]).To(Equal(secondAppliedMigrationDescription.Id))
 					Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
@@ -285,7 +285,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			Expect(err).NotTo(BeNil())
 
 			//ensure migration record was deleted
-			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
 			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
@@ -327,7 +327,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			Expect(err).NotTo(BeNil())
 
 			//ensure migration record was deleted
-			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
 			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())

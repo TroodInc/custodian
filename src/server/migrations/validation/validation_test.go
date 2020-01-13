@@ -36,8 +36,10 @@ var _ = Describe("Migration Validation Service", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
+	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(dbTransactionManager)
+	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		metaStore, migrationStore, dataManager, globalTransactionManager,
 	)
 
 	migrationValidationService := validation.NewMigrationValidationService(migrationManager, appConfig.MigrationStoragePath)
@@ -46,28 +48,16 @@ var _ = Describe("Migration Validation Service", func() {
 		//setup server
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)
 		recorder = httptest.NewRecorder()
-	})
 
-	flushDb := func() {
-		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		// drop history
+		err := migrationManager.DropHistory()
 		Expect(err).To(BeNil())
+		//Flush meta/database
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
-		// drop history
-		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
-	}
-
-	BeforeEach(flushDb)
-	AfterEach(flushDb)
+	})
 
 	It("It does`nt return error if there are no parents actually and no parents are specified in migration`s description", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
 		metaDescription := description.NewMetaDescription(
 			"b",
 			"id",
@@ -103,10 +93,8 @@ var _ = Describe("Migration Validation Service", func() {
 			},
 		}
 
-		err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
+		err := migrationValidationService.Validate(migrationDescription)
 		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	Context("Having applied `create` migration for object A", func() {
@@ -115,9 +103,6 @@ var _ = Describe("Migration Validation Service", func() {
 
 		BeforeEach(func() {
 			//Create object A by applying a migration
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
 			aMetaDescription = description.NewMetaDescription(
 				"a",
 				"id",
@@ -146,16 +131,12 @@ var _ = Describe("Migration Validation Service", func() {
 				},
 			}
 
-			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, globalTransaction, true)
+			var err error
+			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("It returns an error if there is an already applied migration but it is not specified in migration`s description", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
 			metaDescription := description.NewMetaDescription(
 				"a",
 				"id",
@@ -184,16 +165,12 @@ var _ = Describe("Migration Validation Service", func() {
 				},
 			}
 
-			err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
-			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
+			err := migrationValidationService.Validate(migrationDescription)
 			Expect(err).NotTo(BeNil())
 			Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotActual))
 		})
 
 		It("It does`nt return error if there is an already applied migration and its id is specified in migration", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
 			field := description.Field{
 				Name:     "title",
 				Type:     description.FieldTypeString,
@@ -212,8 +189,7 @@ var _ = Describe("Migration Validation Service", func() {
 				},
 			}
 
-			err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
-			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
+			err := migrationValidationService.Validate(migrationDescription)
 			Expect(err).To(BeNil())
 		})
 
@@ -222,9 +198,6 @@ var _ = Describe("Migration Validation Service", func() {
 
 			BeforeEach(func() {
 				//Add a field to the object A
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				field := description.Field{
 					Name:     "title",
 					Type:     description.FieldTypeString,
@@ -243,16 +216,12 @@ var _ = Describe("Migration Validation Service", func() {
 					},
 				}
 
-				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
+				var err error
+				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription,true, false)
 				Expect(err).To(BeNil())
-
-				globalTransactionManager.CommitTransaction(globalTransaction)
 			})
 
 			It("It returns an error if a migration contains an `object` operation and supposed to be applied as a sibling", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				aMetaDescription = description.NewMetaDescription(
 					"a",
 					"id",
@@ -281,16 +250,12 @@ var _ = Describe("Migration Validation Service", func() {
 					},
 				}
 
-				err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
-				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
+				err := migrationValidationService.Validate(migrationDescription)
 				Expect(err).NotTo(BeNil())
 				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
 			It("It returns an error if a migration contains an `field` operation on the same field as the applied sibling has", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				field := description.Field{
 					Name:     "title",
 					Type:     description.FieldTypeString,
@@ -309,16 +274,12 @@ var _ = Describe("Migration Validation Service", func() {
 					},
 				}
 
-				err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
-				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
+				err := migrationValidationService.Validate(migrationDescription)
 				Expect(err).NotTo(BeNil())
 				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
 			It("It returns an error if a migration contains an `field` `rename` operation", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				field := description.Field{
 					Name:     "updated_title",
 					Type:     description.FieldTypeString,
@@ -337,17 +298,13 @@ var _ = Describe("Migration Validation Service", func() {
 					},
 				}
 
-				err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
-				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
+				err := migrationValidationService.Validate(migrationDescription)
 				Expect(err).NotTo(BeNil())
 				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
 			It("Can apply a migration which is a sibling to the latest applied", func() {
 				//Add a field to the object A
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				field := description.Field{
 					Name:     "content",
 					Type:     description.FieldTypeString,
@@ -366,11 +323,11 @@ var _ = Describe("Migration Validation Service", func() {
 					},
 				}
 
-				aMetaDescription, err = migrationManager.Apply(migrationDescription, globalTransaction, true)
+				var err error
+				aMetaDescription, err = migrationManager.Apply(migrationDescription, true, false)
 				Expect(err).To(BeNil())
 
-				migrationRecords, err := migrationManager.GetPrecedingMigrationsForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
-				globalTransactionManager.CommitTransaction(globalTransaction)
+				migrationRecords, err := migrationManager.GetPrecedingMigrationsForObject(aMetaDescription.Name)
 				Expect(err).To(BeNil())
 
 				Expect(migrationRecords).To(HaveLen(2))
@@ -383,9 +340,6 @@ var _ = Describe("Migration Validation Service", func() {
 				var thirdAppliedMigrationDescription *migrations_description.MigrationDescription
 				BeforeEach(func() {
 					//Add a field to the object A
-					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-					Expect(err).To(BeNil())
-
 					field := description.Field{
 						Name:     "content",
 						Type:     description.FieldTypeString,
@@ -404,17 +358,13 @@ var _ = Describe("Migration Validation Service", func() {
 						},
 					}
 
-					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, globalTransaction, true)
+					var err error
+					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, true, false)
 					Expect(err).To(BeNil())
-
-					globalTransactionManager.CommitTransaction(globalTransaction)
 				})
 
 				It("Returns an error if a migration has an outdated list of a direct parents", func() {
 					//Add a field to the object A
-					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-					Expect(err).To(BeNil())
-
 					field := description.Field{
 						Name:     "publish_date",
 						Type:     description.FieldTypeDate,
@@ -433,8 +383,7 @@ var _ = Describe("Migration Validation Service", func() {
 						},
 					}
 
-					err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
-					Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
+					err := migrationValidationService.Validate(migrationDescription)
 					Expect(err).NotTo(BeNil())
 					Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationErrorParentsChanged))
 				})
@@ -442,9 +391,6 @@ var _ = Describe("Migration Validation Service", func() {
 				Context("Having a fourth applied migration for the same object which is a direct children to the second and third", func() {
 					var fourthAppliedMigrationDescription *migrations_description.MigrationDescription
 					BeforeEach(func() {
-						globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-						Expect(err).To(BeNil())
-
 						field := description.Field{
 							Name:     "publish_date",
 							Type:     description.FieldTypeDate,
@@ -463,16 +409,12 @@ var _ = Describe("Migration Validation Service", func() {
 							},
 						}
 
-						aMetaDescription, err = migrationManager.Apply(fourthAppliedMigrationDescription, globalTransaction, true)
+						var err error
+						aMetaDescription, err = migrationManager.Apply(fourthAppliedMigrationDescription, true, false)
 						Expect(err).To(BeNil())
-
-						globalTransactionManager.CommitTransaction(globalTransaction)
 					})
 
 					It("Returns an error if a migration is not actual and its siblings already have children", func() {
-						globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-						Expect(err).To(BeNil())
-
 						field := description.Field{
 							Name:     "author",
 							Type:     description.FieldTypeObject,
@@ -492,8 +434,7 @@ var _ = Describe("Migration Validation Service", func() {
 							},
 						}
 
-						err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
-						Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
+						err := migrationValidationService.Validate(migrationDescription)
 						Expect(err).NotTo(BeNil())
 						Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotActual))
 					})

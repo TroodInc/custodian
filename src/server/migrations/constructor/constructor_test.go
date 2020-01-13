@@ -30,7 +30,12 @@ var _ = Describe("Migration Constructor", func() {
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath, globalTransactionManager))
+	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(dbTransactionManager)
+	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, syncer, globalTransactionManager)
+	migrationManager := managers.NewMigrationManager(
+		metaStore, migrationStore, dataManager, globalTransactionManager,
+	)
+	migrationConstructor := NewMigrationConstructor(migrationManager)
 
 	flushDb := func() {
 		err := metaStore.Flush()

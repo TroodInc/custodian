@@ -160,10 +160,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(dbTransactionManager)
 	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore,
-		migrationStore,
-		dataManager,
-		globalTransactionManager,
+		metaStore, migrationStore, dataManager, globalTransactionManager,
 	)
 
 	getDataProcessor := func () *data.Processor {
@@ -640,6 +637,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		if err != nil {
 			sink.pushError(err)
 			return
+		} else if migration == nil {
+			sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 		} else {
 			sink.pushObj(migration.GetData())
 		}
