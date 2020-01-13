@@ -55,123 +55,84 @@ var _ = Describe("Rollback migrations", func() {
 		Expect(err).To(BeNil())
 	})
 
-	Context("Having applied `create` migration for object A", func() {
-		var aMetaDescription *description.MetaDescription
-		var firstAppliedMigrationDescription *migrations_description.MigrationDescription
-
-		BeforeEach(func() {
-			//Create object A by applying a migration
-			aMetaDescription = description.NewMetaDescription(
-				"a",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
+	It("It can rollback object`s state up to the first migration state", func() {
+		By("Having applied `create` migration for object A")
+		//Create object by applying a migration
+		migrationManager.Apply(&migrations_description.MigrationDescription{
+			Id:        "1",
+			ApplyTo:   "",
+			DependsOn: nil,
+			Operations: [] migrations_description.MigrationOperationDescription{
+				{
+					Type:            migrations_description.CreateObjectOperation,
+					MetaDescription: description.NewMetaDescription(
+						"rollback_test_object",
+						"id",
+						[]description.Field{
+							{Name: "id", Type: description.FieldTypeNumber, Def: map[string]interface{}{"func": "nextval"}},
 						},
+						nil,
+						false,
+					),
+				},
+			},
+		}, false, true)
+
+		By("Having applied `addField` migration for object A")
+		//Create object A by applying a migration
+		migrationManager.Apply(&migrations_description.MigrationDescription{
+			Id:        "2",
+			ApplyTo:   "rollback_test_object",
+			DependsOn: []string{"2"},
+			Operations: [] migrations_description.MigrationOperationDescription{
+				{
+					Type:  migrations_description.AddFieldOperation,
+					Field: &migrations_description.MigrationFieldDescription{
+						Field: description.Field{Name: "title", Type: description.FieldTypeString, Optional: false},
 					},
 				},
-				nil,
-				false,
-			)
+			},
+		}, false, true)
 
-			firstAppliedMigrationDescription = &migrations_description.MigrationDescription{
-				Id:        "1",
-				ApplyTo:   "",
-				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
-					{
-						Type:            migrations_description.CreateObjectOperation,
-						MetaDescription: aMetaDescription,
-					},
+		By("Having applied `UpdateField` migration for object A")
+		migrationManager.Apply(&migrations_description.MigrationDescription{
+			Id:        "3",
+			ApplyTo:   "rollback_test_object",
+			DependsOn: []string{"2"},
+			Operations: [] migrations_description.MigrationOperationDescription{
+				{
+					Type:  migrations_description.UpdateFieldOperation,
+					Field: &migrations_description.MigrationFieldDescription{
+						Field: description.Field{Name: "new_title", Type: description.FieldTypeString, Optional: false},
+						PreviousName: "title"},
 				},
-			}
+			},
+		}, false, true)
 
-			aMetaDescription, _ = migrationManager.Apply(firstAppliedMigrationDescription, false, true)
-		})
+		url := fmt.Sprintf("%s/migrations/rollback", appConfig.UrlPrefix)
 
-		Context("Having applied `addField` migration for object A", func() {
-			var secondAppliedMigrationDescription *migrations_description.MigrationDescription
+		data := map[string]interface{}{
+			"migrationId": "1",
+		}
+		encodedData, _ := json.Marshal(data)
 
-			BeforeEach(func() {
-				//Create object A by applying a migration
-				field := description.Field{
-					Name:     "title",
-					Type:     description.FieldTypeString,
-					Optional: false,
-				}
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
 
-				secondAppliedMigrationDescription = &migrations_description.MigrationDescription{
-					Id:        "2",
-					ApplyTo:   aMetaDescription.Name,
-					DependsOn: []string{firstAppliedMigrationDescription.Id},
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+		//check response status
+		Expect(body["status"]).To(Equal("OK"))
+		//ensure applied migration was returned
+		Expect(body["data"]).NotTo(BeNil())
 
-				aMetaDescription, _ = migrationManager.Apply(secondAppliedMigrationDescription, false, true)
-			})
+		//ensure rolled back migrations were removed from history
+		records, err := migrationManager.GetPrecedingMigrationsForObject("rollback_test_object")
+		Expect(err).To(BeNil())
 
-			Context("Having applied `UpdateField` migration for object A", func() {
-				var thirdAppliedMigrationDescription *migrations_description.MigrationDescription
-
-				BeforeEach(func() {
-					//Create object A by applying a migration
-					field := description.Field{
-						Name:     "new_title",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					}
-
-					thirdAppliedMigrationDescription = &migrations_description.MigrationDescription{
-						Id:        "3",
-						ApplyTo:   aMetaDescription.Name,
-						DependsOn: []string{secondAppliedMigrationDescription.Id},
-						Operations: [] migrations_description.MigrationOperationDescription{
-							{
-								Type:  migrations_description.UpdateFieldOperation,
-								Field: &migrations_description.MigrationFieldDescription{Field: field, PreviousName: "title"},
-							},
-						},
-					}
-
-					aMetaDescription, _ = migrationManager.Apply(thirdAppliedMigrationDescription, false, true)
-				})
-
-				It("It can rollback object`s state up to the first migration state", func() {
-					url := fmt.Sprintf("%s/migrations/rollback", appConfig.UrlPrefix)
-
-					data := map[string]interface{}{
-						"migrationId": firstAppliedMigrationDescription.Id,
-					}
-					encodedData, _ := json.Marshal(data)
-
-					var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedData))
-					request.Header.Set("Content-Type", "application/json")
-					httpServer.Handler.ServeHTTP(recorder, request)
-					responseBody := recorder.Body.String()
-					var body map[string]interface{}
-					json.Unmarshal([]byte(responseBody), &body)
-
-					//check response status
-					Expect(body["status"]).To(Equal("OK"))
-					//ensure applied migration was returned
-					Expect(body["data"]).NotTo(BeNil())
-
-					//ensure rolled back migrations were removed from history
-					records, err := migrationManager.GetPrecedingMigrationsForObject(aMetaDescription.Name)
-					Expect(err).To(BeNil())
-
-					Expect(records).To(HaveLen(1))
-					Expect(records[0].Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
-				})
-			})
-		})
+		Expect(records).To(HaveLen(1))
+		Expect(records[0].Data["migration_id"]).To(Equal("1"))
 	})
 })
