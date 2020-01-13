@@ -1,13 +1,13 @@
 package description
 
 import (
-	"bytes"
 	"encoding/json"
 	"io"
 	"server/data/record"
 	"server/errors"
 	_migrations "server/migrations"
 	"server/object/description"
+	"strings"
 )
 
 type MigrationDescription struct {
@@ -19,7 +19,7 @@ type MigrationDescription struct {
 }
 
 func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescription){
-	metaDescription, _ := MigrationMetaDescriptionFromJson(bytes.NewReader(record.Data["meta_state"].([]byte)))
+	metaDescription, _ := MigrationMetaDescriptionFromJson(strings.NewReader(record.Data["meta_state"].(string)))
 	migrationDescription := MigrationDescription{
 		record.Data["migration_id"].(string),
 		record.Data["object"].(string),

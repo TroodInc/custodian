@@ -58,8 +58,8 @@ var _ = Describe("Rollback migrations", func() {
 	It("It can rollback object`s state up to the first migration state", func() {
 		By("Having applied `create` migration for object A")
 		//Create object by applying a migration
-		migrationManager.Apply(&migrations_description.MigrationDescription{
-			Id:        "1",
+		_, err := migrationManager.Apply(&migrations_description.MigrationDescription{
+			Id:        "revtest1",
 			ApplyTo:   "",
 			DependsOn: nil,
 			Operations: [] migrations_description.MigrationOperationDescription{
@@ -76,14 +76,15 @@ var _ = Describe("Rollback migrations", func() {
 					),
 				},
 			},
-		}, false, true)
+		}, true, false)
+		Expect(err).To(BeNil())
 
 		By("Having applied `addField` migration for object A")
 		//Create object A by applying a migration
-		migrationManager.Apply(&migrations_description.MigrationDescription{
-			Id:        "2",
+		_, err = migrationManager.Apply(&migrations_description.MigrationDescription{
+			Id:        "revtest2",
 			ApplyTo:   "rollback_test_object",
-			DependsOn: []string{"2"},
+			DependsOn: []string{"revtest1"},
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.AddFieldOperation,
@@ -92,13 +93,14 @@ var _ = Describe("Rollback migrations", func() {
 					},
 				},
 			},
-		}, false, true)
+		}, true, false)
+		Expect(err).To(BeNil())
 
 		By("Having applied `UpdateField` migration for object A")
-		migrationManager.Apply(&migrations_description.MigrationDescription{
-			Id:        "3",
+		_, err = migrationManager.Apply(&migrations_description.MigrationDescription{
+			Id:        "revtest3",
 			ApplyTo:   "rollback_test_object",
-			DependsOn: []string{"2"},
+			DependsOn: []string{"revtest2"},
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.UpdateFieldOperation,
@@ -107,13 +109,15 @@ var _ = Describe("Rollback migrations", func() {
 						PreviousName: "title"},
 				},
 			},
-		}, false, true)
+		}, true, false)
+		Expect(err).To(BeNil())
 
 		url := fmt.Sprintf("%s/migrations/rollback", appConfig.UrlPrefix)
 
 		data := map[string]interface{}{
-			"migrationId": "1",
+			"migrationId": "revtest1",
 		}
+
 		encodedData, _ := json.Marshal(data)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedData))
@@ -133,6 +137,6 @@ var _ = Describe("Rollback migrations", func() {
 		Expect(err).To(BeNil())
 
 		Expect(records).To(HaveLen(1))
-		Expect(records[0].Data["migration_id"]).To(Equal("1"))
+		Expect(records[0].Data["migration_id"]).To(Equal("revtest1"))
 	})
 })

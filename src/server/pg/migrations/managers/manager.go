@@ -16,8 +16,6 @@ import (
 	"server/pg"
 	"server/pg/migrations/operations/object"
 	"server/transactions"
-	"net/url"
-	"strconv"
 	"time"
 )
 
@@ -171,7 +169,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 		}
 	}
 
-	return updatedMetaDescription, err
+	return metaDescriptionToApply, err
 }
 
 func (mm *MigrationManager) DropHistory() error {
@@ -243,17 +241,16 @@ func (mm *MigrationManager) getSubsequentMigrations(migrationID string) ([]*migr
 	}
 
 	migration, err := mm.processor.Get(historyMeta.Name, migrationID, nil, nil, 1, false)
-	if err != nil {
-		return nil, err
-	}
-
-	rqlFilter := "gt(order," + url.QueryEscape(strconv.Itoa(int(migration.Data["order"].(float64)))) + "),sort(-order)"
 
 	var subsequentMigrations []*migrations_description.MigrationDescription
-	_, migrationRecords, err := mm.processor.GetBulk(historyMeta.Name, rqlFilter, nil, nil, 1, true)
+	if migration != nil {
+		rqlFilter := fmt.Sprintf("gt(order,%v),sort(-order)", migration.Data["order"])
 
-	for _, mr := range migrationRecords {
-		subsequentMigrations = append(subsequentMigrations, migrations_description.MigrationDescriptionFromRecord(mr))
+		_, migrationRecords, _ := mm.processor.GetBulk(historyMeta.Name, rqlFilter, nil, nil, 1, true)
+
+		for _, mr := range migrationRecords {
+			subsequentMigrations = append(subsequentMigrations, migrations_description.MigrationDescriptionFromRecord(mr))
+		}
 	}
 
 	return subsequentMigrations, err
