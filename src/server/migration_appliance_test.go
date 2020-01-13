@@ -21,7 +21,7 @@ import (
 	"server/pg/migrations/managers"
 )
 
-var _ = Describe("Server", func() {
+var _ = XDescribe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")

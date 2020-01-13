@@ -20,7 +20,7 @@ import (
 	"server/transactions"
 )
 
-var _ = Describe("Migrations` listing", func() {
+var _ = XDescribe("Migrations` listing", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
