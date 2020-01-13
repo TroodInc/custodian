@@ -614,7 +614,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		if updatedMetaDescription != nil {
 			js.pushObj(updatedMetaDescription.ForExport())
 		} else {
-			js.pushObj(nil)
+			js.pushError(err)
 		}
 	}))
 
@@ -653,31 +653,24 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/migrations/rollback", CreateJsonAction(func(requestData *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
-			sink.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction.DbTransaction))
 
-			fake := len(q.Get("fake")) > 0
+		fake := len(q.Get("fake")) > 0
 
-			migrationId, ok := requestData.single["migrationId"]
-			if !ok {
-				sink.pushError(NewValidationError(migrations.MigrationErrorInvalidDescription, "Migration`s ID should be specified with 'migrationId' attribute", nil))
-				return
-			}
-			metaDescription, err := migrationManager.RollBackTo(migrationId.(string), globalTransaction, !fake, fake)
-
-			if err != nil {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				sink.pushError(err)
-				return
-			} else {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				sink.pushObj(metaDescription)
-				return
-			}
+		migrationId, ok := requestData.single["migrationId"]
+		if !ok {
+			sink.pushError(NewValidationError(migrations.MigrationErrorInvalidDescription, "Migration`s ID should be specified with 'migrationId' attribute", nil))
+			return
 		}
+		metaDescription, err := migrationManager.RollBackTo(migrationId.(string), !fake, fake)
+
+		if err != nil {
+			sink.pushError(err)
+			return
+		} else {
+			sink.pushObj(metaDescription)
+			return
+		}
+
 	}))
 
 	if config.EnableProfiler {
