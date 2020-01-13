@@ -47,7 +47,7 @@ var _ = Describe("Data", func() {
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: "a_z2us7p",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -94,7 +94,7 @@ var _ = Describe("Data", func() {
 		havingObjectB := func() {
 			By("Having object B which")
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_z2us7p",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -122,7 +122,7 @@ var _ = Describe("Data", func() {
 		havingObjectC := func() {
 			By("Having object C")
 			cMetaDescription := description.MetaDescription{
-				Name: "c",
+				Name: "c_z2us7p",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{

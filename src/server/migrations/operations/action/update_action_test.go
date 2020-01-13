@@ -28,6 +28,9 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
+
 		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -50,15 +53,9 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 			},
 		}
 		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
-	})
-
-	//setup teardown
-	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
 	})
 
 	It("replaces a field in metaDescription`s file", func() {

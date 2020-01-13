@@ -101,12 +101,10 @@ var _ = Describe("ABAC rules handling", func() {
 		return metaObj
 	}
 
-	JustBeforeEach(func() {
+	BeforeEach(func() {
 		flushDb()
 		recorder = httptest.NewRecorder()
 	})
-
-	AfterEach(flushDb)
 
 	Describe("'Subject' scope tests", func() {
 		BeforeEach(func() {

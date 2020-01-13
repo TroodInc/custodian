@@ -3,17 +3,16 @@ package migrations_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+	migrations_description "server/migrations/description"
+	. "server/migrations/migrations"
+	"server/object/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
+	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
-	"server/pg/migrations/operations/object"
-	migrations_description "server/migrations/description"
-	"server/pg/migrations/managers"
-	. "server/migrations/migrations"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 var _ = Describe("Automated generic links` migrations` spawning", func() {
@@ -64,27 +63,14 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			},
 		}
 		//create MetaDescription
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		aMetaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		//sync MetaDescription
-
-		operation := object.NewCreateObjectOperation(metaDescription)
-
-		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		//sync DB
-		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		//
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 	})
 
 	Describe("Automated generic fields` migrations` spawning", func() {
 		It("adds reverse generic outer link while object is being created", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
@@ -126,8 +112,6 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			Expect(migration.RunAfter).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		Context("having object B", func() {
@@ -357,9 +341,6 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			})
 
 			It("removes generic outer links if inner generic link is being removed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				field := description.Field{
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
@@ -380,7 +361,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				_, err = migrationManager.Apply(migrationDescription,false, false)
+				_, err := migrationManager.Apply(migrationDescription,false, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
@@ -396,9 +377,6 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				}
 
 				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
-				Expect(err).To(BeNil())
-
-				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
 				Expect(migration.RunBefore).To(HaveLen(1))

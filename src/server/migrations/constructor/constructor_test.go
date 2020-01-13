@@ -37,12 +37,10 @@ var _ = Describe("Migration Constructor", func() {
 	)
 	migrationConstructor := NewMigrationConstructor(migrationManager)
 
-	flushDb := func() {
+	BeforeEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-	}
-
-	AfterEach(flushDb)
+	})
 
 	Describe("Separate operations` generation", func() {
 		It("generates empty migration if nothing has changed", func() {

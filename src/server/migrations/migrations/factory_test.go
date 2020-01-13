@@ -64,20 +64,10 @@ var _ = Describe("Migration Factory", func() {
 				},
 			},
 		}
-		//create MetaDescription
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-		//sync MetaDescription
 
-		operation := object.NewCreateObjectOperation(metaDescription)
-
-		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		MetaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		//sync DB
-		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		//
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = metaStore.Create(MetaObj)
 		Expect(err).To(BeNil())
 	})
 
