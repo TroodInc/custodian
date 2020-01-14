@@ -35,11 +35,10 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	var metaDescription *description.MetaDescription
 
 	BeforeEach(func() {
-		//Flush meta/database
-		err := metaStore.Flush()
+		err := migrationManager.DropHistory()
 		Expect(err).To(BeNil())
-
-		err = migrationManager.DropHistory()
+		//Flush meta/database
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
 
@@ -71,9 +70,9 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	})
 
 	Describe("Spawned migrations` appliance", func() {
-		It("adds reverse generic outer link while object is being created", func() {
+		XIt("adds reverse generic outer link while object is being created", func() {
 			bMetaDescription := description.NewMetaDescription(
-				"b",
+				"b_ellyac",
 				"id",
 				[]description.Field{
 					{
@@ -112,8 +111,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 			aMetaObj, _, err := metaStore.Get("a", false)
 			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b"))).NotTo(BeNil())
-			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
-
+			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b_ellyac"))
 		})
 
 		Context("having object B", func() {
@@ -180,7 +178,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "towzdf",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -223,7 +221,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription = &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "cfiv48",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -258,7 +256,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "k16u38",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -276,7 +274,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				renamedBMetaDescription.Name = "bb"
 
 				migrationDescription = &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "bmrnmr",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -307,7 +305,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "vg7xwv",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -322,7 +320,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "sbhjvl",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -352,7 +350,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "g1jr8v",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -367,7 +365,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "5o0pvu",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{

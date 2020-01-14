@@ -308,8 +308,8 @@ func (mm *MigrationManager) removeAppliedMigration(migration *migrations.Migrati
 }
 
 func (mm *MigrationManager) ensureHistoryTableExists() (*meta.Meta, error) {
-	gt, err := mm.globalTransactionManager.BeginTransaction(nil)
-	_, err = pg.MetaDDLFromDB(gt.DbTransaction.Transaction().(*sql.Tx), historyMetaName)
+	transaction, err := mm.globalTransactionManager.DbTransactionManager.BeginTransaction()
+	_, err = pg.MetaDDLFromDB(transaction.Transaction().(*sql.Tx), historyMetaName)
 	doesNotExist := false
 	if err != nil {
 		switch castError := err.(type) {
@@ -317,28 +317,28 @@ func (mm *MigrationManager) ensureHistoryTableExists() (*meta.Meta, error) {
 			if castError.Code() == pg.ErrNotFound {
 				doesNotExist = true
 			} else {
-				mm.globalTransactionManager.RollbackTransaction(gt)
+				mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 				return nil, err
 			}
 		default:
-			mm.globalTransactionManager.RollbackTransaction(gt)
+			mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 			return nil, err
 		}
 	}
 
 	historyMeta, err := mm.factoryHistoryMeta()
 	if err != nil {
-		mm.globalTransactionManager.RollbackTransaction(gt)
+		mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 		return nil, err
 	}
 
 	if doesNotExist {
-		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, gt.DbTransaction, mm.migrationStore.MetaDescriptionSyncer); err != nil {
-			mm.globalTransactionManager.RollbackTransaction(gt)
+		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, transaction, mm.migrationStore.MetaDescriptionSyncer); err != nil {
+			mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 			return nil, err
 		}
 	}
-	mm.globalTransactionManager.CommitTransaction(gt)
+	mm.globalTransactionManager.DbTransactionManager.CommitTransaction(transaction)
 	return historyMeta, nil
 }
 

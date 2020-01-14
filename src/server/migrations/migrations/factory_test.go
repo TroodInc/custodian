@@ -38,8 +38,11 @@ var _ = Describe("Migration Factory", func() {
 	var metaDescription *description.MetaDescription
 
 	BeforeEach(func() {
+		// drop history
+		err := migrationManager.DropHistory()
+		Expect(err).To(BeNil())
 		//Flush meta/database
-		err := metaStore.Flush()
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
 

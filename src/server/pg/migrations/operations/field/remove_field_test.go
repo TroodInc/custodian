@@ -39,7 +39,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		JustBeforeEach(func() {
 			//"Direct" case
 			metaDescription = &description.MetaDescription{
-				Name: "a",
+				Name: "a_qsvb88",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -113,7 +113,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		BeforeEach(func() {
 			//MetaDescription B
 			bMetaDescription := &description.MetaDescription{
-				Name: "b",
+				Name: "b_qsvb88",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -142,7 +142,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 			//MetaDescription A
 			metaDescription = &description.MetaDescription{
-				Name: "a",
+				Name: "a_w85bqi",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{

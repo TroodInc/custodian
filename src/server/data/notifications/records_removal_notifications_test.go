@@ -39,7 +39,7 @@ var _ = Describe("Data", func() {
 		havingObjectA := func(onDeleteStrategy description.OnDeleteStrategy) *meta.Meta {
 			By("Having object A with action for 'create' defined")
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: "a_lw2vqh",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -55,7 +55,7 @@ var _ = Describe("Data", func() {
 						Name:     "b",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "b",
+						LinkMeta: "b_lw2vqh",
 						OnDelete: onDeleteStrategy.ToVerbose(),
 						Optional: true,
 					},
@@ -87,7 +87,7 @@ var _ = Describe("Data", func() {
 		havingObjectB := func() *meta.Meta {
 			By("Having object B which")
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: "b_lw2vqh",
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{

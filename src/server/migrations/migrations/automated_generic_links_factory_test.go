@@ -36,8 +36,11 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 	)
 
 	BeforeEach(func() {
+		// drop history
+		err := migrationManager.DropHistory()
+		Expect(err).To(BeNil())
 		//Flush meta/database
-		err := metaStore.Flush()
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
 

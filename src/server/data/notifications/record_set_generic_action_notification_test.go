@@ -63,7 +63,7 @@ var _ = Describe("Data", func() {
 						Name:         "target_object",
 						LinkType:     description.LinkTypeInner,
 						Type:         description.FieldTypeGeneric,
-						LinkMetaList: []string{"b", "c"},
+						LinkMetaList: []string{"b_z2us7p", "c_z2us7p"},
 						Optional:     true,
 					},
 				},
@@ -77,7 +77,7 @@ var _ = Describe("Data", func() {
 							"field": "target_object",
 							"cases": []interface{}{
 								map[string]interface{}{
-									"object": "b",
+									"object": "b_z2us7p",
 									"value":  "first_name",
 								},
 							},

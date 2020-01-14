@@ -10,18 +10,21 @@ import (
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
+	"server/transactions/file_transaction"
 	"utils"
 )
 
 var _ = Describe("MigrationManager", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 
 	//transaction managers
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(nil, dbTransactionManager)
+	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(dbTransactionManager)
@@ -29,6 +32,15 @@ var _ = Describe("MigrationManager", func() {
 	migrationManager := NewMigrationManager(
 		metaStore, migrationStore, dataManager, globalTransactionManager,
 	)
+
+	BeforeEach(func() {
+		// drop history
+		err := migrationManager.DropHistory()
+		Expect(err).To(BeNil())
+		//Flush meta/database
+		err = metaStore.Flush()
+		Expect(err).To(BeNil())
+	})
 
 	It("Creates migration history table if it does not exists", func() {
 		_, err := migrationManager.ensureHistoryTableExists()

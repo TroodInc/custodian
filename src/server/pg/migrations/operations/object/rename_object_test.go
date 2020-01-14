@@ -28,14 +28,12 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	var metaDescription *description.MetaDescription
 	//setup transaction
 	BeforeEach(func() {
-
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 
-	//setup MetaDescription
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		//setup MetaDescription
 		metaDescription = &description.MetaDescription{
-			Name: "a",
+			Name: "a_i5eerf",
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -48,23 +46,18 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 				},
 			},
 		}
-		Expect(err).To(BeNil())
 
-		//sync its MetaDescription with MetaDescription storage
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		//sync its MetaDescription with DB
-		err = syncer.CreateObj(globalTransaction.DbTransaction, metaDescription, metaDescriptionSyncer)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("renames corresponding table in the database", func() {
 		oldMetaName := metaDescription.Name
 
 		newMetaDescription := metaDescription.Clone()
-		newMetaDescription.Name = "b"
+		newMetaDescription.Name = "b_i5eerf"
 
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())

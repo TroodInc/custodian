@@ -33,11 +33,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 	var metaDescription *description.MetaDescription
 
 	BeforeEach(func() {
-		//Flush meta/database
-		err := metaStore.Flush()
+		err := migrationManager.DropHistory()
 		Expect(err).To(BeNil())
-
-		err = migrationManager.DropHistory()
+		//Flush meta/database
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
 
@@ -94,7 +93,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			)
 
 			migrationDescription := &migrations_description.MigrationDescription{
-				Id:        "some-unique-id",
+				Id:        "rxvjgb",
 				ApplyTo:   "",
 				DependsOn: nil,
 				Operations: [] migrations_description.MigrationOperationDescription{
@@ -138,7 +137,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			)
 
 			migrationDescription := &migrations_description.MigrationDescription{
-				Id:        "some-unique-id",
+				Id:        "jjcw23",
 				ApplyTo:   "",
 				DependsOn: nil,
 				Operations: [] migrations_description.MigrationOperationDescription{
@@ -157,7 +156,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			Expect(aMetaDescription.FindField("b_set")).NotTo(BeNil())
 
 			migrationDescription = &migrations_description.MigrationDescription{
-				Id:        "some-unique-id",
+				Id:        "dx4zqn",
 				ApplyTo:   "a",
 				DependsOn: nil,
 				Operations: [] migrations_description.MigrationOperationDescription{
@@ -218,7 +217,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "00h6s1",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -248,7 +247,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "c03pma",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -266,7 +265,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				renamedBMetaDescription.Name = "bb"
 
 				migrationDescription = &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "zhbepd",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -297,7 +296,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "8hmhic",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -312,7 +311,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "jvq5lk",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -342,7 +341,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				}
 
 				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "ow7uam",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
@@ -357,7 +356,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
+					Id:        "zgw7w5",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
 					Operations: [] migrations_description.MigrationOperationDescription{
