@@ -58,40 +58,8 @@ var _ = Describe("Migration Validation Service", func() {
 	})
 
 	It("It does`nt return error if there are no parents actually and no parents are specified in migration`s description", func() {
-		metaDescription := description.NewMetaDescription(
-			"b",
-			"id",
-			[]description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
-					Optional: false,
-				},
-			},
-			nil,
-			false,
-		)
-
-		migrationDescription := &migrations_description.MigrationDescription{
-			Id:        "some-unique-id",
-			ApplyTo:   "",
-			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
-				{
-					Type:            migrations_description.CreateObjectOperation,
-					MetaDescription: metaDescription,
-				},
-			},
-		}
+		metaDescription := description.GetBasicMetaDescription("random")
+		migrationDescription := migrations_description.GetObjectCreationMigration("random", "", nil, metaDescription)
 
 		err := migrationValidationService.Validate(migrationDescription)
 		Expect(err).To(BeNil())
@@ -103,91 +71,34 @@ var _ = Describe("Migration Validation Service", func() {
 
 		BeforeEach(func() {
 			//Create object A by applying a migration
-			aMetaDescription = description.NewMetaDescription(
-				"a",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-				},
-				nil,
-				false,
-			)
-
-			firstAppliedMigrationDescription = &migrations_description.MigrationDescription{
-				Id:        "1",
-				ApplyTo:   "",
-				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
-					{
-						Type:            migrations_description.CreateObjectOperation,
-						MetaDescription: aMetaDescription,
-					},
-				},
-			}
+			aMetaDescription = description.GetBasicMetaDescription("random")
+			firstAppliedMigrationDescription = migrations_description.GetObjectCreationMigration("random", "", nil, aMetaDescription)
 
 			var err error
 			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
 		})
 
-		XIt("It returns an error if there is an already applied migration but it is not specified in migration`s description", func() {
-			metaDescription := description.NewMetaDescription(
-				"a",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-				},
-				nil,
-				false,
-			)
+		It("It returns an error if there is an already applied migration but it is not specified in migration`s description", func() {
+			metaDescription := description.GetBasicMetaDescription("random")
 
-			migrationDescription := &migrations_description.MigrationDescription{
-				Id:        "2",
-				ApplyTo:   "",
-				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
-					{
-						Type:            migrations_description.CreateObjectOperation,
-						MetaDescription: metaDescription,
-					},
-				},
-			}
+			migrationDescription := migrations_description.GetObjectCreationMigration("random", "", nil, metaDescription)
 
 			err := migrationValidationService.Validate(migrationDescription)
 			Expect(err).NotTo(BeNil())
 			Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotActual))
 		})
 
-		XIt("It does`nt return error if there is an already applied migration and its id is specified in migration", func() {
+		It("It does`nt return error if there is an already applied migration and its id is specified in migration", func() {
 			field := description.Field{
 				Name:     "title",
 				Type:     description.FieldTypeString,
 				Optional: false,
 			}
 
-			migrationDescription := &migrations_description.MigrationDescription{
-				Id:        "3",
-				ApplyTo:   aMetaDescription.Name,
-				DependsOn: []string{firstAppliedMigrationDescription.Id},
-				Operations: [] migrations_description.MigrationOperationDescription{
-					{
-						Type:  migrations_description.AddFieldOperation,
-						Field: &migrations_description.MigrationFieldDescription{Field: field},
-					},
-				},
-			}
+			migrationDescription := migrations_description.GetFieldCreationMigration(
+				"random", aMetaDescription.Name, []string{firstAppliedMigrationDescription.Id}, field,
+			)
 
 			err := migrationValidationService.Validate(migrationDescription)
 			Expect(err).To(BeNil())
@@ -204,43 +115,21 @@ var _ = Describe("Migration Validation Service", func() {
 					Optional: false,
 				}
 
-				secondAppliedMigrationDescription = &migrations_description.MigrationDescription{
-					Id:        "2",
-					ApplyTo:   aMetaDescription.Name,
-					DependsOn: []string{firstAppliedMigrationDescription.Id},
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+				secondAppliedMigrationDescription = migrations_description.GetFieldCreationMigration(
+					"random", aMetaDescription.Name, []string{firstAppliedMigrationDescription.Id}, field,
+				)
 
 				var err error
 				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription,true, false)
 				Expect(err).To(BeNil())
 			})
 
-			XIt("It returns an error if a migration contains an `object` operation and supposed to be applied as a sibling", func() {
-				aMetaDescription = description.NewMetaDescription(
-					"a",
-					"id",
-					[]description.Field{
-						{
-							Name: "id",
-							Type: description.FieldTypeNumber,
-							Def: map[string]interface{}{
-								"func": "nextval",
-							},
-						},
-					},
-					nil,
-					false,
-				)
+			It("It returns an error if a migration contains an `object` operation and supposed to be applied as a sibling", func() {
+				aMetaDescription = description.GetBasicMetaDescription("random")
 
 				migrationDescription := &migrations_description.MigrationDescription{
 					Id:        "3",
-					ApplyTo:   "a",
+					ApplyTo:   aMetaDescription.Name,
 					DependsOn: []string{firstAppliedMigrationDescription.Id},
 					Operations: [] migrations_description.MigrationOperationDescription{
 						{
@@ -255,31 +144,23 @@ var _ = Describe("Migration Validation Service", func() {
 				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
-			XIt("It returns an error if a migration contains an `field` operation on the same field as the applied sibling has", func() {
+			It("It returns an error if a migration contains an `field` operation on the same field as the applied sibling has", func() {
 				field := description.Field{
 					Name:     "title",
 					Type:     description.FieldTypeString,
 					Optional: false,
 				}
 
-				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "3",
-					ApplyTo:   aMetaDescription.Name,
-					DependsOn: []string{firstAppliedMigrationDescription.Id},
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+				migrationDescription := migrations_description.GetFieldCreationMigration(
+					"random", aMetaDescription.Name, []string{firstAppliedMigrationDescription.Id}, field,
+				)
 
 				err := migrationValidationService.Validate(migrationDescription)
 				Expect(err).NotTo(BeNil())
 				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
-			XIt("It returns an error if a migration contains an `field` `rename` operation", func() {
+			It("It returns an error if a migration contains an `field` `rename` operation", func() {
 				field := description.Field{
 					Name:     "updated_title",
 					Type:     description.FieldTypeString,
@@ -303,7 +184,7 @@ var _ = Describe("Migration Validation Service", func() {
 				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
 
-			XIt("Can apply a migration which is a sibling to the latest applied", func() {
+			It("Can apply a migration which is a sibling to the latest applied", func() {
 				//Add a field to the object A
 				field := description.Field{
 					Name:     "content",
@@ -311,17 +192,9 @@ var _ = Describe("Migration Validation Service", func() {
 					Optional: false,
 				}
 
-				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "3",
-					ApplyTo:   aMetaDescription.Name,
-					DependsOn: []string{firstAppliedMigrationDescription.Id},
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+				migrationDescription := migrations_description.GetFieldCreationMigration(
+					"random", aMetaDescription.Name, []string{firstAppliedMigrationDescription.Id}, field,
+				)
 
 				var err error
 				aMetaDescription, err = migrationManager.Apply(migrationDescription, true, false)
@@ -346,24 +219,16 @@ var _ = Describe("Migration Validation Service", func() {
 						Optional: false,
 					}
 
-					thirdAppliedMigrationDescription = &migrations_description.MigrationDescription{
-						Id:        "3",
-						ApplyTo:   aMetaDescription.Name,
-						DependsOn: []string{firstAppliedMigrationDescription.Id},
-						Operations: [] migrations_description.MigrationOperationDescription{
-							{
-								Type:  migrations_description.AddFieldOperation,
-								Field: &migrations_description.MigrationFieldDescription{Field: field},
-							},
-						},
-					}
+					thirdAppliedMigrationDescription = migrations_description.GetFieldCreationMigration(
+						"random", aMetaDescription.Name, []string{firstAppliedMigrationDescription.Id}, field,
+					)
 
 					var err error
 					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, true, false)
 					Expect(err).To(BeNil())
 				})
 
-				XIt("Returns an error if a migration has an outdated list of a direct parents", func() {
+				It("Returns an error if a migration has an outdated list of a direct parents", func() {
 					//Add a field to the object A
 					field := description.Field{
 						Name:     "publish_date",
@@ -371,17 +236,9 @@ var _ = Describe("Migration Validation Service", func() {
 						Optional: false,
 					}
 
-					migrationDescription := &migrations_description.MigrationDescription{
-						Id:        "5",
-						ApplyTo:   aMetaDescription.Name,
-						DependsOn: []string{secondAppliedMigrationDescription.Id},
-						Operations: [] migrations_description.MigrationOperationDescription{
-							{
-								Type:  migrations_description.AddFieldOperation,
-								Field: &migrations_description.MigrationFieldDescription{Field: field},
-							},
-						},
-					}
+					migrationDescription := migrations_description.GetFieldCreationMigration(
+						"random", aMetaDescription.Name, []string{secondAppliedMigrationDescription.Id}, field,
+					)
 
 					err := migrationValidationService.Validate(migrationDescription)
 					Expect(err).NotTo(BeNil())
@@ -397,24 +254,16 @@ var _ = Describe("Migration Validation Service", func() {
 							Optional: false,
 						}
 
-						fourthAppliedMigrationDescription = &migrations_description.MigrationDescription{
-							Id:        "4",
-							ApplyTo:   aMetaDescription.Name,
-							DependsOn: []string{secondAppliedMigrationDescription.Id, thirdAppliedMigrationDescription.Id},
-							Operations: [] migrations_description.MigrationOperationDescription{
-								{
-									Type:  migrations_description.AddFieldOperation,
-									Field: &migrations_description.MigrationFieldDescription{Field: field},
-								},
-							},
-						}
+						fourthAppliedMigrationDescription = migrations_description.GetFieldCreationMigration(
+							"random", aMetaDescription.Name, []string{secondAppliedMigrationDescription.Id, thirdAppliedMigrationDescription.Id}, field,
+						)
 
 						var err error
 						aMetaDescription, err = migrationManager.Apply(fourthAppliedMigrationDescription, true, false)
 						Expect(err).To(BeNil())
 					})
 
-					XIt("Returns an error if a migration is not actual and its siblings already have children", func() {
+					It("Returns an error if a migration is not actual and its siblings already have children", func() {
 						field := description.Field{
 							Name:     "author",
 							Type:     description.FieldTypeObject,
@@ -422,17 +271,9 @@ var _ = Describe("Migration Validation Service", func() {
 							Optional: false,
 						}
 
-						migrationDescription := &migrations_description.MigrationDescription{
-							Id:        "5",
-							ApplyTo:   aMetaDescription.Name,
-							DependsOn: []string{secondAppliedMigrationDescription.Id},
-							Operations: [] migrations_description.MigrationOperationDescription{
-								{
-									Type:  migrations_description.AddFieldOperation,
-									Field: &migrations_description.MigrationFieldDescription{Field: field},
-								},
-							},
-						}
+						migrationDescription := migrations_description.GetFieldCreationMigration(
+							"random", aMetaDescription.Name, []string{secondAppliedMigrationDescription.Id}, field,
+						)
 
 						err := migrationValidationService.Validate(migrationDescription)
 						Expect(err).NotTo(BeNil())

@@ -47,21 +47,9 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-				Actions: []description.Action{},
-				Cas:     false,
-			}
+			currentMetaDescription := description.GetBasicMetaDescription("random")
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: currentMetaDescription.Name,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -119,19 +107,7 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-				Actions: []description.Action{},
-				Cas:     false,
-			}
+			currentMetaDescription := description.GetBasicMetaDescription("random")
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 				Name: "b",
 				Key:  "id",
@@ -164,19 +140,7 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-				Actions: []description.Action{},
-				Cas:     false,
-			}
+			currentMetaDescription := description.GetBasicMetaDescription("random")
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, nil, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
 
@@ -193,21 +157,9 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-				Actions: []description.Action{},
-				Cas:     false,
-			}
+			currentMetaDescription := description.GetBasicMetaDescription("random")
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: currentMetaDescription.Name,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -245,24 +197,13 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-					{
-						Name:     "existing_field",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-				Actions: []description.Action{},
-				Cas:     false,
-			}
+			currentMetaDescription := description.GetBasicMetaDescription("random")
+			currentMetaDescription.Fields = append(currentMetaDescription.Fields, description.Field{
+				Name:     "existing_field",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			})
+
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 				Name: "a",
 				Key:  "id",
@@ -716,21 +657,9 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-				Actions: []description.Action{},
-				Cas:     false,
-			}
+			currentMetaDescription := description.GetBasicMetaDescription("random")
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: currentMetaDescription.Name,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -767,26 +696,14 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-				Actions: []description.Action{
-					{
-						Name:     "new_action",
-						Method:   description.MethodCreate,
-						Protocol: description.REST,
-						Args:     []string{"http://localhost:3000/some-handler"},
-					},
-				},
-				Cas: false,
-			}
+			currentMetaDescription := description.GetBasicMetaDescription("random")
+			currentMetaDescription.Actions = append(currentMetaDescription.Actions, description.Action{
+				Name:     "new_action",
+				Method:   description.MethodCreate,
+				Protocol: description.REST,
+				Args:     []string{"http://localhost:3000/some-handler"},
+			})
+
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 				Name: "a",
 				Key:  "id",
