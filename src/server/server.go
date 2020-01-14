@@ -553,49 +553,42 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/migrations/construct", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
-			globalTransactionManager.RollbackTransaction(globalTransaction)
+		migrationMetaDescription, err := migrations_description.MigrationMetaDescriptionFromJson(bytes.NewReader(r.body))
+		if err != nil {
 			js.pushError(err)
 			return
-		} else {
-			migrationMetaDescription, err := migrations_description.MigrationMetaDescriptionFromJson(bytes.NewReader(r.body))
-			if err != nil {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(err)
-				return
-			}
+		}
 
-			migrationConstructor := constructor.NewMigrationConstructor(migrationManager)
+		migrationConstructor := constructor.NewMigrationConstructor(migrationManager)
 
-			var currentMetaDescription *description.MetaDescription
-			if len(migrationMetaDescription.PreviousName) != 0 {
-				currentMetaDescription, _, err = metaDescriptionSyncer.Get(migrationMetaDescription.PreviousName)
-				if err != nil {
-					js.pushError(err)
-					return
-				}
-			}
-			//migration constructor expects migrationMetaDescription to be nil if object is being deleted
-			//in its turn, object is supposed to be deleted if migrationMetaDescription.name is an empty string
-			if migrationMetaDescription.Name == "" {
-				migrationMetaDescription = nil
-			}
-
-			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, migrationMetaDescription, globalTransaction.DbTransaction)
+		var currentMetaDescription *description.MetaDescription
+		if len(migrationMetaDescription.PreviousName) != 0 {
+			currentMetaDescription, _, err = metaDescriptionSyncer.Get(migrationMetaDescription.PreviousName)
 			if err != nil {
 				js.pushError(err)
-				return
-			}
-
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			if err != nil {
-				js.pushError(err)
-				return
-			} else {
-				js.pushObj(migrationDescription)
 				return
 			}
 		}
+		//migration constructor expects migrationMetaDescription to be nil if object is being deleted
+		//in its turn, object is supposed to be deleted if migrationMetaDescription.name is an empty string
+		if migrationMetaDescription.Name == "" {
+			migrationMetaDescription = nil
+		}
+
+		migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, migrationMetaDescription)
+		if err != nil {
+			js.pushError(err)
+			return
+		}
+
+		if err != nil {
+			js.pushError(err)
+			return
+		} else {
+			js.pushObj(migrationDescription)
+			return
+		}
+
 	}))
 
 	app.router.POST(cs.root+"/migrations/apply", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {

@@ -1,21 +1,20 @@
 package constructor
 
 import (
+	"reflect"
 	"server/errors"
+	"server/migrations"
 	. "server/migrations/description"
 	"server/object/description"
-	"utils"
 	"server/pg/migrations/managers"
-	"server/transactions"
-	"server/migrations"
-	"reflect"
+	"utils"
 )
 
 type MigrationConstructor struct {
 	migrationManager *managers.MigrationManager
 }
 
-func (mc *MigrationConstructor) Construct(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription, transaction transactions.DbTransaction) (*MigrationDescription, error) {
+func (mc *MigrationConstructor) Construct(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) (*MigrationDescription, error) {
 	operationDescriptions := make([]MigrationOperationDescription, 0)
 
 	if operationDescription := mc.processObjectCreation(currentMetaDescription, newMigrationMetaDescription); operationDescription != nil {

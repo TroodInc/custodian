@@ -1,16 +1,16 @@
 package object
 
 import (
+	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+	"server/object/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
-	"database/sql"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 var _ = Describe("'DeleteObject' Migration Operation", func() {
@@ -34,20 +34,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 
 	//setup MetaDescription
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		metaDescription = description.GetBasicMetaDescription("random")
 		Expect(err).To(BeNil())
 		//sync its MetaDescription
 		err = syncer.CreateObj(globalTransaction.DbTransaction, metaDescription, metaDescriptionSyncer)

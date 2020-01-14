@@ -33,20 +33,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		metaDescription = description.GetBasicMetaDescription("random")
 	})
 
 	It("creates column for specified table in the database", func() {
@@ -117,7 +104,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
-		Expect(metaDdlFromDB.Seqs[1].Name).To(Equal("o_a_new_field_seq"))
+		Expect(metaDdlFromDB.Seqs[1].Name).To(Equal("o_" + metaDescription.Name + "_new_field_seq"))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
