@@ -7,7 +7,7 @@ import (
 
 func GetBasicMetaDescription(nameOrRandom string) *MetaDescription {
 	if nameOrRandom == "random" {
-		nameOrRandom = fmt.Sprintf("%x", time.Now().Unix())
+		nameOrRandom = fmt.Sprintf("%x", time.Now().UnixNano())
 	}
 
 	return NewMetaDescription(

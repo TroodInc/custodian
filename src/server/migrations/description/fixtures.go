@@ -8,7 +8,7 @@ import (
 
 func GetObjectCreationMigration(idOrRandom string, applyTo string, depends []string, metaDescription *description.MetaDescription) *MigrationDescription {
 	if idOrRandom == "random" {
-		idOrRandom = fmt.Sprintf("%x", time.Now().Unix())
+		idOrRandom = fmt.Sprintf("%x", time.Now().UnixNano())
 	}
 	return &MigrationDescription{
 		Id:        idOrRandom,
@@ -25,7 +25,7 @@ func GetObjectCreationMigration(idOrRandom string, applyTo string, depends []str
 
 func GetFieldCreationMigration(idOrRandom string, applyTo string, depends []string, field description.Field) *MigrationDescription {
 	if idOrRandom == "random" {
-		idOrRandom = fmt.Sprintf("%x", time.Now().Unix())
+		idOrRandom = fmt.Sprintf("%x", time.Now().UnixNano())
 	}
 	return &MigrationDescription{
 		Id:        idOrRandom,
