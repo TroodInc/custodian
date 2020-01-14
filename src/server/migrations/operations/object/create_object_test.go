@@ -24,33 +24,14 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
-
 	BeforeEach(func() {
-	//setup transaction
-
+		//setup transaction
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
-
-	//setup MetaDescription
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
 	})
 
 	It("stores MetaDescription to file", func() {
-
+		metaDescription := description.GetBasicMetaDescription("random")
 		operation := CreateObjectOperation{MetaDescription: metaDescription}
 		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)

@@ -276,7 +276,7 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 		predecessorId = migration.DependsOn[0]
 	}
 
-	operations, _ := json.Marshal(migration.Operations)
+	operations, _ := json.Marshal(migration.MigrationDescription.Operations)
 	meta_sate, _ := json.Marshal(migration.MigrationDescription.MetaDescription)
 
 	migrationRecord, err := mm.processor.CreateRecord(historyMeta.Name, map[string]interface{}{

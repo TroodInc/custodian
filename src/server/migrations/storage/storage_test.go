@@ -8,6 +8,7 @@ import (
 	"server/object/description"
 )
 
+// TODO: Seems deprecated:
 var _ = Describe("Migration Storage", func() {
 	appConfig := utils.GetConfig()
 	migrationStorage := NewMigrationStorage(appConfig.MigrationStoragePath)
@@ -15,25 +16,7 @@ var _ = Describe("Migration Storage", func() {
 	BeforeEach(func() { migrationStorage.Flush() })
 
 	It("stores MigrationMetaDescription to file", func() {
-		metaDescription := &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "date",
-					Type:     description.FieldTypeDate,
-					Optional: false,
-				},
-			},
-		}
+		metaDescription := description.GetBasicMetaDescription("random")
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
 			ApplyTo:   "a",

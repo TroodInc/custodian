@@ -97,17 +97,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				false,
 			)
 
-			migrationDescription := &migrations_description.MigrationDescription{
-				Id:        "some-unique-id",
-				ApplyTo:   "",
-				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
-					{
-						Type:            migrations_description.CreateObjectOperation,
-						MetaDescription: bMetaDescription,
-					},
-				},
-			}
+			migrationDescription := migrations_description.GetObjectCreationMigration("random", "", nil, bMetaDescription)
 
 			migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
@@ -120,21 +110,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 		Context("having object B", func() {
 			var bMetaDescription *description.MetaDescription
 			BeforeEach(func() {
-				bMetaDescription = description.NewMetaDescription(
-					"b",
-					"id",
-					[]description.Field{
-						{
-							Name: "id",
-							Type: description.FieldTypeNumber,
-							Def: map[string]interface{}{
-								"func": "nextval",
-							},
-						},
-					},
-					nil,
-					false,
-				)
+				bMetaDescription = description.GetBasicMetaDescription("random")
 				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
@@ -151,24 +127,16 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Optional:     false,
 				}
 
-				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
-					ApplyTo:   bMetaDescription.Name,
-					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+				migrationDescription := migrations_description.GetFieldCreationMigration(
+					"random", bMetaDescription.Name, nil, field,
+				)
 
 				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
 				Expect(err).To(BeNil())
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(bMetaDescription.Name)))
 			})
 
 			It("removes and adds reverse generic outer links while inner generic field`s LinkMetaList is being updated", func() {
@@ -180,36 +148,14 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Optional:     false,
 				}
 
-				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
-					ApplyTo:   bMetaDescription.Name,
-					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+				migrationDescription := migrations_description.GetFieldCreationMigration(
+					"random", bMetaDescription.Name, nil, field,
+				)
 
 				_, err := migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
-				cMetaDescription := description.NewMetaDescription(
-					"c",
-					"id",
-					[]description.Field{
-						{
-							Name: "id",
-							Type: description.FieldTypeNumber,
-							Def: map[string]interface{}{
-								"func": "nextval",
-							},
-						},
-					},
-					nil,
-					false,
-				)
+				cMetaDescription := description.GetBasicMetaDescription("random")
 				cMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
@@ -221,7 +167,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"c"},
+					LinkMetaList: []string{cMetaDescription.Name},
 					Optional:     false,
 				}
 
@@ -243,12 +189,12 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(bMetaDescription.Name)))
 
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Type).To(Equal(migrations_description.AddFieldOperation))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(bMetaDescription.Name)))
 			})
 
 			It("renames reverse generic outer links if object which owns inner generic link is being renamed", func() {
@@ -260,17 +206,9 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Optional:     false,
 				}
 
-				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
-					ApplyTo:   bMetaDescription.Name,
-					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+				migrationDescription := migrations_description.GetFieldCreationMigration(
+					"random", bMetaDescription.Name, nil, field,
+				)
 
 				_, err := migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
@@ -308,17 +246,9 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Optional:     false,
 				}
 
-				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
-					ApplyTo:   bMetaDescription.Name,
-					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+				migrationDescription := migrations_description.GetFieldCreationMigration(
+					"random", bMetaDescription.Name, nil, field,
+				)
 
 				_, err := migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
@@ -340,7 +270,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(bMetaDescription.Name)))
 			})
 
 			It("removes generic outer links if inner generic link is being removed", func() {
@@ -352,17 +282,9 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Optional:     false,
 				}
 
-				migrationDescription := &migrations_description.MigrationDescription{
-					Id:        "some-unique-id",
-					ApplyTo:   bMetaDescription.Name,
-					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
-						{
-							Type:  migrations_description.AddFieldOperation,
-							Field: &migrations_description.MigrationFieldDescription{Field: field},
-						},
-					},
-				}
+				migrationDescription := migrations_description.GetFieldCreationMigration(
+					"random", bMetaDescription.Name, nil, field,
+				)
 
 				_, err := migrationManager.Apply(migrationDescription,false, false)
 				Expect(err).To(BeNil())
@@ -385,7 +307,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(bMetaDescription.Name)))
 			})
 		})
 	})

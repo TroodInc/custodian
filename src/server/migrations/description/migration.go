@@ -20,11 +20,13 @@ type MigrationDescription struct {
 
 func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescription){
 	metaDescription, _ := MigrationMetaDescriptionFromJson(strings.NewReader(record.Data["meta_state"].(string)))
+	var ops []MigrationOperationDescription
+	json.Unmarshal([]byte(record.Data["operations"].(string)), &ops)
 	migrationDescription := MigrationDescription{
 		record.Data["migration_id"].(string),
 		record.Data["object"].(string),
 		[]string{record.Data["predecessor_id"].(string)},
-		[]MigrationOperationDescription{},
+		ops,
 		metaDescription.MetaDescription(),
 	}
 

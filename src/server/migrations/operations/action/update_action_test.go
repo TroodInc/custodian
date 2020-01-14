@@ -31,27 +31,15 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-			Actions: []description.Action{
-				{Name: "new_action",
-					Method: description.MethodCreate,
-					Protocol: description.REST,
-					Args: []string{"http://localhost:3000/some-handler"},
-				},
+		metaDescription = description.GetBasicMetaDescription("random")
+		metaDescription.Actions = []description.Action{
+			{Name: "new_action",
+				Method: description.MethodCreate,
+				Protocol: description.REST,
+				Args: []string{"http://localhost:3000/some-handler"},
 			},
 		}
+
 		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())

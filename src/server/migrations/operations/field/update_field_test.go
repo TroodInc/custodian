@@ -31,27 +31,15 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 
-	//setup MetaDescription
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "name",
-					Type:     description.FieldTypeString,
-					Optional: true,
-					Def:      "empty",
-				},
-			},
-		}
+		//setup MetaDescription
+		metaDescription = description.GetBasicMetaDescription("random")
+		metaDescription.Fields = append(metaDescription.Fields, description.Field{
+			Name:     "name",
+			Type:     description.FieldTypeString,
+			Optional: true,
+			Def:      "empty",
+		})
+
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		globalTransactionManager.CommitTransaction(globalTransaction)

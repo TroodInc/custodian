@@ -627,8 +627,9 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			result := make([]interface{}, 0)
 			for _, obj := range migrationList {
 				data := obj.GetData()
+				// TODO: incapsulate json rendering
 				var meta_state map[string]interface{}
-				var operations map[string]interface{}
+				var operations []migrations_description.MigrationOperationDescription
 				json.Unmarshal([]byte(fmt.Sprintf("%v", data["meta_state"])), &meta_state)
 				json.Unmarshal([]byte(fmt.Sprintf("%v", data["operations"])), &operations)
 				data["meta_state"] = meta_state

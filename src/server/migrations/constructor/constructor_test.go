@@ -17,7 +17,7 @@ import (
 	"server/migrations"
 )
 
-var _ = Describe("Migration Constructor", func() {
+var _ = XDescribe("Migration Constructor", func() {
 	appConfig := utils.GetConfig()
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)

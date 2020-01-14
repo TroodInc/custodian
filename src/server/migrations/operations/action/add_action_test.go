@@ -32,20 +32,7 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 	//setup MetaDescription
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		metaDescription = description.GetBasicMetaDescription("random")
 		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
