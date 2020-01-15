@@ -612,161 +612,138 @@ var _ = Describe("Data", func() {
 		var cRecord *record.Record
 		var err error
 
-		havingObjectA := func() {
-			aMetaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:     "name",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-			}
-			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		havingObjectA := func() *description.MetaDescription {
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+				Name:     "name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			})
+			aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
+			return aMetaDescription
 		}
 
-		havingObjectC := func() {
+		havingObjectC := func() *description.MetaDescription{
 			cMetaDescription := description.GetBasicMetaDescription("random")
 			cMetaObj, err := metaStore.NewMeta(cMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(cMetaObj)
 			Expect(err).To(BeNil())
+
+			return cMetaDescription
 		}
 
-		havingObjectBWithGenericLinkToAAndC := func() {
+		havingObjectBWithGenericLinkToAAndC := func(A *description.MetaDescription, C *description.MetaDescription) *description.MetaDescription {
 
 			By("B contains generic inner field")
 
-			bMetaDescription := description.MetaDescription{
-				Name: "b",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:         "target",
-						Type:         description.FieldTypeGeneric,
-						LinkType:     description.LinkTypeInner,
-						LinkMetaList: []string{"a", "c"},
-						Optional:     true,
-					},
-				},
-			}
-			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+			bMetaDescription := description.GetBasicMetaDescription("random")
+			bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+				Name:         "target",
+				Type:         description.FieldTypeGeneric,
+				LinkType:     description.LinkTypeInner,
+				LinkMetaList: []string{A.Name, C.Name},
+				Optional:     true,
+			})
+			bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
+
+			return bMetaDescription
 		}
 
-		havingARecordOfObjectA := func() {
-			aRecord, err = dataProcessor.CreateRecord("a", map[string]interface{}{"name": "A record"}, auth.User{})
+		havingARecordOfObjectA := func(A *description.MetaDescription) {
+			aRecord, err = dataProcessor.CreateRecord(A.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
-		havingARecordOfObjectC := func() {
-			cRecord, err = dataProcessor.CreateRecord("c", map[string]interface{}{"name": "C record"}, auth.User{})
+		havingARecordOfObjectC := func(C *description.MetaDescription) {
+			cRecord, err = dataProcessor.CreateRecord(C.Name, map[string]interface{}{"name": "C record"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
-		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}}, auth.User{})
+		havingARecordOfObjectBContainingRecordOfObjectA := func(A *description.MetaDescription, B *description.MetaDescription) {
+			bRecord, err = dataProcessor.CreateRecord(B.Name, map[string]interface{}{"target": map[string]interface{}{"_object": A.Name, "id": aRecord.Data["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
-		havingARecordOfObjectBContainingRecordOfObjectC := func() {
-			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{"target": map[string]interface{}{"_object": "c", "id": cRecord.Data["id"]}}, auth.User{})
+		havingARecordOfObjectBContainingRecordOfObjectC := func(B *description.MetaDescription, C *description.MetaDescription) {
+			bRecord, err = dataProcessor.CreateRecord(B.Name, map[string]interface{}{"target": map[string]interface{}{"_object": C.Name, "id": cRecord.Data["id"]}}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		It("can retrieve record with generic field as key by querying by A record`s field", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
-			Describe("And having a record of object A", havingARecordOfObjectA)
-			Describe("And having a record of object C", havingARecordOfObjectC)
+			A := havingObjectA()
+			C := havingObjectC()
+			B := havingObjectBWithGenericLinkToAAndC(A, C)
+			havingARecordOfObjectA(A)
+			havingARecordOfObjectC(C)
 
-			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
-			Describe("and having a record of object B containing null generic field value ", havingARecordOfObjectBContainingRecordOfObjectC)
+			havingARecordOfObjectBContainingRecordOfObjectA(A, B)
+			havingARecordOfObjectBContainingRecordOfObjectC(B, C)
 
-			_, matchedRecords, err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", nil, nil, 1, false)
+			_, matchedRecords, err := dataProcessor.GetBulk(B.Name, "eq(target."+A.Name+".name,A%20record)", nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0].Data["target"].(*types.GenericInnerLink).AsMap()
-			Expect(targetValue["_object"]).To(Equal("a"))
+			Expect(targetValue["_object"]).To(Equal(A.Name))
 			Expect(targetValue["id"].(float64)).To(Equal(aRecord.Data["id"].(float64)))
 
 		})
 
 		It("can retrieve record with generic field as full object by querying by A record`s field", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
-			Describe("And having a record of object A", havingARecordOfObjectA)
+			A := havingObjectA()
+			C := havingObjectC()
+			B := havingObjectBWithGenericLinkToAAndC(A, C)
+			havingARecordOfObjectA(A)
 
-			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+			havingARecordOfObjectBContainingRecordOfObjectA(A, B)
 
-			_, matchedRecords, err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", nil, nil, 2, false)
+			_, matchedRecords, err := dataProcessor.GetBulk(B.Name, "eq(target."+A.Name+".name,A%20record)", nil, nil, 2, false)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0].Data["target"].(*record.Record)
-			Expect(targetValue.Data["_object"].(string)).To(Equal("a"))
+			Expect(targetValue.Data["_object"].(string)).To(Equal(A.Name))
 			Expect(targetValue.Data["id"].(float64)).To(Equal(aRecord.Data["id"].(float64)))
 			Expect(targetValue.Data["name"].(string)).To(Equal(aRecord.Data["name"].(string)))
 		})
 
 		It("can query records by generic_field's type", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
-			Describe("And having a record of object A", havingARecordOfObjectA)
+			A := havingObjectA()
+			C := havingObjectC()
+			B := havingObjectBWithGenericLinkToAAndC(A, C)
+			havingARecordOfObjectA(A)
 
-			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+			havingARecordOfObjectBContainingRecordOfObjectA(A, B)
 
-			_, err = dataProcessor.CreateRecord("b", map[string]interface{}{}, auth.User{})
+			_, err = dataProcessor.CreateRecord(B.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
-			_, matchedRecords, err := dataProcessor.GetBulk("b", "eq(target._object,a)", nil, nil, 2, false)
+			_, matchedRecords, err := dataProcessor.GetBulk(B.Name, "eq(target._object,"+A.Name+")", nil, nil, 2, false)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0].Data["target"].(*record.Record)
-			Expect(targetValue.Data["_object"].(string)).To(Equal("a"))
+			Expect(targetValue.Data["_object"].(string)).To(Equal(A.Name))
 			Expect(targetValue.Data["id"].(float64)).To(Equal(aRecord.Data["id"].(float64)))
 			Expect(targetValue.Data["name"].(string)).To(Equal(aRecord.Data["name"].(string)))
 		})
 
 		It("can create record with nested new inner generic record", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+			A := havingObjectA()
+			C := havingObjectC()
+			B := havingObjectBWithGenericLinkToAAndC(A, C)
 
-			bRecordData := map[string]interface{}{"target": map[string]interface{}{"_object": "a", "name": "Some A record"}}
+			bRecordData := map[string]interface{}{"target": map[string]interface{}{"_object": A.Name, "name": "Some A record"}}
 
-			bRecord, err = dataProcessor.CreateRecord("b", bRecordData, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(B.Name, bRecordData, auth.User{})
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("target"))
 			Expect(bRecord.Data["target"]).To(Not(BeNil()))
@@ -774,20 +751,20 @@ var _ = Describe("Data", func() {
 
 		It("can create record with nested existing inner generic record", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+			A := havingObjectA()
+			C := havingObjectC()
+			B := havingObjectBWithGenericLinkToAAndC(A, C)
 
 			existingARecord, err := dataProcessor.CreateRecord(
-				"a",
+				A.Name,
 				map[string]interface{}{"name": "Existing A record"},
 				auth.User{},
 			)
 			Expect(err).To(BeNil())
 
-			bRecordData := map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": existingARecord.Data["id"]}}
+			bRecordData := map[string]interface{}{"target": map[string]interface{}{"_object": A.Name, "id": existingARecord.Data["id"]}}
 
-			bRecord, err = dataProcessor.CreateRecord("b", bRecordData, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(B.Name, bRecordData, auth.User{})
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("target"))
 			Expect(bRecord.Data["target"]).To(Not(BeNil()))

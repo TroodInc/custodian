@@ -49,6 +49,11 @@ var _ = Describe("Migration Factory", func() {
 	//setup MetaDescription
 	JustBeforeEach(func() {
 		metaDescription = description.GetBasicMetaDescription("random")
+		metaDescription.Fields = append(metaDescription.Fields, description.Field{
+			Name:     "date",
+			Type:     description.FieldTypeDate,
+			Optional: false,
+		})
 
 		MetaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())

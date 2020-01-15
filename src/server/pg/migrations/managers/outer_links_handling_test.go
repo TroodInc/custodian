@@ -51,28 +51,14 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 	Context("Spawned migrations` appliance", func() {
 		It("adds reverse outer link while object is being created", func() {
-			bMetaDescription := description.NewMetaDescription(
-				"b",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:     "a",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
-						LinkMeta: aMetaDescription.Name,
-						Optional: false,
-					},
-				},
-				nil,
-				false,
-			)
+			bMetaDescription := description.GetBasicMetaDescription("random")
+			bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+				Name:     "a",
+				Type:     description.FieldTypeObject,
+				LinkType: description.LinkTypeInner,
+				LinkMeta: aMetaDescription.Name,
+				Optional: false,
+			})
 
 			migrationDescription := migrations_description.GetObjectCreationMigration(
 				"random", "", nil, bMetaDescription,
@@ -82,33 +68,19 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			Expect(err).To(BeNil())
 
 			aMetaObj, _, err := metaStore.Get(aMetaDescription.Name, false)
-			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b"))).NotTo(BeNil())
-			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
+			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
+			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
 		})
 
 		It("replaces automatically added reverse outer link with explicitly specified new one", func() {
-			bMetaDescription := description.NewMetaDescription(
-				"b",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:     "a",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
-						LinkMeta: aMetaDescription.Name,
-						Optional: false,
-					},
-				},
-				nil,
-				false,
-			)
+			bMetaDescription := description.GetBasicMetaDescription("random")
+			bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+				Name:     "a",
+				Type:     description.FieldTypeObject,
+				LinkType: description.LinkTypeInner,
+				LinkMeta: aMetaDescription.Name,
+				Optional: false,
+			})
 
 			migrationDescription := migrations_description.GetObjectCreationMigration(
 				"random", "", nil, bMetaDescription,
@@ -127,7 +99,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					Type:           description.FieldTypeArray,
 					LinkType:       description.LinkTypeOuter,
 					OuterLinkField: "a",
-					LinkMeta:       "b",
+					LinkMeta:       bMetaDescription.Name,
 				},
 			)
 

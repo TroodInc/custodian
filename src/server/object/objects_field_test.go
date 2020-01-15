@@ -60,36 +60,8 @@ var _ = Describe("Objects field", func() {
 	})
 
 	It("can build meta with 'objects' field and filled 'throughLink'", func() {
-		aMetaDescription := description.MetaDescription{
-			Name: "a_cyq6u",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		bMetaDescription := description.MetaDescription{
-			Name: "b_6ru7k",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		bMetaDescription := description.GetBasicMetaDescription("random")
 		updatedAMetaDescription := description.MetaDescription{
 			Name: aMetaDescription.Name,
 			Key:  "id",
@@ -112,12 +84,12 @@ var _ = Describe("Objects field", func() {
 			},
 		}
 
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())

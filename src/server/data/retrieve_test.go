@@ -100,7 +100,7 @@ var _ = Describe("Data", func() {
 
 
 		It("can outputs by 'Objects' field values respecting specified depth value set to 2", func() {
-			bRecord, err := dataProcessor.Get(bMetaObject.Name, bRecord.PkAsString(), nil, nil, 1, false)
+			bRecord, err := dataProcessor.Get(bMetaObject.Name, bRecord.PkAsString(), nil, nil, 2, false)
 			Expect(err).To(BeNil())
 			Expect(bRecord.Data).To(HaveKey("as"))
 			Expect(bRecord.Data["as"]).To(HaveLen(2))

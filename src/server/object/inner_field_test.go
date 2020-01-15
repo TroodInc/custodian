@@ -29,46 +29,20 @@ var _ = Describe("Inner generic field", func() {
 	})
 
 	It("automatically creates reverse outer link field", func() {
-		aMetaDescription := description.MetaDescription{
-			Name: "a_g0ua9",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaDescription := description.MetaDescription{
-			Name: "b_p5sab",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
-					LinkMeta: aMetaDescription.Name,
-				},
-			},
-		}
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		bMetaDescription := description.GetBasicMetaDescription("random")
+		bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+			Name:     "a",
+			Type:     description.FieldTypeObject,
+			LinkType: description.LinkTypeInner,
+			LinkMeta: aMetaDescription.Name,
+		})
+		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
@@ -76,7 +50,7 @@ var _ = Describe("Inner generic field", func() {
 		aMetaObj, _, err = metaStore.Get(aMetaObj.Name, true)
 		Expect(err).To(BeNil())
 
-		reverseField := aMetaObj.FindField("b_p5sab_set")
+		reverseField := aMetaObj.FindField(bMetaDescription.Name + "_set")
 		Expect(reverseField).NotTo(BeNil())
 		Expect(reverseField.Type).To(Equal(description.FieldTypeArray))
 		Expect(reverseField.LinkType).To(Equal(description.LinkTypeOuter))
