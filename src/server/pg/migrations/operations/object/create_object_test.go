@@ -33,20 +33,7 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 	//setup MetaDescription
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		metaDescription = description.GetBasicMetaDescription("random")
 	})
 
 	It("creates corresponding table in the database", func() {
@@ -64,9 +51,10 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 		//ensure table has been created
 		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 
-		globalTransactionManager.RollbackTransaction(globalTransaction)
 	})
 })

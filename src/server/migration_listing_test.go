@@ -20,7 +20,7 @@ import (
 	"server/transactions"
 )
 
-var _ = XDescribe("Migrations` listing", func() {
+var _ = Describe("Migrations` listing", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
@@ -57,33 +57,10 @@ var _ = XDescribe("Migrations` listing", func() {
 		var metaDescription *description.MetaDescription
 		var migrationDescription *migrations_description.MigrationDescription
 		BeforeEach(func() {
-			metaDescription = description.NewMetaDescription(
-				"b",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-				},
-				nil,
-				false,
+			metaDescription = description.GetBasicMetaDescription("random")
+			migrationDescription := migrations_description.GetObjectCreationMigration(
+				"random", "", nil, metaDescription,
 			)
-
-			migrationDescription = &migrations_description.MigrationDescription{
-				Id:        "some-unique-id",
-				ApplyTo:   "",
-				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
-					{
-						Type:            migrations_description.CreateObjectOperation,
-						MetaDescription: metaDescription,
-					},
-				},
-			}
 
 			_, err := migrationManager.Apply(migrationDescription, false, true)
 			Expect(err).To(BeNil())

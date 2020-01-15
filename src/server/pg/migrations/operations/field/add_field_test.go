@@ -1,17 +1,16 @@
 package field
 
 import (
+	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+	"server/object/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
-	"server/pg/migrations/operations/object"
-	"database/sql"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {
@@ -34,20 +33,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		metaDescription = description.GetBasicMetaDescription("random")
+		MetaObj, err := metaStore.NewMeta(metaDescription)
+		err = metaStore.Create(MetaObj)
+		Expect(err).To(BeNil())
 	})
 
 	It("creates column for specified table in the database", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		operation := object.NewCreateObjectOperation(metaDescription)
-
-		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
-		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		//
 
 		field := description.Field{Name: "new_field", Type: description.FieldTypeString, Optional: true}
 		fieldOperation := NewAddFieldOperation(&field)
@@ -60,28 +52,18 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Columns).To(HaveLen(2))
 		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
 		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 		Expect(metaDdlFromDB.Columns[1].Name).To(Equal("new_field"))
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("creates sequence for specified column in the database", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		operation := object.NewCreateObjectOperation(metaDescription)
-
-		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		//sync MetaDescription with DB
-
 		//
 		field := description.Field{
 			Name:     "new_field",
@@ -101,45 +83,23 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
 		Expect(metaDdlFromDB.Seqs[1].Name).To(Equal("o_" + metaDescription.Name + "_new_field_seq"))
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("creates constraint for specified column in the database", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		operation := object.NewCreateObjectOperation(metaDescription)
-		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-		err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
 		//create linked MetaDescription obj
-		linkedMetaDescription := &description.MetaDescription{
-			Name: "b",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		linkedMetaDescription := description.GetBasicMetaDescription("random")
 
-		linkedMetaOperation := object.NewCreateObjectOperation(linkedMetaDescription)
-		linkedMetaDescription, err = linkedMetaOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		MetaObj, err := metaStore.NewMeta(linkedMetaDescription)
+		err = metaStore.Create(MetaObj)
 		Expect(err).To(BeNil())
 
-		err = linkedMetaOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
 		//Run field operations
@@ -161,8 +121,9 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 		//Check constraint
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-		//
 		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.IFKs).To(HaveLen(1))
@@ -171,6 +132,5 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("link_to_a"))
 		Expect(metaDdlFromDB.IFKs[0].OnDelete).To(Equal(description.OnDeleteCascadeDb))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 })

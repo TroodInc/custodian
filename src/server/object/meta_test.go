@@ -71,22 +71,8 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("can remove object without leaving orphan outer links", func() {
 		Context("having two objects with mutual links", func() {
-			aMetaDescription := description.MetaDescription{
-				Name: "a_0dfzt",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-				},
-			}
-			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMeta)
 			Expect(err).To(BeNil())
@@ -118,7 +104,7 @@ var _ = Describe("The PG MetaStore", func() {
 			err = metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
-			aMetaDescription = description.MetaDescription{
+			aMetaDescription = &description.MetaDescription{
 				Name: aMeta.Name,
 				Key:  "id",
 				Cas:  false,
@@ -141,7 +127,7 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			aMeta, err = metaStore.NewMeta(&aMetaDescription)
+			aMeta, err = metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			metaStore.Update(aMeta.Name, aMeta, true)
 
@@ -159,22 +145,8 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("can remove object without leaving orphan inner links", func() {
 		Context("having two objects with mutual links", func() {
-			aMetaDescription := description.MetaDescription{
-				Name: "a_h44gs",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-				},
-			}
-			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
@@ -219,22 +191,8 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("can remove object`s inner link field without leaving orphan outer links", func() {
 		Context("having objects A and B with mutual links", func() {
-			aMetaDescription := description.MetaDescription{
-				Name: "a_zez5b",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-				},
-			}
-			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			metaStore.Create(aMeta)
 
@@ -265,7 +223,7 @@ var _ = Describe("The PG MetaStore", func() {
 			metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
-			aMetaDescription = description.MetaDescription{
+			aMetaDescription = &description.MetaDescription{
 				Name: aMeta.Name,
 				Key:  "id",
 				Cas:  false,
@@ -288,27 +246,13 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			aMeta, err = metaStore.NewMeta(&aMetaDescription)
+			aMeta, err = metaStore.NewMeta(aMetaDescription)
 			metaStore.Update(aMeta.Name, aMeta, true)
 			Expect(err).To(BeNil())
 
 			Context("and inner link field was removed from object B", func() {
-				bMetaDescription := description.MetaDescription{
-					Name: "b_uo8c6",
-					Key:  "id",
-					Cas:  false,
-					Fields: []description.Field{
-						{
-							Name: "id",
-							Type: description.FieldTypeNumber,
-							Def: map[string]interface{}{
-								"func": "nextval",
-							},
-							Optional: true,
-						},
-					},
-				}
-				bMeta, err := metaStore.NewMeta(&bMetaDescription)
+				bMetaDescription := description.GetBasicMetaDescription("b_uo8c6")
+				bMeta, err := metaStore.NewMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 				metaStore.Update(bMeta.Name, bMeta, true)
 
@@ -419,20 +363,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("creates inner link with 'on_delete' behavior defined as 'CASCADE' by default", func() {
 		By("having an object A")
-		aMetaDescription := description.MetaDescription{
-			Name: "a_94udg",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		aMetaDescription := description.GetBasicMetaDescription("random")
 		By("and having an object B referencing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
@@ -455,7 +386,7 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMeta)
 			Expect(err).To(BeNil())
@@ -487,20 +418,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("creates inner link with 'on_delete' behavior defined as 'CASCADE' when manually specified", func() {
 		By("having an object A")
-		aMetaDescription := description.MetaDescription{
-			Name: "a_8ndp9",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		aMetaDescription := description.GetBasicMetaDescription("random")
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
@@ -524,7 +442,7 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMeta)
 			Expect(err).To(BeNil())
@@ -557,20 +475,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("creates inner link with 'on_delete' behavior defined as 'SET NULL' when manually specified", func() {
 		By("having an object A")
-		aMetaDescription := description.MetaDescription{
-			Name: "a_1iglw",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		aMetaDescription := description.GetBasicMetaDescription("random")
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
@@ -594,7 +499,7 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMeta)
 			Expect(err).To(BeNil())
@@ -626,20 +531,8 @@ var _ = Describe("The PG MetaStore", func() {
 
 	It("creates inner link with 'on_delete' behavior defined as 'RESTRICT' when manually specified", func() {
 		By("having an object A")
-		aMetaDescription := description.MetaDescription{
-			Name: "a_ccrau",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		aMetaDescription := description.GetBasicMetaDescription("random")
+
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
@@ -663,7 +556,7 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMeta)
 			Expect(err).To(BeNil())
@@ -693,22 +586,10 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
-	It("creates inner link with 'on_delete' behavior defined as 'RESTRICT' when manually specified", func() {
+	It("creates inner link with 'on_delete' behavior defined as 'SETDEFAULT' when manually specified", func() {
 		By("having an object A")
-		aMetaDescription := description.MetaDescription{
-			Name: "a_6h6e4",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
+		aMetaDescription := description.GetBasicMetaDescription("random")
+
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := description.MetaDescription{
@@ -732,7 +613,7 @@ var _ = Describe("The PG MetaStore", func() {
 					},
 				},
 			}
-			aMeta, err := metaStore.NewMeta(&aMetaDescription)
+			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMeta)
 			Expect(err).To(BeNil())
