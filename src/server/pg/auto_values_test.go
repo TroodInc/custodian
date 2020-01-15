@@ -38,37 +38,28 @@ var _ = Describe("PG Auto Values Test", func() {
 
 		BeforeEach(func() {
 			var err error
-			metaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: false,
-					},
-					{
-						Name:        "datetime",
-						Type:        description.FieldTypeDateTime,
-						NowOnUpdate: true,
-						Optional:    true,
-					},
-					{
-						Name:        "date",
-						Type:        description.FieldTypeDate,
-						NowOnUpdate: true,
-						Optional:    true,
-					},
-					{
-						Name:        "time",
-						Type:        description.FieldTypeTime,
-						NowOnUpdate: true,
-						Optional:    true,
-					},
+			metaDescription := description.GetBasicMetaDescription("random")
+			metaDescription.Fields = append(metaDescription.Fields, []description.Field{
+				{
+					Name:        "datetime",
+					Type:        description.FieldTypeDateTime,
+					NowOnUpdate: true,
+					Optional:    true,
 				},
-			}
-			metaObj, err = metaStore.NewMeta(&metaDescription)
+				{
+					Name:        "date",
+					Type:        description.FieldTypeDate,
+					NowOnUpdate: true,
+					Optional:    true,
+				},
+				{
+					Name:        "time",
+					Type:        description.FieldTypeTime,
+					NowOnUpdate: true,
+					Optional:    true,
+				},
+			}...)
+			metaObj, err = metaStore.NewMeta(metaDescription)
 			Expect(err).To(BeNil())
 			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())
@@ -95,37 +86,28 @@ var _ = Describe("PG Auto Values Test", func() {
 
 		BeforeEach(func() {
 			var err error
-			metaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: false,
-					},
-					{
-						Name:        "datetime",
-						Type:        description.FieldTypeDateTime,
-						NowOnCreate: true,
-						Optional:    true,
-					},
-					{
-						Name:        "date",
-						Type:        description.FieldTypeDate,
-						NowOnCreate: true,
-						Optional:    true,
-					},
-					{
-						Name:        "time",
-						Type:        description.FieldTypeTime,
-						NowOnCreate: true,
-						Optional:    true,
-					},
+			metaDescription := description.GetBasicMetaDescription("random")
+			metaDescription.Fields = append(metaDescription.Fields, []description.Field{
+				{
+					Name:        "datetime",
+					Type:        description.FieldTypeDateTime,
+					NowOnCreate: true,
+					Optional:    true,
 				},
-			}
-			metaObj, err = metaStore.NewMeta(&metaDescription)
+				{
+					Name:        "date",
+					Type:        description.FieldTypeDate,
+					NowOnCreate: true,
+					Optional:    true,
+				},
+				{
+					Name:        "time",
+					Type:        description.FieldTypeTime,
+					NowOnCreate: true,
+					Optional:    true,
+				},
+			}...)
+			metaObj, err = metaStore.NewMeta(metaDescription)
 			Expect(err).To(BeNil())
 			metaCreateError := metaStore.Create(metaObj)
 			Expect(metaCreateError).To(BeNil())

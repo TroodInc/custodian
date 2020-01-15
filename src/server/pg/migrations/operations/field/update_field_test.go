@@ -40,28 +40,15 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		//setup MetaObj
 		JustBeforeEach(func() {
 			//"Direct" case
-			metaDescription = &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name: "number",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
+			metaDescription = description.GetBasicMetaDescription("random")
+			metaDescription.Fields = append(metaDescription.Fields, description.Field{
+				Name: "number",
+				Type: description.FieldTypeNumber,
+				Def: map[string]interface{}{
+					"func": "nextval",
 				},
-			}
+				Optional: true,
+			})
 			//create MetaDescription
 			MetaObj, err := metaStore.NewMeta(metaDescription)
 			err = metaStore.Create(MetaObj)
@@ -230,7 +217,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
 			Expect(err).To(BeNil())
-			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal("nextval('o_a_number_seq'::regclass)"))
+			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal("nextval('o_" + metaDescription.Name + "_number_seq'::regclass)"))
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
 		})
@@ -240,54 +227,28 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		//setup MetaObj
 		BeforeEach(func() {
 			//MetaDescription B
-			bMetaDescription := &description.MetaDescription{
-				Name: "b",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name: "number",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
+			bMetaDescription := description.GetBasicMetaDescription("random")
+			bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+				Name: "number",
+				Type: description.FieldTypeNumber,
+				Def: map[string]interface{}{
+					"func": "nextval",
 				},
-			}
+				Optional: true,
+			})
 
 			bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
 
 			//MetaDescription A
-			metaDescription = &description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:     "b",
-						Type:     description.FieldTypeObject,
-						LinkMeta: bMetaDescription.Name,
-						LinkType: description.LinkTypeInner,
-					},
-				},
-			}
+			metaDescription = description.GetBasicMetaDescription("random")
+			metaDescription.Fields = append(metaDescription.Fields, description.Field{
+				Name:     "b",
+				Type:     description.FieldTypeObject,
+				LinkMeta: bMetaDescription.Name,
+				LinkType: description.LinkTypeInner,
+			})
 
 			aMetaObj, err := metaStore.NewMeta(metaDescription)
 			err = metaStore.Create(aMetaObj)

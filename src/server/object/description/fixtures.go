@@ -1,13 +1,13 @@
 package description
 
 import (
-	"fmt"
-	"time"
+	"utils"
 )
 
 func GetBasicMetaDescription(nameOrRandom string) *MetaDescription {
 	if nameOrRandom == "random" {
-		nameOrRandom = fmt.Sprintf("%x", time.Now().UnixNano())
+		//nameOrRandom = fmt.Sprintf("%x", time.Now().UnixNano())
+		nameOrRandom = utils.RandomString(8)
 	}
 
 	return NewMetaDescription(
