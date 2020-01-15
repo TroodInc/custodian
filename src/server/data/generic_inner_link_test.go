@@ -37,22 +37,8 @@ var _ = Describe("Data", func() {
 
 	It("can create a record containing generic inner value", func() {
 		By("having two objects: A and B")
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -107,22 +93,8 @@ var _ = Describe("Data", func() {
 
 	It("cant create a record containing generic inner value with pk referencing not existing record", func() {
 		By("having two objects: A and B")
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -189,22 +161,8 @@ var _ = Describe("Data", func() {
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		cMetaDescription := description.MetaDescription{
-			Name: "c",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+		cMetaDescription := description.GetBasicMetaDescription("random")
+		cMetaObj, err := metaStore.NewMeta(cMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(cMetaObj)
 		Expect(err).To(BeNil())
@@ -261,22 +219,8 @@ var _ = Describe("Data", func() {
 
 	It("can update a record with null generic inner value", func() {
 		By("having three objects: A, B and C")
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -327,42 +271,14 @@ var _ = Describe("Data", func() {
 
 	It("can update a record containing generic inner value without affecting value itself and it outputs generic value right", func() {
 		By("having three objects: A, B and C")
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		cMetaDescription := description.MetaDescription{
-			Name: "c",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+		cMetaDescription := description.GetBasicMetaDescription("random")
+		cMetaObj, err := metaStore.NewMeta(cMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(cMetaObj)
 		Expect(err).To(BeNil())
@@ -724,22 +640,8 @@ var _ = Describe("Data", func() {
 		}
 
 		havingObjectC := func() {
-			cMetaDescription := description.MetaDescription{
-				Name: "c",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-				},
-			}
-			cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
+			cMetaDescription := description.GetBasicMetaDescription("random")
+			cMetaObj, err := metaStore.NewMeta(cMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(cMetaObj)
 			Expect(err).To(BeNil())

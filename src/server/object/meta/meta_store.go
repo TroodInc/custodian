@@ -194,8 +194,10 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	metaStore.removeRelatedGenericInnerLinks(meta)
 
 	//remove object from the database
-	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(make([]*MetaDescription, 0))
-	if e := metaStore.syncer.RemoveObj(transaction.DbTransaction, name, force); e == nil {
+	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
+
+	e := metaStore.syncer.RemoveObj(transaction.DbTransaction, name, force)
+	if e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
 
@@ -204,10 +206,10 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 		metaStore.globalTransactionManager.CommitTransaction(transaction)
 
 		return ok, err
-	} else {
-		metaStore.globalTransactionManager.RollbackTransaction(transaction)
-		return false, e
 	}
+
+	metaStore.globalTransactionManager.RollbackTransaction(transaction)
+	return false, e
 }
 
 //Remove all outer fields linking to given MetaDescription

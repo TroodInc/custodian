@@ -48,25 +48,7 @@ var _ = Describe("Migration Factory", func() {
 
 	//setup MetaDescription
 	JustBeforeEach(func() {
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "date",
-					Type:     description.FieldTypeDate,
-					Optional: false,
-				},
-			},
-		}
+		metaDescription = description.GetBasicMetaDescription("random")
 
 		MetaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
@@ -94,7 +76,7 @@ var _ = Describe("Migration Factory", func() {
 
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
-			ApplyTo:   "a",
+			ApplyTo:   metaDescription.Name,
 			DependsOn: nil,
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
@@ -116,7 +98,7 @@ var _ = Describe("Migration Factory", func() {
 	It("factories migration containing RenameObjectOperation", func() {
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
-			ApplyTo:   "a",
+			ApplyTo:   metaDescription.Name,
 			DependsOn: nil,
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
@@ -138,7 +120,7 @@ var _ = Describe("Migration Factory", func() {
 	It("factories migration containing AddFieldOperation", func() {
 
 		migrationDescription := migrations_description.GetFieldCreationMigration(
-			"random", "a", nil, description.Field{
+			"random", metaDescription.Name, nil, description.Field{
 				Name: "new-field",
 				Type: description.FieldTypeString,
 				Optional: true,
@@ -156,7 +138,7 @@ var _ = Describe("Migration Factory", func() {
 	It("factories migration containing RemoveFieldOperation", func() {
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
-			ApplyTo:   "a",
+			ApplyTo:   metaDescription.Name,
 			DependsOn: nil,
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
@@ -178,7 +160,7 @@ var _ = Describe("Migration Factory", func() {
 	It("factories migration containing UpdateFieldOperation", func() {
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
-			ApplyTo:   "a",
+			ApplyTo:   metaDescription.Name,
 			DependsOn: nil,
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
@@ -214,7 +196,7 @@ var _ = Describe("Migration Factory", func() {
 						Name:         "target_object",
 						Type:         description.FieldTypeGeneric,
 						LinkType:     description.LinkTypeInner,
-						LinkMetaList: []string{"a"},
+						LinkMetaList: []string{metaDescription.Name},
 						Optional:     false,
 					},
 				},
@@ -369,7 +351,7 @@ var _ = Describe("Migration Factory", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{metaDescription.Name},
 					Optional:     false,
 				}
 
@@ -406,7 +388,7 @@ var _ = Describe("Migration Factory", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{metaDescription.Name},
 					Optional:     false,
 				}
 

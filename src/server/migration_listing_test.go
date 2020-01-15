@@ -58,11 +58,11 @@ var _ = Describe("Migrations` listing", func() {
 		var migrationDescription *migrations_description.MigrationDescription
 		BeforeEach(func() {
 			metaDescription = description.GetBasicMetaDescription("random")
-			migrationDescription := migrations_description.GetObjectCreationMigration(
+			migrationDescription = migrations_description.GetObjectCreationMigration(
 				"random", "", nil, metaDescription,
 			)
 
-			_, err := migrationManager.Apply(migrationDescription, false, true)
+			_, err := migrationManager.Apply(migrationDescription, true, false)
 			Expect(err).To(BeNil())
 		})
 

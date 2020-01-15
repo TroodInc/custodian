@@ -34,22 +34,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove records with cascade relation", func() {
 
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name:     "id",
-					Type:     description.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -75,7 +61,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: aMetaDescription.Name,
 					OnDelete: description.OnDeleteCascade.ToVerbose(),
 				},
 			},
@@ -110,22 +96,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove record and update child records with 'setNull' relation", func() {
 
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name:     "id",
-					Type:     description.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -151,7 +123,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: aMetaDescription.Name,
 					Optional: true,
 					OnDelete: description.OnDeleteSetNull.ToVerbose(),
 				},
@@ -187,22 +159,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Cannot remove record with 'restrict' relation", func() {
 
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name:     "id",
-					Type:     description.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -228,7 +186,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: aMetaDescription.Name,
 					Optional: true,
 					OnDelete: description.OnDeleteRestrict.ToVerbose(),
 				},
@@ -250,22 +208,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove record and update child records with generic relation and 'setNull' strategy", func() {
 
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name:     "id",
-					Type:     description.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -291,7 +235,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{aMetaDescription.Name},
 					Optional:     true,
 					OnDelete:     description.OnDeleteSetNull.ToVerbose(),
 				},
@@ -331,22 +275,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 	})
 
 	It("Can remove record and update child records with generic relation and 'cascade' strategy", func() {
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name:     "id",
-					Type:     description.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -372,7 +302,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{aMetaDescription.Name},
 					Optional:     true,
 					OnDelete:     description.OnDeleteCascade.ToVerbose(),
 				},

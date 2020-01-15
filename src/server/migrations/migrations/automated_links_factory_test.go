@@ -41,25 +41,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 	//setup MetaDescription
 	JustBeforeEach(func() {
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "date",
-					Type:     description.FieldTypeDate,
-					Optional: false,
-				},
-			},
-		}
+		metaDescription = description.GetBasicMetaDescription("random")
 		//create MetaDescription
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
@@ -94,7 +76,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 						Name:     "a",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: metaDescription.Name,
 						Optional: false,
 					},
 				},
@@ -130,7 +112,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 						Name:     "a",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: metaDescription.Name,
 						Optional: false,
 					},
 				},
@@ -145,7 +127,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			_, err := migrationManager.Apply(migrationDescription, false, false)
 			Expect(err).To(BeNil())
 
-			aMetaDescription, _, err := metaDescriptionSyncer.Get("a")
+			aMetaDescription, _, err := metaDescriptionSyncer.Get(metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(aMetaDescription.FindField("b_set")).NotTo(BeNil())
 
@@ -154,7 +136,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Name:           "explicitly_set_b_set",
 				Type:           description.FieldTypeArray,
 				LinkType:       description.LinkTypeOuter,
-				OuterLinkField: "a",
+				OuterLinkField: metaDescription.Name,
 				LinkMeta:       "b",
 			})
 
@@ -183,7 +165,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: metaDescription.Name,
 					Optional: false,
 				}
 
@@ -204,7 +186,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: metaDescription.Name,
 					Optional: false,
 				}
 
@@ -247,7 +229,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: metaDescription.Name,
 					Optional: false,
 				}
 
@@ -290,7 +272,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: metaDescription.Name,
 					Optional: false,
 				}
 

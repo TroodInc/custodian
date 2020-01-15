@@ -17,6 +17,7 @@ func GetBasicMetaDescription(nameOrRandom string) *MetaDescription {
 			{
 				Name: "id",
 				Type: FieldTypeNumber,
+				Optional: true,
 				Def: map[string]interface{}{
 					"func": "nextval",
 				},

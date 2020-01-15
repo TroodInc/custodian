@@ -16,7 +16,7 @@ import (
 	"strconv"
 )
 
-var _ = Describe("Data", func() {
+var _ = XDescribe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 

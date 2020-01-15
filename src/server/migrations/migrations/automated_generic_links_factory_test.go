@@ -46,25 +46,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 	//setup MetaDescription
 	JustBeforeEach(func() {
-		metaDescription = &description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "date",
-					Type:     description.FieldTypeDate,
-					Optional: false,
-				},
-			},
-		}
+		metaDescription = description.GetBasicMetaDescription("random")
 		//create MetaDescription
 		aMetaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
@@ -89,7 +71,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 						Name:         "target_object",
 						Type:         description.FieldTypeGeneric,
 						LinkType:     description.LinkTypeInner,
-						LinkMetaList: []string{"a"},
+						LinkMetaList: []string{metaDescription.Name},
 						Optional:     false,
 					},
 				},
@@ -97,7 +79,9 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				false,
 			)
 
-			migrationDescription := migrations_description.GetObjectCreationMigration("random", "", nil, bMetaDescription)
+			migrationDescription := migrations_description.GetObjectCreationMigration(
+				"random", "", nil, bMetaDescription,
+			)
 
 			migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
@@ -123,7 +107,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{metaDescription.Name},
 					Optional:     false,
 				}
 
@@ -144,7 +128,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{metaDescription.Name},
 					Optional:     false,
 				}
 
@@ -202,7 +186,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{metaDescription.Name},
 					Optional:     false,
 				}
 
@@ -242,7 +226,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{metaDescription.Name},
 					Optional:     false,
 				}
 
@@ -278,7 +262,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{metaDescription.Name},
 					Optional:     false,
 				}
 
