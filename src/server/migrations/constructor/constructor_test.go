@@ -96,7 +96,7 @@ var _ = Describe("Migration Constructor", func() {
 		It("generates operation if object is being renamed", func() {
 			currentMetaDescription := description.GetBasicMetaDescription("random")
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "b",
+				Name: utils.RandomString(8),
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -106,6 +106,7 @@ var _ = Describe("Migration Constructor", func() {
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
+							Optional: true,
 						},
 						PreviousName: "",
 					},
@@ -142,8 +143,8 @@ var _ = Describe("Migration Constructor", func() {
 							Name: "id",
 							Type: description.FieldTypeNumber,
 							Def: map[string]interface{}{"func": "nextval"},
+							Optional: true,
 						},
-						PreviousName: "",
 					},
 					{
 						Field: description.Field{
@@ -151,7 +152,6 @@ var _ = Describe("Migration Constructor", func() {
 							Type:     description.FieldTypeString,
 							Optional: false,
 						},
-						PreviousName: "",
 					},
 				},
 				Actions: []migration_description.MigrationActionDescription{},
@@ -182,6 +182,7 @@ var _ = Describe("Migration Constructor", func() {
 							Name: "id",
 							Type: description.FieldTypeNumber,
 							Def: map[string]interface{}{"func": "nextval"},
+							Optional: true,
 						},
 						PreviousName: "",
 					},
@@ -209,6 +210,7 @@ var _ = Describe("Migration Constructor", func() {
 							Name: "id",
 							Type: description.FieldTypeNumber,
 							Def: map[string]interface{}{"func": "nextval"},
+							Optional: true,
 						},
 						{
 							Name:     "existing_field",
@@ -243,6 +245,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name: "id",
 								Type: description.FieldTypeNumber,
 								Def: map[string]interface{}{"func": "nextval"},
+								Optional: true,
 							},
 							PreviousName: "",
 						},
@@ -292,6 +295,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name: "id",
 								Type: description.FieldTypeNumber,
 								Def: map[string]interface{}{"func": "nextval"},
+								Optional: true,
 							},
 							PreviousName: "",
 						},
@@ -342,6 +346,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name: "id",
 								Type: description.FieldTypeNumber,
 								Def: map[string]interface{}{"func": "nextval"},
+								Optional: true,
 							},
 							PreviousName: "",
 						},
@@ -391,6 +396,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name: "id",
 								Type: description.FieldTypeNumber,
 								Def: map[string]interface{}{"func": "nextval"},
+								Optional: true,
 							},
 							PreviousName: "",
 						},
@@ -440,6 +446,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name: "id",
 								Type: description.FieldTypeNumber,
 								Def: map[string]interface{}{"func": "nextval"},
+								Optional: true,
 							},
 							PreviousName: "",
 						},
@@ -489,6 +496,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name: "id",
 								Type: description.FieldTypeNumber,
 								Def: map[string]interface{}{"func": "nextval"},
+								Optional: true,
 							},
 							PreviousName: "",
 						},
@@ -538,6 +546,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name: "id",
 								Type: description.FieldTypeNumber,
 								Def: map[string]interface{}{"func": "nextval"},
+								Optional: true,
 							},
 							PreviousName: "",
 						},
@@ -588,6 +597,7 @@ var _ = Describe("Migration Constructor", func() {
 							Name: "id",
 							Type: description.FieldTypeNumber,
 							Def: map[string]interface{}{"func": "nextval"},
+							Optional: true,
 						},
 						PreviousName: "",
 					},
@@ -628,6 +638,7 @@ var _ = Describe("Migration Constructor", func() {
 							Name: "id",
 							Type: description.FieldTypeNumber,
 							Def: map[string]interface{}{"func": "nextval"},
+							Optional: true,
 						},
 						PreviousName: "",
 					},

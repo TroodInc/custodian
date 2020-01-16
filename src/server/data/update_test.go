@@ -268,28 +268,14 @@ var _ = Describe("Data", func() {
 	})
 
 	havingObjectA := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "name",
-					Type:     description.FieldTypeString,
-					Optional: true,
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		(&description.NormalizationService{}).Normalize(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+			Name:     "name",
+			Type:     description.FieldTypeString,
+			Optional: true,
+		})
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
+		(&description.NormalizationService{}).Normalize(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())

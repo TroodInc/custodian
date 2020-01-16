@@ -91,7 +91,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 			aMetaDescription, _, err := metaDescriptionSyncer.Get(aMetaDescription.Name)
 			Expect(err).To(BeNil())
-			Expect(aMetaDescription.FindField("b_set")).NotTo(BeNil())
+			Expect(aMetaDescription.FindField(bMetaDescription.Name+"_set")).NotTo(BeNil())
 
 			migrationDescription = migrations_description.GetFieldCreationMigration(
 				"random", aMetaDescription.Name, nil, description.Field{

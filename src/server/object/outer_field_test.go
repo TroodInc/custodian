@@ -30,80 +30,41 @@ var _ = Describe("Outer field", func() {
 	})
 
 	havingAMeta := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
 
-	havingBMeta := func() *meta.Meta {
-		bMetaDescription := description.MetaDescription{
-			Name: "b",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
-					Optional: false,
-				},
-			},
-		}
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+	havingBMeta := func(A *meta.Meta) *meta.Meta {
+		bMetaDescription := description.GetBasicMetaDescription("random")
+		bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+			Name:     "a",
+			Type:     description.FieldTypeObject,
+			LinkType: description.LinkTypeInner,
+			LinkMeta: A.Name,
+			Optional: false,
+		})
+		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 		return bMetaObj
 	}
 
-	havingAMetaWithManuallySetBSetLink := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:           "b_set",
-					Type:           description.FieldTypeArray,
-					LinkType:       description.LinkTypeOuter,
-					LinkMeta:       "b",
-					OuterLinkField: "a",
-				},
-			},
-		}
-		(&description.NormalizationService{}).Normalize(&aMetaDescription)
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+	havingAMetaWithManuallySetBSetLink := func(A *meta.Meta, B *meta.Meta) *meta.Meta {
+		aMetaDescription := description.GetBasicMetaDescription(A.Name)
+		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+			Name:           "b_set",
+			Type:           description.FieldTypeArray,
+			LinkType:       description.LinkTypeOuter,
+			LinkMeta:       B.Name,
+			OuterLinkField: "a",
+		})
+		(&description.NormalizationService{}).Normalize(aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 		Expect(err).To(BeNil())
@@ -114,10 +75,10 @@ var _ = Describe("Outer field", func() {
 		By("having two objects: A and B")
 		aMetaObj := havingAMeta()
 
-		havingBMeta()
+		B := havingBMeta(aMetaObj)
 
 		By("object A containing outer field to B")
-		aMetaObj = havingAMetaWithManuallySetBSetLink()
+		aMetaObj = havingAMetaWithManuallySetBSetLink(aMetaObj, B)
 
 		// check meta fields
 		fieldName := "b_set"
@@ -125,7 +86,7 @@ var _ = Describe("Outer field", func() {
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
 		Expect(aMeta.Fields[1].Name).To(Equal(fieldName))
-		Expect(aMeta.Fields[1].LinkMeta.Name).To(Equal("b"))
+		Expect(aMeta.Fields[1].LinkMeta.Name).To(Equal(B.Name))
 		Expect(aMeta.FindField(fieldName).QueryMode).To(BeTrue())
 		Expect(aMeta.FindField(fieldName).RetrieveMode).To(BeTrue())
 	})
@@ -134,11 +95,11 @@ var _ = Describe("Outer field", func() {
 		By("having two objects: A and B")
 		aMetaObj := havingAMeta()
 
-		havingBMeta()
+		B := havingBMeta(aMetaObj)
 
 		aMetaObj, _, err := metaStore.Get(aMetaObj.Name, false)
 		Expect(err).To(BeNil())
-		bSetField := aMetaObj.FindField("b_set")
+		bSetField := aMetaObj.FindField(B.Name + "_set")
 		Expect(bSetField).NotTo(BeNil())
 		//automatically added fields should be used only for querying
 		Expect(bSetField.QueryMode).To(BeTrue())
@@ -148,8 +109,8 @@ var _ = Describe("Outer field", func() {
 	It("can be marshaled to JSON omitting QueryMode and RetrieveMode values", func() {
 		By("having two objects: A and B")
 		aMetaObj := havingAMeta()
-		havingBMeta()
-		havingAMetaWithManuallySetBSetLink()
+		B := havingBMeta(aMetaObj)
+		havingAMetaWithManuallySetBSetLink(aMetaObj, B)
 		// A meta contains automatically generated outer link to B
 		aMetaObj, _, err := metaStore.Get(aMetaObj.Name, false)
 		aMetaObjForExport := aMetaObj.ForExport()
@@ -165,37 +126,24 @@ var _ = Describe("Outer field", func() {
 	It("replaces automatically added outer field with manually added", func() {
 		By("having two objects: A and B")
 		aMetaObj := havingAMeta()
-		havingBMeta()
+		B := havingBMeta(aMetaObj)
 
 		// A meta contains automatically generated outer link to B
 		aMetaObj, _, err := metaStore.Get(aMetaObj.Name, false)
 		Expect(err).To(BeNil())
-		Expect(aMetaObj.FindField("b_set")).NotTo(BeNil())
+		Expect(aMetaObj.FindField(B.Name+"_set")).NotTo(BeNil())
 
 		//A meta updated with outer link to b
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:           "custom_b_set",
-					Type:           description.FieldTypeArray,
-					LinkType:       description.LinkTypeOuter,
-					LinkMeta:       "b",
-					OuterLinkField: "a",
-				},
-			},
-		}
-		(&description.NormalizationService{}).Normalize(&aMetaDescription)
-		aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription(aMetaObj.Name)
+		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+			Name:           "custom_b_set",
+			Type:           description.FieldTypeArray,
+			LinkType:       description.LinkTypeOuter,
+			LinkMeta:       B.Name,
+			OuterLinkField: "a",
+		})
+		(&description.NormalizationService{}).Normalize(aMetaDescription)
+		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 		Expect(err).To(BeNil())

@@ -34,84 +34,42 @@ var _ = Describe("Data", func() {
 
 	Describe("Data retrieve depending on outer link modes values", func() {
 		havingObjectA := func() *meta.Meta {
-			aMetaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-				},
-			}
-			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 			return aMetaObj
 		}
 
-		havingObjectBLinkedToA := func() *meta.Meta {
-			bMetaDescription := description.MetaDescription{
-				Name: "b",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:     "a",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
-						Optional: false,
-					},
-				},
-			}
-			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		havingObjectBLinkedToA := func(A *meta.Meta) *meta.Meta {
+			bMetaDescription := description.GetBasicMetaDescription("random")
+			bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+				Name:     "a",
+				Type:     description.FieldTypeObject,
+				LinkType: description.LinkTypeInner,
+				LinkMeta: A.Name,
+				Optional: false,
+			})
+			bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
 			return bMetaObj
 		}
 
-		havingObjectAWithManuallySpecifiedOuterLinkToB := func() *meta.Meta {
-			aMetaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:           "b_set",
-						Type:           description.FieldTypeArray,
-						LinkType:       description.LinkTypeOuter,
-						LinkMeta:       "b",
-						OuterLinkField: "a",
-						Optional:       true,
-					},
-				},
-			}
-			(&description.NormalizationService{}).Normalize(&aMetaDescription)
-			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		havingObjectAWithManuallySpecifiedOuterLinkToB := func(A *meta.Meta, B *meta.Meta) *meta.Meta {
+			aMetaDescription := description.GetBasicMetaDescription(A.Name)
+			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+				Name:           "b_set",
+				Type:           description.FieldTypeArray,
+				LinkType:       description.LinkTypeOuter,
+				LinkMeta:       B.Name,
+				OuterLinkField: "a",
+				Optional:       true,
+			})
+			(&description.NormalizationService{}).Normalize(aMetaDescription)
+			aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 			Expect(err).To(BeNil())
@@ -120,9 +78,9 @@ var _ = Describe("Data", func() {
 
 		It("retrieves data if outer link RetrieveMode is on", func() {
 
-			havingObjectA()
-			havingObjectBLinkedToA()
-			objectA := havingObjectAWithManuallySpecifiedOuterLinkToB()
+			A := havingObjectA()
+			B := havingObjectBLinkedToA(A)
+			objectA := havingObjectAWithManuallySpecifiedOuterLinkToB(A, B)
 
 			aRecord, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
@@ -134,7 +92,7 @@ var _ = Describe("Data", func() {
 		It("does not retrieve data if outer link RetrieveMode is off", func() {
 
 			objectA := havingObjectA()
-			havingObjectBLinkedToA()
+			havingObjectBLinkedToA(objectA)
 
 			aRecord, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
