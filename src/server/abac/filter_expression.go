@@ -23,7 +23,7 @@ func (fe *FilterExpression) String() string {
 		return fmt.Sprint(fe.Operator, "(", fe.Operand, ",(", fe.Value, "))")
 	} else if fe.Operator == notOperator {
 		if fe.Operand != "" {
-			return fmt.Sprint(fe.Operator, "(eq(", fe.Operand, ",", fe.Value, ")")
+			return fmt.Sprint(fe.Operator, "(eq(", fe.Operand, ",", fe.Value, "))")
 		}
 		return fmt.Sprint(fe.Operator, "(", fe.Value, ")")
 	}

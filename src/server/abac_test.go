@@ -86,6 +86,12 @@ var _ = Describe("ABAC rules handling", func() {
 					Type:     description.FieldTypeString,
 					Optional: true,
 				},
+				{
+					Name:	  "color",
+					Type:	  description.FieldTypeString,
+					Optional: true,
+					Def: 	  "red",
+				},
 			},
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
@@ -317,16 +323,19 @@ var _ = Describe("ABAC rules handling", func() {
 
 	Describe("Deny result tests", func() {
 
-		var url string
+		var obj_url, list_url string
 		JustBeforeEach(func() {
 			aObject := factoryObjectA()
 			aRecord, err := dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Red record", "owner_role": "user",}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Blue record", "owner_role": "user", "color": "blue"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
+			list_url = fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, aObject.Name)
+			obj_url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 		})
 
-		Context("Default resoution set to deny globaly", func() {
+		Context("Sbj rules with default resoution set to deny globaly", func() {
 
 			var abac_tree = map[string]interface{}{
 				"_default_resolution": "deny",
@@ -355,7 +364,7 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				httpServer = get_server(user)
 
-				var request, _ = http.NewRequest("GET", url, nil)
+				var request, _ = http.NewRequest("GET", obj_url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
@@ -370,7 +379,7 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				httpServer = get_server(user)
 
-				var request, _ = http.NewRequest("GET", url, nil)
+				var request, _ = http.NewRequest("GET", obj_url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
@@ -386,7 +395,7 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				httpServer = get_server(user)
 
-				var request, _ = http.NewRequest("GET", url, nil)
+				var request, _ = http.NewRequest("GET", obj_url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
@@ -402,13 +411,51 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				httpServer = get_server(user)
 
-				var request, _ = http.NewRequest("GET", url, nil)
+				var request, _ = http.NewRequest("GET", obj_url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
 				var body map[string]interface{}
 				json.Unmarshal([]byte(responseBody), &body)
 				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+		})
+
+		Context("Must invert rules and deny resolution", func() {
+			var abac_tree = map[string]interface{}{
+				"_default_resolution": "allow",
+				SERVICE_DOMAIN: map[string]interface{}{
+					"a": map[string]interface{}{
+						"data_GET": []interface{}{
+							map[string]interface{}{
+								"result": "deny",
+								"rule": map[string]interface{}{
+									"sbj.role": "user",
+									"obj.color": "red",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			It("Must show only blue for users", func(){
+				user = &auth.User{
+					Role: "user", ABAC: abac_tree,
+				}
+				httpServer = get_server(user)
+
+				var request, _ = http.NewRequest("GET", list_url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+
+				Expect(body["status"].(string)).To(Equal("RESTRICTED"))
+				data := body["data"].([]interface{})
+				Expect(len(data)).To(Equal(1))
+				Expect(data[0].(map[string]interface{})["color"].(string)).To(Equal("blue"))
 			})
 		})
 	})
