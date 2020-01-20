@@ -398,4 +398,15 @@ var _ = Describe("Abac Engine", func() {
 			Expect(filtered.(*record.Record).Data["payments"]).To(HaveLen(1))
 		})
 	})
+
+	Describe("Allow/Deny resolutions", func() {
+		It("Must resolve to True if only obj rules are set in policy", func() {
+			condition := jsonToObject(`{"obj.color": "red"}`)
+
+			result, filters := resolver.evaluateCondition(condition)
+
+			Expect(result).To(BeTrue())
+			Expect(filters).NotTo(BeNil())
+		})
+	})
 })
