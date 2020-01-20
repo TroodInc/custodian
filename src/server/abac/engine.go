@@ -182,6 +182,10 @@ func (abac *TroodABAC) Check(resource string, action string) (bool, *RuleABAC) {
 		for _, rule := range rules {
 			passed, rule := abac.EvaluateRule(rule.(map[string]interface{}))
 			if passed {
+				if rule.Filter != nil && rule.Result == "deny"{
+					rule.Filter = &FilterExpression{Operator:notOperator, Value:rule.Filter}
+					return true, rule
+				}
 				return rule.Result == "allow", rule
 			}
 		}

@@ -783,13 +783,17 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 		abac_resolver := ctx.Value("abac").(abac.TroodABAC)
 		abac_resolver.DataSource["ctx"] = resolver_context
 
-		passed, _ := abac_resolver.Check(
+		passed, rule := abac_resolver.Check(
 			ctx.Value("resource").(string), ctx.Value("action").(string),
 		)
 
 		if !passed {
 			returnError(w, abac.NewError("Access restricted by ABAC access rule"))
 			return
+		}
+
+		if rule != nil && rule.Result == "deny" {
+			sink.Status = "RESTRICTED"
 		}
 
 		query  := make(url.Values)
@@ -902,12 +906,13 @@ func (r *httpRequest) asJsonSource() (*JsonSource, error) {
 
 //The JSON object sink into the HTTP response.
 type JsonSink struct {
-	rw http.ResponseWriter
+	rw     http.ResponseWriter
+	Status string
 }
 
 //Converts http.ResponseWriter into JsonSink.
 func asJsonSink(w http.ResponseWriter) (*JsonSink, error) {
-	return &JsonSink{w}, nil
+	return &JsonSink{w, "OK"}, nil
 }
 
 //Push an error into JsonSink.
@@ -917,7 +922,7 @@ func (js *JsonSink) pushError(e error) {
 
 //Push an JSON object into JsonSink
 func (js *JsonSink) pushObj(object interface{}) {
-	responseData := map[string]interface{}{"status": "OK"}
+	responseData := map[string]interface{}{"status": js.Status}
 	if object != nil {
 		responseData["data"] = object
 	}
@@ -931,7 +936,7 @@ func (js *JsonSink) pushObj(object interface{}) {
 }
 
 func (js *JsonSink) pushList(objects []interface{}, total int) {
-	responseData := map[string]interface{}{"status": "OK"}
+	responseData := map[string]interface{}{"status": js.Status}
 	if objects == nil {
 		objects = make([]interface{},0)
 	}
