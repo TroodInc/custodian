@@ -366,20 +366,25 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 
 		_, rule := abac_resolver.Check(p.ByName("name"), "data_GET") // ??
-
 		user_filters := q.Get("q")
 
-		var filters = ""
-		if rule != nil && rule.Filter != nil && user_filters != "" {
-			filters = rule.Filter.String() + "," + user_filters
-		} else if user_filters != "" {
-			filters = user_filters
-		} else if rule != nil && rule.Filter != nil {
-			filters = rule.Filter.String()
+		var filters []string
+		if rule != nil && rule.Filter != nil {
+			if rule.Result == "deny" {
+				filters = append(filters, rule.Filter.Invert().String())
+			} else {
+				filters = append(filters, rule.Filter.String())
+			}
+		}
+
+		if user_filters != "" {
+			filters = append(filters, user_filters)
 		}
 
 		result := make([]interface{}, 0)
-		count, records, e := dataProcessor.GetBulk(p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters)
+		count, records, e := dataProcessor.GetBulk(
+			p.ByName("name"), strings.Join(filters, ","), q["only"], q["exclude"], depth, omitOuters,
+		)
 
 		if e != nil {
 			sink.pushError(e)
@@ -787,13 +792,15 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 			ctx.Value("resource").(string), ctx.Value("action").(string),
 		)
 
-		if !passed {
-			returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-			return
-		}
+		if rule != nil {
+			if !passed && rule.Result == "allow" {
+				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
+				return
+			}
 
-		if rule != nil && rule.Result == "deny" {
-			sink.Status = "RESTRICTED"
+			if rule.Result == "deny" {
+				sink.Status = "RESTRICTED"
+			}
 		}
 
 		query  := make(url.Values)
