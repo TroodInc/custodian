@@ -327,8 +327,8 @@ var _ = Describe("ABAC rules handling", func() {
 		JustBeforeEach(func() {
 			aObject := factoryObjectA()
 			aRecord, err := dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
-			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Red record", "owner_role": "user",}, auth.User{})
 			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Blue record", "owner_role": "user", "color": "blue"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Red record", "owner_role": "user",}, auth.User{})
 			Expect(err).To(BeNil())
 
 			list_url = fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, aObject.Name)
@@ -351,6 +351,12 @@ var _ = Describe("ABAC rules handling", func() {
 								"result": "deny",
 								"rule": map[string]interface{}{
 									"sbj.role": "disabled",
+								},
+							},map[string]interface{} {
+								"result": "deny",
+								"rule": map[string]interface{}{
+									"sbj.role": "restricted",
+									"obj.color": "red",
 								},
 							},
 						},
@@ -417,6 +423,40 @@ var _ = Describe("ABAC rules handling", func() {
 
 				var body map[string]interface{}
 				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+
+			It("Must deny if only obj rules is set with deny resolution", func() {
+				var abac_tree = map[string]interface{}{
+					"_default_resolution": "allow",
+					SERVICE_DOMAIN: map[string]interface{}{
+						"a": map[string]interface{}{
+							"data_GET": []interface{}{
+								map[string]interface{}{
+									"result": "deny",
+									"rule": map[string]interface{}{
+										"obj.color": "red",
+									},
+								},
+							},
+						},
+					},
+				}
+
+				user = &auth.User{
+					ABAC: abac_tree,
+				}
+
+				httpServer = get_server(user)
+
+				var request, _ = http.NewRequest("GET", obj_url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+
+				fmt.Fprintln(GinkgoWriter, body)
 				Expect(body["status"].(string)).To(Equal("FAIL"))
 			})
 		})

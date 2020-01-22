@@ -30,6 +30,10 @@ func (fe *FilterExpression) String() string {
 	return fmt.Sprint(fe.Operator, "(", fe.Operand, ",", fe.Value, ")")
 }
 
+func (fe *FilterExpression) Invert() *FilterExpression {
+	return &FilterExpression{Operator:notOperator, Value:fe}
+}
+
 // Match : matches the filter expression against the given record values
 func (fe *FilterExpression) Match(recordValues map[string]interface{}) (bool, error) {
 	return matchFilterExpression(fe, recordValues)
