@@ -16,7 +16,7 @@ import (
 	"server/pg/migrations/managers"
 )
 
-var _ = Describe("Automated generic links` migrations` spawning", func() {
+var _ = XDescribe("Automated generic links` migrations` spawning", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")

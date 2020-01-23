@@ -282,9 +282,9 @@ var _ = Describe("Data", func() {
 		return aMetaObj
 	}
 
-	havingObjectAWithObjectsLinkToD := func() *meta.Meta {
+	havingObjectAWithObjectsLinkToD := func(A *meta.Meta) *meta.Meta {
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: A.Name,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -317,7 +317,7 @@ var _ = Describe("Data", func() {
 		return aMetaObj
 	}
 
-	havingObjectB := func(onDelete string) *meta.Meta {
+	havingObjectB := func(A *meta.Meta, onDelete string) *meta.Meta {
 		bMetaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
@@ -336,7 +336,7 @@ var _ = Describe("Data", func() {
 					Type:     description.FieldTypeObject,
 					Optional: true,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: A.Name,
 					OnDelete: onDelete,
 				},
 				{
@@ -421,7 +421,7 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	factoryObjectBWithManuallySetOuterLinkToC := func() *meta.Meta {
+	factoryObjectBWithManuallySetOuterLinkToC := func(A *meta.Meta) *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
@@ -445,7 +445,7 @@ var _ = Describe("Data", func() {
 					Type:     description.FieldTypeObject,
 					Optional: true,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: A.Name,
 					OnDelete: description.OnDeleteCascade.ToVerbose(),
 				},
 				{
@@ -466,10 +466,10 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	havingObjectAWithManuallySetOuterLink := func() *meta.Meta {
+	havingObjectAWithManuallySetOuterLink := func(A *meta.Meta) *meta.Meta {
 
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: A.Name,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -504,7 +504,7 @@ var _ = Describe("Data", func() {
 	}
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, description.OnDeleteCascade.ToVerbose())
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -524,7 +524,7 @@ var _ = Describe("Data", func() {
 
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, description.OnDeleteCascade.ToVerbose())
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -543,9 +543,9 @@ var _ = Describe("Data", func() {
 	})
 
 	It("Can perform update of record with nested outer records of mixed types: new record, existing record`s PK and existing record`s new data at once", func() {
-		havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
-		aMetaObj := havingObjectAWithManuallySetOuterLink()
+		aMetaObj := havingObjectA()
+		bMetaObj := havingObjectB(aMetaObj, description.OnDeleteCascade.ToVerbose())
+		aMetaObj = havingObjectAWithManuallySetOuterLink(aMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -577,9 +577,9 @@ var _ = Describe("Data", func() {
 	})
 
 	It("Processes delete logic for outer records which are not presented in update data. `Cascade` strategy case ", func() {
-		havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
-		aMetaObj := havingObjectAWithManuallySetOuterLink()
+		aMetaObj := havingObjectA()
+		bMetaObj := havingObjectB(aMetaObj, description.OnDeleteCascade.ToVerbose())
+		aMetaObj = havingObjectAWithManuallySetOuterLink(aMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -625,9 +625,9 @@ var _ = Describe("Data", func() {
 	})
 
 	It("Processes delete logic for outer records which are not presented in update data. `SetNull` strategy case ", func() {
-		havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteSetNull.ToVerbose())
-		aMetaObj := havingObjectAWithManuallySetOuterLink()
+		aMetaObj := havingObjectA()
+		bMetaObj := havingObjectB(aMetaObj, description.OnDeleteSetNull.ToVerbose())
+		aMetaObj = havingObjectAWithManuallySetOuterLink(aMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(
 			aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{},
@@ -679,9 +679,9 @@ var _ = Describe("Data", func() {
 	})
 
 	It("Processes delete logic for outer records which are not presented in update data. `Restrict` strategy case ", func() {
-		havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteRestrict.ToVerbose())
-		aMetaObj := havingObjectAWithManuallySetOuterLink()
+		aMetaObj := havingObjectA()
+		bMetaObj := havingObjectB(aMetaObj, description.OnDeleteRestrict.ToVerbose())
+		aMetaObj = havingObjectAWithManuallySetOuterLink(aMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -708,11 +708,11 @@ var _ = Describe("Data", func() {
 
 	It("Updates record with nested records with mixed values(both valuable and null)", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteRestrict.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, description.OnDeleteRestrict.ToVerbose())
 		dMetaObj := havingObjectD()
 		cMetaObj := havingObjectC()
 
-		factoryObjectBWithManuallySetOuterLinkToC()
+		factoryObjectBWithManuallySetOuterLinkToC(aMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -747,9 +747,9 @@ var _ = Describe("Data", func() {
 	})
 
 	It("Processes delete logic for records within 'Objects' relation which are not presented in update data. Case 1: uniform type of data(list of ids)", func() {
-		havingObjectA()
+		aMetaObj := havingObjectA()
 		dMetaObj := havingObjectD()
-		aMetaObj := havingObjectAWithObjectsLinkToD()
+		aMetaObj = havingObjectAWithObjectsLinkToD(aMetaObj)
 
 		dRecord, err := dataProcessor.CreateRecord(dMetaObj.Name, map[string]interface{}{"name": "D record", "id": "rec"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -775,9 +775,9 @@ var _ = Describe("Data", func() {
 	})
 
 	It("Processes delete logic for records within 'Objects' relation which are not presented in update data. Case 2: mixed type of data", func() {
-		havingObjectA()
+		aMetaObj := havingObjectA()
 		dMetaObj := havingObjectD()
-		aMetaObj := havingObjectAWithObjectsLinkToD()
+		aMetaObj = havingObjectAWithObjectsLinkToD(aMetaObj)
 
 		dRecord, err := dataProcessor.CreateRecord(dMetaObj.Name, map[string]interface{}{"name": "D record", "id": "rec"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -803,9 +803,9 @@ var _ = Describe("Data", func() {
 	})
 
 	It("Processes delete logic for records within 'Objects' relation if empty list is specified", func() {
-		havingObjectA()
+		aMetaObj := havingObjectA()
 		dMetaObj := havingObjectD()
-		aMetaObj := havingObjectAWithObjectsLinkToD()
+		aMetaObj = havingObjectAWithObjectsLinkToD(aMetaObj)
 
 		dRecord, err := dataProcessor.CreateRecord(dMetaObj.Name, map[string]interface{}{"name": "D record", "id": "rec"}, auth.User{})
 		Expect(err).To(BeNil())
