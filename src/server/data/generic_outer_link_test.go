@@ -18,7 +18,7 @@ import (
 	"fmt"
 )
 
-var _ = XDescribe("Data", func() {
+var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
@@ -70,9 +70,8 @@ var _ = XDescribe("Data", func() {
 			return bMetaDescription
 		}
 
-		havingObjectAWithGenericOuterLinkToB := func(B *description.MetaDescription) {
-			aMetaDescription := description.GetBasicMetaDescription("random")
-			aMetaDescription.Fields =  append(aMetaDescription.Fields, description.Field{
+		havingObjectAWithGenericOuterLinkToB := func(A *description.MetaDescription, B *description.MetaDescription) {
+			A.Fields =  append(A.Fields, description.Field{
 				Name:           "b_set",
 				Type:           description.FieldTypeGeneric,
 				LinkType:       description.LinkTypeOuter,
@@ -81,31 +80,33 @@ var _ = XDescribe("Data", func() {
 				Optional:       true,
 			})
 
-			(&description.NormalizationService{}).Normalize(aMetaDescription)
-			aMetaObj, err := metaStore.NewMeta(aMetaDescription)
+			(&description.NormalizationService{}).Normalize(A)
+			aMetaObj, err := metaStore.NewMeta(A)
 			Expect(err).To(BeNil())
 			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 			Expect(err).To(BeNil())
 		}
 
-		havingARecordOfObjectA := func() {
-			aRecord, err = dataProcessor.CreateRecord("a", map[string]interface{}{"name": "A record"}, auth.User{})
+		havingARecordOfObjectA := func(A *description.MetaDescription) {
+			aRecord, err = dataProcessor.CreateRecord(A.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
-		havingARecordOfObjectBContainingRecordOfObjectA := func() {
-			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "brecord"}, auth.User{})
+		havingARecordOfObjectBContainingRecordOfObjectA := func(A *description.MetaDescription, B *description.MetaDescription) {
+			bRecord, err = dataProcessor.CreateRecord(B.Name, map[string]interface{}{"target": map[string]interface{}{"_object": A.Name, "id": aRecord.Data["id"]}, "name": "brecord"}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		It("can retrieve record with outer generic field as key", func() {
 			aMeta := havingObjectA()
 			bMeta := havingObjectBWithGenericLinkToA(aMeta)
-			havingObjectAWithGenericOuterLinkToB(bMeta)
-			Describe("And having a record of object A", havingARecordOfObjectA)
-			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+			havingObjectAWithGenericOuterLinkToB(aMeta, bMeta)
+			By("And having a record of object A")
+			havingARecordOfObjectA(aMeta)
+			By("and having a record of object B containing generic field value with A object`s record")
+			havingARecordOfObjectBContainingRecordOfObjectA(aMeta, bMeta)
 
-			aRecord, err := dataProcessor.Get("a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
+			aRecord, err := dataProcessor.Get(aMeta.Name, strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
@@ -115,25 +116,27 @@ var _ = XDescribe("Data", func() {
 		It("can retrieve record with outer generic field as object", func() {
 			aMeta := havingObjectA()
 			bMeta := havingObjectBWithGenericLinkToA(aMeta)
-			havingObjectAWithGenericOuterLinkToB(bMeta)
-			Describe("And having a record of object A", havingARecordOfObjectA)
-			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+			havingObjectAWithGenericOuterLinkToB(aMeta, bMeta)
+			By("And having a record of object A")
+			havingARecordOfObjectA(aMeta)
+			By("and having a record of object B containing generic field value with A object`s record")
+			havingARecordOfObjectBContainingRecordOfObjectA(aMeta, bMeta)
 
-			aRecord, err := dataProcessor.Get("a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 3, false)
+			aRecord, err := dataProcessor.Get(aMeta.Name, strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 3, false)
 			Expect(err).To(BeNil())
 			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
 			targetValue := bSet[0].(*record.Record).Data["target"].(*record.Record)
-			Expect(targetValue.Data[types.GenericInnerLinkObjectKey].(string)).To(Equal("a"))
+			Expect(targetValue.Data[types.GenericInnerLinkObjectKey].(string)).To(Equal(aMeta.Name))
 		})
 
 		It("can create record with nested records referenced by outer generic link, referenced record does not exist", func() {
 			aMeta := havingObjectA()
 			bMeta := havingObjectBWithGenericLinkToA(aMeta)
-			havingObjectAWithGenericOuterLinkToB(bMeta)
+			havingObjectAWithGenericOuterLinkToB(aMeta, bMeta)
 
 			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{}}}
-			aRecord, err := dataProcessor.CreateRecord("a", aRecordData, auth.User{})
+			aRecord, err := dataProcessor.CreateRecord(aMeta.Name, aRecordData, auth.User{})
 
 			Expect(err).To(BeNil())
 			Expect(aRecord.Data).To(HaveKey("b_set"))
@@ -146,13 +149,13 @@ var _ = XDescribe("Data", func() {
 		It("can create record with nested records referenced by outer generic link, referenced record exists", func() {
 			aMeta := havingObjectA()
 			bMeta := havingObjectBWithGenericLinkToA(aMeta)
-			havingObjectAWithGenericOuterLinkToB(bMeta)
+			havingObjectAWithGenericOuterLinkToB(aMeta, bMeta)
 
-			bRecord, err := dataProcessor.CreateRecord("b", map[string]interface{}{}, auth.User{})
+			bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 
 			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{"id": bRecord.Data["id"]}}}
-			aRecord, err := dataProcessor.CreateRecord( "a", aRecordData, auth.User{})
+			aRecord, err := dataProcessor.CreateRecord( aMeta.Name, aRecordData, auth.User{})
 
 			//check returned data
 			Expect(err).To(BeNil())
@@ -162,7 +165,7 @@ var _ = XDescribe("Data", func() {
 			Expect(bSetData[0].(float64)).To(Equal(bRecord.Data["id"]))
 
 			//check queried data
-			aRecord, err = dataProcessor.Get( "a", strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
+			aRecord, err = dataProcessor.Get( aMeta.Name, strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 
 			Expect(aRecord.Data).To(HaveKey("b_set"))
@@ -171,17 +174,19 @@ var _ = XDescribe("Data", func() {
 			Expect(bSetData[0].(float64)).To(Equal(bRecord.Data["id"]))
 		})
 
-		It("can query records by outer generic field value", func() {
+		XIt("can query records by outer generic field value", func() {
 			aMeta := havingObjectA()
 			bMeta := havingObjectBWithGenericLinkToA(aMeta)
-			havingObjectAWithGenericOuterLinkToB(bMeta)
-			Describe("And having a record of object A", havingARecordOfObjectA)
-			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
+			havingObjectAWithGenericOuterLinkToB(aMeta, bMeta)
+			By("And having a record of object A")
+			havingARecordOfObjectA(aMeta)
+			By("and having a record of object B containing generic field value with A object`s record")
+			havingARecordOfObjectBContainingRecordOfObjectA(aMeta, bMeta)
 
-			bRecord, err = dataProcessor.CreateRecord( "b", map[string]interface{}{"target": map[string]interface{}{"_object": "a", "id": aRecord.Data["id"]}, "name": "anotherbrecord"}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"target": map[string]interface{}{"_object": aMeta.Name, "id": aRecord.Data["id"]}, "name": "anotherbrecord"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			_, matchedRecords, err := dataProcessor.GetBulk("a", fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false)
+			_, matchedRecords, err := dataProcessor.GetBulk(aMeta.Name, fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 		})
