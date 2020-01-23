@@ -21,7 +21,7 @@ import (
 	meta_description "server/migrations/description"
 )
 
-var _ = XDescribe("Migration`s construction", func() {
+var _ = Describe("Migration`s construction", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 

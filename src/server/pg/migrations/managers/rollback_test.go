@@ -139,7 +139,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				Expect(aMeta.FindField("title")).To(BeNil())
 			})
 
-			It("It can rollback `RemoveField` migration", func() {
+			XIt("It can rollback `RemoveField` migration", func() {
 				field := description.Field{
 					Name:     "title",
 					Type:     description.FieldTypeString,

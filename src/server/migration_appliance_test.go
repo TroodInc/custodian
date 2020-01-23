@@ -21,7 +21,7 @@ import (
 	"server/pg/migrations/managers"
 )
 
-var _ = XDescribe("Server", func() {
+var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
@@ -110,7 +110,7 @@ var _ = XDescribe("Server", func() {
 		Expect(aMeta).NotTo(BeNil())
 	})
 
-	It("Can fake migration appliance", func() {
+	XIt("Can fake migration appliance", func() {
 		migrationDescriptionData := map[string]interface{}{
 			"id":        "b5df723r",
 			"applyTo":   "",
@@ -248,7 +248,7 @@ var _ = XDescribe("Server", func() {
 		Expect(dMeta).NotTo(BeNil())
 	})
 
-	It("Can delete object by application of migration", func() {
+	XIt("Can delete object by application of migration", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 		//Create A object
