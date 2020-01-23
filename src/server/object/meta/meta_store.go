@@ -180,6 +180,8 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 
 // Deletes an existing object metadata from the store.
 func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
+	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
+
 	meta, _, err := metaStore.Get(name, false)
 	if err != nil {
 		return false, err
@@ -194,18 +196,19 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	metaStore.removeRelatedGenericInnerLinks(meta)
 
 	//remove object from the database
-	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
 
 	e := metaStore.syncer.RemoveObj(transaction.DbTransaction, name, force)
 	if e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
 
-		//invalidate cache
-		metaStore.cache.Invalidate()
-		metaStore.globalTransactionManager.CommitTransaction(transaction)
+		if err == nil {
+			//invalidate cache
+			metaStore.cache.Invalidate()
+			metaStore.globalTransactionManager.CommitTransaction(transaction)
 
-		return ok, err
+			return ok, err
+		}
 	}
 
 	metaStore.globalTransactionManager.RollbackTransaction(transaction)
