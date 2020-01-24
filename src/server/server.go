@@ -600,125 +600,80 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/migrations/apply", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
-			globalTransactionManager.RollbackTransaction(globalTransaction)
+		migrationDescription, err := migrations_description.MigrationDescriptionFromJson(bytes.NewReader(r.body))
+		if err != nil {
 			js.pushError(err)
 			return
+		}
+
+		fake := len(q.Get("fake")) > 0
+
+		updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
+
+		metaStore.Cache().Invalidate()
+
+		if err != nil {
+			js.pushError(err)
+			return
+		}
+		if updatedMetaDescription != nil {
+			js.pushObj(updatedMetaDescription.ForExport())
 		} else {
-			migrationDescription, err := new(migrations_description.MigrationDescription).Unmarshal(bytes.NewReader(r.body))
-			if err != nil {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(err)
-				return
-			}
-
-			fake := len(q.Get("fake")) > 0
-
-
-			var updatedMetaDescription *description.MetaDescription
-			if !fake {
-				updatedMetaDescription, err = migrationManager.Apply(migrationDescription, globalTransaction, true)
-				if err != nil {
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(err)
-					return
-				}
-			} else {
-				err := migrationManager.FakeApply(migrationDescription, globalTransaction)
-				if err != nil {
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					js.pushError(err)
-					return
-				}
-			}
-
-			metaStore.Cache().Invalidate()
-			globalTransactionManager.CommitTransaction(globalTransaction)
-
-			if updatedMetaDescription != nil {
-				js.pushObj(updatedMetaDescription.ForExport())
-			} else {
-				js.pushObj(nil)
-			}
+			js.pushObj(migrationDescription)
 		}
 	}))
 
 	app.router.GET(cs.root+"/migrations", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+		migrationList, err := migrationManager.List(q.Get("q"))
+		if err != nil {
 			sink.pushError(err)
+			return
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
+			result := make([]interface{}, 0)
+			for _, obj := range migrationList {
+				data := obj.GetData()
+				// TODO: incapsulate json rendering
+				var meta_state map[string]interface{}
+				var operations []migrations_description.MigrationOperationDescription
+				json.Unmarshal([]byte(fmt.Sprintf("%v", data["meta_state"])), &meta_state)
+				json.Unmarshal([]byte(fmt.Sprintf("%v", data["operations"])), &operations)
+				data["meta_state"] = meta_state
+				data["operations"] = operations
 
-			migrationList, err := migrationManager.List(dbTransaction, q.Get("q"))
-			if err != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(err)
-				return
-			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				sink.pushList(migrationList, len(migrationList))
+				result = append(result, data)
 			}
+			sink.pushList(result, len(result))
 		}
 	}))
 
 	app.router.GET(cs.root+"/migrations/description/:migration_id", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
+		migration, err := migrationManager.Get(p.ByName("migration_id"))
+		if err != nil {
 			sink.pushError(err)
+			return
+		} else if migration == nil {
+			sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
-
-			migrationDescription, err := migrationManager.GetDescription(dbTransaction, p.ByName("migration_id"))
-			if err != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(err)
-				return
-			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				sink.pushObj(migrationDescription)
-			}
+			sink.pushObj(migration.GetData())
 		}
 	}))
 
 	app.router.POST(cs.root+"/migrations/rollback", CreateJsonAction(func(requestData *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
+		fake := len(q.Get("fake")) > 0
+
+		migrationId, ok := requestData.single["migrationId"]
+		if !ok {
+			sink.pushError(NewValidationError(migrations.MigrationErrorInvalidDescription, "Migration`s ID should be specified with 'migrationId' attribute", nil))
+			return
+		}
+		metaDescription, err := migrationManager.RollBackTo(migrationId.(string), true, fake)
+
+		if err != nil {
 			sink.pushError(err)
+			return
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction.DbTransaction))
-
-			fake := len(q.Get("fake")) > 0
-
-			if !fake {
-				migrationId, ok := requestData.single["migrationId"]
-				if !ok {
-					sink.pushError(NewValidationError(migrations.MigrationErrorInvalidDescription, "Migration`s ID should be specified with 'migrationId' attribute", nil))
-					return
-				}
-				metaDescription, err := migrationManager.RollBackTo(migrationId.(string), globalTransaction, true)
-
-				if err != nil {
-					sink.pushError(err)
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					return
-				} else {
-					sink.pushObj(metaDescription)
-					globalTransactionManager.CommitTransaction(globalTransaction)
-					return
-				}
-			} else {
-				err := migrationManager.FakeRollbackTo(requestData.single["migrationId"].(string), globalTransaction)
-				if err != nil {
-					sink.pushError(err)
-					globalTransactionManager.RollbackTransaction(globalTransaction)
-					return
-				} else {
-					sink.pushObj(nil)
-					globalTransactionManager.CommitTransaction(globalTransaction)
-					return
-				}
-			}
+			sink.pushObj(metaDescription)
+			return
 		}
 	}))
 
