@@ -91,13 +91,13 @@ func (r *Reverser) Columns(cols *[]Column, pk *string) error {
 	var column, dbtype, defval string
 	var dbdefval sql.NullString
 	var notnull, ok bool
-	var coltyp ColumnType
+	var coltyp description.FieldType
 	var colsmap = make(map[string]int)
 	for i := 0; colrows.Next(); i++ {
 		if err = colrows.Scan(&column, &dbtype, &dbdefval, &notnull); err != nil {
 			return &DDLError{table: r.table, code: ErrInternal, msg: "parse column desc" + err.Error()}
 		}
-		if coltyp, ok = dbTypeToColumnType(dbtype); !ok {
+		if coltyp, ok = dbTypeToFieldType(dbtype); !ok {
 			return &DDLError{table: r.table, code: ErrInternal, msg: fmt.Sprintf("Unknown database type: '%s'", dbtype)}
 		}
 		if dbdefval.Valid {

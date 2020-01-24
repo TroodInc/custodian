@@ -105,7 +105,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
-			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
+			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
@@ -205,7 +205,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			//Optional has changed
 			Expect(metaDdlFromDB.Columns[1].Optional).To(BeFalse())
 			//Type has changed
-			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(pg.ColumnTypeText))
+			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 			//Name has changed
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("new-number"))
 			//Default has been dropped

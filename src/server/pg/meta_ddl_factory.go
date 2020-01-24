@@ -61,10 +61,6 @@ func (mdf *MetaDdlFactory) factorySimpleFieldProperties(field *description.Field
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	var ok bool
-	if column.Typ, ok = fieldTypeToColumnType(field.Type); !ok {
-		return nil, nil, nil, nil, &DDLError{table: metaName, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(field.Type)}
-	}
 	return []Column{*column}, nil, nil, mdf.factorySequence(metaName, field), nil
 }
 
@@ -74,15 +70,11 @@ func (mdf *MetaDdlFactory) processInnerLinkField(field *description.Field, metaD
 		return nil, nil, nil, nil, err
 	}
 
-	var ok bool
 	linkMetaDescription, _, err := mdf.metaDescriptionSyncer.Get(field.LinkMeta)
 	if err != nil {
 		return nil, nil, nil, nil, err
 	}
-	keyType := linkMetaDescription.FindField(linkMetaDescription.Key).Type
-	if column.Typ, ok = fieldTypeToColumnType(keyType); !ok {
-		return nil, nil, nil, nil, &DDLError{table: metaDescription.Name, code: ErrUnsupportedColumnType, msg: "Unsupported field type: " + string(keyType)}
-	}
+	column.Typ = linkMetaDescription.FindField(linkMetaDescription.Key).Type
 
 	ifk := IFK{
 		FromColumn: field.Name,
@@ -108,13 +100,13 @@ func (mdf *MetaDdlFactory) processOuterLinkField(field *description.Field, metaD
 func (mdf *MetaDdlFactory) processGenericInnerLinkField(metaName string, field *description.Field) ([]Column, *IFK, *OFK, *Seq, error) {
 	typeColumn := Column{}
 	typeColumn.Name = meta.GetGenericFieldTypeColumnName(field.Name)
-	typeColumn.Typ = ColumnTypeText
+	typeColumn.Typ = description.FieldTypeString
 	typeColumn.Optional = field.Optional
 	typeColumn.Unique = false
 
 	keyColumn := Column{}
 	keyColumn.Name = meta.GetGenericFieldKeyColumnName(field.Name)
-	keyColumn.Typ = ColumnTypeText
+	keyColumn.Typ = description.FieldTypeString
 	keyColumn.Optional = field.Optional
 	keyColumn.Unique = false
 
@@ -125,6 +117,7 @@ func (mdf *MetaDdlFactory) processGenericInnerLinkField(metaName string, field *
 func (mdf *MetaDdlFactory) factoryBlankColumn(metaName string, field *description.Field) (*Column, error) {
 	column := Column{}
 	column.Name = field.Name
+	column.Typ = field.Type
 	column.Optional = field.Optional
 	column.Unique = field.Unique
 

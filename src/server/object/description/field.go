@@ -2,6 +2,7 @@ package description
 
 import (
 	"encoding/json"
+	"errors"
 )
 
 //Types description
@@ -78,6 +79,25 @@ func (fieldType FieldType) String() (string, bool) {
 		return "generic", true
 	default:
 		return "", false
+	}
+}
+
+func (fieldType FieldType) DdlType() (string, error) {
+	switch fieldType {
+	case FieldTypeString:
+		return "text", nil
+	case FieldTypeNumber:
+		return "numeric", nil
+	case FieldTypeBool:
+		return "bool", nil
+	case FieldTypeDate:
+		return "date", nil
+	case FieldTypeDateTime:
+		return "timestamp with time zone", nil
+	case FieldTypeTime:
+		return "time with time zone", nil
+	default:
+		return "", errors.New("Unsupported column type: " + string(fieldType))
 	}
 }
 
