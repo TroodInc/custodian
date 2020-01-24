@@ -76,8 +76,8 @@ var _ = Describe("Data", func() {
 
 	It("can query records by string PK value", func() {
 		Context("having an A object with string PK field", func() {
-			metaDescription := description.MetaDescription{
-				Name: "a",
+			aMetaDescription := description.MetaDescription{
+				Name: utils.RandomString(8),
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -88,22 +88,22 @@ var _ = Describe("Data", func() {
 					},
 				},
 			}
-			metaObj, err := metaStore.NewMeta(&metaDescription)
+			metaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 
 			By("having two records of this object")
 
-			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"id": "PKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"id": "PKVALUE"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"id": "ANOTHERPKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"id": "ANOTHERPKVALUE"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			By("having another object, containing A object as a link")
 
-			metaDescription = description.MetaDescription{
+			bMetaDescription := &description.MetaDescription{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
@@ -117,12 +117,12 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaDescription.Name,
 						Optional: true,
 					},
 				},
 			}
-			bMetaObj, err := metaStore.NewMeta(&metaDescription)
+			bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
@@ -441,27 +441,13 @@ var _ = Describe("Data", func() {
 
 	It("can query records by related record`s attribute", func() {
 		Context("having an object A", func() {
-			aMetaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:     "name",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-			}
-			aMetaObj, _ := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+				Name:     "name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			})
+			aMetaObj, _ := metaStore.NewMeta(aMetaDescription)
 			metaStore.Create(aMetaObj)
 
 			bMetaDescription := description.MetaDescription{
@@ -481,7 +467,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaDescription.Name,
 					},
 				},
 			}
@@ -519,27 +505,13 @@ var _ = Describe("Data", func() {
 
 	It("can retrieve records with null inner link value", func() {
 		Context("having an object A", func() {
-			aMetaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:     "name",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-				},
-			}
-			aMetaObj, _ := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+				Name:     "name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			})
+			aMetaObj, _ := metaStore.NewMeta(aMetaDescription)
 			metaStore.Create(aMetaObj)
 
 			bMetaDescription := description.MetaDescription{
@@ -559,7 +531,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaDescription.Name,
 						Optional: true,
 					},
 				},
@@ -587,26 +559,13 @@ var _ = Describe("Data", func() {
 
 	It("can query through 3 related objects", func() {
 		Context("having an object with outer link to another object", func() {
-			aMetaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name: "name",
-						Type: description.FieldTypeString,
-					},
-				},
-			}
-			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+				Name:     "name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			})
+			aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			metaStore.Create(aMetaObj)
 
@@ -627,7 +586,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaDescription.Name,
 						Optional: false,
 					},
 				},
@@ -731,26 +690,13 @@ var _ = Describe("Data", func() {
 	})
 
 	It("can query through 1 generic and 2 related objects", func() {
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name:     "id",
-					Type:     description.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name: "name",
-					Type: description.FieldTypeString,
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+			Name:     "name",
+			Type:     description.FieldTypeString,
+			Optional: false,
+		})
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		metaStore.Create(aMetaObj)
 
@@ -771,7 +717,7 @@ var _ = Describe("Data", func() {
 					Name:     "a",
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: aMetaDescription.Name,
 					Optional: false,
 				},
 			},
@@ -841,27 +787,13 @@ var _ = Describe("Data", func() {
 	})
 
 	It("always uses additional ordering by primary key", func() {
-		aMetaDescription := description.MetaDescription{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name:     "id",
-					Type:     description.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "name",
-					Type:     description.FieldTypeString,
-					Optional: true,
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := description.GetBasicMetaDescription("random")
+		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+			Name:     "name",
+			Type:     description.FieldTypeString,
+			Optional: true,
+		})
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		metaStore.Create(aMetaObj)
 
@@ -988,26 +920,13 @@ var _ = Describe("Data", func() {
 
 	It("can query by 'Objects' field values", func() {
 		Context("having an object with outer link to another object", func() {
-			aMetaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name: "name",
-						Type: description.FieldTypeString,
-					},
-				},
-			}
-			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := description.GetBasicMetaDescription("random")
+			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+				Name:     "name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			})
+			aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
@@ -1029,7 +948,7 @@ var _ = Describe("Data", func() {
 						Name:     "as",
 						Type:     description.FieldTypeObjects,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaDescription.Name,
 						Optional: true,
 					},
 				},
