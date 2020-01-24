@@ -1,20 +1,20 @@
 package validation
 
+/** TODO:  Unused code??
+
 import (
+	"fmt"
+	"reflect"
 	"server/errors"
+	_migrations "server/migrations"
+	"server/migrations/description"
 	"server/pg/migrations/managers"
 	"server/transactions"
 	"utils"
-	_migrations "server/migrations"
-	"server/migrations/storage"
-	"reflect"
-	"server/migrations/description"
-	"fmt"
 )
 
 type MigrationValidationService struct {
 	migrationManager *managers.MigrationManager
-	migrationStorage *storage.MigrationStorage
 }
 
 //check if the given migration has no conflicts with already applied migrations
@@ -25,7 +25,7 @@ func (mv *MigrationValidationService) Validate(migrationDescription *description
 		return err
 	}
 
-	appliedParentMigrations, err := mv.migrationManager.GetPrecedingMigrationsForObject(metaName, transaction)
+	appliedParentMigrations, err := mv.migrationManager.GetPrecedingMigrationsForObject(metaName)
 	if err != nil {
 		return err
 	}
@@ -42,10 +42,11 @@ func (mv *MigrationValidationService) Validate(migrationDescription *description
 			return errors.NewValidationError(_migrations.MigrationErrorParentsChanged, "The given migration`s parents` list has changed since this migration was constructed", nil)
 		}
 
-		latestMigrationDescription, err := mv.migrationStorage.Get(siblingMigrationsIds[0])
+		latestMigrationRecord, err := mv.migrationManager.Get(siblingMigrationsIds[0])
 		if err != nil {
 			return err
 		}
+		latestMigrationDescription := description.MigrationDescriptionFromRecord(latestMigrationRecord)
 		if reflect.DeepEqual(migrationDescription.DependsOn, latestMigrationDescription.DependsOn) {
 			if len(migrationDescription.DependsOn) == 0 {
 				//	case : candidate migration is an attempt to create already existing object
@@ -71,10 +72,11 @@ func (mv *MigrationValidationService) validateMigrationAndItsSiblings(migrationD
 		return err
 	}
 	for _, siblingId := range siblingIds {
-		siblingMigrationDescription, err := mv.migrationStorage.Get(siblingId)
+		siblingMigrationRecord, err := mv.migrationManager.Get(siblingId)
 		if err != nil {
 			return err
 		}
+		siblingMigrationDescription := description.MigrationDescriptionFromRecord(siblingMigrationRecord)
 		//validate the sibling itself
 		if err := mv.validateMigrationHavingSiblings(siblingMigrationDescription); err != nil {
 			return err
@@ -142,6 +144,9 @@ func (mv *MigrationValidationService) validateMigrationAgainstSingleSibling(migr
 	return nil
 }
 
-func NewMigrationValidationService(manager *managers.MigrationManager, migrationStoragePath string) *MigrationValidationService {
-	return &MigrationValidationService{migrationManager: manager, migrationStorage: storage.NewMigrationStorage(migrationStoragePath)}
+func NewMigrationValidationService(manager *managers.MigrationManager) *MigrationValidationService {
+	return &MigrationValidationService{migrationManager: manager}
 }
+
+
+**/
