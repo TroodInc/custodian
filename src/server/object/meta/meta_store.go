@@ -16,7 +16,7 @@ import (
 type MetaStore struct {
 	MetaDescriptionSyncer    MetaDescriptionSyncer
 	cache                    *MetaCache
-	syncer                   MetaDbSyncer
+	Syncer                   MetaDbSyncer
 	globalTransactionManager *transactions.GlobalTransactionManager
 }
 
@@ -76,7 +76,7 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 	// @todo: Find another way of checking DB schema consistency
 	//transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
 	//validate the newly created business object against existing one in the database
-	//ok, err := metaStore.syncer.ValidateObj(transaction.DbTransaction, metaObj.MetaDescription, metaStore.MetaDescriptionSyncer)
+	//ok, err := metaStore.Syncer.ValidateObj(transaction.DbTransaction, metaObj.MetaDescription, metaStore.MetaDescriptionSyncer)
 	//if ok {
 	//	metaStore.cache.Set(metaObj)
 	//	metaStore.globalTransactionManager.CommitTransaction(transaction)
@@ -90,7 +90,7 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
 
-	if e := metaStore.syncer.CreateObj(transaction.DbTransaction, objectMeta.MetaDescription, metaStore.MetaDescriptionSyncer); e == nil {
+	if e := metaStore.Syncer.CreateObj(transaction.DbTransaction, objectMeta.MetaDescription, metaStore.MetaDescriptionSyncer); e == nil {
 		if e := metaStore.MetaDescriptionSyncer.Create(transaction.MetaDescriptionTransaction, *objectMeta.MetaDescription); e == nil {
 
 			//add corresponding outer generic fields
@@ -108,7 +108,7 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 			metaStore.globalTransactionManager.CommitTransaction(transaction)
 			return nil
 		} else {
-			var e2 = metaStore.syncer.RemoveObj(transaction.DbTransaction, objectMeta.Name, false)
+			var e2 = metaStore.Syncer.RemoveObj(transaction.DbTransaction, objectMeta.Name, false)
 			logger.Error("Error while compenstaion of object '%s' metadata creation: %v", objectMeta.Name, e2)
 			metaStore.globalTransactionManager.RollbackTransaction(transaction)
 			return e
@@ -121,7 +121,6 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 
 // Updates an existing object metadata.
 func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool) (bool, error) {
-	globalTransaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
 	if currentMetaObj, ok, err := metaStore.Get(name, false); err == nil {
 		if keepOuter {
 			metaStore.processGenericOuterLinkKeeping(currentMetaObj, newMetaObj)
@@ -134,11 +133,11 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 		ok, e := metaStore.MetaDescriptionSyncer.Update(name, *newMetaObj.MetaDescription)
 
 		if e != nil || !ok {
-			metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
 			return ok, e
 		}
 
-		if updateError := metaStore.syncer.UpdateObj(globalTransaction.DbTransaction, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
+		globalTransaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
+		if updateError := metaStore.Syncer.UpdateObj(globalTransaction.DbTransaction, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(currentMetaObj, newMetaObj)
 
@@ -157,7 +156,7 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 			return true, nil
 		} else {
 			//rollback to the previous version
-			rollbackError := metaStore.syncer.UpdateObjTo(globalTransaction.DbTransaction, currentMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer)
+			rollbackError := metaStore.Syncer.UpdateObjTo(globalTransaction.DbTransaction, currentMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer)
 			if rollbackError != nil {
 				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
 				metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -170,34 +169,32 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 				metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
 				return false, updateError
 			}
+			metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
 			return false, updateError
 		}
 	} else {
-		metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
 		return ok, err
 	}
 }
 
 // Deletes an existing object metadata from the store.
 func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
-	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
-
 	meta, _, err := metaStore.Get(name, false)
 	if err != nil {
-		metaStore.globalTransactionManager.RollbackTransaction(transaction)
 		return false, err
 	}
 	//remove related links from the database
 	metaStore.removeRelatedOuterLinks(meta)
 	metaStore.removeRelatedInnerLinks(meta)
-	metaStore.removeRelatedObjectsFieldAndThroughMeta(force, meta)
+	err = metaStore.removeRelatedObjectsFieldAndThroughMeta(force, meta)
 
 	//remove related generic links from the database
 	metaStore.removeRelatedGenericOuterLinks(meta)
 	metaStore.removeRelatedGenericInnerLinks(meta)
 
 	//remove object from the database
-	if e := metaStore.syncer.RemoveObj(transaction.DbTransaction, name, force); e == nil {
+	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
+	if e := metaStore.Syncer.RemoveObj(transaction.DbTransaction, name, force); e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
 
@@ -269,27 +266,30 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
-			objectMetaFields := make([]Field, 0)
-			objectMetaFieldDescriptions := make([]FieldDescription, 0)
-			objectNeedsUpdate := false
+			if objectMeta != nil {
 
-			for i, fieldDescription := range objectMeta.Fields {
-				//omit orphan fields
-				fieldIsTargetInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObject && fieldDescription.LinkMeta.Name == targetMeta.Name
-				fieldIsTargetOuterLink := fieldDescription.LinkType == LinkTypeOuter && fieldDescription.Type == FieldTypeArray && fieldDescription.LinkMeta.Name == targetMeta.Name
+				objectMetaFields := make([]Field, 0)
+				objectMetaFieldDescriptions := make([]FieldDescription, 0)
+				objectNeedsUpdate := false
 
-				if !(fieldIsTargetInnerLink || fieldIsTargetOuterLink) {
-					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
-					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
-				} else {
-					objectNeedsUpdate = true
+				for i, fieldDescription := range objectMeta.Fields {
+					//omit orphan fields
+					fieldIsTargetInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObject && fieldDescription.LinkMeta.Name == targetMeta.Name
+					fieldIsTargetOuterLink := fieldDescription.LinkType == LinkTypeOuter && fieldDescription.Type == FieldTypeArray && fieldDescription.LinkMeta.Name == targetMeta.Name
+
+					if !(fieldIsTargetInnerLink || fieldIsTargetOuterLink) {
+						objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
+						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+					} else {
+						objectNeedsUpdate = true
+					}
 				}
-			}
-			// it means that related object should be updated
-			if objectNeedsUpdate {
-				objectMeta.Fields = objectMetaFieldDescriptions
-				objectMeta.MetaDescription.Fields = objectMetaFields
-				metaStore.Update(objectMeta.Name, objectMeta, true)
+				// it means that related object should be updated
+				if objectNeedsUpdate {
+					objectMeta.Fields = objectMetaFieldDescriptions
+					objectMeta.MetaDescription.Fields = objectMetaFields
+					metaStore.Update(objectMeta.Name, objectMeta, true)
+				}
 			}
 		}
 	}
@@ -302,38 +302,40 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
 
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
-			objectMetaFields := make([]Field, 0)
-			objectMetaFieldDescriptions := make([]FieldDescription, 0)
-			objectNeedsUpdate := false
+			if objectMeta != nil {
+				objectMetaFields := make([]Field, 0)
+				objectMetaFieldDescriptions := make([]FieldDescription, 0)
+				objectNeedsUpdate := false
 
-			for i, fieldDescription := range objectMeta.Fields {
-				//omit orphan fields
-				fieldIsTargetGenericInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeGeneric && utils.Contains(fieldDescription.Field.LinkMetaList, targetMeta.Name)
+				for i, fieldDescription := range objectMeta.Fields {
+					//omit orphan fields
+					fieldIsTargetGenericInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeGeneric && utils.Contains(fieldDescription.Field.LinkMetaList, targetMeta.Name)
 
-				if !fieldIsTargetGenericInnerLink {
-					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
-					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
-				} else {
-					objectNeedsUpdate = true
-					indexOfTargetMeta := utils.IndexOf(fieldDescription.Field.LinkMetaList, targetMeta.Name)
+					if !fieldIsTargetGenericInnerLink {
+						objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
+						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+					} else {
+						objectNeedsUpdate = true
+						indexOfTargetMeta := utils.IndexOf(fieldDescription.Field.LinkMetaList, targetMeta.Name)
 
-					//alter field
-					field := objectMeta.MetaDescription.Fields[i]
-					field.LinkMetaList = append(field.LinkMetaList[:indexOfTargetMeta], field.LinkMetaList[indexOfTargetMeta+1:]...)
-					objectMetaFields = append(objectMetaFields, field)
+						//alter field
+						field := objectMeta.MetaDescription.Fields[i]
+						field.LinkMetaList = append(field.LinkMetaList[:indexOfTargetMeta], field.LinkMetaList[indexOfTargetMeta+1:]...)
+						objectMetaFields = append(objectMetaFields, field)
 
-					//alter field description
-					fieldDescription := objectMeta.Fields[i]
-					fieldDescription.LinkMetaList.RemoveByName(targetMeta.Name)
-					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, fieldDescription)
+						//alter field description
+						fieldDescription := objectMeta.Fields[i]
+						fieldDescription.LinkMetaList.RemoveByName(targetMeta.Name)
+						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, fieldDescription)
 
+					}
 				}
-			}
-			// it means that related object should be updated
-			if objectNeedsUpdate {
-				objectMeta.Fields = objectMetaFieldDescriptions
-				objectMeta.MetaDescription.Fields = objectMetaFields
-				metaStore.Update(objectMeta.Name, objectMeta, true)
+				// it means that related object should be updated
+				if objectNeedsUpdate {
+					objectMeta.Fields = objectMetaFieldDescriptions
+					objectMeta.MetaDescription.Fields = objectMetaFields
+					metaStore.Update(objectMeta.Name, objectMeta, true)
+				}
 			}
 		}
 	}
@@ -346,33 +348,35 @@ func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(keepMeta boo
 
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
-			objectMetaFields := make([]Field, 0)
-			objectMetaFieldDescriptions := make([]FieldDescription, 0)
-			objectNeedsUpdate := false
+			if objectMeta != nil {
+				objectMetaFields := make([]Field, 0)
+				objectMetaFieldDescriptions := make([]FieldDescription, 0)
+				objectNeedsUpdate := false
 
-			for i, fieldDescription := range objectMeta.Fields {
-				//omit orphan fields
-				fieldIsObjectsLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObjects
+				for i, fieldDescription := range objectMeta.Fields {
+					//omit orphan fields
+					fieldIsObjectsLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObjects
 
-				if !fieldIsObjectsLink {
-					objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
-					objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
-				} else {
-					objectNeedsUpdate = true
-					if !keepMeta {
-						if _, err := metaStore.Remove(fieldDescription.LinkThrough.Name, true); err != nil {
-							return err
+					if !fieldIsObjectsLink {
+						objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
+						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+					} else {
+						objectNeedsUpdate = true
+						if !keepMeta {
+							if _, err := metaStore.Remove(fieldDescription.LinkThrough.Name, true); err != nil {
+								return err
+							}
 						}
 					}
 				}
-			}
 
-			// means that related object should be updated
-			if objectNeedsUpdate {
-				objectMeta.Fields = objectMetaFieldDescriptions
-				objectMeta.MetaDescription.Fields = objectMetaFields
-				if _, err := metaStore.Update(objectMeta.Name, objectMeta, true); err != nil {
-					return err
+				// means that related object should be updated
+				if objectNeedsUpdate {
+					objectMeta.Fields = objectMetaFieldDescriptions
+					objectMeta.MetaDescription.Fields = objectMetaFields
+					if _, err := metaStore.Update(objectMeta.Name, objectMeta, true); err != nil {
+						return err
+					}
 				}
 			}
 		}
@@ -626,5 +630,5 @@ func (metaStore *MetaStore) Flush() error {
 }
 
 func NewStore(md MetaDescriptionSyncer, mds MetaDbSyncer, gtm *transactions.GlobalTransactionManager) *MetaStore {
-	return &MetaStore{MetaDescriptionSyncer: md, syncer: mds, cache: NewCache(), globalTransactionManager: gtm}
+	return &MetaStore{MetaDescriptionSyncer: md, Syncer: mds, cache: NewCache(), globalTransactionManager: gtm}
 }
