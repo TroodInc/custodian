@@ -559,7 +559,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			js.pushError(err)
 			return
 		} else {
-			migrationMetaDescription, err := new(migrations_description.MigrationMetaDescription).Unmarshal(bytes.NewReader(r.body))
+			migrationMetaDescription, err := migrations_description.MigrationMetaDescriptionFromJson(bytes.NewReader(r.body))
 			if err != nil {
 				globalTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(err)
