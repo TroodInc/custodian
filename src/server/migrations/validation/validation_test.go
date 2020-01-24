@@ -1,5 +1,7 @@
 package validation_test
 
+/** TODO:  Unused code??
+
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -40,7 +42,7 @@ var _ = Describe("Migration Validation Service", func() {
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
 
-	migrationValidationService := validation.NewMigrationValidationService(migrationManager, appConfig.MigrationStoragePath)
+	migrationValidationService := validation.NewMigrationValidationService(migrationManager)
 
 	BeforeEach(func() {
 		//setup server
@@ -55,7 +57,7 @@ var _ = Describe("Migration Validation Service", func() {
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
 		// drop history
-		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
+		err = migrationManager.DropHistory()
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -146,7 +148,7 @@ var _ = Describe("Migration Validation Service", func() {
 				},
 			}
 
-			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, globalTransaction, true)
+			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
@@ -243,7 +245,7 @@ var _ = Describe("Migration Validation Service", func() {
 					},
 				}
 
-				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
+				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription,true, false)
 				Expect(err).To(BeNil())
 
 				globalTransactionManager.CommitTransaction(globalTransaction)
@@ -309,8 +311,8 @@ var _ = Describe("Migration Validation Service", func() {
 					},
 				}
 
-				err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
 				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
+				err = migrationValidationService.Validate(migrationDescription, globalTransaction.DbTransaction)
 				Expect(err).NotTo(BeNil())
 				Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationIsNotCompatibleWithSiblings))
 			})
@@ -366,10 +368,10 @@ var _ = Describe("Migration Validation Service", func() {
 					},
 				}
 
-				aMetaDescription, err = migrationManager.Apply(migrationDescription, globalTransaction, true)
+				aMetaDescription, err = migrationManager.Apply(migrationDescription,true, false)
 				Expect(err).To(BeNil())
 
-				migrationRecords, err := migrationManager.GetPrecedingMigrationsForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+				migrationRecords, err := migrationManager.GetPrecedingMigrationsForObject(aMetaDescription.Name)
 				globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
@@ -404,7 +406,7 @@ var _ = Describe("Migration Validation Service", func() {
 						},
 					}
 
-					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, globalTransaction, true)
+					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, true, false)
 					Expect(err).To(BeNil())
 
 					globalTransactionManager.CommitTransaction(globalTransaction)
@@ -463,7 +465,7 @@ var _ = Describe("Migration Validation Service", func() {
 							},
 						}
 
-						aMetaDescription, err = migrationManager.Apply(fourthAppliedMigrationDescription, globalTransaction, true)
+						aMetaDescription, err = migrationManager.Apply(fourthAppliedMigrationDescription,true, false)
 						Expect(err).To(BeNil())
 
 						globalTransactionManager.CommitTransaction(globalTransaction)
@@ -502,3 +504,6 @@ var _ = Describe("Migration Validation Service", func() {
 		})
 	})
 })
+
+
+ **/

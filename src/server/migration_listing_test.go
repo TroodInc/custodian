@@ -46,15 +46,11 @@ var _ = Describe("Migrations` listing", func() {
 
 	flushDb := func() {
 		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		// drop history
+		err := migrationManager.DropHistory()
 		Expect(err).To(BeNil())
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
-		// drop history
-		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
 
 	BeforeEach(flushDb)
@@ -64,10 +60,6 @@ var _ = Describe("Migrations` listing", func() {
 		var metaDescription *description.MetaDescription
 		var migrationDescription *migrations_description.MigrationDescription
 		BeforeEach(func() {
-
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
 			metaDescription = description.NewMetaDescription(
 				"b",
 				"id",
@@ -96,12 +88,10 @@ var _ = Describe("Migrations` listing", func() {
 				},
 			}
 
-			_, err = migrationManager.Apply(migrationDescription, globalTransaction, true)
+			_, err := migrationManager.Apply(migrationDescription,true, false)
 			Expect(err).To(BeNil())
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
-
 		})
+
 		It("Can list applied migrations", func() {
 
 			url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
@@ -120,7 +110,7 @@ var _ = Describe("Migrations` listing", func() {
 			//ensure applied migration was returned
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			first := body["data"].([]interface{})[0].(map[string]interface{})
-			Expect(first["Data"].(map[string]interface{})["migration_id"]).To(Equal(migrationDescription.Id))
+			Expect(first["migration_id"]).To(Equal(migrationDescription.Id))
 		})
 
 		It("Can detail applied migrations", func() {
@@ -138,7 +128,7 @@ var _ = Describe("Migrations` listing", func() {
 			Expect(body["status"]).To(Equal("OK"))
 			//ensure applied migration was returned
 			Expect(body["data"]).NotTo(BeNil())
-			Expect(body["data"].(map[string]interface{})["id"]).To(Equal(migrationDescription.Id))
+			Expect(body["data"].(map[string]interface{})["migration_id"]).To(Equal(migrationDescription.Id))
 		})
 	})
 

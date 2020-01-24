@@ -43,18 +43,14 @@ var _ = Describe("Migration`s construction", func() {
 	})
 
 	flushDb := func() {
-		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		// drop history
+		err := managers.NewMigrationManager(
+			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		).DropHistory()
 		Expect(err).To(BeNil())
+		//Flush meta/database
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
-		// drop history
-		err = managers.NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).DropHistory(globalTransaction.DbTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
 
 	factoryObjectA := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
