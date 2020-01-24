@@ -81,6 +81,9 @@ func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name str
 	var metaDdlFromDb *MetaDDL
 	var e error
 	if metaDdlFromDb, e = MetaDDLFromDB(tx.Tx, name); e != nil {
+		if e.(*DDLError).code == ErrNotFound {
+			return nil
+		}
 		return e
 	}
 	var ds DdlStatementSet
