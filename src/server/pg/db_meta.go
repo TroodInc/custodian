@@ -36,6 +36,7 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 		})
 	}
 
+	dm.DbTransactionManager.CommitTransaction(transaction)
 	return &meta, true, nil
 }
 
