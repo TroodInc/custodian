@@ -28,6 +28,8 @@ func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescriptio
 		metaDescription.MetaDescription(),
 	}
 
+	json.Unmarshal([]byte(record.Data["operations"].(string)), &migrationDescription.Operations)
+
 	return &migrationDescription
 }
 
