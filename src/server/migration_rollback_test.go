@@ -164,7 +164,7 @@ var _ = Describe("Rollback migrations", func() {
 					globalTransactionManager.CommitTransaction(globalTransaction)
 				})
 
-				XIt("It can rollback object`s state up to the first migration state", func() {
+				It("It can rollback object`s state up to the first migration state", func() {
 					url := fmt.Sprintf("%s/migrations/rollback", appConfig.UrlPrefix)
 
 					data := map[string]interface{}{
@@ -184,17 +184,11 @@ var _ = Describe("Rollback migrations", func() {
 					//ensure applied migration was returned
 					Expect(body["data"]).NotTo(BeNil())
 
-					//ensure rolled back migrations were removed from history
-					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-					Expect(err).To(BeNil())
-
 					records, err := migrationManager.GetPrecedingMigrationsForObject(aMetaDescription.Name)
 					Expect(err).To(BeNil())
 
 					Expect(records).To(HaveLen(1))
 					Expect(records[0].Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
-
-					globalTransactionManager.CommitTransaction(globalTransaction)
 				})
 			})
 		})
