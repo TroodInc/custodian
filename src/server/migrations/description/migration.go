@@ -3,9 +3,11 @@ package description
 import (
 	"encoding/json"
 	"io"
+	"server/data/record"
 	"server/errors"
 	_migrations "server/migrations"
 	"server/object/description"
+	"strings"
 )
 
 type MigrationDescription struct {
@@ -16,15 +18,31 @@ type MigrationDescription struct {
 	MetaDescription *description.MetaDescription    `json:"metaState,omitempty"`
 }
 
-func (md *MigrationDescription) Marshal() ([]byte, error) {
-	return json.Marshal(md)
+func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescription){
+	metaDescription, _ := MigrationMetaDescriptionFromJson(strings.NewReader(record.Data["meta_state"].(string)))
+	migrationDescription := MigrationDescription{
+		record.Data["migration_id"].(string),
+		record.Data["object"].(string),
+		[]string{record.Data["predecessor_id"].(string)},
+		[]MigrationOperationDescription{},
+		metaDescription.MetaDescription(),
+	}
+
+	json.Unmarshal([]byte(record.Data["operations"].(string)), &migrationDescription.Operations)
+
+	return &migrationDescription
 }
 
-func (md *MigrationDescription) Unmarshal(inputReader io.Reader) (*MigrationDescription, error) {
-	if e := json.NewDecoder(inputReader).Decode(md); e != nil {
+func MigrationDescriptionFromJson(inputReader io.Reader) (*MigrationDescription, error){
+	md := MigrationDescription{}
+	if e := json.NewDecoder(inputReader).Decode(&md); e != nil {
 		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
 	}
-	return md, nil
+	return &md, nil
+}
+
+func (md *MigrationDescription) Marshal() ([]byte, error) {
+	return json.Marshal(md)
 }
 
 //Returns meta`s name which this migration is intended for
@@ -59,11 +77,12 @@ type MigrationMetaDescription struct {
 	Cas          bool                         `json:"cas"`
 }
 
-func (mmd *MigrationMetaDescription) Unmarshal(inputReader io.Reader) (*MigrationMetaDescription, error) {
-	if e := json.NewDecoder(inputReader).Decode(mmd); e != nil {
+func MigrationMetaDescriptionFromJson(inputReader io.Reader)(*MigrationMetaDescription, error)  {
+	mmd := MigrationMetaDescription{}
+	if e := json.NewDecoder(inputReader).Decode(&mmd); e != nil {
 		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
 	}
-	return mmd, nil
+	return &mmd, nil
 }
 
 func (mmd *MigrationMetaDescription) MetaDescription() *description.MetaDescription {

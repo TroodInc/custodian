@@ -119,7 +119,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				},
 			}
 
-			_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
+			_, err = migrationManager.Apply(migrationDescription,false, false)
 			Expect(err).To(BeNil())
 
 			aMetaObj, _, err := metaStore.Get("a", false)
@@ -169,7 +169,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				},
 			}
 
-			_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
+			_, err = migrationManager.Apply(migrationDescription,false, false)
 			Expect(err).To(BeNil())
 
 			aMetaDescription, _, err := metaDescriptionSyncer.Get("a")
@@ -196,7 +196,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				},
 			}
 
-			updatedAMetaDescription, err := migrationManager.Apply(migrationDescription, globalTransaction, false)
+			updatedAMetaDescription, err := migrationManager.Apply(migrationDescription, false, false)
 
 			Expect(err).To(BeNil())
 
@@ -261,7 +261,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					},
 				}
 
-				_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
+				_, err = migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				aMetaObj, _, err := metaStore.Get("a", false)
@@ -298,7 +298,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					},
 				}
 
-				updatedBMetaDescription, err := migrationManager.Apply(migrationDescription, globalTransaction, false)
+				updatedBMetaDescription, err := migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				renamedBMetaDescription := updatedBMetaDescription.Clone()
@@ -316,7 +316,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					},
 				}
 
-				_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
+				_, err = migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -353,7 +353,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					},
 				}
 
-				_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
+				_, err = migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
@@ -368,7 +368,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					},
 				}
 
-				_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
+				_, err = migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
@@ -405,7 +405,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					},
 				}
 
-				_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
+				_, err = migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				migrationDescription = &migrations_description.MigrationDescription{
@@ -420,7 +420,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					},
 				}
 
-				_, err = migrationManager.Apply(migrationDescription, globalTransaction, false)
+				_, err = migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)

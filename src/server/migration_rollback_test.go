@@ -47,15 +47,12 @@ var _ = Describe("Rollback migrations", func() {
 	})
 
 	flushDb := func() {
-		//Flush meta/database
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
 		// drop history
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		err := migrationManager.DropHistory()
 		Expect(err).To(BeNil())
-		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
+		//Flush meta/database
+		err = metaStore.Flush()
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
 
 	AfterEach(flushDb)
@@ -97,7 +94,7 @@ var _ = Describe("Rollback migrations", func() {
 				},
 			}
 
-			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, globalTransaction, true)
+			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
@@ -129,7 +126,7 @@ var _ = Describe("Rollback migrations", func() {
 					},
 				}
 
-				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
+				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, true, false)
 				Expect(err).To(BeNil())
 
 				globalTransactionManager.CommitTransaction(globalTransaction)
@@ -161,7 +158,7 @@ var _ = Describe("Rollback migrations", func() {
 						},
 					}
 
-					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, globalTransaction, true)
+					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, true, false)
 					Expect(err).To(BeNil())
 
 					globalTransactionManager.CommitTransaction(globalTransaction)
@@ -187,17 +184,11 @@ var _ = Describe("Rollback migrations", func() {
 					//ensure applied migration was returned
 					Expect(body["data"]).NotTo(BeNil())
 
-					//ensure rolled back migrations were removed from history
-					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-					Expect(err).To(BeNil())
-
-					records, err := migrationManager.GetPrecedingMigrationsForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+					records, err := migrationManager.GetPrecedingMigrationsForObject(aMetaDescription.Name)
 					Expect(err).To(BeNil())
 
 					Expect(records).To(HaveLen(1))
 					Expect(records[0].Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
-
-					globalTransactionManager.CommitTransaction(globalTransaction)
 				})
 			})
 		})

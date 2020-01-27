@@ -47,16 +47,12 @@ var _ = Describe("Server", func() {
 	})
 
 	flushDb := func() {
-		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		// drop history
+		err := migrationManager.DropHistory()
 		Expect(err).To(BeNil())
+		//Flush meta/database
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
-		// drop history
-		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
 
 	AfterEach(flushDb)
@@ -170,7 +166,7 @@ var _ = Describe("Server", func() {
 
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
-		appliedMigrations, err := migrationManager.GetPrecedingMigrationsForObject("a", globalTransaction.DbTransaction)
+		appliedMigrations, err := migrationManager.GetPrecedingMigrationsForObject("a")
 		Expect(err).To(BeNil())
 		Expect(appliedMigrations).To(HaveLen(1))
 		Expect(appliedMigrations[0].Data["migration_id"]).To(Equal(migrationDescriptionData["id"]))

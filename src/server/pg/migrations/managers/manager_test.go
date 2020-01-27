@@ -31,7 +31,7 @@ var _ = Describe("MigrationManager", func() {
 
 		_, err = NewMigrationManager(
 			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).ensureHistoryTableExists(dbTransaction)
+		).ensureHistoryTableExists()
 		Expect(err).To(BeNil())
 
 		metaDdl, err := pg.MetaDDLFromDB(dbTransaction.Transaction().(*sql.Tx), historyMetaName)
@@ -39,7 +39,7 @@ var _ = Describe("MigrationManager", func() {
 		Expect(err).To(BeNil())
 
 		Expect(metaDdl.Table).To(Equal(pg.GetTableName(historyMetaName)))
-		Expect(metaDdl.Columns).To(HaveLen(5))
+		Expect(metaDdl.Columns).To(HaveLen(7))
 
 		dbTransactionManager.RollbackTransaction(dbTransaction)
 	})
@@ -52,7 +52,7 @@ var _ = Describe("MigrationManager", func() {
 
 		migrationHistoryId, err := NewMigrationManager(
 			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).recordAppliedMigration(migration, dbTransaction)
+		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
 		Expect(migrationHistoryId).To(Equal(migrationUid))
@@ -63,17 +63,17 @@ var _ = Describe("MigrationManager", func() {
 	It("Does not apply same migration twice", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		migrationUid := "c1be598d"
+		migrationUid := "c1be59xd"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		_, err = NewMigrationManager(
 			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).recordAppliedMigration(migration, dbTransaction)
+		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
 			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
-		).recordAppliedMigration(migration, dbTransaction)
+		).recordAppliedMigration(migration)
 		Expect(err).NotTo(BeNil())
 
 		dbTransactionManager.RollbackTransaction(dbTransaction)

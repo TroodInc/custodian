@@ -56,7 +56,7 @@ func (mc *MigrationConstructor) Construct(currentMetaDescription *description.Me
 		metaName = newMigrationMetaDescription.Name
 	}
 
-	precedingMigrations, err := mc.migrationManager.GetPrecedingMigrationsForObject(metaName, transaction)
+	precedingMigrations, err := mc.migrationManager.GetPrecedingMigrationsForObject(metaName)
 	if err != nil {
 		return nil, err
 	}

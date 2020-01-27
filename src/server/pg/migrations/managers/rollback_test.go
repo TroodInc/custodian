@@ -2,15 +2,15 @@ package managers
 
 import (
 	. "github.com/onsi/ginkgo"
-	"server/pg"
-	"utils"
-	pg_transactions "server/pg/transactions"
 	. "github.com/onsi/gomega"
-	"server/object/meta"
-	"server/object/description"
-	"server/transactions/file_transaction"
-	"server/transactions"
 	migrations_description "server/migrations/description"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 var _ = Describe("MigrationManager`s rollback functionality", func() {
@@ -30,16 +30,12 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 	)
 
 	flushDb := func() {
-		//Flush meta/database
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		// drop history
+		err := migrationManager.DropHistory()
 		Expect(err).To(BeNil())
+		//Flush meta/database
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
-		// drop history
-		err = migrationManager.DropHistory(globalTransaction.DbTransaction)
-		Expect(err).To(BeNil())
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	}
 
 	BeforeEach(flushDb)
@@ -51,9 +47,6 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 		BeforeEach(func() {
 			//Create object A by applying a migration
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
 			aMetaDescription = description.NewMetaDescription(
 				"a",
 				"id",
@@ -82,28 +75,23 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				},
 			}
 
-			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, globalTransaction, true)
+			var err error
+			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("It can rollback `CreateObject` migration", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			_, err = migrationManager.rollback(firstAppliedMigrationDescription, globalTransaction, true)
+			_, err := migrationManager.rollback(firstAppliedMigrationDescription, true)
 			Expect(err).To(BeNil())
 
 			//ensure migration description was removed
-			_, err = migrationManager.migrationStorage.Get(firstAppliedMigrationDescription.Id)
-			Expect(err).NotTo(BeNil())
+			migration, err := migrationManager.Get(firstAppliedMigrationDescription.Id)
+			Expect(migration).To(BeNil())
 
 			//ensure migration record was deleted
-			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(migrationRecord).To(BeNil())
-			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 			// ensure operation was rolled back
 			aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
@@ -116,9 +104,6 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 			BeforeEach(func() {
 				//Create object A by applying a migration
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				field := description.Field{
 					Name:     "title",
 					Type:     description.FieldTypeString,
@@ -137,24 +122,19 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 					},
 				}
 
-				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
+				var err error
+				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription,true, false)
 				Expect(err).To(BeNil())
-
-				globalTransactionManager.CommitTransaction(globalTransaction)
 			})
 
 			It("It can rollback `AddField` migration", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
-				_, err = migrationManager.rollback(secondAppliedMigrationDescription, globalTransaction, true)
+				_, err := migrationManager.rollback(secondAppliedMigrationDescription, true)
 				Expect(err).To(BeNil())
 
 				//ensure migration record was deleted
-				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 				Expect(err).To(BeNil())
 				Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
-				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 				// ensure operation was rolled back
 				aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
@@ -163,9 +143,6 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			})
 
 			It("It can rollback `RemoveField` migration", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				Expect(err).To(BeNil())
-
 				field := description.Field{
 					Name:     "title",
 					Type:     description.FieldTypeString,
@@ -184,17 +161,17 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 					},
 				}
 
-				aMetaDescription, err = migrationManager.Apply(appliedMigrationDescription, globalTransaction, true)
+				var err error
+				aMetaDescription, err = migrationManager.Apply(appliedMigrationDescription, true, false)
 				Expect(err).To(BeNil())
 
-				_, err = migrationManager.rollback(appliedMigrationDescription, globalTransaction, true)
+				_, err = migrationManager.rollback(appliedMigrationDescription, true)
 				Expect(err).To(BeNil())
 
 				//ensure migration record was deleted
-				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 				Expect(err).To(BeNil())
 				Expect(migrationRecord.Data["migration_id"]).To(Equal(secondAppliedMigrationDescription.Id))
-				Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 				// ensure operation was rolled back
 				aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
@@ -225,25 +202,19 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 						},
 					}
 
-					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+					var err error
+					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, true, false)
 					Expect(err).To(BeNil())
-					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, globalTransaction, true)
-					Expect(err).To(BeNil())
-					globalTransactionManager.CommitTransaction(globalTransaction)
 				})
 
 				It("It can rollback `UpdateField` migration", func() {
-					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-					Expect(err).To(BeNil())
-
-					_, err = migrationManager.rollback(thirdAppliedMigrationDescription, globalTransaction, true)
+					_, err := migrationManager.rollback(thirdAppliedMigrationDescription, true)
 					Expect(err).To(BeNil())
 
 					//ensure migration record was deleted
-					migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+					migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 					Expect(err).To(BeNil())
 					Expect(migrationRecord.Data["migration_id"]).To(Equal(secondAppliedMigrationDescription.Id))
-					Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 					// ensure operation was rolled back
 					aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
@@ -254,9 +225,6 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			})
 		})
 		It("It can rollback `RenameObject` migration", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
 			updatedAMetaDescription := description.NewMetaDescription(
 				"updated_a",
 				"id",
@@ -285,21 +253,20 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				},
 			}
 
-			_, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
+			_, err := migrationManager.Apply(secondAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
 
-			_, err = migrationManager.rollback(secondAppliedMigrationDescription, globalTransaction, true)
+			_, err = migrationManager.rollback(secondAppliedMigrationDescription, true)
 			Expect(err).To(BeNil())
 
 			//ensure migration description was removed
-			_, err = migrationManager.migrationStorage.Get(secondAppliedMigrationDescription.Id)
-			Expect(err).NotTo(BeNil())
+			migration, err := migrationManager.Get(secondAppliedMigrationDescription.Id)
+			Expect(migration).To(BeNil())
 
 			//ensure migration record was deleted
-			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
-			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 			// ensure operation was rolled back
 			aMeta, _, err := metaStore.Get("updated_a", false)
@@ -312,9 +279,6 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 		})
 
 		It("It can rollback `DeleteObject` migration", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
 			secondAppliedMigrationDescription := &migrations_description.MigrationDescription{
 				Id:        "2",
 				ApplyTo:   "a",
@@ -327,21 +291,20 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				},
 			}
 
-			_, err = migrationManager.Apply(secondAppliedMigrationDescription, globalTransaction, true)
+			_, err := migrationManager.Apply(secondAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
 
-			_, err = migrationManager.rollback(secondAppliedMigrationDescription, globalTransaction, true)
+			_, err = migrationManager.rollback(secondAppliedMigrationDescription, true)
 			Expect(err).To(BeNil())
 
 			//ensure migration description was removed
-			_, err = migrationManager.migrationStorage.Get(secondAppliedMigrationDescription.Id)
-			Expect(err).NotTo(BeNil())
+			migration, err := migrationManager.Get(secondAppliedMigrationDescription.Id)
+			Expect(migration).To(BeNil())
 
 			//ensure migration record was deleted
-			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name, globalTransaction.DbTransaction)
+			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
-			Expect(globalTransactionManager.CommitTransaction(globalTransaction)).To(BeNil())
 
 			// ensure operation was rolled back
 			aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
