@@ -1,7 +1,6 @@
 package v2_meta
 
 import (
-	"encoding/json"
 	"github.com/getlantern/deepcopy"
 	"server/noti"
 	. "server/object/description"
@@ -11,7 +10,7 @@ import (
 //Object metadata description.
 type V2Meta struct {
 	Name    string   `json:"name"`
-	Key       *Field `json:"key"`
+	Key     string 	 `json:"key"`
 
 	Fields  []*Field  `json:"fields"`
 	Actions []*Action `json:"actions,omitempty"`
@@ -23,15 +22,6 @@ func (m *V2Meta) Clone() *V2Meta {
 	metaDescription := new(V2Meta)
 	deepcopy.Copy(metaDescription, m)
 	return metaDescription
-}
-
-func (m *V2Meta) FindField(fieldName string) *Field {
-	for i, field := range m.Fields {
-		if field.Name == fieldName {
-			return m.Fields[i]
-		}
-	}
-	return nil
 }
 
 func (m *V2Meta) FindAction(actionName string) *Action {
@@ -61,7 +51,7 @@ func (m *V2Meta) ForExport() V2Meta {
 	return metaCopy
 }
 
-func NewV2Meta(name string, key *Field, fields []*Field, actions []*Action, cas bool) *V2Meta {
+func NewV2Meta(name string, key string, fields []*Field, actions []*Action, cas bool) *V2Meta {
 	return &V2Meta{Name: name, Key: key, Fields: fields, Actions: actions, Cas: cas}
 }
 
@@ -86,10 +76,6 @@ func (m *V2Meta) TableFields() []*Field {
 		}
 	}
 	return fields
-}
-
-func (m *V2Meta) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m)
 }
 
 //func (f *meta.FieldDescription) canBeLinkTo(m *V2Meta) bool {

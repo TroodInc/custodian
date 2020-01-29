@@ -3,6 +3,7 @@ package pg
 import (
 	"database/sql"
 	"server/object/description"
+	"server/object/v2_meta"
 	"server/transactions"
 )
 
@@ -41,6 +42,10 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 }
 
 func (dm *DbMetaDescriptionSyncer) Create(transaction transactions.MetaDescriptionTransaction, m description.MetaDescription) error {
+	return nil
+}
+
+func (dm *DbMetaDescriptionSyncer) V2Create(transaction transactions.MetaDescriptionTransaction, m *v2_meta.V2Meta) error {
 	return nil
 }
 

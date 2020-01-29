@@ -10,7 +10,6 @@ import (
 	"path/filepath"
 	"server/errors"
 	"server/transactions"
-	. "server/object/description"
 	"utils"
 )
 

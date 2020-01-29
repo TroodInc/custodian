@@ -3,6 +3,7 @@ package meta
 import (
 	"encoding/json"
 	"server/noti"
+	"server/object/v2_meta"
 	"utils"
 	. "server/object/description"
 	"server/transactions"
@@ -25,6 +26,15 @@ func (m *Meta) FindField(name string) *FieldDescription {
 	for i, _ := range m.Fields {
 		if m.Fields[i].Name == name {
 			return &m.Fields[i]
+		}
+	}
+	return nil
+}
+
+func V2FindField(fields []*Field, fieldName string) *Field {
+	for _, field := range fields {
+		if field.Name == fieldName {
+			return field
 		}
 	}
 	return nil
@@ -68,12 +78,14 @@ type MetaDescriptionSyncer interface {
 	List() ([]*MetaDescription, bool, error)
 	Get(name string) (*MetaDescription, bool, error)
 	Create(fileTransaction transactions.MetaDescriptionTransaction, m MetaDescription) error
+	V2Create(fileTransaction transactions.MetaDescriptionTransaction, m *v2_meta.V2Meta) error
 	Remove(name string) (bool, error)
 	Update(name string, m MetaDescription) (bool, error)
 }
 
 type MetaDbSyncer interface {
 	CreateObj(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
+	V2CreateObj(transactions.DbTransaction, *v2_meta.V2Meta, MetaDescriptionSyncer) error
 	RemoveObj(transactions.DbTransaction, string, bool) error
 	UpdateObj(transactions.DbTransaction, *MetaDescription, *MetaDescription, MetaDescriptionSyncer) error
 	UpdateObjTo(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
