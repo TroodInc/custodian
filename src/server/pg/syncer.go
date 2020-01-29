@@ -6,8 +6,10 @@ import (
 	"github.com/xo/dburl"
 	"log"
 	"logger"
+	"server/errors"
 	"server/object/description"
 	"server/object/meta"
+	"server/object/v2_meta"
 	"server/transactions"
 	"time"
 )
@@ -75,6 +77,28 @@ func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDesc
 	}
 	return nil
 }
+
+func (syncer *Syncer) V2CreateObj(transaction transactions.DbTransaction, meta *v2_meta.V2Meta, descriptionSyncer meta.MetaDescriptionSyncer) error {
+	tx := transaction.Transaction().(*sql.Tx)
+	var md *MetaDDL
+	var e error
+	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
+	if md, e = metaDdlFactory.V2Factory(meta); e != nil {
+		return e
+	}
+	var ds DdlStatementSet
+	if ds, e = md.CreateScript(); e != nil {
+		return e
+	}
+	for _, st := range ds {
+		logger.Debug("Creating object in DB: %syncer\n", st.Code)
+		if _, e := tx.Exec(st.Code); e != nil {
+			return &DDLError{table: meta.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
+		}
+	}
+	return nil
+}
+
 
 func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name string, force bool) error {
 	tx := transaction.(*PgTransaction)
@@ -178,7 +202,8 @@ func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, metaDe
 		if len(ddlStatements) == 0 {
 			return true, nil
 		} else {
-			return false, &description.ValidationError{Message: "Inconsistent object state found."}
+			// TODO: add error code
+			return false, errors.NewValidationError("", "Inconsistent object state found.", nil)
 		}
 	}
 	return len(ddlStatements) == 0, nil

@@ -31,11 +31,11 @@ func (o *RenameObjectOperation) SyncDbDescription(metaDescription *description.M
 		currentField := metaDescription.Fields[i]
 		newField := o.MetaDescription.FindField(currentField.Name)
 
-		_, _, _, newSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(newField, o.MetaDescription)
+		_, _, _, newSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(newField, o.MetaDescription.Name, o.MetaDescription.Key)
 		if err != nil {
 			return err
 		}
-		_, _, _, currentSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(&currentField, metaDescription)
+		_, _, _, currentSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(&currentField, metaDescription.Name, metaDescription.Key)
 		if err != nil {
 			return err
 		}

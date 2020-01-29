@@ -19,7 +19,7 @@ type AddFieldOperation struct {
 func (o *AddFieldOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
-	columns, ifk, _, seq, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescriptionToApply)
+	columns, ifk, _, seq, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescriptionToApply.Name, metaDescriptionToApply.Key)
 	if err != nil {
 		return err
 	}

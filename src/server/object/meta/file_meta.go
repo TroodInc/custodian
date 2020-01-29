@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"server/errors"
+	"server/object/v2_meta"
 	"server/transactions"
 	. "server/object/description"
 	"utils"
@@ -23,6 +24,30 @@ func NewFileMetaDescriptionSyncer(d string) *FileMetaDescriptionSyncer {
 }
 
 func createMetaFile(metaFile string, m *MetaDescription) error {
+	f, err := os.Create(metaFile)
+	if err != nil {
+		logger.Error("Can't create file '%s': %s", metaFile, m.Name, err.Error())
+		return err
+	}
+	defer utils.CloseFile(f)
+
+	w := bufio.NewWriter(f)
+	if err := json.NewEncoder(w).Encode(m); err != nil {
+		logger.Error("Can't encoding MetaDescription '%s' to file '%s': %s", m.Name, metaFile, err.Error())
+		defer utils.RemoveFile(metaFile)
+		return err
+	}
+
+	if err := w.Flush(); err != nil {
+		logger.Error("Can't write MetaDescription '%s' to file '%s': %s", m.Name, metaFile, err.Error())
+		defer utils.RemoveFile(metaFile)
+		return err
+	}
+
+	return nil
+}
+
+func V2createMetaFile(metaFile string, m *v2_meta.V2Meta) error {
 	f, err := os.Create(metaFile)
 	if err != nil {
 		logger.Error("Can't create file '%s': %s", metaFile, m.Name, err.Error())
@@ -118,6 +143,31 @@ func (fm *FileMetaDescriptionSyncer) Create(transaction transactions.MetaDescrip
 	transaction.AddCreatedMetaName(m.Name)
 	return nil
 }
+
+
+func (fm *FileMetaDescriptionSyncer) V2Create(transaction transactions.MetaDescriptionTransaction, m *v2_meta.V2Meta) error {
+	var metaFile = fm.getMetaFileName(m.Name)
+	if _, err := os.Stat(metaFile); err == nil {
+		logger.Debug("File '%s' of MetaDescription '%s' already exists: %s", metaFile, m.Name)
+		return errors.NewFatalError(
+			"meta_file_create",
+			fmt.Sprintf("The MetaDescription '%s' already exists", m.Name),
+			nil,
+		)
+	}
+
+	if err := V2createMetaFile(metaFile, m); err != nil {
+		logger.Error("Can't save MetaDescription '%s' fo file '%s': %s", m.Name, metaFile, err.Error())
+		return errors.NewFatalError(
+			"meta_file_create",
+			fmt.Sprintf("Can't save MetaDescription'%s'", m.Name),
+			nil,
+		)
+	}
+	transaction.AddCreatedMetaName(m.Name)
+	return nil
+}
+
 
 func (fm *FileMetaDescriptionSyncer) Remove(name string) (bool, error) {
 	var metaFile = fm.getMetaFileName(name)
