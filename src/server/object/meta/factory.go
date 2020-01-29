@@ -17,7 +17,7 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 	metaFactory.reset()
 
 	// pre-validate description
-	if ok, err := (&ValidationService{}).Validate(objectMetaDescription); !ok {
+	if ok, err := CheckFieldsDoesNotContainDuplicates(objectMetaDescription.Fields); !ok {
 		return nil, err
 	}
 

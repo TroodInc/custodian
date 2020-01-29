@@ -6,6 +6,7 @@ import (
 	"logger"
 	"server/errors"
 	. "server/object/description"
+	"server/object/v2_meta"
 	"server/transactions"
 	"utils"
 )
@@ -31,6 +32,23 @@ func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.Reader) (*Meta, error) {
 
 func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
 	return NewMetaFactory(metaStore.MetaDescriptionSyncer).FactoryMeta(metaObj)
+}
+
+func (metaStore *MetaStore) V2NewMeta(name, key string, cas bool, fields []*Field, actions []*Action) (*v2_meta.V2Meta, error) {
+	// pre-validate description
+	//if ok, err := CheckFieldsDoesNotContainDuplicates(fields); !ok {  TODO: Fix fields type
+	//	return nil, err
+	//}
+
+	objectMeta := &v2_meta.V2Meta{
+		Name: name,
+		Key: key,
+		Fields: fields,
+		Actions: actions,
+		Cas: cas,
+	}
+
+	return objectMeta, nil
 }
 
 /*
@@ -99,6 +117,38 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 			metaStore.addReversedOuterFields(nil, objectMeta)
 			//create through object if needed
 			if err := metaStore.createThroughMeta(objectMeta); err != nil {
+				metaStore.globalTransactionManager.RollbackTransaction(transaction)
+				return err
+			}
+
+			//invalidate cache
+			metaStore.cache.Invalidate()
+			metaStore.globalTransactionManager.CommitTransaction(transaction)
+			return nil
+		} else {
+			var e2 = metaStore.Syncer.RemoveObj(transaction.DbTransaction, objectMeta.Name, false)
+			logger.Error("Error while compenstaion of object '%s' metadata creation: %v", objectMeta.Name, e2)
+			metaStore.globalTransactionManager.RollbackTransaction(transaction)
+			return e
+		}
+	} else {
+		metaStore.globalTransactionManager.RollbackTransaction(transaction)
+		return e
+	}
+}
+
+func (metaStore *MetaStore) V2Create(objectMeta *v2_meta.V2Meta) error {
+	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
+
+	if e := metaStore.Syncer.V2CreateObj(transaction.DbTransaction, objectMeta, metaStore.MetaDescriptionSyncer); e == nil {
+		if e := metaStore.MetaDescriptionSyncer.V2Create(transaction.MetaDescriptionTransaction, objectMeta); e == nil {
+
+			//add corresponding outer generic fields
+			//metaStore.addReversedOuterGenericFields(nil, objectMeta) TODO Fix
+			//add corresponding outer field
+			//metaStore.addReversedOuterFields(nil, objectMeta) TODO Fix
+			//create through object if needed
+			if err := metaStore.V2createThroughMeta(objectMeta); err != nil {
 				metaStore.globalTransactionManager.RollbackTransaction(transaction)
 				return err
 			}
@@ -610,6 +660,18 @@ func (metaStore *MetaStore) createThroughMeta(meta *Meta) error {
 		if field.Type == FieldTypeObjects {
 			if _, _, err := metaStore.Get(field.LinkThrough.Name, false); err != nil {
 				return metaStore.Create(field.LinkThrough)
+			}
+		}
+	}
+	return nil
+}
+
+//create through meta if it does not exist
+func (metaStore *MetaStore) V2createThroughMeta(meta *v2_meta.V2Meta) error {
+	for _, field := range meta.Fields {
+		if field.Type == FieldTypeObjects {
+			if _, _, err := metaStore.Get(field.LinkThrough, false); err != nil {
+				//return metaStore.Create(field.LinkThrough) TODO: LinkThrough type must be reviewed
 			}
 		}
 	}

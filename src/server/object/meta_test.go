@@ -3,6 +3,7 @@ package object
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/errors"
 	"server/pg"
 	"utils"
 	"server/object/meta"
@@ -188,7 +189,9 @@ var _ = Describe("The PG MetaStore", func() {
 			Context("When 'NewMeta' method is called it should return error", func() {
 				_, err := metaStore.NewMeta(metaDescription)
 				Expect(err).To(Not(BeNil()))
-				Expect(err.Error()).To(Equal("Object contains duplicated field 'name'"))
+				Expect(err).To(Equal(
+					errors.NewValidationError("", "Object contains duplicated field 'name'", nil)),
+				)
 			})
 		})
 	})
