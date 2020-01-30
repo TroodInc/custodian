@@ -86,7 +86,7 @@ func (notification *RecordSetNotification) captureState(state map[int]*record.Re
 			for _, obj := range objects {
 				state[action.Id()].Records = append(
 					state[action.Id()].Records,
-					record.NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(obj, action, notification.getRecordsCallback)),
+					record.NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(obj, action)),
 				)
 			}
 		}
@@ -127,7 +127,7 @@ func (notification *RecordSetNotification) getRecordsFilter() string {
 }
 
 //Build object to use in notification
-func (notification *RecordSetNotification) buildRecordStateObject(recordData *record.Record, action *description.Action, getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error)) map[string]interface{} {
+func (notification *RecordSetNotification) buildRecordStateObject(recordData *record.Record, action *description.Action) map[string]interface{} {
 
 	stateObject := make(map[string]interface{}, 0)
 
