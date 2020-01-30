@@ -16,13 +16,6 @@ func (recordSet *RecordSet) CollapseLinks() {
 	}
 }
 
-func (recordSet *RecordSet) IsPhantom() bool {
-	if len(recordSet.Records) > 0 {
-		return recordSet.Records[0].IsPhantom()
-	}
-	return true
-}
-
 func (recordSet *RecordSet) PrepareData(operationType RecordOperationType) {
 	for _, record := range recordSet.Records {
 		record.PrepareData(operationType)
@@ -49,15 +42,6 @@ func (recordSet *RecordSet) MergeData() {
 	for _, record := range recordSet.Records {
 		record.MergeData()
 	}
-}
-
-func (recordSet *RecordSet) GetRecordById(id interface{}) *Record {
-	for _, record := range recordSet.Records {
-		if record.Data[recordSet.Meta.Key.Name] == id {
-			return record
-		}
-	}
-	return nil
 }
 
 // return true if record could be appended to this recordRet, i.e record has the same set of fields and is of the same object
