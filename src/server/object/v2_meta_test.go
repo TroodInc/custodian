@@ -24,10 +24,10 @@ var _ = Describe("Refactoring Meta", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
-	//AfterEach(func() {
-	//	err := metaStore.Flush()
-	//	Expect(err).To(BeNil())
-	//})
+	AfterEach(func() {
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
+	})
 
 	It("must JSON marshal v2meta same as old meta", func() {
 		oldMeta, err := metaStore.NewMeta(&description.MetaDescription{
