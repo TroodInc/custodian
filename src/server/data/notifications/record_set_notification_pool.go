@@ -12,7 +12,11 @@ func (notificationPool *RecordSetNotificationPool) Add(notification *RecordSetNo
 }
 
 func (notificationPool *RecordSetNotificationPool) CompleteSend(err error) {
-	notificationPool.notificationSender.complete(err)
+	if err == nil {
+		notificationPool.notificationSender.close()
+	} else {
+		notificationPool.notificationSender.failed(err)
+	}
 }
 
 func (notificationPool *RecordSetNotificationPool) CaptureCurrentState() {

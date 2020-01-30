@@ -39,14 +39,6 @@ func (notificationSender *notificationSender) getNotificationChannel(meta *meta.
 	return notificationChannel
 }
 
-func (notificationSender *notificationSender) complete(err error) {
-	if err == nil {
-		notificationSender.close()
-	} else {
-		notificationSender.failed(err)
-	}
-}
-
 func (notificationSender *notificationSender) close() {
 	for _, c := range notificationSender.notificationChannels {
 		close(c)
