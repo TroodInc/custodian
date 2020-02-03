@@ -31,11 +31,11 @@ type DataManager interface {
 }
 
 type Processor struct {
-	metaStore   *meta.MetaStore
-	dataManager DataManager
-	transactionManager transactions.DbTransactionManager
-	vCache      map[string]objectClassValidator
-	recordSetNotificationPool *notifications.RecordSetNotificationPool
+	metaStore                 *meta.MetaStore
+	dataManager               DataManager
+	transactionManager        transactions.DbTransactionManager
+	vCache                    map[string]objectClassValidator
+	RecordSetNotificationPool *notifications.RecordSetNotificationPool
 }
 
 func NewProcessor(m *meta.MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
@@ -245,7 +245,7 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 	}
 
 	// create notification pool
-	defer func() { processor.recordSetNotificationPool.CompleteSend(err) }()
+	defer func() { processor.RecordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
 	rootRecordSet, recordSetsOperations := recordProcessingNode.RecordSetOperations()
@@ -308,9 +308,9 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 	processor.transactionManager.CommitTransaction(dbTransaction)
 
 	// push notifications if needed
-	if processor.recordSetNotificationPool.ShouldBeProcessed() {
+	if processor.RecordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
-		processor.recordSetNotificationPool.Push(user)
+		processor.RecordSetNotificationPool.Push(user)
 	}
 	return NewRecord(objectMeta, recordData), nil
 }
@@ -324,7 +324,7 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 	}
 
 	// create notification pool
-	defer func() { processor.recordSetNotificationPool.CompleteSend(err) }()
+	defer func() { processor.RecordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
 	records, err := processor.consumeRecords(next, objectMeta, false)
@@ -403,9 +403,9 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 	processor.transactionManager.CommitTransaction(dbTransaction)
 
 	// push notifications if needed
-	if processor.recordSetNotificationPool.ShouldBeProcessed() {
+	if processor.RecordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
-		processor.recordSetNotificationPool.Push(user)
+		processor.RecordSetNotificationPool.Push(user)
 	}
 
 	return result, nil
@@ -436,7 +436,7 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 	}
 
 	// create notification pool
-	defer func() { processor.recordSetNotificationPool.CompleteSend(err) }()
+	defer func() { processor.RecordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
 	rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
@@ -497,9 +497,9 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 	processor.transactionManager.CommitTransaction(dbTransaction)
 
 	// push notifications if needed
-	if processor.recordSetNotificationPool.ShouldBeProcessed() {
+	if processor.RecordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all recordSetsSplitByObjects in the pool
-		processor.recordSetNotificationPool.Push(user)
+		processor.RecordSetNotificationPool.Push(user)
 	}
 
 	return rootRecordSet.Records[0], nil
@@ -514,7 +514,7 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 	}
 
 	// create notification pool
-	defer func() { processor.recordSetNotificationPool.CompleteSend(err) }()
+	defer func() { processor.RecordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
 	records, err := processor.consumeRecords(next, objectMeta, true)
@@ -584,9 +584,9 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 	processor.feedRecordSets(rootRecordSets, sink)
 
 	//push notifications if needed
-	if processor.recordSetNotificationPool.ShouldBeProcessed() {
+	if processor.RecordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
-		processor.recordSetNotificationPool.Push(user)
+		processor.RecordSetNotificationPool.Push(user)
 	}
 
 	return nil
@@ -622,10 +622,17 @@ func (processor *Processor) RemoveRecord(objectName string, key string, user aut
 	}
 
 	processor.transactionManager.CommitTransaction(dbTransaction)
+
+	processor.RecordSetNotificationPool.Add(
+		notifications.NewRecordNotification(
+			recordToRemove.Meta.Name, notifications.MethodRemove, recordToRemove.GetDataForNotification(), nil, true,
+		),
+	)
+
 	// push notifications if needed
-	if processor.recordSetNotificationPool.ShouldBeProcessed() {
+	if processor.RecordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
-		processor.recordSetNotificationPool.Push(user)
+		processor.RecordSetNotificationPool.Push(user)
 	}
 
 	return removalRootNode.Data(), nil
@@ -673,9 +680,9 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 	}
 
 	// push notifications if needed
-	if processor.recordSetNotificationPool.ShouldBeProcessed() {
+	if processor.RecordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
-		processor.recordSetNotificationPool.Push(user)
+		processor.RecordSetNotificationPool.Push(user)
 	}
 
 	return nil
@@ -715,13 +722,15 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 
 // perform update and return list of records
 func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransaction, recordSet *RecordSet, isRoot bool) (*RecordSet, error) {
-	recordSet.PrepareData(RecordOperationTypeUpdate)
-	// create notification, capture current recordData state and Add notification to notification pool
-
 	notiToSend := make([]*notifications.RecordNotification, len(recordSet.Records))
 	for i, record := range recordSet.Records {
-		notiToSend[i] = notifications.NewRecordNotification(recordSet.Meta.Name, notifications.MethodUpdate, record.GetDataForNotification(), nil, isRoot)
+		notiToSend[i] = notifications.NewRecordNotification(
+			recordSet.Meta.Name, notifications.MethodUpdate, record.GetDataForNotification(), nil, isRoot,
+		)
 	}
+
+	recordSet.PrepareData(RecordOperationTypeUpdate)
+	// create notification, capture current recordData state and Add notification to notification pool
 
 	var operations = make([]transactions.Operation, 0)
 
@@ -738,7 +747,7 @@ func (processor *Processor) updateRecordSet(dbTransaction transactions.DbTransac
 
 	for i, record := range recordSet.Records {
 		notiToSend[i].CurrentState = record.GetDataForNotification()
-		processor.recordSetNotificationPool.Add(notiToSend[i])
+		processor.RecordSetNotificationPool.Add(notiToSend[i])
 	}
 
 	return recordSet, nil
@@ -764,9 +773,9 @@ func (processor *Processor) createRecordSet(dbTransaction transactions.DbTransac
 	recordSet.MergeData()
 
 	for _, record := range recordSet.Records {
-		processor.recordSetNotificationPool.Add(
+		processor.RecordSetNotificationPool.Add(
 			notifications.NewRecordNotification(
-				recordSet.Meta.Name, notifications.MethodUpdate, record.GetDataForNotification(), nil, isRoot,
+				recordSet.Meta.Name, notifications.MethodCreate, nil, record.GetDataForNotification(), isRoot,
 			),
 		)
 	}
