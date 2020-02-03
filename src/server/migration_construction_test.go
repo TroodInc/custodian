@@ -5,20 +5,22 @@ import (
 	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
+	"server/data/notifications"
+	"server/noti"
 	"server/pg"
-	"utils"
 	"server/transactions/file_transaction"
+	"utils"
 
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"server"
+	meta_description "server/migrations/description"
+	"server/object/description"
 	"server/object/meta"
+	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server"
-	"encoding/json"
-	"bytes"
-	"fmt"
-	"server/pg/migrations/managers"
-	"server/object/description"
-	meta_description "server/migrations/description"
 )
 
 var _ = Describe("Migration`s construction", func() {
@@ -70,11 +72,11 @@ var _ = Describe("Migration`s construction", func() {
 					Optional: false,
 				},
 			},
-			Actions: []description.Action{
+			Actions: []notifications.Action{
 				{
 					Name:     "some-action",
-					Method:   description.MethodUpdate,
-					Protocol: description.REST,
+					Method:   notifications.MethodUpdate,
+					Protocol: noti.REST,
 					Args:     []string{"http://localhost:5555/some-endpoint/"},
 				},
 			},
@@ -114,7 +116,7 @@ var _ = Describe("Migration`s construction", func() {
 			"actions": []map[string]interface{}{
 				{
 					"name":     "some-action",
-					"method":   description.MethodUpdate,
+					"method":   notifications.MethodUpdate,
 					"protocol": "REST",
 					"args":     []string{"http://localhost:5555/some-endpoint/"},
 				},
@@ -164,7 +166,7 @@ var _ = Describe("Migration`s construction", func() {
 				"actions": []map[string]interface{}{
 					{
 						"name":     "some-action",
-						"method":   description.MethodUpdate,
+						"method":   notifications.MethodUpdate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
@@ -223,7 +225,7 @@ var _ = Describe("Migration`s construction", func() {
 				"actions": []map[string]interface{}{
 					{
 						"name":     "some-action",
-						"method":   description.MethodUpdate,
+						"method":   notifications.MethodUpdate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
@@ -325,7 +327,7 @@ var _ = Describe("Migration`s construction", func() {
 				"actions": []map[string]interface{}{
 					{
 						"name":     "some-action",
-						"method":   description.MethodUpdate,
+						"method":   notifications.MethodUpdate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
@@ -378,7 +380,7 @@ var _ = Describe("Migration`s construction", func() {
 				"actions": []map[string]interface{}{
 					{
 						"name":     "some-action",
-						"method":   description.MethodUpdate,
+						"method":   notifications.MethodUpdate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
@@ -437,7 +439,7 @@ var _ = Describe("Migration`s construction", func() {
 				"actions": []map[string]interface{}{
 					{
 						"name":     "some-action",
-						"method":   description.MethodUpdate,
+						"method":   notifications.MethodUpdate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
@@ -498,13 +500,13 @@ var _ = Describe("Migration`s construction", func() {
 				"actions": []map[string]interface{}{
 					{
 						"name":     "some-action",
-						"method":   description.MethodUpdate,
+						"method":   notifications.MethodUpdate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
 					{
 						"name":     "some-new-action",
-						"method":   description.MethodCreate,
+						"method":   notifications.MethodCreate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
@@ -563,13 +565,13 @@ var _ = Describe("Migration`s construction", func() {
 				"actions": []map[string]interface{}{
 					{
 						"name":     "some-action",
-						"method":   description.MethodUpdate,
+						"method":   notifications.MethodUpdate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
 					{
 						"name":     "some-new-action",
-						"method":   description.MethodCreate,
+						"method":   notifications.MethodCreate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-endpoint/"},
 					},
@@ -680,7 +682,7 @@ var _ = Describe("Migration`s construction", func() {
 				"actions": []map[string]interface{}{
 					{
 						"name":     "some-action",
-						"method":   description.MethodUpdate,
+						"method":   notifications.MethodUpdate,
 						"protocol": "REST",
 						"args":     []string{"http://localhost:5555/some-updated-endpoint/"},
 					},

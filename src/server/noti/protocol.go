@@ -1,6 +1,10 @@
-package description
+package noti
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"server/errors"
+)
 
 var protocols []string
 
@@ -27,16 +31,11 @@ func asProtocol(name string) (Protocol, bool) {
 	return Protocol(0), false
 }
 
-var (
-	REST = protocol_iota("REST")
-	TEST = protocol_iota("TEST")
-)
-
 func (p *Protocol) MarshalJSON() ([]byte, error) {
 	if s, ok := p.String(); ok {
 		return json.Marshal(s)
 	} else {
-		return nil, NewMetaDescriptionError("", "json_marshal", ErrJsonMarshal, "Incorrect protocol: %v", p)
+		return nil, errors.NewValidationError("json_marshal", fmt.Sprintf("Incorrect protocol: %v", p), nil)
 	}
 }
 func (p *Protocol) UnmarshalJSON(b []byte) error {
@@ -48,6 +47,6 @@ func (p *Protocol) UnmarshalJSON(b []byte) error {
 		*p = protocol
 		return nil
 	} else {
-		return NewMetaDescriptionError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect protocol: %s", s)
+		return errors.NewValidationError("json_unmarshal", fmt.Sprintf("Incorrect protocol: %s", s), nil)
 	}
 }

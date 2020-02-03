@@ -7,6 +7,7 @@ import (
 	"server/data"
 	. "server/data/notifications"
 	"server/data/record"
+	"server/noti"
 	"server/object/description"
 	"server/object/meta"
 	"server/pg"
@@ -60,17 +61,17 @@ var _ = Describe("Data", func() {
 						Optional: true,
 					},
 				},
-				Actions: []description.Action{
+				Actions: []Action{
 					{
-						Method:          description.MethodRemove,
-						Protocol:        description.TEST,
+						Method:          MethodRemove,
+						Protocol:        noti.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{},
 					},
 					{
-						Method:          description.MethodUpdate,
-						Protocol:        description.TEST,
+						Method:          MethodUpdate,
+						Protocol:        noti.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{},
@@ -100,10 +101,10 @@ var _ = Describe("Data", func() {
 						Optional: true,
 					},
 				},
-				Actions: []description.Action{
+				Actions: []Action{
 					{
-						Method:          description.MethodRemove,
-						Protocol:        description.TEST,
+						Method:          MethodRemove,
+						Protocol:        noti.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{},
@@ -139,7 +140,7 @@ var _ = Describe("Data", func() {
 			Expect(bRecord).NotTo(BeNil())
 			aRecord := havingARecord(bRecord.Pk().(float64))
 
-			recordSetNotificationPool := NewRecordSetNotificationPool()
+			recordSetNotificationPool := NewRecordSetNotificationPool(metaStore.GetActions())
 
 			bRecord, err := dataProcessor.Get(bRecord.Meta.Name, bRecord.PkAsString(), nil, nil, 1, false)
 			Expect(err).To(BeNil())
@@ -149,7 +150,7 @@ var _ = Describe("Data", func() {
 			removalRootNode, err := new(data.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
 
-			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, recordSetNotificationPool, dataProcessor)
+			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, dataProcessor)
 			Expect(err).To(BeNil())
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
@@ -158,16 +159,16 @@ var _ = Describe("Data", func() {
 			Expect(notifications).To(HaveLen(2))
 
 			Expect(notifications[0].CurrentState).To(HaveLen(1))
-			Expect(notifications[0].Method).To(Equal(description.MethodRemove))
-			Expect(notifications[0].CurrentState[0].Meta.Name).To(Equal(aRecord.Meta.Name))
-			Expect(notifications[0].CurrentState[0].Records[0]).To(BeNil())
-			Expect(notifications[0].PreviousState[0].Records[0].Data["id"]).To(Equal(aRecord.Pk()))
+			Expect(notifications[0].Method).To(Equal(MethodRemove))
+			Expect(notifications[0].Object).To(Equal(aRecord.Meta.Name))
+			Expect(notifications[0].CurrentState).To(BeNil())
+			Expect(notifications[0].PreviousState["id"]).To(Equal(aRecord.Pk()))
 
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
-			Expect(notifications[1].Method).To(Equal(description.MethodRemove))
-			Expect(notifications[1].CurrentState[0].Meta.Name).To(Equal(bRecord.Meta.Name))
-			Expect(notifications[1].CurrentState[0].Records[0]).To(BeNil())
-			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecord.Pk()))
+			Expect(notifications[1].Method).To(Equal(MethodRemove))
+			Expect(notifications[1].Object).To(Equal(bRecord.Meta.Name))
+			Expect(notifications[1].CurrentState).To(BeNil())
+			Expect(notifications[1].PreviousState["id"]).To(Equal(bRecord.Pk()))
 		})
 
 		XIt("makes correct notification messages on record removal with `setNull` remove", func() {
@@ -175,14 +176,14 @@ var _ = Describe("Data", func() {
 			aMetaObj := havingObjectA(description.OnDeleteSetNull)
 			dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"b": bRecord.Pk().(float64)}, auth.User{})
 
-			recordSetNotificationPool := NewRecordSetNotificationPool()
+			recordSetNotificationPool := NewRecordSetNotificationPool(metaStore.GetActions())
 
 			//fill node
 			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
 			removalRootNode, err := new(data.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction.DbTransaction)
 			Expect(err).To(BeNil())
 
-			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, recordSetNotificationPool, dataProcessor)
+			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, dataProcessor)
 			Expect(err).To(BeNil())
 			globalTransactionManager.CommitTransaction(globalTransaction)
 
@@ -192,18 +193,15 @@ var _ = Describe("Data", func() {
 			Expect(notifications).To(HaveLen(2))
 
 			Expect(notifications[0].CurrentState).To(HaveLen(1))
-			Expect(notifications[0].Method).To(Equal(description.MethodUpdate))
-			//Expect(notifications[0].CurrentState[1].Meta.Name).To(Equal(aMetaObj.Name))
-			Expect(notifications[0].CurrentState).To(HaveLen(1))
-			Expect(notifications[0].CurrentState[1].Records[0]).To(Not(BeNil()))
-			//Expect(notifications[0].PreviousState[1].Records[0].Data["id"]).To(Equal(aRecord.Pk()))
+			Expect(notifications[0].Method).To(Equal(MethodUpdate))
+			Expect(notifications[0].Object).To(Equal(aMetaObj.Name))
+			Expect(notifications[0].CurrentState).To(Not(BeNil()))
 
 			Expect(notifications[1].CurrentState).To(HaveLen(1))
-			Expect(notifications[1].Method).To(Equal(description.MethodRemove))
-			Expect(notifications[1].CurrentState[0].Meta.Name).To(Equal(bRecord.Meta.Name))
-			Expect(notifications[1].CurrentState).To(HaveLen(1))
-			Expect(notifications[1].CurrentState[0].Records[0]).To(BeNil())
-			Expect(notifications[1].PreviousState[0].Records[0].Data["id"]).To(Equal(bRecord.Pk()))
+			Expect(notifications[1].Method).To(Equal(MethodRemove))
+			Expect(notifications[1].Object).To(Equal(bRecord.Meta.Name))
+			Expect(notifications[1].CurrentState).To(BeNil())
+			Expect(notifications[1].PreviousState["id"]).To(Equal(bRecord.Pk()))
 		})
 	})
 })

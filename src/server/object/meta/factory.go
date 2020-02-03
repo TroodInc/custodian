@@ -1,9 +1,10 @@
 package meta
 
 import (
+	"fmt"
+	"server/data/notifications"
 	"server/errors"
 	. "server/object/description"
-	"fmt"
 )
 
 type MetaFactory struct {
@@ -77,13 +78,6 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 		} else {
 			currentMeta.Fields = append(currentMeta.Fields, *fieldDescription)
 		}
-	}
-
-	//factory actionSet
-	if actionSet, err := newActionSet(currentMeta.MetaDescription.Actions); err == nil {
-		currentMeta.ActionSet = actionSet
-	} else {
-		return err
 	}
 
 	//check PK field
@@ -187,7 +181,7 @@ func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, 
 	//set outer link to the current field
 	field.OuterLinkField = fields[1].Name
 	//
-	metaDescription := NewMetaDescription(metaName, "id", fields, []Action{}, false)
+	metaDescription := NewMetaDescription(metaName, "id", fields, []notifications.Action{}, false)
 	metaObj = &Meta{MetaDescription: metaDescription}
 	return metaObj, true
 

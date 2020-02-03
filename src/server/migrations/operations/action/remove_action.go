@@ -1,17 +1,18 @@
 package action
 
 import (
-	"server/errors"
-	"server/object/meta"
-	"server/transactions"
-	"server/migrations"
 	"fmt"
+	"server/data/notifications"
+	"server/errors"
+	"server/migrations"
 	"server/object/description"
 	meta_description "server/object/description"
+	"server/object/meta"
+	"server/transactions"
 )
 
 type RemoveActionOperation struct {
-	Action *description.Action
+	Action *notifications.Action
 }
 
 func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
@@ -20,7 +21,7 @@ func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description
 		return nil, err
 	}
 
-	updatedMetaDescription.Actions = make([]description.Action, 0)
+	updatedMetaDescription.Actions = make([]notifications.Action, 0)
 
 	//remove action from the meta description
 	for i, currentAction := range metaDescription.Actions {
@@ -51,6 +52,6 @@ func (o *RemoveActionOperation) SyncDbDescription(metaDescriptionToApply *meta_d
 	return nil
 }
 
-func NewRemoveActionOperation(action *description.Action) *RemoveActionOperation {
+func NewRemoveActionOperation(action *notifications.Action) *RemoveActionOperation {
 	return &RemoveActionOperation{Action: action}
 }

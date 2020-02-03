@@ -1,6 +1,10 @@
-package description
+package notifications
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"fmt"
+	"server/errors"
+)
 
 type Method int
 
@@ -38,7 +42,7 @@ func (mt Method) MarshalJSON() ([]byte, error) {
 	if s, ok := mt.Validate(); ok {
 		return json.Marshal(s)
 	} else {
-		return nil, NewMetaDescriptionError("", "json_marshal", ErrJsonMarshal, "Incorrect method: %v", mt)
+		return nil, errors.NewValidationError("json_marshal", fmt.Sprintf("Incorrect method: %v", mt), nil)
 	}
 }
 
@@ -51,7 +55,7 @@ func (mt *Method) UnmarshalJSON(b []byte) error {
 		*mt = m
 		return nil
 	} else {
-		return NewMetaDescriptionError("", "json_unmarshal", ErrJsonUnmarshal, "Incorrect method: %s", s)
+		return  errors.NewValidationError( "json_unmarshal", fmt.Sprintf("Incorrect method: %s", s), nil)
 	}
 }
 

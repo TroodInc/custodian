@@ -1,5 +1,5 @@
 package notifications_test
-
+/**
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -76,17 +76,17 @@ var _ = Describe("Data", func() {
 						Optional: true,
 					},
 				},
-				Actions: []description.Action{
+				Actions: []Action{
 					{
-						Method:          description.MethodCreate,
-						Protocol:        description.TEST,
+						Method:          MethodCreate,
+						Protocol:        TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", "b": "b.id"},
 					},
 					{
-						Method:          description.MethodCreate,
-						Protocol:        description.TEST,
+						Method:          MethodCreate,
+						Protocol:        TEST,
 						Args:            []string{"http://example1.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{},
@@ -141,7 +141,7 @@ var _ = Describe("Data", func() {
 			recordSetNotification := NewRecordSetNotification(
 				&record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}},
 				true,
-				description.MethodCreate,
+				MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -161,7 +161,7 @@ var _ = Describe("Data", func() {
 			recordSetNotification := NewRecordSetNotification(
 				&recordSet,
 				true,
-				description.MethodCreate,
+				MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -198,7 +198,7 @@ var _ = Describe("Data", func() {
 			recordSetNotification := NewRecordSetNotification(
 				&recordSet,
 				true,
-				description.MethodCreate,
+				MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -223,7 +223,7 @@ var _ = Describe("Data", func() {
 			recordSetNotification := NewRecordSetNotification(
 				&recordSet,
 				true,
-				description.MethodCreate,
+				MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -259,7 +259,7 @@ var _ = Describe("Data", func() {
 			recordSetNotification := NewRecordSetNotification(
 				&recordSet,
 				true,
-				description.MethodCreate,
+				MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -284,7 +284,7 @@ var _ = Describe("Data", func() {
 			recordSetNotification := NewRecordSetNotification(
 				&recordSet,
 				true,
-				description.MethodCreate,
+				MethodCreate,
 				dataProcessor.GetBulk,
 				dataProcessor.Get,
 			)
@@ -303,3 +303,6 @@ var _ = Describe("Data", func() {
 		})
 	})
 })
+
+
+ */

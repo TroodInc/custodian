@@ -3,6 +3,7 @@ package description
 import (
 	"encoding/json"
 	"io"
+	"server/data/notifications"
 	"server/data/record"
 	"server/errors"
 	_migrations "server/migrations"
@@ -64,7 +65,7 @@ type MigrationFieldDescription struct {
 }
 
 type MigrationActionDescription struct {
-	description.Action
+	notifications.Action
 	PreviousName string `json:"previousName"`
 }
 
@@ -91,7 +92,7 @@ func (mmd *MigrationMetaDescription) MetaDescription() *description.MetaDescript
 		fields = append(fields, *mmd.Fields[i].Field.Clone())
 	}
 
-	actions := make([]description.Action, 0)
+	actions := make([]notifications.Action, 0)
 	for i := range mmd.Actions {
 		actions = append(actions, *mmd.Actions[i].Action.Clone())
 	}
