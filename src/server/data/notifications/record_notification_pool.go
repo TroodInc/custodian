@@ -9,26 +9,26 @@ import (
 type RecordSetNotificationPool struct {
 	notifications        []*RecordNotification
 	notificationChannels map[string][]chan *noti.Event
-	notifiers            map[string]map[Method][] noti.Notifier
+	Notifiers            map[string]map[Method][] *noti.Notifier
 	actions              map[string][]Action
 }
 
 func NewRecordSetNotificationPool(actions map[string][]Action) *RecordSetNotificationPool {
 	pool := &RecordSetNotificationPool{
-		notifications:      make([]*RecordNotification, 0),
-		notifiers:			make(map[string]map[Method][] noti.Notifier, 0),
-		actions: 			actions,
+		notifications: make([]*RecordNotification, 0),
+		Notifiers:     make(map[string]map[Method][] *noti.Notifier, 0),
+		actions:       actions,
 	}
 
 	for metaName, items := range actions {
-		pool.notifiers[metaName] = make(map[Method][] noti.Notifier, 0)
+		pool.Notifiers[metaName] = make(map[Method][] *noti.Notifier, 0)
 
 		for _, action := range items {
 			notifierFactory, ok := noti.NotifierFactories[action.Protocol]
 			if ok {
 				notifier, err := notifierFactory(action.Args, action.ActiveIfNotRoot)
 				if err == nil {
-					pool.notifiers[metaName][action.Method] = append(pool.notifiers[metaName][action.Method], notifier)
+					pool.Notifiers[metaName][action.Method] = append(pool.Notifiers[metaName][action.Method], &notifier)
 				}
 			}
 		}
@@ -72,8 +72,8 @@ func (pool *RecordSetNotificationPool) getChannels(metaName string, method Metho
 	key := metaName + method.AsString()
 	channels, ok := pool.notificationChannels[key]
 	if !ok {
-		for _, notifier := range pool.notifiers[metaName][method] {
-			channels = append(pool.notificationChannels[key], noti.Broadcast(notifier))
+		for _, notifier := range pool.Notifiers[metaName][method] {
+			channels = append(pool.notificationChannels[key], noti.Broadcast(*notifier))
 		}
 	}
 	return channels
