@@ -3,15 +3,16 @@ package description
 import (
 	"fmt"
 	"github.com/getlantern/deepcopy"
+	"server/data/notifications"
 )
 
 //The shadow struct of the MetaDescription struct.
 type MetaDescription struct {
-	Name    string   `json:"name"`
-	Key     string   `json:"key"`
-	Fields  []Field  `json:"fields"`
-	Actions []Action `json:"actions"`
-	Cas     bool     `json:"cas"`
+	Name    string                 `json:"name"`
+	Key     string                 `json:"key"`
+	Fields  []Field                `json:"fields"`
+	Actions []notifications.Action `json:"actions"`
+	Cas     bool                   `json:"cas"`
 	Views 	map[string]string `json:"views"`
 	Comment string `json:"comment"`
 }
@@ -31,7 +32,7 @@ func (md *MetaDescription) FindField(fieldName string) *Field {
 	return nil
 }
 
-func (md *MetaDescription) FindAction(actionName string) *Action {
+func (md *MetaDescription) FindAction(actionName string) *notifications.Action {
 	for i, action := range md.Actions {
 		if action.Name == actionName {
 			return &md.Actions[i]
@@ -49,7 +50,7 @@ func (md *MetaDescription) ForExport() MetaDescription {
 			metaCopy.Fields[i].OnDelete == "" {
 			metaCopy.Fields[i].OnDelete = OnDeleteCascadeVerbose
 		}
-		
+
 		if metaCopy.Fields[i].LinkType == LinkTypeOuter {
 			// exclude field supporting only query mode
 			if !metaCopy.Fields[i].RetrieveMode {
@@ -73,6 +74,6 @@ func (md *MetaDescription) ForExport() MetaDescription {
 	return metaCopy
 }
 
-func NewMetaDescription(name string, key string, fields []Field, actions []Action, cas bool) *MetaDescription {
+func NewMetaDescription(name string, key string, fields []Field, actions []notifications.Action, cas bool) *MetaDescription {
 	return &MetaDescription{Name: name, Key: key, Fields: fields, Actions: actions, Cas: cas}
 }

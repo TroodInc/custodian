@@ -2,24 +2,17 @@ package meta
 
 import (
 	"encoding/json"
-	"server/noti"
-	"server/object/v2_meta"
-	"utils"
 	. "server/object/description"
+	"server/object/v2_meta"
 	"server/transactions"
+	"utils"
 )
-
-var notifierFactories = map[Protocol]noti.Factory{
-	REST: noti.NewRestNotifier,
-	TEST: noti.NewTestNotifier,
-}
 
 //Object metadata description.
 type Meta struct {
 	*MetaDescription
 	Key       *FieldDescription
 	Fields    []FieldDescription
-	ActionSet *ActionSet
 }
 
 func (m *Meta) FindField(name string) *FieldDescription {

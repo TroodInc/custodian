@@ -1,14 +1,15 @@
 package action
 
 import (
-	"server/object/meta"
+	"server/data/notifications"
 	meta_description "server/object/description"
+	"server/object/meta"
 	"server/transactions"
 )
 
 type UpdateActionOperation struct {
-	NewAction     *meta_description.Action
-	CurrentAction *meta_description.Action
+	NewAction     *notifications.Action
+	CurrentAction *notifications.Action
 }
 
 func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
@@ -33,6 +34,6 @@ func (o *UpdateActionOperation) SyncDbDescription(metaDescriptionToApply *meta_d
 	return nil
 }
 
-func NewUpdateActionOperation(currentAction, newAction *meta_description.Action) *UpdateActionOperation {
+func NewUpdateActionOperation(currentAction, newAction *notifications.Action) *UpdateActionOperation {
 	return &UpdateActionOperation{CurrentAction: currentAction, NewAction: newAction}
 }

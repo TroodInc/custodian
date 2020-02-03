@@ -1,53 +1,80 @@
 package notifications
 
-import "server/auth"
+import (
+	"server/auth"
+	"server/noti"
+)
+
 
 type RecordSetNotificationPool struct {
-	notifications      []*RecordSetNotification
-	notificationSender *notificationSender
+	notifications        []*RecordNotification
+	notificationChannels map[string][]chan *noti.Event
+	notifiers            map[string]map[Method][] noti.Notifier
+	actions              map[string][]Action
 }
 
-func (notificationPool *RecordSetNotificationPool) Add(notification *RecordSetNotification) {
-	notificationPool.notifications = append(notificationPool.notifications, notification)
-}
-
-func (notificationPool *RecordSetNotificationPool) CompleteSend(err error) {
-	if err == nil {
-		notificationPool.notificationSender.close()
-	} else {
-		notificationPool.notificationSender.failed(err)
+func NewRecordSetNotificationPool(actions map[string][]Action) *RecordSetNotificationPool {
+	pool := &RecordSetNotificationPool{
+		notifications:      make([]*RecordNotification, 0),
+		notifiers:			make(map[string]map[Method][] noti.Notifier, 0),
+		actions: 			actions,
 	}
-}
 
-func (notificationPool *RecordSetNotificationPool) CaptureCurrentState() {
-	for _, notification := range notificationPool.notifications {
-		notification.CaptureCurrentState()
-	}
-}
+	for metaName, items := range actions {
+		pool.notifiers[metaName] = make(map[Method][] noti.Notifier, 0)
 
-func (notificationPool *RecordSetNotificationPool) Push(user auth.User) {
-	for _, notification := range notificationPool.notifications {
-		notificationPool.notificationSender.push(notification, user)
-	}
-}
-
-func (notificationPool *RecordSetNotificationPool) ShouldBeProcessed() bool {
-	shouldBeProcessed := false
-	for _, notification := range notificationPool.notifications {
-		if notification.ShouldBeProcessed() {
-			shouldBeProcessed = true
+		for _, action := range items {
+			notifierFactory, ok := noti.NotifierFactories[action.Protocol]
+			if ok {
+				notifier, err := notifierFactory(action.Args, action.ActiveIfNotRoot)
+				if err == nil {
+					pool.notifiers[metaName][action.Method] = append(pool.notifiers[metaName][action.Method], notifier)
+				}
+			}
 		}
 	}
-	return shouldBeProcessed
+	return pool
 }
 
-func (notificationPool *RecordSetNotificationPool) Notifications() []*RecordSetNotification {
-	return notificationPool.notifications
+func (pool *RecordSetNotificationPool) Add(notification *RecordNotification) {
+	pool.notifications = append(pool.notifications, notification)
 }
 
-func NewRecordSetNotificationPool() *RecordSetNotificationPool {
-	return &RecordSetNotificationPool{
-		notifications:      make([]*RecordSetNotification, 0),
-		notificationSender: newNotificationSender(),
+func (pool *RecordSetNotificationPool) CompleteSend(err error) {
+	for _, items := range pool.notificationChannels {
+		for _, c := range items {
+			if err != nil {
+				c <- noti.NewErrorEvent(err)
+			}
+
+			close(c)
+		}
 	}
+}
+
+func (pool *RecordSetNotificationPool) Push(user auth.User) {
+	for _, notification := range pool.notifications {
+		for _, chanel := range pool.getChannels(notification.Object, notification.Method) {
+			chanel <- noti.NewObjectEvent(notification.BuildNotificationsData(user), notification.isRoot)
+		}
+	}
+}
+
+func (pool *RecordSetNotificationPool) ShouldBeProcessed() bool {
+	return len(pool.notifications) > 0
+}
+
+func (pool *RecordSetNotificationPool) Notifications() []*RecordNotification {
+	return pool.notifications
+}
+
+func (pool *RecordSetNotificationPool) getChannels(metaName string, method Method) []chan *noti.Event {
+	key := metaName + method.AsString()
+	channels, ok := pool.notificationChannels[key]
+	if !ok {
+		for _, notifier := range pool.notifiers[metaName][method] {
+			channels = append(pool.notificationChannels[key], noti.Broadcast(notifier))
+		}
+	}
+	return channels
 }

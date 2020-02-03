@@ -67,7 +67,7 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 					nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(NewRecord(fieldDescription.LinkMeta, of)))
 				} else if fieldDescription.Type == description.FieldTypeObjects {
 					//validate outer links
-					if childRecordsToProcess, childRecordsToRemove, childRecordsToRetrieve, err := vs.validateObjectsFieldArray(dbTransaction, value, fieldDescription, record); err != nil {
+					if childRecordsToProcess, childRecordsToRemove, childRecordsToRetrieve, err := vs.validateObjectsFieldArray(value, fieldDescription, record); err != nil {
 						return nil, nil, nil, nil, err
 					} else {
 						for _, childRecord := range childRecordsToProcess {
@@ -96,7 +96,7 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 				}
 			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeOuter:
 				//validate outer generic links
-				if childRecordsToProcess, childRecordsToRemove, err := vs.validateGenericArray(dbTransaction, value, fieldDescription, record); err != nil {
+				if childRecordsToProcess, childRecordsToRemove, err := vs.validateGenericArray(value, fieldDescription, record); err != nil {
 					return nil, nil, nil, nil, err
 				} else {
 					for _, childRecord := range childRecordsToProcess {
@@ -171,7 +171,7 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 	return recordsToProcess, recordsToRemove, nil
 }
 
-func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, []*Record, error) {
+func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, 0)
 	recordsToRemove := make([]*Record, 0)
@@ -292,7 +292,7 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 	return recordsToProcess, recordsToRemove, recordsToRetrieve, nil
 }
 
-func (vs *ValidationService) validateGenericArray(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, error) {
+func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, len(nestedRecordsData))
 	recordsToRemove := make([]*Record, 0)

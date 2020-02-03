@@ -113,6 +113,20 @@ func (record *Record) MergeData() {
 	}
 }
 
+// TODO: Must be removed
+func (record *Record) GetDataForNotification() map[string]interface{} {
+	adaptedRecordData := map[string]interface{}{}
+	for key, value := range record.Data {
+		switch castValue := value.(type) {
+		case types.DLink:
+			adaptedRecordData[key] = castValue.Id
+		default:
+			adaptedRecordData[key] = castValue
+		}
+	}
+	return adaptedRecordData
+}
+
 //prepare data for DB operations: replace complex links with their primitive values,
 func (record *Record) PrepareData(operationType RecordOperationType) {
 	record.RawData = map[string]interface{}{}

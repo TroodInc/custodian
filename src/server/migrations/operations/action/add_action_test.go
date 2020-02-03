@@ -3,13 +3,15 @@ package action
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+	"server/data/notifications"
+	"server/noti"
+	"server/object/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 var _ = Describe("'AddAction' Migration Operation", func() {
@@ -62,7 +64,7 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 
 	It("adds an action into metaDescription`s file", func() {
 
-		action := description.Action{Name: "new_action", Method: description.MethodCreate, Protocol: description.REST, Args: []string{"http://localhost:3000/some-handler"}}
+		action := notifications.Action{Name: "new_action", Method: notifications.MethodCreate, Protocol: noti.REST, Args: []string{"http://localhost:3000/some-handler"}}
 
 		operation := NewAddActionOperation(&action)
 		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)

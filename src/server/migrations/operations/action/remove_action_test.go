@@ -3,13 +3,15 @@ package action
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+	"server/data/notifications"
+	"server/noti"
+	"server/object/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
+	"server/transactions/file_transaction"
+	"utils"
 )
 
 var _ = Describe("'RemoveAction' Migration Operation", func() {
@@ -47,11 +49,11 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 					},
 				},
 			},
-			Actions: []description.Action{
+			Actions: []notifications.Action{
 				{Name: "new_action",
-					Method: description.MethodCreate,
-					Protocol: description.REST,
-					Args: []string{"http://localhost:3000/some-handler"},
+					Method:   notifications.MethodCreate,
+					Protocol: noti.REST,
+					Args:     []string{"http://localhost:3000/some-handler"},
 				},
 			},
 		}
