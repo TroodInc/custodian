@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"io"
 	"logger"
+	"server/data/notifications"
 	"server/errors"
 	. "server/object/description"
 	"server/object/v2_meta"
@@ -34,7 +35,7 @@ func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
 	return NewMetaFactory(metaStore.MetaDescriptionSyncer).FactoryMeta(metaObj)
 }
 
-func (metaStore *MetaStore) V2NewMeta(name, key string, cas bool, fields []*Field, actions []*Action) (*v2_meta.V2Meta, error) {
+func (metaStore *MetaStore) V2NewMeta(name, key string, cas bool, fields []*Field, actions []*notifications.Action) (*v2_meta.V2Meta, error) {
 	// pre-validate description
 	//if ok, err := CheckFieldsDoesNotContainDuplicates(fields); !ok {  TODO: Fix fields type
 	//	return nil, err
@@ -54,14 +55,24 @@ func (metaStore *MetaStore) V2NewMeta(name, key string, cas bool, fields []*Fiel
 /*
    Gets the list of metadata objects from the underlying store.
 */
-func (metaStore *MetaStore) List() ([]*MetaDescription, bool, error) {
-	metaList, isFound, err := metaStore.MetaDescriptionSyncer.List()
+func (metaStore *MetaStore) List() []*MetaDescription {
+	metaList, _, err := metaStore.MetaDescriptionSyncer.List()
 
 	if err != nil {
-		return []*MetaDescription{}, isFound, err
+		return []*MetaDescription{}
 	}
 
-	return metaList, isFound, nil
+	return metaList
+}
+
+
+func (metaStore *MetaStore) GetActions() map[string][]notifications.Action {
+	actions := map[string][]notifications.Action{}
+	for _, meta := range metaStore.List() {
+		actions[meta.Name] = meta.Actions
+	}
+
+	return actions
 }
 
 /*
@@ -311,7 +322,7 @@ func (metaStore *MetaStore) removeRelatedToInnerGenericOuterLinks(targetMeta *Me
 
 //Remove inner fields linking to given MetaDescription
 func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
-	metaDescriptionList, _, _ := metaStore.List()
+	metaDescriptionList := metaStore.List()
 	for _, objectMetaDescription := range metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
@@ -347,7 +358,7 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 
 //Remove inner fields linking to given MetaDescription
 func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
-	metaDescriptionList, _, _ := metaStore.List()
+	metaDescriptionList := metaStore.List()
 	for _, objectMetaDescription := range metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
@@ -393,7 +404,7 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
 
 //Remove inner fields linking to given MetaDescription
 func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(keepMeta bool, targetMeta *Meta) error {
-	metaDescriptionList, _, _ := metaStore.List()
+	metaDescriptionList := metaStore.List()
 	for _, objectMetaDescription := range metaDescriptionList {
 
 		if targetMeta.Name != objectMetaDescription.Name {
@@ -679,11 +690,7 @@ func (metaStore *MetaStore) V2createThroughMeta(meta *v2_meta.V2Meta) error {
 
 // Updates an existing object metadata.
 func (metaStore *MetaStore) Flush() error {
-	metaList, _, err := metaStore.List()
-	if err != nil {
-		return err
-	}
-	for _, meta := range metaList {
+	for _, meta := range metaStore.List() {
 		if _, err := metaStore.Remove(meta.Name, true); err != nil {
 			return err
 		}

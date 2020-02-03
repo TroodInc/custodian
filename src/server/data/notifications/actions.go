@@ -1,8 +1,10 @@
-package description
+package notifications
+
+import "server/noti"
 
 type Action struct {
 	Method          Method                 `json:"method"`
-	Protocol        Protocol               `json:"protocol"`
+	Protocol        noti.Protocol          `json:"protocol"`
 	Args            []string               `json:"args,omitempty"`
 	ActiveIfNotRoot bool                   `json:"activeIfNotRoot"`
 	IncludeValues   map[string]interface{} `json:"includeValues"`

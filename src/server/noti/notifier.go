@@ -5,6 +5,16 @@ import (
 	"fmt"
 )
 
+var (
+	REST = protocol_iota("REST")
+	TEST = protocol_iota("TEST")
+)
+
+var NotifierFactories = map[Protocol]Factory{
+	REST: NewRestNotifier,
+	TEST: NewTestNotifier,
+}
+
 type NotiError struct {
 	code string
 	msg  string

@@ -10,7 +10,6 @@ import (
 	"logger"
 	"regexp"
 	"server/data"
-	"server/data/notifications"
 	"server/data/record"
 	"server/data/types"
 	"server/errors"
@@ -567,7 +566,7 @@ func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, fil
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
+func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, processor *data.Processor) (error) {
 	var operation transactions.Operation
 	var err error
 	var onDeleteStrategy description.OnDeleteStrategy
@@ -578,51 +577,44 @@ func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTrans
 	}
 
 	//make operation
-	var recordSetNotification *notifications.RecordSetNotification
+	//var recordSetNotification *notifications.RecordSetNotification
 	switch onDeleteStrategy {
-	case description.OnDeleteSetNull:
-		//make corresponding null value
-		var nullValue interface{}
-		if recordNode.LinkField.Type == description.FieldTypeGeneric {
-			nullValue = new(types.GenericInnerLink)
-		} else {
-			nullValue = nil
-		}
-		//update record with this value
-		operation, err = dm.PrepareUpdateOperation(
-			recordNode.Record.Meta,
-			[]map[string]interface{}{{recordNode.Record.Meta.Key.Name: recordNode.Record.Pk(), recordNode.LinkField.Name: nullValue}},
-		)
-		if err != nil {
-			return err
-		}
-		recordSetNotification = notifications.NewRecordSetNotification(&record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
-	default:
-		operation, err = dm.PrepareRemoveOperation(recordNode.Record)
-		if err != nil {
-			return err
-		}
-		recordSetNotification = notifications.NewRecordSetNotification(&record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
+		case description.OnDeleteSetNull:
+			//make corresponding null value
+			var nullValue interface{}
+			if recordNode.LinkField.Type == description.FieldTypeGeneric {
+				nullValue = new(types.GenericInnerLink)
+			} else {
+				nullValue = nil
+			}
+			//update record with this value
+			operation, err = dm.PrepareUpdateOperation(
+				recordNode.Record.Meta,
+				[]map[string]interface{}{{recordNode.Record.Meta.Key.Name: recordNode.Record.Pk(), recordNode.LinkField.Name: nullValue}},
+			)
+			if err != nil {
+				return err
+			}
+
+		default:
+			operation, err = dm.PrepareRemoveOperation(recordNode.Record)
+			if err != nil {
+				return err
+			}
 	}
 	//process child records
 	for _, recordNodes := range recordNode.Children {
 		for _, recordNode := range recordNodes {
-			err := dm.PerformRemove(recordNode, dbTransaction, notificationPool, processor)
+			err := dm.PerformRemove(recordNode, dbTransaction, processor)
 			if err != nil {
 				return err
 			}
 		}
 	}
 	//create and process notification
-
-	if recordSetNotification.ShouldBeProcessed() {
-		recordSetNotification.CapturePreviousState()
-		notificationPool.Add(recordSetNotification)
-	}
 	if err := dbTransaction.Execute([]transactions.Operation{operation}); err != nil {
 		return err
 	} else {
-		recordSetNotification.CaptureCurrentState()
 		return nil
 	}
 }

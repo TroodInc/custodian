@@ -3,16 +3,18 @@ package constructor
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/data/notifications"
 	"server/errors"
-	"server/pg"
-	"utils"
+	migration_description "server/migrations/description"
+	"server/noti"
+	"server/object/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
+	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
-	"server/pg/migrations/managers"
-	migration_description "server/migrations/description"
+	"server/transactions/file_transaction"
+	"utils"
 
 	"server/migrations"
 )
@@ -54,7 +56,7 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -126,7 +128,7 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -171,7 +173,7 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []notifications.Action{},
 				Cas:     false,
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, nil, globalTransaction.DbTransaction)
@@ -200,7 +202,7 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -257,7 +259,7 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -318,7 +320,7 @@ var _ = Describe("Migration Constructor", func() {
 							Optional: true,
 						},
 					},
-					Actions: []description.Action{},
+					Actions: []notifications.Action{},
 					Cas:     false,
 				}
 			})
@@ -723,7 +725,7 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []description.Action{},
+				Actions: []notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -740,10 +742,10 @@ var _ = Describe("Migration Constructor", func() {
 					},
 				},
 				Actions: []migration_description.MigrationActionDescription{{
-					Action: description.Action{
+					Action: notifications.Action{
 						Name:     "new_action",
-						Method:   description.MethodCreate,
-						Protocol: description.REST,
+						Method:   notifications.MethodCreate,
+						Protocol: noti.REST,
 						Args:     []string{"http://localhost:3000/some-handler"},
 					},
 				}},
@@ -774,11 +776,11 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []description.Action{
+				Actions: []notifications.Action{
 					{
 						Name:     "new_action",
-						Method:   description.MethodCreate,
-						Protocol: description.REST,
+						Method:   notifications.MethodCreate,
+						Protocol: noti.REST,
 						Args:     []string{"http://localhost:3000/some-handler"},
 					},
 				},
@@ -825,11 +827,11 @@ var _ = Describe("Migration Constructor", func() {
 							Optional: false,
 						},
 					},
-					Actions: []description.Action{
+					Actions: []notifications.Action{
 						{
 							Name:     "new_action",
-							Method:   description.MethodCreate,
-							Protocol: description.REST,
+							Method:   notifications.MethodCreate,
+							Protocol: noti.REST,
 							Args:     []string{"http://localhost:3000/some-handler"},
 						},
 					},
@@ -856,10 +858,10 @@ var _ = Describe("Migration Constructor", func() {
 					},
 					Actions: []migration_description.MigrationActionDescription{
 						{
-							Action: description.Action{
+							Action: notifications.Action{
 								Name:     "updated_action",
-								Method:   description.MethodCreate,
-								Protocol: description.REST,
+								Method:   notifications.MethodCreate,
+								Protocol: noti.REST,
 								Args:     []string{"http://localhost:3000/some-handler"},
 							},
 							PreviousName: "new_action",
@@ -897,10 +899,10 @@ var _ = Describe("Migration Constructor", func() {
 					},
 					Actions: []migration_description.MigrationActionDescription{
 						{
-							Action: description.Action{
+							Action: notifications.Action{
 								Name:     "new_action",
-								Method:   description.MethodCreate,
-								Protocol: description.TEST,
+								Method:   notifications.MethodCreate,
+								Protocol: noti.TEST,
 								Args:     []string{"http://localhost:3000/some-handler"},
 							},
 						},
@@ -937,10 +939,10 @@ var _ = Describe("Migration Constructor", func() {
 					},
 					Actions: []migration_description.MigrationActionDescription{
 						{
-							Action: description.Action{
+							Action: notifications.Action{
 								Name:     "new_action",
-								Method:   description.MethodCreate,
-								Protocol: description.REST,
+								Method:   notifications.MethodCreate,
+								Protocol: noti.REST,
 								Args:     []string{"http://localhost:3000/some-another-handler"},
 							},
 						},
@@ -977,10 +979,10 @@ var _ = Describe("Migration Constructor", func() {
 					},
 					Actions: []migration_description.MigrationActionDescription{
 						{
-							Action: description.Action{
+							Action: notifications.Action{
 								Name:            "new_action",
-								Method:          description.MethodCreate,
-								Protocol:        description.REST,
+								Method:          notifications.MethodCreate,
+								Protocol:        noti.REST,
 								Args:            []string{"http://localhost:3000/some-handler"},
 								ActiveIfNotRoot: true,
 							},

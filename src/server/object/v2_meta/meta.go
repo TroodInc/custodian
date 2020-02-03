@@ -2,7 +2,7 @@ package v2_meta
 
 import (
 	"github.com/getlantern/deepcopy"
-	"server/noti"
+	"server/data/notifications"
 	. "server/object/description"
 	"server/transactions"
 )
@@ -12,8 +12,8 @@ type V2Meta struct {
 	Name    string   `json:"name"`
 	Key     string 	 `json:"key"`
 
-	Fields  []*Field  `json:"fields"`
-	Actions []*Action `json:"actions,omitempty"`
+	Fields  []*Field                `json:"fields"`
+	Actions []*notifications.Action `json:"actions,omitempty"`
 
 	Cas     bool     `json:"cas"`
 }
@@ -24,7 +24,7 @@ func (m *V2Meta) Clone() *V2Meta {
 	return metaDescription
 }
 
-func (m *V2Meta) FindAction(actionName string) *Action {
+func (m *V2Meta) FindAction(actionName string) *notifications.Action {
 	for i, action := range m.Actions {
 		if action.Name == actionName {
 			return m.Actions[i]
@@ -51,14 +51,8 @@ func (m *V2Meta) ForExport() V2Meta {
 	return metaCopy
 }
 
-func NewV2Meta(name string, key string, fields []*Field, actions []*Action, cas bool) *V2Meta {
+func NewV2Meta(name string, key string, fields []*Field, actions []*notifications.Action, cas bool) *V2Meta {
 	return &V2Meta{Name: name, Key: key, Fields: fields, Actions: actions, Cas: cas}
-}
-
-
-var notifierFactories = map[Protocol]noti.Factory{
-	REST: noti.NewRestNotifier,
-	TEST: noti.NewTestNotifier,
 }
 
 func (m *V2Meta) AddField(field *Field) *Field {

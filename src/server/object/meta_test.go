@@ -64,7 +64,7 @@ var _ = Describe("The PG MetaStore", func() {
 				err := metaStore.Flush()
 				Expect(err).To(BeNil())
 
-				metaList, _, _ := metaStore.List()
+				metaList := metaStore.List()
 				Expect(metaList).To(HaveLen(0))
 			})
 		})

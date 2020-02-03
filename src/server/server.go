@@ -182,15 +182,11 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	//object operations
 	app.router.GET(cs.root+"/meta", CreateJsonAction(func(src *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
-		if metaList, _, err := metaStore.List(); err == nil {
-			var result []interface{}
-			for _, val := range(metaList) {
-				result = append(result, *val)
-			}
-			js.pushList(result, len(result))
-		} else {
-			js.pushError(err)
+		var result []interface{}
+		for _, val := range metaStore.List() {
+			result = append(result, *val)
 		}
+		js.pushList(result, len(result))
 	}))
 
 	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
@@ -203,7 +199,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
-		metaDescriptionList, _, _ := metaStore.List()
+		metaDescriptionList := metaStore.List()
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
 			js.pushError(err)
 		} else {
