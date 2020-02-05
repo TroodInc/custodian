@@ -36,11 +36,11 @@ var _ = Describe("PG Auto Values Test", func() {
 
 		BeforeEach(func() {
 			var err error
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -93,11 +93,11 @@ var _ = Describe("PG Auto Values Test", func() {
 
 		BeforeEach(func() {
 			var err error
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,

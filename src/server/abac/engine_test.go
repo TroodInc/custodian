@@ -251,11 +251,11 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("Must filter Custodian Nodes", func() {
-			metaEmployee, err := metaStore.NewMeta(&description.MetaDescription{
+			metaEmployee, err := metaStore.NewMeta(&meta.Meta{
 				Name: "t_employee",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
@@ -267,11 +267,11 @@ var _ = Describe("Abac Engine", func() {
 			err = metaStore.Create(metaEmployee)
 			Expect(err).To(BeNil())
 
-			metaClient, err := metaStore.NewMeta(&description.MetaDescription{
+			metaClient, err := metaStore.NewMeta(&meta.Meta{
 				Name: "t_client",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
@@ -282,7 +282,7 @@ var _ = Describe("Abac Engine", func() {
 					{Name: "manager", Type: meta.FieldTypeNumber, Optional: true},
 					{
 						Name: "employee", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
-						LinkMeta: "t_employee", Optional: false,
+						LinkMeta: metaEmployee, Optional: false,
 					},
 				},
 			})
@@ -290,18 +290,18 @@ var _ = Describe("Abac Engine", func() {
 			err = metaStore.Create(metaClient)
 			Expect(err).To(BeNil())
 
-			metaPayment, err := metaStore.NewMeta(&description.MetaDescription{
+			metaPayment, err := metaStore.NewMeta(&meta.Meta{
 				Name: "t_payment",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
 					{
 						Name: "client", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
-						LinkMeta: "t_client", Optional: false,
+						LinkMeta: metaClient, Optional: false,
 					},
 					{Name: "responsible", Type: meta.FieldTypeNumber, Optional: false},
 					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
@@ -311,11 +311,11 @@ var _ = Describe("Abac Engine", func() {
 			err = metaStore.Create(metaPayment)
 			Expect(err).To(BeNil())
 
-			mdClientNew := description.MetaDescription{
+			mdClientNew := meta.Meta{
 				Name: "t_client",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
@@ -326,10 +326,10 @@ var _ = Describe("Abac Engine", func() {
 					{Name: "manager", Type: meta.FieldTypeNumber, Optional: true},
 					{
 						Name: "employee", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
-						LinkMeta: "t_employee", Optional: false,
+						LinkMeta: metaEmployee, Optional: false,
 					}, {
 						Name: "payments", Type: meta.FieldTypeArray, LinkType: meta.LinkTypeOuter,
-						LinkMeta: "t_payment", OuterLinkField: "client", Optional: true,
+						LinkMeta: metaPayment, OuterLinkField: metaPayment.FindField("client"), Optional: true,
 					},
 				},
 			}

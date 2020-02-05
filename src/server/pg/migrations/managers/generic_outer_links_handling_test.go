@@ -27,7 +27,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -53,7 +53,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
-				[]meta.Field{
+				[]*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -95,7 +95,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 		})
 
 		Context("having object B", func() {
-			var bMetaDescription *description.MetaDescription
+			var bMetaDescription *meta.Meta
 			BeforeEach(func() {
 				bMetaDescription = obj.GetBaseMetaData(utils.RandomString(8))
 				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)

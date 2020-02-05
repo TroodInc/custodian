@@ -17,11 +17,11 @@ var _ = Describe("Migration Storage", func() {
 	AfterEach(func() { migrationStorage.Flush() })
 
 	It("stores MigrationMetaDescription to file", func() {
-		metaDescription := &description.MetaDescription{
+		metaDescription := &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,

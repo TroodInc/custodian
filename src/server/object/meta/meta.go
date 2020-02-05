@@ -4,7 +4,6 @@ import (
 	"github.com/getlantern/deepcopy"
 	"server/data/notifications"
 	"server/transactions"
-	"utils"
 )
 
 //Object metadata description.
@@ -30,9 +29,18 @@ func NewMetaFromMap(object map[string]interface{}) *Meta {
 		Cas:     object["cas"].(bool),
 	}
 
-	for _, field := range object["fields"].([]interface{}) {
-		result.Fields = append(result.Fields, NewFieldFromMap(field.(map[string]interface{})))
+	switch object["fields"].(type) {
+		case []map[string]interface{}:
+			for _, field := range object["fields"].([]map[string]interface{}) {
+				result.Fields = append(result.Fields, NewFieldFromMap(field))
+			}
+		case []interface{}:
+			for _, field := range object["fields"].([]interface{}) {
+				result.Fields = append(result.Fields, NewFieldFromMap(field.(map[string]interface{})))
+			}
 	}
+
+
 
 	return result
 }
@@ -96,14 +104,6 @@ func (m *Meta) TableFields() []*Field {
 		}
 	}
 	return fields
-}
-
-func (f *Field) canBeLinkTo(m *Meta) bool {
-	isSimpleFieldWithSameTypeAsPk := f.IsSimple() && f.Type == m.FindField(m.Key).Type
-	isInnerLinkToMeta := f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner
-	isGenericInnerLinkToMeta := f.Type == FieldTypeGeneric && f.LinkType == LinkTypeInner && utils.Contains(f.GetLinkMetaListNames(), m.Name)
-	canBeLinkTo := isSimpleFieldWithSameTypeAsPk || isInnerLinkToMeta || isGenericInnerLinkToMeta
-	return canBeLinkTo
 }
 
 /*

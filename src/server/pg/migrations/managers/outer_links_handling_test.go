@@ -31,7 +31,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -55,13 +55,13 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 	Describe("Spawned migrations` appliance", func() {
 		It("adds reverse outer link while object is being created", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
-				[]meta.Field{
+				[]*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -105,13 +105,13 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 		})
 
 		It("replaces automatically added reverse outer link with explicitly specified new one", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
-				[]meta.Field{
+				[]*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -181,9 +181,9 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 		})
 
 		Context("having object B", func() {
-			var bMetaDescription *description.MetaDescription
+			var bMetaDescription *meta.Meta
 			BeforeEach(func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				bMetaDescription = object.GetBaseMetaData(utils.RandomString(8))
@@ -198,7 +198,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			})
 
 			It("adds a reverse outer link when a new inner field is being added to an object", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				field := meta.Field{
@@ -235,7 +235,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			})
 
 			It("renames reverse outer links if object which owns inner link is being renamed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				field := meta.Field{
@@ -290,7 +290,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			})
 			//
 			It("removes outer links if object which owns inner link is being deleted", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				field := meta.Field{
@@ -342,7 +342,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			})
 
 			It("removes outer links if inner link is being removed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				field := meta.Field{

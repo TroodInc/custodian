@@ -4,10 +4,8 @@ import (
 	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/migrations/description"
 	"server/pg"
 	"utils"
-
 
 	"server/object/meta"
 	pg_transactions "server/pg/transactions"
@@ -33,11 +31,11 @@ var _ = Describe("Store", func() {
 	It("Changes field`s 'optional' attribute from 'false' to 'true' with corresponding database column altering", func() {
 		Describe("Having an object with required field", func() {
 			//create meta
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -59,11 +57,11 @@ var _ = Describe("Store", func() {
 			Expect(err).To(BeNil())
 
 			Describe("this field is specified as optional and object is updated", func() {
-				metaDescription = description.MetaDescription{
+				metaDescription = meta.Meta{
 					Name: "person",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,
@@ -84,7 +82,7 @@ var _ = Describe("Store", func() {
 				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 				metaDdl, err := pg.MetaDDLFromDB(tx, objectMeta.Name)
 				globalTransactionManager.CommitTransaction(globalTransaction)
@@ -99,11 +97,11 @@ var _ = Describe("Store", func() {
 	It("Changes field`s 'optional' attribute from 'true' to 'false' with corresponding database column altering", func() {
 		Describe("Having an object with required field", func() {
 			//create meta
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -124,11 +122,11 @@ var _ = Describe("Store", func() {
 			Expect(err).To(BeNil())
 
 			Describe("this field is specified as optional and object is updated", func() {
-				metaDescription = description.MetaDescription{
+				metaDescription = meta.Meta{
 					Name: "person",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,
@@ -148,7 +146,7 @@ var _ = Describe("Store", func() {
 				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 				metaDdl, err := pg.MetaDDLFromDB(tx, objectMeta.Name)
 				globalTransactionManager.CommitTransaction(globalTransaction)

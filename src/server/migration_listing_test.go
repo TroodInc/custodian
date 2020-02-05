@@ -29,10 +29,10 @@ var _ = Describe("Migrations` listing", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -56,13 +56,13 @@ var _ = Describe("Migrations` listing", func() {
 	AfterEach(flushDb)
 
 	Context("Having an applied migration", func() {
-		var metaDescription *description.MetaDescription
+		var metaDescription *meta.Meta
 		var migrationDescription *migrations_description.MigrationDescription
 		BeforeEach(func() {
-			metaDescription = description.NewMetaDescription(
-				"b",
-				"id",
-				[]meta.Field{
+			metaDescription = &meta.Meta{
+				Name: "b",
+				Key: "id",
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -71,9 +71,9 @@ var _ = Describe("Migrations` listing", func() {
 						},
 					},
 				},
-				nil,
-				false,
-			)
+				Actions: nil,
+				Cas: false,
+			}
 
 			migrationDescription = &migrations_description.MigrationDescription{
 				Id:        "some-unique-id",

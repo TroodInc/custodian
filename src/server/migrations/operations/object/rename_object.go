@@ -20,7 +20,7 @@ func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *meta
 	//remove old description
 	metaDescriptionSyncer.Remove(metaDescriptionToApply.Name)
 	//create new one
-	metaDescriptionSyncer.Create(transaction, *o.MetaDescription)
+	metaDescriptionSyncer.Create(transaction, o.MetaDescription.Name, o.MetaDescription.ForExport())
 
 	return o.MetaDescription, nil
 }

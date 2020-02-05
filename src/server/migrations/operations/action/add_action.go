@@ -23,7 +23,7 @@ func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta.Me
 	metaDescriptionToApply.Actions = append(metaDescriptionToApply.Actions, actionToAdd)
 
 	//sync its MetaDescription
-	if _, err := metaDescriptionSyncer.Update(metaDescriptionToApply.Name, *metaDescriptionToApply); err != nil {
+	if _, err := metaDescriptionSyncer.Update(metaDescriptionToApply.Name, metaDescriptionToApply.ForExport()); err != nil {
 		return nil, err
 	} else {
 		return metaDescriptionToApply, nil

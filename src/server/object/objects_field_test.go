@@ -45,7 +45,7 @@ var _ = Describe("Objects field", func() {
 			"cas": false,
 		}
 		//marshal data into string
-		var metaDescription description.MetaDescription
+		var metaDescription meta.Meta
 		buffer, err := json.Marshal(data)
 		Expect(err).To(BeNil())
 

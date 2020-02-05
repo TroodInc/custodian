@@ -33,11 +33,11 @@ var _ = Describe("Data", func() {
 
 	Describe("Data retrieve depending on outer link modes values", func() {
 		havingObjectA := func() *meta.Meta {
-			aMetaDescription := description.MetaDescription{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -56,11 +56,11 @@ var _ = Describe("Data", func() {
 		}
 
 		havingObjectBLinkedToA := func() *meta.Meta {
-			bMetaDescription := description.MetaDescription{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -86,11 +86,11 @@ var _ = Describe("Data", func() {
 		}
 
 		havingObjectAWithManuallySpecifiedOuterLinkToB := func() *meta.Meta {
-			aMetaDescription := description.MetaDescription{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,

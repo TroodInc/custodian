@@ -11,7 +11,7 @@ type CreateObjectOperation struct {
 
 func (o *CreateObjectOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	//sync its MetaDescription
-	if err := metaDescriptionSyncer.Create(transaction, *o.MetaDescription); err != nil {
+	if err := metaDescriptionSyncer.Create(transaction, o.MetaDescription.Name, o.MetaDescription.ForExport()); err != nil {
 		return nil, err
 	} else {
 		return o.MetaDescription, nil

@@ -58,7 +58,7 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		//check database columns
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		Expect(err).To(BeNil())
 
@@ -119,7 +119,7 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		//check database columns
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 

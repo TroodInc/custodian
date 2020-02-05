@@ -28,7 +28,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -40,11 +40,11 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 	//setup MetaDescription
 	JustBeforeEach(func() {
-		metaDescription = &description.MetaDescription{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -72,7 +72,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
-				[]meta.Field{
+				[]*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -113,12 +113,12 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 		})
 
 		Context("having object B", func() {
-			var bMetaDescription *description.MetaDescription
+			var bMetaDescription *meta.Meta
 			BeforeEach(func() {
 				bMetaDescription = description.NewMetaDescription(
 					"b",
 					"id",
-					[]meta.Field{
+					[]*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,
@@ -193,7 +193,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				cMetaDescription := description.NewMetaDescription(
 					"c",
 					"id",
-					[]meta.Field{
+					[]*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,

@@ -36,7 +36,7 @@ func (mf *MigrationFactory) factory(migrationDescription *description.MigrationD
 		if applyTo, _, err := mf.metaDescriptionSyncer.Get(migration.MigrationDescription.ApplyTo); err != nil {
 			return nil, err
 		} else {
-			migration.ApplyTo = applyTo
+			migration.ApplyTo = meta.NewMetaFromMap(applyTo)
 		}
 	}
 

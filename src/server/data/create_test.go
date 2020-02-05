@@ -33,11 +33,11 @@ var _ = Describe("Create test", func() {
 	})
 
 	havingObjectA := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -62,11 +62,11 @@ var _ = Describe("Create test", func() {
 	}
 
 	havingObjectB := func() *meta.Meta {
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -99,11 +99,11 @@ var _ = Describe("Create test", func() {
 	}
 
 	havingObjectC := func() *meta.Meta {
-		cMetaDescription := description.MetaDescription{
+		cMetaDescription := meta.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -128,11 +128,11 @@ var _ = Describe("Create test", func() {
 	}
 
 	havingObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -165,11 +165,11 @@ var _ = Describe("Create test", func() {
 	}
 
 	havingObjectAWithObjectsLinkToB := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -202,11 +202,11 @@ var _ = Describe("Create test", func() {
 	It("can create a record containing null value of foreign key field", func() {
 
 		Context("having Reason object", func() {
-			reasonMetaDescription := description.MetaDescription{
+			reasonMetaDescription := meta.Meta{
 				Name: "test_reason",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
@@ -220,11 +220,11 @@ var _ = Describe("Create test", func() {
 			Expect(err).To(BeNil())
 
 			Context("and Lead object referencing Reason object", func() {
-				leadMetaDescription := description.MetaDescription{
+				leadMetaDescription := meta.Meta{
 					Name: "test_lead",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,
@@ -242,7 +242,7 @@ var _ = Describe("Create test", func() {
 							Type:     meta.FieldTypeObject,
 							Optional: true,
 							LinkType: meta.LinkTypeInner,
-							LinkMeta: "test_reason",
+							LinkMeta: reasonMetaObj,
 						},
 					},
 				}
@@ -264,11 +264,11 @@ var _ = Describe("Create test", func() {
 
 	It("can create record without specifying any value", func() {
 		Context("having an object with optional fields", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -297,11 +297,11 @@ var _ = Describe("Create test", func() {
 
 	It("can create record with null value for optional field", func() {
 		Context("having an object", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -329,11 +329,11 @@ var _ = Describe("Create test", func() {
 
 	It("Can create records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -365,11 +365,11 @@ var _ = Describe("Create test", func() {
 
 	It("Can insert numeric value into string field", func() {
 		Context("having an object with string field", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,

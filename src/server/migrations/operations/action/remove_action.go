@@ -28,7 +28,7 @@ func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *meta.Meta, 
 		}
 	}
 	//sync its MetaDescription
-	if _, err := metaDescriptionSyncer.Update(updatedMetaDescription.Name, *updatedMetaDescription); err != nil {
+	if _, err := metaDescriptionSyncer.Update(updatedMetaDescription.Name, updatedMetaDescription.ForExport()); err != nil {
 		return nil, err
 	} else {
 		return updatedMetaDescription, nil

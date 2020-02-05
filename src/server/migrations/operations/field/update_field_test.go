@@ -23,7 +23,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	//setup transaction
 	AfterEach(func() {
@@ -33,11 +33,11 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = &description.MetaDescription{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -53,7 +53,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 				},
 			},
 		}
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
@@ -64,7 +64,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		field := meta.Field{Name: "name", Type: meta.FieldTypeNumber, Optional: false, Def: nil}
 
 		operation := NewUpdateFieldOperation(metaDescription.FindField("name"), &field)
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		metaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())

@@ -35,11 +35,11 @@ var _ = Describe("Data", func() {
 
 	It("can query records by date field", func() {
 		Context("having an object with date field", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -75,11 +75,11 @@ var _ = Describe("Data", func() {
 
 	It("can query records by string PK value", func() {
 		Context("having an A object with string PK field", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
@@ -102,11 +102,11 @@ var _ = Describe("Data", func() {
 
 			By("having another object, containing A object as a link")
 
-			metaDescription = description.MetaDescription{
+			metaDescription = meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
@@ -116,7 +116,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: metaObj,
 						Optional: true,
 					},
 				},
@@ -141,11 +141,11 @@ var _ = Describe("Data", func() {
 
 	It("can query records by datetime field", func() {
 		Context("having an object with datetime field", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -181,11 +181,11 @@ var _ = Describe("Data", func() {
 
 	It("can query records by time field", func() {
 		Context("having an object with datetime field", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -220,11 +220,11 @@ var _ = Describe("Data", func() {
 
 	It("can query records by multiple ids", func() {
 		Context("having an object", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -264,11 +264,11 @@ var _ = Describe("Data", func() {
 
 	It("can query with 'in' expression by single value", func() {
 		Context("having an object", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -298,11 +298,11 @@ var _ = Describe("Data", func() {
 	It("Performs case insensitive search when using 'like' operator", func() {
 
 		Context("having an object with string field", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -343,11 +343,11 @@ var _ = Describe("Data", func() {
 
 	It("returns a list of related outer links as a list of ids", func() {
 		Context("having an object with outer link to another object", func() {
-			orderMetaDescription := description.MetaDescription{
+			orderMetaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -362,11 +362,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(orderMetaObj)
 
-			paymentMetaDescription := description.MetaDescription{
+			paymentMetaDescription := meta.Meta{
 				Name: "test_payment",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -379,7 +379,7 @@ var _ = Describe("Data", func() {
 						Name:     "order_id",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "test_order",
+						LinkMeta: orderMetaObj,
 						Optional: true,
 					},
 				},
@@ -388,11 +388,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(paymentMetaObj)
 
-			orderMetaDescription = description.MetaDescription{
+			orderMetaDescription = meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -406,8 +406,8 @@ var _ = Describe("Data", func() {
 						Type:           meta.FieldTypeArray,
 						Optional:       true,
 						LinkType:       meta.LinkTypeOuter,
-						OuterLinkField: "order_id",
-						LinkMeta:       "test_payment",
+						OuterLinkField: paymentMetaObj.FindField("order_id"),
+						LinkMeta:       paymentMetaObj,
 					},
 				},
 			}
@@ -440,11 +440,11 @@ var _ = Describe("Data", func() {
 
 	It("can query records by related record`s attribute", func() {
 		Context("having an object A", func() {
-			aMetaDescription := description.MetaDescription{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -463,11 +463,11 @@ var _ = Describe("Data", func() {
 			aMetaObj, _ := metaStore.NewMeta(&aMetaDescription)
 			metaStore.Create(aMetaObj)
 
-			bMetaDescription := description.MetaDescription{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -480,7 +480,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaObj,
 					},
 				},
 			}
@@ -518,11 +518,11 @@ var _ = Describe("Data", func() {
 
 	It("can retrieve records with null inner link value", func() {
 		Context("having an object A", func() {
-			aMetaDescription := description.MetaDescription{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -541,11 +541,11 @@ var _ = Describe("Data", func() {
 			aMetaObj, _ := metaStore.NewMeta(&aMetaDescription)
 			metaStore.Create(aMetaObj)
 
-			bMetaDescription := description.MetaDescription{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -558,7 +558,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaObj,
 						Optional: true,
 					},
 				},
@@ -586,11 +586,11 @@ var _ = Describe("Data", func() {
 
 	It("can query through 3 related objects", func() {
 		Context("having an object with outer link to another object", func() {
-			aMetaDescription := description.MetaDescription{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -609,11 +609,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(aMetaObj)
 
-			bMetaDescription := description.MetaDescription{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -626,7 +626,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaObj,
 						Optional: false,
 					},
 				},
@@ -635,11 +635,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(bMetaObj)
 
-			cMetaDescription := description.MetaDescription{
+			cMetaDescription := meta.Meta{
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -652,7 +652,7 @@ var _ = Describe("Data", func() {
 						Name:     "b",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "b",
+						LinkMeta: bMetaObj,
 						Optional: false,
 					},
 				},
@@ -661,11 +661,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(cMetaObj)
 
-			dMetaDescription := description.MetaDescription{
+			dMetaDescription := meta.Meta{
 				Name: "d",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -678,7 +678,7 @@ var _ = Describe("Data", func() {
 						Name:     "c",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "c",
+						LinkMeta: cMetaObj,
 						Optional: false,
 					},
 				},
@@ -730,11 +730,11 @@ var _ = Describe("Data", func() {
 	})
 
 	It("can query through 1 generic and 2 related objects", func() {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -753,11 +753,11 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 		metaStore.Create(aMetaObj)
 
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -770,7 +770,7 @@ var _ = Describe("Data", func() {
 					Name:     "a",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: aMetaObj,
 					Optional: false,
 				},
 			},
@@ -779,11 +779,11 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 		metaStore.Create(bMetaObj)
 
-		cMetaDescription := description.MetaDescription{
+		cMetaDescription := meta.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -796,7 +796,7 @@ var _ = Describe("Data", func() {
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"b"},
+					LinkMetaList: []*meta.Meta{bMetaObj},
 					Optional:     false,
 				},
 			},
@@ -840,11 +840,11 @@ var _ = Describe("Data", func() {
 	})
 
 	It("always uses additional ordering by primary key", func() {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -901,11 +901,11 @@ var _ = Describe("Data", func() {
 
 	It("omits outer links if omit_outers flag specified", func() {
 		Context("having an object with outer link to another object", func() {
-			orderMetaDescription := description.MetaDescription{
+			orderMetaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -920,11 +920,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(orderMetaObj)
 
-			paymentMetaDescription := description.MetaDescription{
+			paymentMetaDescription := meta.Meta{
 				Name: "test_payment",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -937,7 +937,7 @@ var _ = Describe("Data", func() {
 						Name:     "order_id",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "test_order",
+						LinkMeta: orderMetaObj,
 						Optional: true,
 					},
 				},
@@ -946,11 +946,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			metaStore.Create(paymentMetaObj)
 
-			orderMetaDescription = description.MetaDescription{
+			orderMetaDescription = meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -964,8 +964,8 @@ var _ = Describe("Data", func() {
 						Type:           meta.FieldTypeArray,
 						Optional:       true,
 						LinkType:       meta.LinkTypeOuter,
-						OuterLinkField: "order_id",
-						LinkMeta:       "test_payment",
+						OuterLinkField: paymentMetaObj.FindField("order_id"),
+						LinkMeta:       paymentMetaObj,
 					},
 				},
 			}
@@ -987,11 +987,11 @@ var _ = Describe("Data", func() {
 
 	It("can query by 'Objects' field values", func() {
 		Context("having an object with outer link to another object", func() {
-			aMetaDescription := description.MetaDescription{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -1011,11 +1011,11 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 
-			bMetaDescription := description.MetaDescription{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -1028,7 +1028,7 @@ var _ = Describe("Data", func() {
 						Name:     "as",
 						Type:     meta.FieldTypeObjects,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaObj,
 						Optional: true,
 					},
 				},

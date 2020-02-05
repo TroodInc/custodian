@@ -40,7 +40,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 				},
 			},
 		}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction()
 		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -57,7 +57,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		field := meta.Field{Name: "new_field", Type: meta.FieldTypeString, Optional: true}
 
 		operation := NewAddFieldOperation(&field)
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction()
 		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)

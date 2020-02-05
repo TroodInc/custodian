@@ -26,7 +26,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 	var fieldToUpdate meta.Field
 
 	flushDb := func() {
@@ -42,11 +42,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		//setup MetaObj
 		JustBeforeEach(func() {
 			//"Direct" case
-			metaDescription = &description.MetaDescription{
+			metaDescription = &meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -65,7 +65,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 				},
 			}
 			//create MetaDescription
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			operation := object.NewCreateObjectOperation(metaDescription)
@@ -87,7 +87,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		})
 
 		It("changes column type", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			//modify field
@@ -110,7 +110,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		})
 
 		It("changes nullability flag", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			//modify field
@@ -133,7 +133,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		})
 
 		It("changes name", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			//modify field
@@ -156,7 +156,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		})
 
 		It("drops default value", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			//modify field
@@ -182,7 +182,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		})
 
 		It("does all things described above at once", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			//
@@ -214,7 +214,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		})
 
 		It("creates default value and sequence", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			//prepare field, set its default value to nil
@@ -254,13 +254,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	Describe("Inner FK field case", func() {
 		//setup MetaObj
 		BeforeEach(func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			//MetaDescription B
-			bMetaDescription := &description.MetaDescription{
+			bMetaDescription := &meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -285,11 +285,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//MetaDescription A
-			metaDescription = &description.MetaDescription{
+			metaDescription = &meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -326,7 +326,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		})
 
 		It("changes IFK name if field is renamed", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			//modify field

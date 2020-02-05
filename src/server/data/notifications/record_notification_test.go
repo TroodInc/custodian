@@ -6,7 +6,6 @@ import (
 	"server/auth"
 	"server/data"
 	. "server/data/notifications"
-	"server/migrations/description"
 	"server/noti"
 	"server/object/meta"
 	"server/pg"
@@ -35,11 +34,11 @@ var _ = Describe("Data", func() {
 	})
 
 	GetMetaA := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -54,7 +53,7 @@ var _ = Describe("Data", func() {
 					Optional: false,
 				},
 			},
-			Actions: []Action{
+			Actions: []*Action{
 				{
 					Method:          MethodCreate,
 					Protocol:        noti.TEST,

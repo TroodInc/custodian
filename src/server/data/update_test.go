@@ -36,11 +36,11 @@ var _ = Describe("Data", func() {
 	It("Can update records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
 
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "order",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "order",
 						Type:     meta.FieldTypeNumber,
@@ -78,11 +78,11 @@ var _ = Describe("Data", func() {
 	It("Can perform bulk update", func() {
 		By("Having Position object")
 
-		positionMetaDescription := description.MetaDescription{
+		positionMetaDescription := meta.Meta{
 			Name: "position",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -104,11 +104,11 @@ var _ = Describe("Data", func() {
 
 		By("and Person object")
 
-		metaDescription := description.MetaDescription{
+		metaDescription := meta.Meta{
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -121,7 +121,7 @@ var _ = Describe("Data", func() {
 					Name:     "position",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: "position",
+					LinkMeta: metaObj,
 				},
 				{
 					Name: "name",
@@ -166,7 +166,7 @@ var _ = Describe("Data", func() {
 				updatedRecords = append(updatedRecords, record)
 				return nil
 			}
-			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, _ := globalTransactionManager.BeginTransaction()
 			err := dataProcessor.BulkUpdateRecords(globalTransaction.DbTransaction, metaDescription.Name, next, sink, auth.User{})
 			globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
@@ -183,11 +183,11 @@ var _ = Describe("Data", func() {
 	It("Can perform update", func() {
 		By("Having Position object")
 
-		positionMetaDescription := description.MetaDescription{
+		positionMetaDescription := meta.Meta{
 			Name: "position",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -226,11 +226,11 @@ var _ = Describe("Data", func() {
 	It("Can update record with null value", func() {
 		By("Having A object")
 
-		positionMetaDescription := description.MetaDescription{
+		positionMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -267,11 +267,11 @@ var _ = Describe("Data", func() {
 	})
 
 	havingObjectA := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -296,11 +296,11 @@ var _ = Describe("Data", func() {
 	}
 
 	havingObjectAWithObjectsLinkToD := func() *meta.Meta {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -331,11 +331,11 @@ var _ = Describe("Data", func() {
 	}
 
 	havingObjectB := func(onDelete string) *meta.Meta {
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -368,11 +368,11 @@ var _ = Describe("Data", func() {
 	}
 
 	havingObjectC := func() *meta.Meta {
-		metaDescription := description.MetaDescription{
+		metaDescription := meta.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -410,11 +410,11 @@ var _ = Describe("Data", func() {
 	}
 
 	havingObjectD := func() *meta.Meta {
-		metaDescription := description.MetaDescription{
+		metaDescription := meta.Meta{
 			Name: "d",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeString,
@@ -435,11 +435,11 @@ var _ = Describe("Data", func() {
 	}
 
 	factoryObjectBWithManuallySetOuterLinkToC := func() *meta.Meta {
-		metaDescription := description.MetaDescription{
+		metaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -481,11 +481,11 @@ var _ = Describe("Data", func() {
 
 	havingObjectAWithManuallySetOuterLink := func() *meta.Meta {
 
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -631,7 +631,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[0].(*record.Record).Data["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(*record.Record).Data["name"]).To(Equal("New B Record"))
 		//	check B record is deleted
-		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
+		removedBRecordPk, _ := bMetaObj.GetKey().ValueAsString(anotherBRecord.Data["id"])
 		obj, err = dataProcessor.Get(bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
 		Expect(err).To(BeNil())
 		Expect(obj).To(BeNil())
@@ -685,7 +685,7 @@ var _ = Describe("Data", func() {
 		Expect(bSetData[0].(*record.Record).Data["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(*record.Record).Data["name"]).To(Equal("New B Record"))
 		//	check B record is not deleted
-		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
+		removedBRecordPk, _ := bMetaObj.GetKey().ValueAsString(anotherBRecord.Data["id"])
 		obj, err = dataProcessor.Get(bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
 		Expect(err).To(BeNil())
 		Expect(obj).NotTo(BeNil())

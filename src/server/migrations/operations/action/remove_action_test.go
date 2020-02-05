@@ -25,7 +25,7 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	//setup transaction
 	AfterEach(func() {
@@ -35,11 +35,11 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = &description.MetaDescription{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -56,7 +56,7 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 				},
 			},
 		}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction()
 		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -64,7 +64,7 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 
 	It("removes an action from metaDescription`s file", func() {
 		operation := NewRemoveActionOperation(metaDescription.FindAction("new_action"))
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction()
 		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)

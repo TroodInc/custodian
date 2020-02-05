@@ -565,11 +565,12 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			var currentMetaDescription *meta.Meta
 			if len(migrationMetaDescription.PreviousName) != 0 {
-				currentMetaDescription, _, err = metaDescriptionSyncer.Get(migrationMetaDescription.PreviousName)
+				currentMetaMap, _, err := metaDescriptionSyncer.Get(migrationMetaDescription.PreviousName)
 				if err != nil {
 					js.pushError(err)
 					return
 				}
+				currentMetaDescription = meta.NewMetaFromMap(currentMetaMap)
 			}
 			//migration constructor expects migrationMetaDescription to be nil if object is being deleted
 			//in its turn, object is supposed to be deleted if migrationMetaDescription.name is an empty string

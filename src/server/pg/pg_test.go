@@ -34,11 +34,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object with fields containing reserved words", func() {
 		Context("Once create method is called with an object containing fields with reserved words", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -65,11 +65,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can remove object with fields containing reserved words", func() {
 		Context("once create method is called with an object containing fields with reserved words", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -99,11 +99,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can add field containing reserved words", func() {
 		Context("once 'create' method is called with an object", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -117,11 +117,11 @@ var _ = Describe("PG MetaStore test", func() {
 			metaObj, _ := metaStore.NewMeta(&metaDescription)
 			metaStore.Create(metaObj)
 			Context("and 'update' method is called with an object containing fields with reserved words", func() {
-				updatedMetaDescription := description.MetaDescription{
+				updatedMetaDescription := meta.Meta{
 					Name: "order",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,
@@ -149,11 +149,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can remove field containing reserved words", func() {
 		Context("once 'create' method is called with an object containing fields with reserved words", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -174,11 +174,11 @@ var _ = Describe("PG MetaStore test", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 			Context("and 'remove' method is called", func() {
-				updatedMetaDescription := description.MetaDescription{
+				updatedMetaDescription := meta.Meta{
 					Name: "order",
 					Key:  "id",
 					Cas:  false,
-					Fields: []meta.Field{
+					Fields: []*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,
@@ -202,11 +202,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing date field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'date' type", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -238,11 +238,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing time field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'time' type", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -276,11 +276,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -312,11 +312,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -335,11 +335,11 @@ var _ = Describe("PG MetaStore test", func() {
 				_, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				Context("Mandatory field added", func() {
-					updatedMetaDescription := description.MetaDescription{
+					updatedMetaDescription := meta.Meta{
 						Name: "order",
 						Key:  "id",
 						Cas:  false,
-						Fields: []meta.Field{
+						Fields: []*meta.Field{
 							{
 								Name:     "id",
 								Type:     meta.FieldTypeNumber,
@@ -368,11 +368,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can query object containing reserved words", func() {
 		Context("once 'create' method is called with an object containing fields with reserved words", func() {
-			metaDescription := description.MetaDescription{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,

@@ -24,7 +24,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	//setup transaction
 	AfterEach(func() {
@@ -34,12 +34,12 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		metaDescription = &description.MetaDescription{
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -64,7 +64,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	})
 
 	It("removes MetaDescription`s file", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		//remove MetaDescription from DB

@@ -20,11 +20,11 @@ var _ = Describe("RQL test", func(){
 	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer,transactions.NewGlobalTransactionManager(nil, nil) )
 
-	metaDescription := description.MetaDescription{
+	metaDescription := meta.Meta{
 		Name: "test",
 		Key:  "id",
 		Cas:  false,
-		Fields: []meta.Field{
+		Fields: []*meta.Field{
 			{
 				Name: "id",
 				Type: meta.FieldTypeNumber,

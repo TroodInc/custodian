@@ -34,11 +34,11 @@ var _ = Describe("Store", func() {
 
 	It("Having an record for person with null value", func() {
 		//create meta
-		meta := description.MetaDescription{
+		meta := meta.Meta{
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,

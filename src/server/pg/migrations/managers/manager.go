@@ -127,13 +127,14 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 
 	//metaDescription should be retrieved again because it may mutate during runBefore migrations(eg automatically added outer link was removed)
 	if migration.ApplyTo != nil {
-		metaDescriptionToApply, _, err = mm.metaStore.MetaDescriptionSyncer.Get(migration.ApplyTo.Name)
+		metaMap, _, err := mm.metaStore.MetaDescriptionSyncer.Get(migration.ApplyTo.Name)
 		if err != nil {
 			return nil, err
 		}
+		metaDescriptionToApply = meta.NewMetaFromMap(metaMap)
 	}
 
-	globalTransaction, _ := mm.globalTransactionManager.BeginTransaction(nil)
+	globalTransaction, _ := mm.globalTransactionManager.BeginTransaction()
 	for _, operation := range migration.Operations {
 		//metaToApply should mutate only within iterations, not inside iteration
 		if !fake {

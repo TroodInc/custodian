@@ -32,7 +32,7 @@ var _ = Describe("Migration Factory", func() {
 		metaStore, dataManager, metaDescriptionSyncer, "./", globalTransactionManager,
 	)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -44,11 +44,11 @@ var _ = Describe("Migration Factory", func() {
 
 	//setup MetaDescription
 	JustBeforeEach(func() {
-		metaDescription = &description.MetaDescription{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -64,7 +64,7 @@ var _ = Describe("Migration Factory", func() {
 			},
 		}
 		//create MetaDescription
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		//sync MetaDescription
 
@@ -81,7 +81,7 @@ var _ = Describe("Migration Factory", func() {
 	})
 
 	It("factories migration containing CreateObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		migrationDescription := &migrations_description.MigrationDescription{
@@ -108,7 +108,7 @@ var _ = Describe("Migration Factory", func() {
 	})
 
 	It("factories migration containing RenameObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		updatedMetaDescription := metaDescription.Clone()
@@ -138,7 +138,7 @@ var _ = Describe("Migration Factory", func() {
 	})
 
 	It("factories migration containing RenameObjectOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		migrationDescription := &migrations_description.MigrationDescription{
@@ -165,7 +165,7 @@ var _ = Describe("Migration Factory", func() {
 	})
 
 	It("factories migration containing AddFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		migrationDescription := &migrations_description.MigrationDescription{
@@ -192,7 +192,7 @@ var _ = Describe("Migration Factory", func() {
 	})
 
 	It("factories migration containing RemoveFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		migrationDescription := &migrations_description.MigrationDescription{
@@ -219,7 +219,7 @@ var _ = Describe("Migration Factory", func() {
 	})
 
 	It("factories migration containing UpdateFieldOperation", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		migrationDescription := &migrations_description.MigrationDescription{
@@ -247,13 +247,13 @@ var _ = Describe("Migration Factory", func() {
 
 	Describe("Automated generic fields` migrations` spawning", func() {
 		It("adds reverse generic outer link while object is being created", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
-				[]meta.Field{
+				[]*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -296,12 +296,12 @@ var _ = Describe("Migration Factory", func() {
 		})
 
 		Context("having object B", func() {
-			var bMetaDescription *description.MetaDescription
+			var bMetaDescription *meta.Meta
 			BeforeEach(func() {
 				bMetaDescription = description.NewMetaDescription(
 					"b",
 					"id",
-					[]meta.Field{
+					[]*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,
@@ -321,7 +321,7 @@ var _ = Describe("Migration Factory", func() {
 			})
 
 			It("adds a reverse generic outer link when a new inner generic field is being added to an object", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				field := meta.Field{
@@ -383,7 +383,7 @@ var _ = Describe("Migration Factory", func() {
 				cMetaDescription := description.NewMetaDescription(
 					"c",
 					"id",
-					[]meta.Field{
+					[]*meta.Field{
 						{
 							Name: "id",
 							Type: meta.FieldTypeNumber,

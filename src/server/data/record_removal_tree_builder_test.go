@@ -32,13 +32,13 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 	})
 
-	havingAMetaDescription := func() *description.MetaDescription {
+	havingAMetaDescription := func() *meta.Meta {
 		By("Having A meta")
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -52,13 +52,13 @@ var _ = Describe("Record tree extractor", func() {
 		return &aMetaDescription
 	}
 
-	havingBMetaDescription := func() *description.MetaDescription {
+	havingBMetaDescription := func() *meta.Meta {
 		By("Having B referencing A with 'setNull' strategy")
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -80,13 +80,13 @@ var _ = Describe("Record tree extractor", func() {
 		return &bMetaDescription
 	}
 
-	havingCMetaDescription := func() *description.MetaDescription {
+	havingCMetaDescription := func() *meta.Meta {
 		By("Having C meta referencing B meta with 'cascade' strategy")
-		cMetaDescription := description.MetaDescription{
+		cMetaDescription := meta.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -107,7 +107,7 @@ var _ = Describe("Record tree extractor", func() {
 		return &cMetaDescription
 	}
 
-	createMeta := func(metaDescription *description.MetaDescription) *meta.Meta {
+	createMeta := func(metaDescription *meta.Meta) *meta.Meta {
 		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(metaObj)
@@ -136,7 +136,7 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		recordNode, err := new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 
@@ -171,7 +171,7 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		_, err = new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 
@@ -201,7 +201,7 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		recordNode, err := new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
 		globalTransactionManager.CommitTransaction(globalTransaction)
 

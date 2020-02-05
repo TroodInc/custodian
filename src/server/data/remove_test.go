@@ -33,11 +33,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove records with cascade relation", func() {
 
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -57,11 +57,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -74,7 +74,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:     "a",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: aMetaObj,
 					OnDelete: meta.OnDeleteCascade.ToVerbose(),
 				},
 			},
@@ -86,8 +86,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
-		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
-		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
+		bKey, _ := bMetaObj.GetKey().ValueAsString(bRecord.Data["id"])
+		aKey, _ := aMetaObj.GetKey().ValueAsString(aRecord.Data["id"])
 
 		//remove A record
 		removedData, err := dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
@@ -109,11 +109,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove record and update child records with 'setNull' relation", func() {
 
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -133,11 +133,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -150,7 +150,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:     "a",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: aMetaObj,
 					Optional: true,
 					OnDelete: meta.OnDeleteSetNull.ToVerbose(),
 				},
@@ -163,8 +163,8 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
-		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
-		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
+		bKey, _ := bMetaObj.GetKey().ValueAsString(bRecord.Data["id"])
+		aKey, _ := aMetaObj.GetKey().ValueAsString(aRecord.Data["id"])
 
 		//remove A record
 		removedData, err := dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
@@ -186,11 +186,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Cannot remove record with 'restrict' relation", func() {
 
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -210,11 +210,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -227,7 +227,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:     "a",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: aMetaObj,
 					Optional: true,
 					OnDelete: meta.OnDeleteRestrict.ToVerbose(),
 				},
@@ -240,7 +240,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
-		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
+		aKey, _ := aMetaObj.GetKey().ValueAsString(aRecord.Data["id"])
 
 		//remove A record
 		_, err = dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
@@ -249,11 +249,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove record and update child records with generic relation and 'setNull' strategy", func() {
 
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -273,11 +273,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -290,7 +290,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []*meta.Meta{aMetaObj},
 					Optional:     true,
 					OnDelete:     meta.OnDeleteSetNull.ToVerbose(),
 				},
@@ -301,14 +301,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
+		aKey, _ := aMetaObj.GetKey().ValueAsString(aRecord.Data["id"])
 		bRecord, err := dataProcessor.CreateRecord(
 			bMetaObj.Name,
 			map[string]interface{}{"target_object": map[string]interface{}{"_object": aMetaObj.Name, "id": aKey}},
 			auth.User{},
 		)
 		Expect(err).To(BeNil())
-		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
+		bKey, _ := bMetaObj.GetKey().ValueAsString(bRecord.Data["id"])
 
 		//remove A record
 		removedData, err := dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})
@@ -330,11 +330,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 	})
 
 	It("Can remove record and update child records with generic relation and 'cascade' strategy", func() {
-		aMetaDescription := description.MetaDescription{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -354,11 +354,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := description.MetaDescription{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
 					Type:     meta.FieldTypeNumber,
@@ -371,7 +371,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []*meta.Meta{aMetaObj},
 					Optional:     true,
 					OnDelete:     meta.OnDeleteCascade.ToVerbose(),
 				},
@@ -382,14 +382,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
+		aKey, _ := aMetaObj.GetKey().ValueAsString(aRecord.Data["id"])
 		bRecord, err := dataProcessor.CreateRecord(
 			bMetaObj.Name,
 			map[string]interface{}{"target_object": map[string]interface{}{"_object": aMetaObj.Name, "id": aKey}},
 			auth.User{},
 		)
 		Expect(err).To(BeNil())
-		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
+		bKey, _ := bMetaObj.GetKey().ValueAsString(bRecord.Data["id"])
 
 		//remove A record
 		removedData, err := dataProcessor.RemoveRecord(aMetaObj.Name, aKey, auth.User{})

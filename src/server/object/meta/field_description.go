@@ -5,6 +5,7 @@ import (
 	"reflect"
 	"server/errors"
 	"strconv"
+	"utils"
 )
 
 type Field struct {
@@ -32,13 +33,17 @@ func NewFieldFromMap(object map[string]interface{}) *Field {
 	result := &Field{
 		Name:           object["name"].(string),
 		Type:           AsFieldType(object["type"].(string)),
-		LinkType:       AsLinkType(object["linkType"].(string)),
 		Optional:       object["optional"].(bool),
 		Unique:         object["unique"].(bool),
 		OnDelete:       object["onDelete"].(string),
 		Def:            nil,
 		NowOnUpdate:    false,
 		NowOnCreate:    false,
+		LinkMeta: 		&Meta{},
+	}
+
+	if object["linkType"] != nil {
+		result.LinkType = AsLinkType(object["linkType"].(string))
 	}
 
 	return result
@@ -265,4 +270,15 @@ func (f *Field) ReverseOuterField() *Field {
 		}
 	}
 	return nil
+}
+
+func (f *Field) canBeLinkTo(m *Meta) bool {
+	isSimpleFieldWithSameTypeAsPk := f.IsSimple() && f.Type == m.FindField(m.Key).Type
+	isInnerLinkToMeta :=
+		f.Type == FieldTypeObject &&
+			f.LinkMeta.Name == m.Name &&
+			f.LinkType == LinkTypeInner
+	isGenericInnerLinkToMeta := f.Type == FieldTypeGeneric && f.LinkType == LinkTypeInner && utils.Contains(f.GetLinkMetaListNames(), m.Name)
+	canBeLinkTo := isSimpleFieldWithSameTypeAsPk || isInnerLinkToMeta || isGenericInnerLinkToMeta
+	return canBeLinkTo
 }

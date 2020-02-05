@@ -34,11 +34,11 @@ var _ = Describe("Data", func() {
 
 	It("can outputs by 'Objects' field values respecting specified depth value set to 1", func() {
 		Context("having an object with outer link to another object", func() {
-			aMetaDescription := description.MetaDescription{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -58,11 +58,11 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 
-			bMetaDescription := description.MetaDescription{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -75,7 +75,7 @@ var _ = Describe("Data", func() {
 						Name:     "as",
 						Type:     meta.FieldTypeObjects,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaObj,
 						Optional: true,
 					},
 				},
@@ -123,11 +123,11 @@ var _ = Describe("Data", func() {
 
 	It("can outputs by 'Objects' field values respecting specified depth value set to 2", func() {
 		Context("having an object with outer link to another object", func() {
-			aMetaDescription := description.MetaDescription{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -147,11 +147,11 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 
-			bMetaDescription := description.MetaDescription{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeNumber,
@@ -164,7 +164,7 @@ var _ = Describe("Data", func() {
 						Name:     "as",
 						Type:     meta.FieldTypeObjects,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: aMetaObj,
 						Optional: true,
 					},
 				},

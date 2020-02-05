@@ -43,7 +43,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 	AfterEach(flushDb)
 
 	Context("Having applied `create` migration for object A", func() {
-		var aMetaDescription *description.MetaDescription
+		var aMetaDescription *meta.Meta
 		var firstAppliedMigrationDescription *migrations_description.MigrationDescription
 
 		BeforeEach(func() {

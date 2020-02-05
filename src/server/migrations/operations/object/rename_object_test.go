@@ -23,7 +23,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	//setup transaction
 	AfterEach(func() {
@@ -33,11 +33,11 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = &description.MetaDescription{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -49,7 +49,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		}
 
 		operation := CreateObjectOperation{MetaDescription: metaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction()
 		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -67,7 +67,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		updatedMetaDescription.Name = "b"
 
 		operation := RenameObjectOperation{MetaDescription: updatedMetaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction()
 		updatedMetaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -86,11 +86,11 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	})
 
 	It("does not rename metaDescription if new name clashes with the existing one", func() {
-		bMetaDescription := &description.MetaDescription{
+		bMetaDescription := &meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -101,7 +101,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 			},
 		}
 		createOperation := CreateObjectOperation{MetaDescription: bMetaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, _ := globalTransactionManager.BeginTransaction()
 		bMetaDescription, err := createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(bMetaDescription).NotTo(BeNil())

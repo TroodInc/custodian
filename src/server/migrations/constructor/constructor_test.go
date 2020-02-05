@@ -42,20 +42,20 @@ var _ = Describe("Migration Constructor", func() {
 
 	Describe("Separate operations` generation", func() {
 		It("generates empty migration if nothing has changed", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
-				Actions: []notifications.Action{},
+				Actions: []*notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -83,7 +83,7 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		It("generates migration description with create operation if object is being created", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			newMetaDescription := &migration_description.MigrationMetaDescription{
@@ -114,20 +114,20 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		It("generates operation if object is being renamed", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
-				Actions: []notifications.Action{},
+				Actions: []*notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -159,20 +159,20 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		It("generates operation if object is being deleted", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
-				Actions: []notifications.Action{},
+				Actions: []*notifications.Action{},
 				Cas:     false,
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, nil, globalTransaction.DbTransaction)
@@ -188,20 +188,20 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		It("generates operation if field is being added", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
-				Actions: []notifications.Action{},
+				Actions: []*notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -240,13 +240,13 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		It("generates operation if field is being removed", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
@@ -258,7 +258,7 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []notifications.Action{},
+				Actions: []*notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -289,13 +289,13 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		Describe("Update field", func() {
-			var currentMetaDescription *description.MetaDescription
+			var currentMetaDescription *meta.Meta
 			BeforeEach(func() {
 
-				currentMetaDescription = &description.MetaDescription{
+				currentMetaDescription = &meta.Meta{
 					Name: "a",
 					Key:  "id",
-					Fields: []meta.Field{
+					Fields: []*meta.Field{
 						{
 							Name:     "id",
 							Type:     meta.FieldTypeString,
@@ -319,13 +319,13 @@ var _ = Describe("Migration Constructor", func() {
 							Optional: true,
 						},
 					},
-					Actions: []notifications.Action{},
+					Actions: []*notifications.Action{},
 					Cas:     false,
 				}
 			})
 
 			It("generates operation if field is being renamed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -380,7 +380,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if field`s Optional value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -436,7 +436,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if field`s Def value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -491,7 +491,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if field`s NowOnCreate value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -546,7 +546,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if field`s NowOnUpdate value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -601,7 +601,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if field`s OnDelete value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -656,7 +656,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if field`s LinkMetaList value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -711,20 +711,20 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		It("generates operation if action is being added", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
-				Actions: []notifications.Action{},
+				Actions: []*notifications.Action{},
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -762,13 +762,13 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		It("generates operation if action is being removed", func() {
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &description.MetaDescription{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
 						Type:     meta.FieldTypeString,
@@ -813,13 +813,13 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		Describe("Update action", func() {
-			var currentMetaDescription *description.MetaDescription
+			var currentMetaDescription *meta.Meta
 			BeforeEach(func() {
 
-				currentMetaDescription = &description.MetaDescription{
+				currentMetaDescription = &meta.Meta{
 					Name: "a",
 					Key:  "id",
-					Fields: []meta.Field{
+					Fields: []*meta.Field{
 						{
 							Name:     "id",
 							Type:     meta.FieldTypeString,
@@ -839,7 +839,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if action is being renamed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -880,7 +880,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if action`s Method value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -920,7 +920,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if action`s Args value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
@@ -960,7 +960,7 @@ var _ = Describe("Migration Constructor", func() {
 			})
 
 			It("generates operation if action`s ActiveIfNotRoot value has changed", func() {
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{

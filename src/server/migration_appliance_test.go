@@ -15,7 +15,6 @@ import (
 
 	"server/object/meta"
 	"server/pg/migrations/managers"
-	"server/pg/migrations/operations/object"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
 )
@@ -30,11 +29,11 @@ var _ = Describe("Server", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -163,25 +162,20 @@ var _ = Describe("Server", func() {
 		Expect(err).NotTo(BeNil())
 		Expect(aMeta).To(BeNil())
 
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 		appliedMigrations, err := migrationManager.GetPrecedingMigrationsForObject("a")
 		Expect(err).To(BeNil())
 		Expect(appliedMigrations).To(HaveLen(1))
 		Expect(appliedMigrations[0].Data["migration_id"]).To(Equal(migrationDescriptionData["id"]))
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Can rename object by application of migration", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
 		//Create A object
-		aMetaDescription := &description.MetaDescription{
+		aMetaDescription := &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -192,13 +186,9 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -249,14 +239,12 @@ var _ = Describe("Server", func() {
 	})
 
 	It("Can delete object by application of migration", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
 		//Create A object
-		aMetaDescription := &description.MetaDescription{
+		aMetaDescription := &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -267,13 +255,9 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -324,14 +308,12 @@ var _ = Describe("Server", func() {
 	})
 
 	It("Can add field by application of migration", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
 		//Create A object
-		aMetaDescription := &description.MetaDescription{
+		aMetaDescription := &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -342,13 +324,9 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -391,14 +369,12 @@ var _ = Describe("Server", func() {
 	})
 
 	It("Can rename field by application of migration", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
 		//Create A object
-		aMetaDescription := &description.MetaDescription{
+		aMetaDescription := &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -414,13 +390,9 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -465,14 +437,12 @@ var _ = Describe("Server", func() {
 	})
 
 	It("Can remove field by appliance of migration", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
 		//Create A object
-		aMetaDescription := &description.MetaDescription{
+		aMetaDescription := &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -488,13 +458,9 @@ var _ = Describe("Server", func() {
 			},
 		}
 
-		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
-
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		//apply migration
 

@@ -32,11 +32,11 @@ var _ = Describe("Node", func() {
 	It("can fill child nodes with circular dependency", func() {
 
 		Describe("Having three objects with mediated circular dependency", func() {
-			objectA := description.MetaDescription{
+			objectA := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeString,
@@ -48,11 +48,11 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectAMeta)
 			Expect(err).To(BeNil())
 
-			objectB := description.MetaDescription{
+			objectB := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeString,
@@ -62,7 +62,7 @@ var _ = Describe("Node", func() {
 						Type:     meta.FieldTypeObject,
 						Optional: true,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: objectAMeta,
 					},
 				},
 			}
@@ -71,11 +71,11 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectBMeta)
 			Expect(err).To(BeNil())
 
-			objectC := description.MetaDescription{
+			objectC := meta.Meta{
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeString,
@@ -85,7 +85,7 @@ var _ = Describe("Node", func() {
 						Type:     meta.FieldTypeObject,
 						Optional: true,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "b",
+						LinkMeta: objectBMeta,
 					},
 				},
 			}
@@ -94,11 +94,11 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectCMeta)
 			Expect(err).To(BeNil())
 
-			objectA = description.MetaDescription{
+			objectA = meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []meta.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeString,
@@ -108,7 +108,7 @@ var _ = Describe("Node", func() {
 						Type:     meta.FieldTypeObject,
 						Optional: true,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "c",
+						LinkMeta: objectCMeta,
 					},
 				},
 			}
@@ -120,7 +120,7 @@ var _ = Describe("Node", func() {
 			Describe("", func() {
 
 				node := &data.Node{
-					KeyField:   objectAMeta.Key,
+					KeyField:   objectAMeta.GetKey(),
 					Meta:       objectAMeta,
 					ChildNodes: *data.NewChildNodes(),
 					Depth:      1,

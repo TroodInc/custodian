@@ -25,7 +25,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *description.MetaDescription
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -38,11 +38,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = &description.MetaDescription{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
@@ -55,7 +55,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	})
 
 	It("creates column for specified table in the database", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		operation := object.NewCreateObjectOperation(metaDescription)
@@ -89,7 +89,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	})
 
 	It("creates sequence for specified column in the database", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		operation := object.NewCreateObjectOperation(metaDescription)
@@ -128,7 +128,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	})
 
 	It("creates constraint for specified column in the database", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := globalTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		operation := object.NewCreateObjectOperation(metaDescription)
@@ -138,11 +138,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//create linked MetaDescription obj
-		linkedMetaDescription := &description.MetaDescription{
+		linkedMetaDescription := &meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []meta.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
 					Type: meta.FieldTypeNumber,
