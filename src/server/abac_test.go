@@ -125,9 +125,131 @@ var _ = Describe("ABAC rules handling", func() {
 								},
 							},
 						},
+						"meta": map[string]interface{}{
+							"*": []interface{}{
+								map[string]interface{}{
+									"result": "allow",
+									"rule": map[string]interface{}{
+										"sbj.role": map[string]interface{}{"eq": "admin"},
+									},
+								},
+							},
+							"GET": []interface{}{
+								map[string]interface{}{
+									"result": "allow",
+									"rule": map[string]interface{}{
+										"sbj.role": map[string]interface{}{"eq": "manager"},
+									},
+								},
+							},
+						},
 					},
 				},
 			}
+		})
+
+		Context("Unauthorized User", func() {
+			It("Must deny unauthorized", func() {
+				user = &auth.User{
+					Authorized: false,
+					ABAC: map[string]interface{}{
+						"_default_resolution": "allow",
+						SERVICE_DOMAIN: map[string]interface{}{
+							"a": map[string]interface{}{
+								"*": []interface{}{
+									map[string]interface{}{
+										"result": "deny",
+										"rule": map[string]interface{}{
+											"sbj.authorized": map[string]interface{}{"eq": false},
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/data/a", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+		})
+
+		Context("Meta & Wildcard rules", func() {
+			It("Must allow meta list with ACTION rule set", func() {
+				user.Role = "manager"
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/meta", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+			})
+
+			It("Must deny meta Creation", func() {
+				user.Role = "manager"
+				httpServer = get_server(user)
+				encodedMetaData := []byte(`{"name":"test","key":"id","cas":false,"fields":[{"name":"id","type":"number","optional":true}]}`)
+
+				url := fmt.Sprintf("%s/meta", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+
+			It("Must deny meta list for Unauthorized", func() {
+				user.Role = ""
+				user.Authorized = false
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/meta", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+
+			It("Must allow meta list by wildcard", func() {
+				user.Role = "admin"
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/meta", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+			})
 		})
 
 		Context("And this user has the role 'manager'", func() {
