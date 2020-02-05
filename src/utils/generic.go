@@ -14,6 +14,23 @@ func IndexOf(a []string, x string) int {
 	return -1
 }
 
+func Diff(aList, bList []string) []string {
+	diff := make([]string, 0)
+	for _, a := range aList {
+		NotFound := true
+		for _, b := range bList {
+			if b == a {
+				NotFound = false
+			}
+		}
+		if NotFound {
+			diff = append(diff, a)
+		}
+
+	}
+	return diff
+}
+
 func Equal(a, b []string, strictOrder bool) bool {
 	if len(a) != len(b) {
 		return false
