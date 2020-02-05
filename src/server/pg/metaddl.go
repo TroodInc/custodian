@@ -6,10 +6,10 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"server/object/meta"
 	"strconv"
 	"strings"
 	"text/template"
-	"server/object/description"
 )
 
 //DDL statament description
@@ -32,20 +32,20 @@ func (ds *DdlStatementSet) Add(s *DDLStmt) {
 	*ds = append(*ds, s)
 }
 
-func dbTypeToFieldType(dt string) (description.FieldType, bool) {
+func dbTypeToFieldType(dt string) (meta.FieldType, bool) {
 	switch dt {
 	case "text":
-		return description.FieldTypeString, true
+		return meta.FieldTypeString, true
 	case "numeric":
-		return description.FieldTypeNumber, true
+		return meta.FieldTypeNumber, true
 	case "boolean":
-		return description.FieldTypeBool, true
+		return meta.FieldTypeBool, true
 	case "timestamp with time zone":
-		return description.FieldTypeDateTime, true
+		return meta.FieldTypeDateTime, true
 	case "date":
-		return description.FieldTypeDate, true
+		return meta.FieldTypeDate, true
 	case "time with time zone":
-		return description.FieldTypeTime, true
+		return meta.FieldTypeTime, true
 	default:
 		return 0, false
 	}
@@ -65,7 +65,7 @@ type MetaDDL struct {
 // DDL column meta
 type Column struct {
 	Name     string
-	Typ      description.FieldType
+	Typ      meta.FieldType
 	Optional bool
 	Unique   bool
 	Defval   string
@@ -144,7 +144,7 @@ func (c *ColDefValSeq) ddlVal() (string, error) {
 }
 
 type ColDefValFunc struct {
-	*description.DefExpr
+	*meta.DefExpr
 }
 
 func (dFunc *ColDefValFunc) ddlVal() (string, error) {
@@ -188,7 +188,7 @@ func valToDdl(v interface{}) (string, error) {
 	}
 }
 
-func newFieldSeq(metaName string, f *description.Field, args []interface{}) (*Seq, error) {
+func newFieldSeq(metaName string, f *meta.Field, args []interface{}) (*Seq, error) {
 	if len(args) > 0 {
 		if name, err := valToDdl(args[0]); err == nil {
 			return &Seq{Name: name}, nil
@@ -200,7 +200,7 @@ func newFieldSeq(metaName string, f *description.Field, args []interface{}) (*Se
 	}
 }
 
-func defaultNextval(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
+func defaultNextval(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error) {
 	if s, err := newFieldSeq(metaName, f, args); err == nil {
 		return &ColDefValSeq{s}, nil
 	} else {
@@ -208,37 +208,37 @@ func defaultNextval(metaName string, f *description.Field, args []interface{}) (
 	}
 }
 
-func defaultCurrentDate(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
+func defaultCurrentDate(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefDate{}, nil
 }
 
-func defaultCurrentTimestamp(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
+func defaultCurrentTimestamp(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefTimestamp{}, nil
 }
 
-func defaultNow(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
+func defaultNow(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefNow{}, nil
 }
 
-var defaultFuncs = map[string]func(metaName string, f *description.Field, args []interface{}) (ColDefVal, error){
+var defaultFuncs = map[string]func(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error){
 	"nextval":           defaultNextval,
 	"current_date":      defaultCurrentDate,
 	"current_timestamp": defaultCurrentTimestamp,
 	"now":               defaultNow,
 }
 
-func newColDefVal(metaName string, f *description.Field) (ColDefVal, error) {
+func newColDefVal(metaName string, f *meta.Field) (ColDefVal, error) {
 	if def := f.Default(); def != nil {
 		switch v := def.(type) {
-		case description.DefConstStr:
+		case meta.DefConstStr:
 			return newColDefValSimple(v.Value)
-		case description.DefConstFloat:
+		case meta.DefConstFloat:
 			return newColDefValSimple(v.Value)
-		case description.DefConstInt:
+		case meta.DefConstInt:
 			return newColDefValSimple(v.Value)
-		case description.DefConstBool:
+		case meta.DefConstBool:
 			return newColDefValSimple(v.Value)
-		case description.DefExpr:
+		case meta.DefExpr:
 			if fn, ok := defaultFuncs[strings.ToLower(v.Func)]; ok {
 				return fn(metaName, f, v.Args)
 			} else {

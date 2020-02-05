@@ -3,23 +3,22 @@ package field
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
+	"utils"
 )
 
 var _ = Describe("'RemoveField' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
@@ -32,17 +31,17 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def:      "empty",
 				},

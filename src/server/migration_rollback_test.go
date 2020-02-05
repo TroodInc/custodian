@@ -7,35 +7,34 @@ import (
 	"net/http/httptest"
 	"server/pg"
 	"utils"
-	"server/transactions/file_transaction"
+
+	"server"
 
 	"server/object/meta"
+	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server"
-	"server/object/description"
-	"server/pg/migrations/managers"
 
-	migrations_description "server/migrations/description"
+	"bytes"
 	"encoding/json"
 	"fmt"
-	"bytes"
+	migrations_description "server/migrations/description"
 )
 
 var _ = Describe("Rollback migrations", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -69,10 +68,10 @@ var _ = Describe("Rollback migrations", func() {
 			aMetaDescription = description.NewMetaDescription(
 				"a",
 				"id",
-				[]description.Field{
+				[]meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -108,9 +107,9 @@ var _ = Describe("Rollback migrations", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
-				field := description.Field{
+				field := meta.Field{
 					Name:     "title",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				}
 
@@ -140,9 +139,9 @@ var _ = Describe("Rollback migrations", func() {
 					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 					Expect(err).To(BeNil())
 
-					field := description.Field{
+					field := meta.Field{
 						Name:     "new_title",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					}
 

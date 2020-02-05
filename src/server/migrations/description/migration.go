@@ -7,7 +7,7 @@ import (
 	"server/data/record"
 	"server/errors"
 	_migrations "server/migrations"
-	"server/object/description"
+	"server/object/meta"
 	"strings"
 )
 
@@ -16,7 +16,7 @@ type MigrationDescription struct {
 	ApplyTo         string                          `json:"applyTo"`
 	DependsOn       []string                        `json:"dependsOn"`
 	Operations      []MigrationOperationDescription `json:"operations"`
-	MetaDescription *description.MetaDescription    `json:"metaState,omitempty"`
+	MetaDescription *meta.Meta    `json:"metaState,omitempty"`
 }
 
 func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescription){
@@ -60,7 +60,7 @@ func (md *MigrationDescription) MetaName() (string, error) {
 }
 
 type MigrationFieldDescription struct {
-	description.Field
+	meta.Field
 	PreviousName string `json:"previousName"`
 }
 
@@ -86,18 +86,18 @@ func MigrationMetaDescriptionFromJson(inputReader io.Reader)(*MigrationMetaDescr
 	return &mmd, nil
 }
 
-func (mmd *MigrationMetaDescription) MetaDescription() *description.MetaDescription {
-	fields := make([]description.Field, 0)
+func (mmd *MigrationMetaDescription) MetaDescription() *meta.Meta {
+	fields := make([]*meta.Field, 0)
 	for i := range mmd.Fields {
-		fields = append(fields, *mmd.Fields[i].Field.Clone())
+		fields = append(fields, mmd.Fields[i].Field.Clone())
 	}
 
-	actions := make([]notifications.Action, 0)
+	actions := make([]*notifications.Action, 0)
 	for i := range mmd.Actions {
-		actions = append(actions, *mmd.Actions[i].Action.Clone())
+		actions = append(actions, mmd.Actions[i].Action.Clone())
 	}
 
-	return description.NewMetaDescription(mmd.Name, mmd.Key, fields, actions, mmd.Cas)
+	return meta.NewMeta(mmd.Name, mmd.Key, fields, actions, mmd.Cas)
 }
 
 func (mmd *MigrationMetaDescription) FindFieldWithPreviousName(fieldName string) *MigrationFieldDescription {
@@ -121,11 +121,11 @@ func (mmd *MigrationMetaDescription) FindActionWithPreviousName(actionName strin
 type MigrationOperationDescription struct {
 	Type            string                       `json:"type"`
 	Field           *MigrationFieldDescription   `json:"field,omitempty"`
-	MetaDescription *description.MetaDescription `json:"object,omitempty"`
+	MetaDescription *meta.Meta `json:"object,omitempty"`
 	Action          *MigrationActionDescription  `json:"action,omitempty"`
 }
 
-func NewMigrationOperationDescription(operationType string, field *MigrationFieldDescription, metaDescription *description.MetaDescription, action *MigrationActionDescription) *MigrationOperationDescription {
+func NewMigrationOperationDescription(operationType string, field *MigrationFieldDescription, metaDescription *meta.Meta, action *MigrationActionDescription) *MigrationOperationDescription {
 	return &MigrationOperationDescription{Type: operationType, Field: field, MetaDescription: metaDescription, Action: action}
 }
 

@@ -5,30 +5,29 @@ import (
 	"github.com/getlantern/deepcopy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/description"
+
 	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/operations/object"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/transactions/file_transaction"
 	"utils"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
-	var fieldToUpdate description.Field
+	var fieldToUpdate meta.Field
 
 	flushDb := func() {
 		//Flush meta/database
@@ -47,17 +46,17 @@ var _ = Describe("'AddField' Migration Operation", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name: "number",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -92,7 +91,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//modify field
-			fieldToUpdate.Type = description.FieldTypeString
+			fieldToUpdate.Type = meta.FieldTypeString
 
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("number"), &fieldToUpdate)
@@ -105,7 +104,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
-			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
+			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(meta.FieldTypeString))
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
@@ -187,7 +186,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//
-			field := description.Field{Name: "new-number", Type: description.FieldTypeString, Optional: false, Def: nil}
+			field := meta.Field{Name: "new-number", Type: meta.FieldTypeString, Optional: false, Def: nil}
 
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("number"), &field)
 
@@ -205,7 +204,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			//Optional has changed
 			Expect(metaDdlFromDB.Columns[1].Optional).To(BeFalse())
 			//Type has changed
-			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
+			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(meta.FieldTypeString))
 			//Name has changed
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("new-number"))
 			//Default has been dropped
@@ -261,17 +260,17 @@ var _ = Describe("'AddField' Migration Operation", func() {
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name: "number",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -290,19 +289,19 @@ var _ = Describe("'AddField' Migration Operation", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name:     "b",
-						Type:     description.FieldTypeObject,
+						Type:     meta.FieldTypeObject,
 						LinkMeta: bMetaDescription.Name,
-						LinkType: description.LinkTypeInner,
+						LinkType: meta.LinkTypeInner,
 					},
 				},
 			}

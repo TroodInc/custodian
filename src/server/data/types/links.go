@@ -7,7 +7,7 @@ import "server/object/meta"
 //LazyLink to A which will be used to fill A record`s "b_set" value with B record`s data.
 
 type LazyLink struct {
-	Field           *meta.FieldDescription
+	Field           *meta.Field
 	IsOuter         bool
 	Obj             map[string]interface{}
 	Index           int //Index and NeighboursCount are used to restore original order of related records,
@@ -15,7 +15,7 @@ type LazyLink struct {
 }
 
 type DLink struct {
-	Field   *meta.FieldDescription
+	Field   *meta.Field
 	IsOuter bool
 	Id      interface{}
 }

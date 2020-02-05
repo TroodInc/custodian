@@ -1,16 +1,15 @@
 package object
 
 import (
+	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+	"server/migrations/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"database/sql"
-	"server/object/description"
+	"utils"
 )
 
 var _ = Describe("Inner generic field", func() {
@@ -19,10 +18,10 @@ var _ = Describe("Inner generic field", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -204,8 +203,8 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
 		Expect(aMeta.Fields[1].Name).To(Equal(cMetaDescription.Name + "_set"))
-		Expect(aMeta.Fields[1].LinkType).To(Equal(description.LinkTypeOuter))
-		Expect(aMeta.Fields[1].Type).To(Equal(description.FieldTypeGeneric))
+		Expect(aMeta.Fields[1].LinkType).To(Equal(meta.LinkTypeOuter))
+		Expect(aMeta.Fields[1].Type).To(Equal(meta.FieldTypeGeneric))
 	})
 
 	It("can create object with inner generic field", func() {

@@ -14,7 +14,7 @@ type GenericInnerFieldValidator struct {
 	dbTransaction     transactions.DbTransaction
 }
 
-func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.FieldDescription, value interface{}) (*types.GenericInnerLink, error) {
+func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Field, value interface{}) (*types.GenericInnerLink, error) {
 	if castValue, ok := value.(map[string]interface{}); !ok {
 		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "NewField '%s' has a wrong type", fieldDescription.Name)
 	} else {
@@ -24,13 +24,13 @@ func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Fie
 			if objectMeta, err := validator.validateObject(objectName, fieldDescription); err != nil {
 				return nil, err
 			} else {
-				if pkValue, err := validator.validateRecordPk(castValue[objectMeta.Key.Name], fieldDescription); err != nil {
+				if pkValue, err := validator.validateRecordPk(castValue[objectMeta.Key], fieldDescription); err != nil {
 					return nil, err
 				} else {
 					if err := validator.validateRecord(objectMeta, pkValue, fieldDescription); err != nil {
 						return nil, err
 					} else {
-						return &types.GenericInnerLink{ObjectName: objectMeta.Name, Pk: pkValue, PkName: objectMeta.Key.Name, FieldDescription: objectMeta.Key}, nil
+						return &types.GenericInnerLink{ObjectName: objectMeta.Name, Pk: pkValue, PkName: objectMeta.Key, FieldDescription: objectMeta.FindField(objectMeta.Key)}, nil
 					}
 				}
 			}
@@ -38,7 +38,7 @@ func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Fie
 	}
 }
 
-func (validator *GenericInnerFieldValidator) validateObjectName(objectName interface{}, fieldDescription *meta.FieldDescription) (string, error) {
+func (validator *GenericInnerFieldValidator) validateObjectName(objectName interface{}, fieldDescription *meta.Field) (string, error) {
 	castObjectName, ok := objectName.(string)
 	if !ok {
 		return "", errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Generic field '%s' contains a wrong object name in its value", fieldDescription.Name)
@@ -46,7 +46,7 @@ func (validator *GenericInnerFieldValidator) validateObjectName(objectName inter
 	return castObjectName, nil
 }
 
-func (validator *GenericInnerFieldValidator) validateObject(objectName string, fieldDescription *meta.FieldDescription) (*meta.Meta, error) {
+func (validator *GenericInnerFieldValidator) validateObject(objectName string, fieldDescription *meta.Field) (*meta.Meta, error) {
 	if objectMeta, _, err := validator.metaGetCallback(objectName, true); err != nil {
 		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Object '%s' referenced in '%s'`s value does not exist", fieldDescription.Name)
 	} else {
@@ -54,7 +54,7 @@ func (validator *GenericInnerFieldValidator) validateObject(objectName string, f
 	}
 }
 
-func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{}, fieldDescription *meta.FieldDescription) (interface{}, error) {
+func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{}, fieldDescription *meta.Field) (interface{}, error) {
 	if pkValue == nil {
 		return nil, errors.GenericFieldPkIsNullError{}
 	}
@@ -70,8 +70,8 @@ func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{
 	return validatedPkValue, nil
 }
 
-func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Meta, pkValue interface{}, fieldDescription *meta.FieldDescription) (error) {
-	if pkValueAsString, err := objectMeta.Key.ValueAsString(pkValue); err != nil {
+func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Meta, pkValue interface{}, fieldDescription *meta.Field) (error) {
+	if pkValueAsString, err := objectMeta.GetKey().ValueAsString(pkValue); err != nil {
 		return err
 	} else {
 		if recordData, err := validator.recordGetCallback(objectMeta.Name, pkValueAsString, nil, nil, 1, true); err != nil || recordData == nil {

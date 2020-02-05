@@ -1,10 +1,10 @@
 package data
 
 import (
-	"strings"
 	"fmt"
-	"server/object/description"
+	"server/object/meta"
 	"sort"
+	"strings"
 )
 
 /*
@@ -37,29 +37,29 @@ func (ip *includeNodeRetrievePolicy) Apply(node *Node, parentPolicy *AggregatedR
 				),
 			)
 		}
-		if fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner {
+		if fieldDescription.Type == meta.FieldTypeGeneric && fieldDescription.LinkType == meta.LinkTypeInner {
 			if isLeaf {
 				currentNode.ChildNodes.Empty()
 				currentNode.SelectFields.Include(fieldDescription)
 			} else {
-				currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
+				currentNode.FillChildNode(fieldDescription, isLeaf, meta.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
 			}
 			return nil
 		}
-		if fieldDescription.Type == description.FieldTypeObjects {
+		if fieldDescription.Type == meta.FieldTypeObjects {
 			currentNode.ChildNodes.Empty()
 			currentNode.SelectFields.Include(currentNode.KeyField)
-			currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
+			currentNode.FillChildNode(fieldDescription, isLeaf, meta.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
 			return nil
 		}
-		if fieldDescription.IsLink() && (!isLeaf && fieldDescription.LinkType == description.LinkTypeInner || fieldDescription.LinkType == description.LinkTypeOuter) {
+		if fieldDescription.IsLink() && (!isLeaf && fieldDescription.LinkType == meta.LinkTypeInner || fieldDescription.LinkType == meta.LinkTypeOuter) {
 			if isLeaf {
 				currentNode.ChildNodes.Empty()
 				currentNode.SelectFields.Include(currentNode.KeyField)
 			}
 			currentNode.OnlyLink = false
-			currentNode = currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
-		} else if fieldDescription.LinkType != description.LinkTypeOuter {
+			currentNode = currentNode.FillChildNode(fieldDescription, isLeaf, meta.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
+		} else if fieldDescription.LinkType != meta.LinkTypeOuter {
 			//exclude all child nodes, filled by default
 			currentNode.ChildNodes.Empty()
 			currentNode.SelectFields.Include(fieldDescription)
@@ -104,7 +104,7 @@ func (ep *excludeNodeRetrievePolicy) Apply(node *Node, _ *AggregatedRetrievePoli
 				),
 			)
 		} else {
-			if fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner && !isLeaf {
+			if fieldDescription.Type == meta.FieldTypeGeneric && fieldDescription.LinkType == meta.LinkTypeInner && !isLeaf {
 				return nil
 			}
 			if isLeaf {

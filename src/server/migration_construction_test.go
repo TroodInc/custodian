@@ -8,7 +8,6 @@ import (
 	"server/data/notifications"
 	"server/noti"
 	"server/pg"
-	"server/transactions/file_transaction"
 	"utils"
 
 	"bytes"
@@ -16,7 +15,7 @@ import (
 	"fmt"
 	"server"
 	meta_description "server/migrations/description"
-	"server/object/description"
+
 	"server/object/meta"
 	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
@@ -26,17 +25,17 @@ import (
 var _ = Describe("Migration`s construction", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	BeforeEach(func() {
 		//setup server
@@ -60,15 +59,15 @@ var _ = Describe("Migration`s construction", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				},
 			},

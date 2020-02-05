@@ -4,24 +4,24 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	migrations_description "server/migrations/description"
+
 	"server/object"
 	"server/object/description"
 	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/transactions/file_transaction"
 	"utils"
 )
 
 var _ = Describe("MigrationManager`s rollback functionality", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
@@ -91,9 +91,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 			BeforeEach(func() {
 				//Create object A by applying a migration
-				field := description.Field{
+				field := meta.Field{
 					Name:     "title",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				}
 
@@ -130,9 +130,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			})
 
 			It("It can rollback `RemoveField` migration", func() {
-				field := description.Field{
+				field := meta.Field{
 					Name:     "title",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				}
 
@@ -171,9 +171,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 				BeforeEach(func() {
 					//Create object A by applying a migration
-					field := description.Field{
+					field := meta.Field{
 						Name:     "new_title",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					}
 

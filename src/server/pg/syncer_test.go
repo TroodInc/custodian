@@ -1,17 +1,17 @@
 package pg_test
 
 import (
+	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/migrations/description"
 	"server/pg"
-	"database/sql"
 	"utils"
-	"server/transactions/file_transaction"
 
+
+	"server/object/meta"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/meta"
-	"server/object/description"
 )
 
 var _ = Describe("Store", func() {
@@ -20,10 +20,10 @@ var _ = Describe("Store", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -37,17 +37,17 @@ var _ = Describe("Store", func() {
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -63,17 +63,17 @@ var _ = Describe("Store", func() {
 					Name: "person",
 					Key:  "id",
 					Cas:  false,
-					Fields: []description.Field{
+					Fields: []meta.Field{
 						{
 							Name: "id",
-							Type: description.FieldTypeNumber,
+							Type: meta.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
 							Optional: true,
 						}, {
 							Name:     "name",
-							Type:     description.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: true,
 						},
 					},
@@ -103,17 +103,17 @@ var _ = Describe("Store", func() {
 				Name: "person",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -128,17 +128,17 @@ var _ = Describe("Store", func() {
 					Name: "person",
 					Key:  "id",
 					Cas:  false,
-					Fields: []description.Field{
+					Fields: []meta.Field{
 						{
 							Name: "id",
-							Type: description.FieldTypeNumber,
+							Type: meta.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
 							Optional: true,
 						}, {
 							Name:     "name",
-							Type:     description.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 					},

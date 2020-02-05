@@ -1,11 +1,12 @@
 package storage
 
 import (
-	"utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	migrations_description "server/migrations/description"
-	"server/object/description"
+
+	"server/object/meta"
+	"utils"
 )
 
 var _ = Describe("Migration Storage", func() {
@@ -20,17 +21,17 @@ var _ = Describe("Migration Storage", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:     "date",
-					Type:     description.FieldTypeDate,
+					Type:     meta.FieldTypeDate,
 					Optional: false,
 				},
 			},

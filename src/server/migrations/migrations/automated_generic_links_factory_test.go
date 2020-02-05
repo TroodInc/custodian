@@ -5,24 +5,23 @@ import (
 	. "github.com/onsi/gomega"
 	migrations_description "server/migrations/description"
 	. "server/migrations/migrations"
-	"server/object/description"
+
 	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/transactions/file_transaction"
 	"utils"
 )
 
 var _ = Describe("Automated generic links` migrations` spawning", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
@@ -45,17 +44,17 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:     "date",
-					Type:     description.FieldTypeDate,
+					Type:     meta.FieldTypeDate,
 					Optional: false,
 				},
 			},
@@ -73,18 +72,18 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
-				[]description.Field{
+				[]meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name:         "target_object",
-						Type:         description.FieldTypeGeneric,
-						LinkType:     description.LinkTypeInner,
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
 						LinkMetaList: []string{"a"},
 						Optional:     false,
 					},
@@ -119,10 +118,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				bMetaDescription = description.NewMetaDescription(
 					"b",
 					"id",
-					[]description.Field{
+					[]meta.Field{
 						{
 							Name: "id",
-							Type: description.FieldTypeNumber,
+							Type: meta.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -139,10 +138,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			})
 
 			It("adds a reverse generic outer link when a new inner generic field is being added to an object", func() {
-				field := description.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{"a"},
 					Optional:     false,
 				}
@@ -168,10 +167,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			})
 
 			It("removes and adds reverse generic outer links while inner generic field`s LinkMetaList is being updated", func() {
-				field := description.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{"a"},
 					Optional:     false,
 				}
@@ -194,10 +193,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				cMetaDescription := description.NewMetaDescription(
 					"c",
 					"id",
-					[]description.Field{
+					[]meta.Field{
 						{
 							Name: "id",
-							Type: description.FieldTypeNumber,
+							Type: meta.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -213,10 +212,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(err).To(BeNil())
 
 				//LinkMetaList is being changed
-				field = description.Field{
+				field = meta.Field{
 					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{"c"},
 					Optional:     false,
 				}
@@ -248,10 +247,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			})
 
 			It("renames reverse generic outer links if object which owns inner generic link is being renamed", func() {
-				field := description.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{"a"},
 					Optional:     false,
 				}
@@ -296,10 +295,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			})
 
 			It("removes generic outer links if object which owns inner generic link is being deleted", func() {
-				field := description.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{"a"},
 					Optional:     false,
 				}
@@ -341,10 +340,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			})
 
 			It("removes generic outer links if inner generic link is being removed", func() {
-				field := description.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{"a"},
 					Optional:     false,
 				}

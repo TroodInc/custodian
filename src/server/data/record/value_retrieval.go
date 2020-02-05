@@ -2,7 +2,7 @@ package record
 
 import (
 	"server/data/types"
-	"server/object/description"
+	"server/object/meta"
 	"strings"
 )
 
@@ -28,7 +28,7 @@ func getSimpleValue(targetRecord *Record, keyParts []string, getRecordCallback f
 		nestedObjectField := targetRecord.Meta.FindField(keyPart)
 
 		//case of retrieving value or PK of generic field
-		if nestedObjectField.Type == description.FieldTypeGeneric && len(keyParts) == 2 {
+		if nestedObjectField.Type == meta.FieldTypeGeneric && len(keyParts) == 2 {
 			if genericFieldValue, ok := rawKeyValue.(map[string]interface{}); ok {
 				return genericFieldValue[keyParts[1]]
 			}
@@ -37,7 +37,7 @@ func getSimpleValue(targetRecord *Record, keyParts []string, getRecordCallback f
 		//nested linked record case
 		nestedObjectMeta := targetRecord.Meta.FindField(keyPart).LinkMeta
 		if targetRecord.Data[keyPart] != nil {
-			keyValue, _ := nestedObjectMeta.Key.ValueAsString(rawKeyValue)
+			keyValue, _ := nestedObjectMeta.GetKey().ValueAsString(rawKeyValue)
 			nestedRecord, _ := getRecordCallback(nestedObjectMeta.Name, keyValue, nil, nil, 1, false)
 			return getSimpleValue(nestedRecord, keyParts[1:], getRecordCallback)
 		} else {
@@ -54,8 +54,10 @@ func getGenericValue(targetRecord *Record, getterConfig map[string]interface{}, 
 	for _, objectCase := range getterConfig["cases"].([]interface{}) {
 		castObjectCase := objectCase.(map[string]interface{})
 		if genericFieldValue[types.GenericInnerLinkObjectKey] == castObjectCase["object"] {
-			nestedObjectMeta := targetRecord.Meta.FindField(genericFieldName).LinkMetaList.GetByName(castObjectCase["object"].(string))
-			nestedObjectPk, _ := nestedObjectMeta.Key.ValueAsString(genericFieldValue[nestedObjectMeta.Key.Name])
+			nestedObjectMeta := targetRecord.Meta.FindField(genericFieldName).GetLinkMetaByName(castObjectCase["object"].(string))
+
+
+			nestedObjectPk, _ := nestedObjectMeta.GetKey().ValueAsString(genericFieldValue[nestedObjectMeta.Key])
 			nestedRecord, _ := getRecordCallback(genericFieldValue[types.GenericInnerLinkObjectKey].(string), nestedObjectPk, nil, nil, 1, false)
 			return getSimpleValue(nestedRecord, strings.Split(castObjectCase["value"].(string), "."), getRecordCallback)
 		}

@@ -3,16 +3,15 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/meta"
-	"server/pg"
-	"utils"
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
-	"server/object/description"
 	"server/auth"
 	"server/data"
 	"server/data/errors"
+
+	"server/object/meta"
+	"server/pg"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
+	"utils"
 )
 
 var _ = Describe("Record tree extractor", func() {
@@ -21,11 +20,11 @@ var _ = Describe("Record tree extractor", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -39,10 +38,10 @@ var _ = Describe("Record tree extractor", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -59,10 +58,10 @@ var _ = Describe("Record tree extractor", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -70,8 +69,8 @@ var _ = Describe("Record tree extractor", func() {
 				},
 				{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "a",
 					OnDelete: "setNull",
 					Optional: false,
@@ -87,10 +86,10 @@ var _ = Describe("Record tree extractor", func() {
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -98,8 +97,8 @@ var _ = Describe("Record tree extractor", func() {
 				},
 				{
 					Name:     "b",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "b",
 					OnDelete: "cascade",
 				},
@@ -120,7 +119,7 @@ var _ = Describe("Record tree extractor", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription()
-		bMetaDescription.Fields[1].OnDelete = description.OnDeleteSetNull.ToVerbose()
+		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteSetNull.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
@@ -148,14 +147,14 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(recordNode.Children).To(HaveKey("b_set"))
 		Expect(recordNode.Children["b_set"]).To(HaveLen(1))
 		Expect(recordNode.Children["b_set"][0].Children).To(BeEmpty())
-		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(description.OnDeleteSetNull))
+		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(meta.OnDeleteSetNull))
 	})
 
 	It("returns error with 'restrict' strategy", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription()
-		bMetaDescription.Fields[1].OnDelete = description.OnDeleteRestrict.ToVerbose()
+		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteRestrict.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
@@ -185,7 +184,7 @@ var _ = Describe("Record tree extractor", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription()
-		bMetaDescription.Fields[1].OnDelete = description.OnDeleteCascade.ToVerbose()
+		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteCascade.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription())
 
@@ -212,11 +211,11 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(recordNode.Children).To(HaveLen(1))
 		Expect(recordNode.Children).To(HaveKey("b_set"))
 		Expect(recordNode.Children["b_set"]).To(HaveLen(1))
-		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(description.OnDeleteCascade))
+		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(meta.OnDeleteCascade))
 		Expect(recordNode.Children["b_set"][0].Children).To(HaveLen(1))
 		Expect(recordNode.Children["b_set"][0].Children).To(HaveKey("c_set"))
 		Expect(recordNode.Children["b_set"][0].Children["c_set"]).To(HaveLen(1))
-		Expect(*(recordNode.Children["b_set"][0].Children["c_set"][0].OnDeleteStrategy)).To(Equal(description.OnDeleteCascade))
+		Expect(*(recordNode.Children["b_set"][0].Children["c_set"][0].OnDeleteStrategy)).To(Equal(meta.OnDeleteCascade))
 		Expect(recordNode.Children["b_set"][0].Children["c_set"][0].Children).To(BeEmpty())
 	})
 })

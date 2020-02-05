@@ -1,0 +1,331 @@
+@startuml
+namespace description {
+    class Action << (S,Aquamarine) >> {
+        - id int
+
+        + Method Method
+        + Protocol Protocol
+        + Args []string
+        + ActiveIfNotRoot bool
+        + IncludeValues <font color=blue>map</font>[string]<font color=blue>interface</font>{}
+        + Name string
+
+        + Clone() *Action
+        + SetId(id int) 
+        + Id() int
+
+    }
+    interface Def  {
+    }
+    class DefConstBool << (S,Aquamarine) >> {
+        + Value bool
+
+    }
+    class DefConstFloat << (S,Aquamarine) >> {
+        + Value float64
+
+    }
+    class DefConstInt << (S,Aquamarine) >> {
+        + Value int
+
+    }
+    class DefConstStr << (S,Aquamarine) >> {
+        + Value string
+
+    }
+    class DefExpr << (S,Aquamarine) >> {
+        + Func string
+        + Args []<font color=blue>interface</font>{}
+
+    }
+    class Field << (S,Aquamarine) >> {
+        + Name string
+        + Type FieldType
+        + LinkMeta string
+        + LinkMetaList MetaNameList
+        + LinkType LinkType
+        + OuterLinkField string
+        + Optional bool
+        + Unique bool
+        + OnDelete string
+        + Def <font color=blue>interface</font>{}
+        + NowOnUpdate bool
+        + NowOnCreate bool
+        + QueryMode bool
+        + RetrieveMode bool
+        + LinkThrough string
+
+        + IsSimple() bool
+        + IsLink() bool
+        + Default() Def
+        + Clone() *Field
+        + OnDeleteStrategy() *OnDeleteStrategy
+
+    }
+    class FieldType << (S,Aquamarine) >> {
+        + String() (string, bool)
+        + DdlType() (string, error)
+        + AssertType(i <font color=blue>interface</font>{}) bool
+        + TypeAsserter() <font color=blue>func</font>(<font color=blue>interface</font>{}) bool
+        + UnmarshalJSON(b []byte) error
+        + MarshalJSON() ([]byte, error)
+
+    }
+    class LinkType << (S,Aquamarine) >> {
+        + String() (string, bool)
+        + UnmarshalJSON(b []byte) error
+        + MarshalJSON() ([]byte, error)
+
+    }
+    class MetaDescription << (S,Aquamarine) >> {
+        + Name string
+        + Key string
+        + Fields []Field
+        + Actions []Action
+        + Cas bool
+
+        + Clone() *MetaDescription
+        + FindField(fieldName string) *Field
+        + FindAction(actionName string) *Action
+        + ForExport() MetaDescription
+
+    }
+    class MetaNameList << (S,Aquamarine) >> {
+        + Diff(anotherMetaNameList MetaNameList) []string
+
+    }
+    class Method << (S,Aquamarine) >> {
+        + AsString() string
+        + Validate() (string, bool)
+        + MarshalJSON() ([]byte, error)
+        + UnmarshalJSON(b []byte) error
+
+    }
+    class NormalizationService << (S,Aquamarine) >> {
+        + Normalize(metaDescription *MetaDescription) *MetaDescription
+        + NormalizeInnerFields(fields *[]Field) 
+        + NormalizeOuterFields(fields *[]Field) 
+
+    }
+    class OnDeleteStrategy << (S,Aquamarine) >> {
+        + ToDbValue() string
+        + ToVerbose() string
+
+    }
+    class OnDeleteStrategyError << (S,Aquamarine) >> {
+        - msg string
+
+        + Error() string
+
+    }
+    class Protocol << (S,Aquamarine) >> {
+        + String() (string, bool)
+        + MarshalJSON() ([]byte, error)
+        + UnmarshalJSON(b []byte) error
+
+    }
+    class ValidationError << (S,Aquamarine) >> {
+        + Message string
+
+        + Error() string
+
+    }
+    class ValidationService << (S,Aquamarine) >> {
+        - checkFieldsDoesNotContainDuplicates(fields []Field) (bool, error)
+
+        + Validate(metaDescription *MetaDescription) (bool, error)
+
+    }
+    class description.FieldMode << (T, #FF7700) >>  {
+    }
+    class description.FieldType << (T, #FF7700) >>  {
+    }
+    class description.LinkType << (T, #FF7700) >>  {
+    }
+    class description.MetaNameList << (T, #FF7700) >>  {
+    }
+    class description.Method << (T, #FF7700) >>  {
+    }
+    class description.OnDeleteStrategy << (T, #FF7700) >>  {
+    }
+    class description.Protocol << (T, #FF7700) >>  {
+    }
+    class metaDescriptionError << (S,Aquamarine) >> {
+        - code string
+        - msg string
+        - meta string
+        - op string
+
+        + Error() string
+        + Json() []byte
+
+    }
+}
+
+
+namespace description_manager {
+    class MetaDescriptionManager << (S,Aquamarine) >> {
+        + ReverseGenericOuterFields(ownerMetaName string, field *description.Field, syncer meta.MetaDescriptionSyncer) <font color=blue>map</font>[string]*description.Field
+        + ReverseOuterField(ownerMetaName string, field *description.Field, syncer meta.MetaDescriptionSyncer) *description.Field
+
+    }
+}
+
+
+namespace meta {
+    class ActionSet << (S,Aquamarine) >> {
+        + Original []Action
+        + Notifiers <font color=blue>map</font>[Method]<font color=blue>map</font>[int]noti.Notifier
+
+        + NewNotificationChannel(method Method, action *Action) <font color=blue>chan</font> *noti.Event
+        + FilterByMethod(method Method) []*Action
+
+    }
+    class FieldDescription << (S,Aquamarine) >> {
+        + Meta *Meta
+        + LinkMeta *Meta
+        + OuterLinkField *FieldDescription
+        + LinkMetaList *MetaList
+        + LinkThrough *Meta
+
+        - canBeLinkTo(m *Meta) bool
+
+        + IsValueTypeValid(v <font color=blue>interface</font>{}) bool
+        + ValueFromString(v string) (<font color=blue>interface</font>{}, error)
+        + ValueAsString(v <font color=blue>interface</font>{}) (string, error)
+        + ReverseOuterField() *FieldDescription
+
+    }
+    class FileMetaDescriptionSyncer << (S,Aquamarine) >> {
+        - dir string
+
+        - getMetaFileName(metaName string) string
+
+        + List() ([]*MetaDescription, bool, error)
+        + Get(name string) (*MetaDescription, bool, error)
+        + Create(transaction transactions.MetaDescriptionTransaction, m MetaDescription) error
+        + Remove(name string) (bool, error)
+        + Update(name string, m MetaDescription) (bool, error)
+
+    }
+    class Meta << (S,Aquamarine) >> {
+        + Key *FieldDescription
+        + Fields []FieldDescription
+        + ActionSet *ActionSet
+
+        + FindField(name string) *FieldDescription
+        + AddField(fieldDescription FieldDescription) *FieldDescription
+        + TableFields() []*FieldDescription
+        + MarshalJSON() ([]byte, error)
+
+    }
+    class MetaCache << (S,Aquamarine) >> {
+        - mutex sync.RWMutex
+        - metaList <font color=blue>map</font>[string]*Meta
+
+        + Get(metaName string) *Meta
+        + GetList() []*Meta
+        + Set(meta *Meta) 
+        + Invalidate() 
+
+    }
+    interface MetaDbSyncer  {
+        + CreateObj( transactions.DbTransaction,  *MetaDescription,  MetaDescriptionSyncer) error
+        + RemoveObj( transactions.DbTransaction,  string,  bool) error
+        + UpdateObj( transactions.DbTransaction,  *MetaDescription,  *MetaDescription,  MetaDescriptionSyncer) error
+        + UpdateObjTo( transactions.DbTransaction,  *MetaDescription,  MetaDescriptionSyncer) error
+        + ValidateObj( transactions.DbTransaction,  *MetaDescription,  MetaDescriptionSyncer) (bool, error)
+        + BeginTransaction() (transactions.DbTransaction, error)
+        + CommitTransaction( transactions.DbTransaction) error
+        + RollbackTransaction( transactions.DbTransaction) error
+
+    }
+    interface MetaDescriptionSyncer  {
+        + List() ([]*MetaDescription, bool, error)
+        + Get(name string) (*MetaDescription, bool, error)
+        + Create(fileTransaction transactions.MetaDescriptionTransaction, m MetaDescription) error
+        + Remove(name string) (bool, error)
+        + Update(name string, m MetaDescription) (bool, error)
+
+    }
+    class MetaFactory << (S,Aquamarine) >> {
+        - builtMetas <font color=blue>map</font>[string]*Meta
+        - metaDriver MetaDescriptionSyncer
+        - metasToResolve []*Meta
+
+        - resolveEnqueued() error
+        - resolveMeta(currentMeta *Meta) error
+        - buildMeta(metaName string) (*Meta, bool, error)
+        - buildThroughMeta(field *Field, ownerMeta *Meta) (*Meta, bool)
+        - factoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error)
+        - enqueueForResolving(objectMeta *Meta) 
+        - reset() 
+        - popMetaToResolve() *Meta
+        - setOuterLinks(objectMeta *Meta) error
+        - setObjectsLinks(objectMeta *Meta) error
+        - checkOuterLinks(objectMeta *Meta) error
+
+        + FactoryMeta(objectMetaDescription *MetaDescription) (*Meta, error)
+        + FactoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error)
+
+    }
+    class MetaList << (S,Aquamarine) >> {
+        - metas []*Meta
+
+        - indexOf(targetMeta *Meta) int
+
+        + GetLinkMetaListKeyFields() []*FieldDescription
+        + AddMeta(meta *Meta) 
+        + GetAll() []*Meta
+        + GetByName(metaName string) *Meta
+        + Remove(meta *Meta) 
+        + RemoveByName(metaName string) 
+        + Diff(metas []*Meta) []*Meta
+
+    }
+    class MetaStore << (S,Aquamarine) >> {
+        - cache *MetaCache
+        - syncer MetaDbSyncer
+        - globalTransactionManager *transactions.GlobalTransactionManager
+
+        + MetaDescriptionSyncer MetaDescriptionSyncer
+
+        - removeRelatedOuterLinks(targetMeta *Meta) 
+        - removeRelatedOuterLink(targetMeta *Meta, innerLinkFieldDescription FieldDescription) 
+        - removeRelatedGenericOuterLinks(targetMeta *Meta) 
+        - removeRelatedToInnerGenericOuterLinks(targetMeta *Meta, genericInnerLinkFieldDescription FieldDescription, linkMetaList []*Meta) 
+        - removeRelatedInnerLinks(targetMeta *Meta) 
+        - removeRelatedGenericInnerLinks(targetMeta *Meta) 
+        - removeRelatedObjectsFieldAndThroughMeta(keepMeta bool, targetMeta *Meta) error
+        - processInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) 
+        - processGenericInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) 
+        - processGenericOuterLinkKeeping(previousMeta *Meta, currentMeta *Meta) 
+        - addReversedOuterGenericFields(previousMeta *Meta, currentMeta *Meta) 
+        - addReversedOuterFields(previousMeta *Meta, currentMeta *Meta) 
+        - createThroughMeta(meta *Meta) error
+
+        + UnmarshalIncomingJSON(r io.Reader) (*Meta, error)
+        + NewMeta(metaObj *MetaDescription) (*Meta, error)
+        + List() ([]*MetaDescription, bool, error)
+        + Get(name string, useCache bool) (*Meta, bool, error)
+        + Create(objectMeta *Meta) error
+        + Update(name string, newMetaObj *Meta, keepOuter bool) (bool, error)
+        + Remove(name string, force bool) (bool, error)
+        + Cache() *MetaCache
+        + Flush() error
+
+    }
+}
+"meta.Field" *-- "meta.FieldDescription"
+"meta.MetaDescription" *-- "meta.Meta"
+
+"meta.MetaDescriptionSyncer" <|-- "meta.FileMetaDescriptionSyncer"
+
+"__builtin__.[]string" #.. "description.MetaNameList"
+"__builtin__.int" #.. "description.FieldMode"
+"__builtin__.int" #.. "description.FieldType"
+"__builtin__.int" #.. "description.LinkType"
+"__builtin__.int" #.. "description.Method"
+"__builtin__.int" #.. "description.OnDeleteStrategy"
+"__builtin__.int" #.. "description.Protocol"
+@enduml

@@ -5,7 +5,6 @@ import (
 	"server/data/notifications"
 	"server/errors"
 	"server/migrations"
-	meta_description "server/object/description"
 	"server/object/meta"
 	"server/transactions"
 )
@@ -14,14 +13,14 @@ type AddActionOperation struct {
 	Action *notifications.Action
 }
 
-func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 	if err := o.validate(metaDescriptionToApply); err != nil {
 		return nil, err
 	}
 	actionToAdd := o.Action.Clone()
 
-	metaDescriptionToApply.Actions = append(metaDescriptionToApply.Actions, *actionToAdd)
+	metaDescriptionToApply.Actions = append(metaDescriptionToApply.Actions, actionToAdd)
 
 	//sync its MetaDescription
 	if _, err := metaDescriptionSyncer.Update(metaDescriptionToApply.Name, *metaDescriptionToApply); err != nil {
@@ -31,7 +30,7 @@ func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_de
 	}
 }
 
-func (o *AddActionOperation) validate(metaDescription *meta_description.MetaDescription) error {
+func (o *AddActionOperation) validate(metaDescription *meta.Meta) error {
 	existingAction := metaDescription.FindAction(o.Action.Name)
 	if existingAction != nil {
 		return errors.NewValidationError(
@@ -43,7 +42,7 @@ func (o *AddActionOperation) validate(metaDescription *meta_description.MetaDesc
 	return nil
 }
 
-func (o *AddActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *AddActionOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	return nil
 }
 

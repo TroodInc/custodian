@@ -2,7 +2,6 @@ package action
 
 import (
 	"server/data/notifications"
-	meta_description "server/object/description"
 	"server/object/meta"
 	"server/transactions"
 )
@@ -12,13 +11,13 @@ type UpdateActionOperation struct {
 	CurrentAction *notifications.Action
 }
 
-func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 
 	//replace action
 	for i, action := range metaDescriptionToApply.Actions {
 		if action.Name == o.CurrentAction.Name {
-			metaDescriptionToApply.Actions[i] = *o.NewAction
+			metaDescriptionToApply.Actions[i] = o.NewAction
 		}
 	}
 
@@ -30,7 +29,7 @@ func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta
 	}
 }
 
-func (o *UpdateActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *UpdateActionOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	return nil
 }
 

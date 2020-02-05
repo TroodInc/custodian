@@ -1,14 +1,9 @@
-package file_transaction
-
-import (
-	. "server/transactions"
-	"server/object/description"
-)
+package transactions
 
 type FileMetaDescriptionTransaction struct {
 	createdMetaNameList []string
 	state               State
-	initialMetaList     []*description.MetaDescription
+	initialMetaList     []map[string]interface{}
 }
 
 func (f *FileMetaDescriptionTransaction) AddCreatedMetaName(metaName string) {
@@ -26,11 +21,11 @@ func (f *FileMetaDescriptionTransaction) SetState(state State) {
 func (f *FileMetaDescriptionTransaction) State() State {
 	return f.state
 }
-func (f *FileMetaDescriptionTransaction) InitialMetaList() []*description.MetaDescription {
+func (f *FileMetaDescriptionTransaction) InitialMetaList() []map[string]interface{} {
 	return f.initialMetaList
 }
 
-func NewFileMetaDescriptionTransaction(state State, initialMetaList []*description.MetaDescription) *FileMetaDescriptionTransaction {
+func NewFileMetaDescriptionTransaction(state State, initialMetaList []map[string]interface{}) *FileMetaDescriptionTransaction {
 	return &FileMetaDescriptionTransaction{
 		createdMetaNameList: make([]string, 0),
 		state:               state,

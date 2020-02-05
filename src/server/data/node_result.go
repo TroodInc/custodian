@@ -3,7 +3,6 @@ package data
 import (
 	"server/data/record"
 	"server/data/types"
-	"server/object/description"
 	"server/object/meta"
 )
 
@@ -24,8 +23,8 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 
 		if childNode.plural && childNode.IsOfRegularType() {
 			if !ctx.omitOuters {
-				keyValue := resultNode.values.Data[childNode.Meta.Key.Name]
-				if childNode.LinkField.Type != description.FieldTypeObjects {
+				keyValue := resultNode.values.Data[childNode.Meta.Key]
+				if childNode.LinkField.Type != meta.FieldTypeObjects {
 					if arr, e := childNode.ResolveRegularPlural(ctx, keyValue); e != nil {
 						return nil, e
 					} else if arr != nil {
@@ -55,7 +54,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			}
 		} else if childNode.plural && childNode.IsOfGenericType() {
 			if !ctx.omitOuters {
-				pkValue := resultNode.values.Data[childNode.Meta.Key.Name]
+				pkValue := resultNode.values.Data[childNode.Meta.Key]
 				if arr, e := childNode.ResolveGenericPlural(ctx, pkValue, resultNode.node.Meta); e != nil {
 					return nil, e
 				} else if arr != nil {
@@ -71,7 +70,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 					delete(resultNode.values.Data, childNode.LinkField.Name)
 				}
 			}
-		} else if childNode.LinkField.LinkType == description.LinkTypeInner && !childNode.IsOfGenericType() {
+		} else if childNode.LinkField.LinkType == meta.LinkTypeInner && !childNode.IsOfGenericType() {
 			k := resultNode.values.Data[childNode.LinkField.Name]
 			if i, e := childNode.Resolve(ctx, k); e != nil {
 				return nil, e
@@ -107,15 +106,15 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			var childNodeLinkMeta *meta.Meta
 			switch k.(type) {
 			case *types.GenericInnerLink:
-				childNodeLinkMeta = childNode.LinkField.LinkMetaList.GetByName(k.(*types.GenericInnerLink).ObjectName)
+				childNodeLinkMeta = childNode.LinkField.GetLinkMetaByName(k.(*types.GenericInnerLink).ObjectName)
 			case *record.Record:
-				childNodeLinkMeta = childNode.LinkField.LinkMetaList.GetByName(k.(*record.Record).Meta.Name)
+				childNodeLinkMeta = childNode.LinkField.GetLinkMetaByName(k.(*record.Record).Meta.Name)
 			}
 
-			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.Key, childNodeLinkMeta.TableFields())
+			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.GetKey(), childNodeLinkMeta.TableFields())
 			childNode.Meta = childNodeLinkMeta
-			childNode.KeyField = childNodeLinkMeta.Key
-			childNode.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+			childNode.KeyField = childNodeLinkMeta.GetKey()
+			childNode.RecursivelyFillChildNodes(ctx.depthLimit, meta.FieldModeRetrieve)
 
 			if resolvedValue, e := childNode.Resolve(ctx, k); e != nil {
 				childNode.OnlyLink = defaultOnlyLink

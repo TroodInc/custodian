@@ -1,14 +1,13 @@
 package data
 
 import (
-	"server/object/meta"
+	"fmt"
 	"server/data/errors"
-	"server/data/validators"
 	. "server/data/record"
 	. "server/data/types"
-	"server/object/description"
+	"server/data/validators"
+	"server/object/meta"
 	"server/transactions"
-	"fmt"
 )
 
 type ValidationService struct {
@@ -30,8 +29,8 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 
 	for i := 0; i < len(record.Meta.Fields); i++ {
 		fieldName := record.Meta.Fields[i].Name
-		fieldDescription := &record.Meta.Fields[i]
-		if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode {
+		fieldDescription := record.Meta.Fields[i]
+		if fieldDescription.LinkType == meta.LinkTypeOuter && !fieldDescription.RetrieveMode {
 			continue
 		}
 
@@ -43,10 +42,10 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 		//perform validation otherwise
 		if valueIsSet {
 			switch {
-			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type == description.FieldTypeString && description.FieldTypeNumber.AssertType(value):
+			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type == meta.FieldTypeString && meta.FieldTypeNumber.AssertType(value):
 				break
 			case value != nil && fieldDescription.Type.AssertType(value):
-				if fieldDescription.Type == description.FieldTypeArray {
+				if fieldDescription.Type == meta.FieldTypeArray {
 					//validate outer links
 					if childRecordsToProcess, childRecordsToRemove, err := vs.validateArray(dbTransaction, value, fieldDescription, record); err != nil {
 						return nil, nil, nil, nil, err
@@ -60,12 +59,12 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 
 					}
 					delete(record.Data, fieldName)
-				} else if fieldDescription.Type == description.FieldTypeObject {
+				} else if fieldDescription.Type == meta.FieldTypeObject {
 					//TODO: move to separate method
 					var of = value.(map[string]interface{})
-					record.Data[fieldDescription.Name] = LazyLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Obj: of}
+					record.Data[fieldDescription.Name] = LazyLink{Field: fieldDescription.LinkMeta.GetKey(), IsOuter: false, Obj: of}
 					nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(NewRecord(fieldDescription.LinkMeta, of)))
-				} else if fieldDescription.Type == description.FieldTypeObjects {
+				} else if fieldDescription.Type == meta.FieldTypeObjects {
 					//validate outer links
 					if childRecordsToProcess, childRecordsToRemove, childRecordsToRetrieve, err := vs.validateObjectsFieldArray(value, fieldDescription, record); err != nil {
 						return nil, nil, nil, nil, err
@@ -81,12 +80,12 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 						}
 					}
 					delete(record.Data, fieldName)
-				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == description.LinkTypeInner {
-					record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
+				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == meta.LinkTypeInner {
+					record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.GetKey(), IsOuter: false, Id: value}
 				}
-			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (fieldDescription.LinkMeta.Key.Type.AssertType(value) || fieldDescription.Optional && value == nil ):
-				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
-			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner:
+			case fieldDescription.Type == meta.FieldTypeObject && fieldDescription.LinkType == meta.LinkTypeInner && (fieldDescription.LinkMeta.GetKey().Type.AssertType(value) || fieldDescription.Optional && value == nil ):
+				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.GetKey(), IsOuter: false, Id: value}
+			case fieldDescription.Type == meta.FieldTypeGeneric && fieldDescription.LinkType == meta.LinkTypeInner:
 				if recordToProcess, err := vs.validateInnerGenericLink(dbTransaction, value, fieldDescription, record); err != nil {
 					return nil, nil, nil, nil, err
 				} else {
@@ -94,7 +93,7 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 						nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(recordToProcess))
 					}
 				}
-			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeOuter:
+			case fieldDescription.Type == meta.FieldTypeGeneric && fieldDescription.LinkType == meta.LinkTypeOuter:
 				//validate outer generic links
 				if childRecordsToProcess, childRecordsToRemove, err := vs.validateGenericArray(value, fieldDescription, record); err != nil {
 					return nil, nil, nil, nil, err
@@ -119,7 +118,7 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 	return nodesToRetrieveBefore, nodesToProcessBefore, nodesToProcessAfter, nodesToRemoveBefore, nil
 }
 
-func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, error) {
+func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.Field, record *Record) ([]*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, len(nestedRecordsData))
 	recordsToRemove := make([]*Record, 0)
@@ -131,7 +130,7 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 		} else if pkValue, ok := recordData.(interface{}); ok {
 			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, map[string]interface{}{
 				fieldDescription.OuterLinkField.Name: LazyLink{Field: fieldDescription, IsOuter: true, Obj: record.Data, Index: i, NeighboursCount: len(nestedRecordsData)},
-				fieldDescription.LinkMeta.Key.Name:   pkValue,
+				fieldDescription.LinkMeta.Key:   pkValue,
 			})
 		} else {
 			return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", fieldDescription.Name)
@@ -143,7 +142,7 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 		idFilters := ""
 		for _, record := range recordsToProcess {
 			if !record.IsPhantom() {
-				idAsString, _ := record.Meta.Key.ValueAsString(record.Pk())
+				idAsString, _ := record.Meta.GetKey().ValueAsString(record.Pk())
 				if len(idFilters) != 0 {
 					idFilters += ","
 				}
@@ -151,11 +150,11 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 			}
 		}
 		if len(idFilters) > 0 {
-			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
+			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key, idFilters)
 			_, records, _ := vs.processor.GetBulk(fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true)
-			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
+			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == meta.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == meta.OnDeleteRestrict {
 				recordsToRemove = records
-			} else if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteSetNull {
+			} else if *fieldDescription.OuterLinkField.OnDeleteStrategy() == meta.OnDeleteSetNull {
 				for _, item := range records {
 					item.Data[fieldDescription.OuterLinkField.Name] = nil
 					recordsToProcess = append(recordsToProcess, item)
@@ -163,7 +162,7 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 			}
 		}
 		if len(recordsToRemove) > 0 {
-			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
+			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == meta.OnDeleteRestrict {
 				return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrRestrictConstraintViolation, "Array in field '%s'contains records, which could not be removed due to `Restrict` strategy set", fieldDescription.Name)
 			}
 		}
@@ -171,7 +170,7 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 	return recordsToProcess, recordsToRemove, nil
 }
 
-func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, []*Record, error) {
+func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldDescription *meta.Field, record *Record) ([]*Record, []*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, 0)
 	recordsToRemove := make([]*Record, 0)
@@ -232,7 +231,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 			referencedRecord := NewRecord(
 				fieldDescription.LinkMeta,
 				map[string]interface{}{
-					fieldDescription.LinkMeta.Key.Name: pkValue,
+					fieldDescription.LinkMeta.Key: pkValue,
 				},
 			)
 			referencedRecord.Links = append(referencedRecord.Links, &LazyLink{
@@ -253,7 +252,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 
 	for _, record := range recordsToProcess {
 		if pkValue, ok := record.Data[fieldDescription.LinkMeta.Name].(interface{}); ok {
-			idAsString, _ := fieldDescription.LinkMeta.Key.ValueAsString(pkValue)
+			idAsString, _ := fieldDescription.LinkMeta.GetKey().ValueAsString(pkValue)
 			if idAsString != "" {
 				if len(beingAddedIds) != 0 {
 					beingAddedIds += ","
@@ -292,7 +291,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 	return recordsToProcess, recordsToRemove, recordsToRetrieve, nil
 }
 
-func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, error) {
+func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescription *meta.Field, record *Record) ([]*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, len(nestedRecordsData))
 	recordsToRemove := make([]*Record, 0)
@@ -300,7 +299,7 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 		if recordDataAsMap, ok := recordData.(map[string]interface{}); ok {
 			recordDataAsMap[fieldDescription.OuterLinkField.Name] = &AGenericInnerLink{
 				Field:           fieldDescription,
-				LinkType:        description.LinkTypeOuter,
+				LinkType:        meta.LinkTypeOuter,
 				RecordData:      record.Data,
 				Index:           i,
 				NeighboursCount: len(nestedRecordsData),
@@ -308,14 +307,14 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 					ObjectName:       fieldDescription.Meta.Name,
 					Pk:               nil,
 					FieldDescription: fieldDescription,
-					PkName:           fieldDescription.Meta.Key.Name,
+					PkName:           fieldDescription.Meta.Key,
 				},
 			}
 			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, recordDataAsMap)
 		} else if pkValue, ok := recordData.(interface{}); ok {
 			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, map[string]interface{}{fieldDescription.OuterLinkField.Name: &AGenericInnerLink{
 				Field:           fieldDescription,
-				LinkType:        description.LinkTypeOuter,
+				LinkType:        meta.LinkTypeOuter,
 				RecordData:      record.Data,
 				Index:           i,
 				NeighboursCount: len(nestedRecordsData),
@@ -323,9 +322,9 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 					ObjectName:       fieldDescription.Meta.Name,
 					Pk:               nil,
 					FieldDescription: fieldDescription,
-					PkName:           fieldDescription.Meta.Key.Name,
+					PkName:           fieldDescription.Meta.Key,
 				},
-			}, fieldDescription.LinkMeta.Key.Name: pkValue})
+			}, fieldDescription.LinkMeta.Key: pkValue})
 		} else {
 			return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Value in field '%s' has invalid value", fieldDescription.Name)
 		}
@@ -334,7 +333,7 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 	return recordsToProcess, recordsToRemove, nil
 }
 
-func (vs *ValidationService) validateInnerGenericLink(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.FieldDescription, record *Record) (*Record, error) {
+func (vs *ValidationService) validateInnerGenericLink(dbTransaction transactions.DbTransaction, value interface{}, fieldDescription *meta.Field, record *Record) (*Record, error) {
 	var err error
 	var recordToProcess *Record
 	if value != nil {
@@ -345,15 +344,15 @@ func (vs *ValidationService) validateInnerGenericLink(dbTransaction transactions
 		if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(dbTransaction, vs.metaStore.Get, vs.processor.Get).Validate(fieldDescription, value); err != nil {
 			if _, ok := err.(errors.GenericFieldPkIsNullError); ok {
 				recordValuesAsMap := value.(map[string]interface{})
-				objMeta := fieldDescription.LinkMetaList.GetByName(recordValuesAsMap[GenericInnerLinkObjectKey].(string))
+				objMeta := fieldDescription.GetLinkMetaByName(recordValuesAsMap[GenericInnerLinkObjectKey].(string))
 				delete(recordValuesAsMap, GenericInnerLinkObjectKey)
 				record.Data[fieldDescription.Name] = &AGenericInnerLink{
-					GenericInnerLink: &GenericInnerLink{objMeta.Name, nil, fieldDescription, objMeta.Key.Name},
+					GenericInnerLink: &GenericInnerLink{objMeta.Name, nil, fieldDescription, objMeta.Key},
 					Field:            fieldDescription,
 					RecordData:       recordValuesAsMap,
 					Index:            0,
 					NeighboursCount:  1,
-					LinkType:         description.LinkTypeInner,
+					LinkType:         meta.LinkTypeInner,
 				}
 				recordToProcess = NewRecord(objMeta, recordValuesAsMap)
 			} else {

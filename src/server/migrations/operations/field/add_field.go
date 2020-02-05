@@ -1,19 +1,18 @@
 package field
 
 import (
-	"server/errors"
-	"server/object/meta"
-	meta_description "server/object/description"
-	"server/transactions"
-	"server/migrations"
 	"fmt"
+	"server/errors"
+	"server/migrations"
+	"server/object/meta"
+	"server/transactions"
 )
 
 type AddFieldOperation struct {
-	Field *meta_description.Field
+	Field *meta.Field
 }
 
-func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 	if err := o.validate(metaDescriptionToApply); err != nil {
 		//TODO:This is a workaround to avoid duplicated outer field (<meta-name>_set) to be created.
@@ -25,21 +24,21 @@ func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta_des
 		}
 	}
 	fieldToAdd := o.Field.Clone()
-	metaDescriptionToApply.Fields = append(metaDescriptionToApply.Fields, *fieldToAdd)
+	metaDescriptionToApply.Fields = append(metaDescriptionToApply.Fields, fieldToAdd)
 
 	//sync its MetaDescription
-	if _, err := metaDescriptionSyncer.Update(metaDescriptionToApply.Name, *metaDescriptionToApply); err != nil {
+	if _, err := metaDescriptionSyncer.Update(metaDescriptionToApply.Name, metaDescriptionToApply.ForExport()); err != nil {
 		return nil, err
 	} else {
 		return metaDescriptionToApply, nil
 	}
 }
 
-func (o *AddFieldOperation) validate(metaDescription *meta_description.MetaDescription) *errors.ServerError {
+func (o *AddFieldOperation) validate(metaDescription *meta.Meta) *errors.ServerError {
 	existingField := metaDescription.FindField(o.Field.Name)
 	if existingField != nil {
-		if existingField.LinkType == meta_description.LinkTypeOuter {
-			if o.Field.LinkType == meta_description.LinkTypeOuter {
+		if existingField.LinkType == meta.LinkTypeOuter {
+			if o.Field.LinkType == meta.LinkTypeOuter {
 				if o.Field.OuterLinkField != existingField.OuterLinkField {
 					return errors.NewValidationError(migrations.MigrationErrorDuplicated, "", nil)
 				}
@@ -54,6 +53,6 @@ func (o *AddFieldOperation) validate(metaDescription *meta_description.MetaDescr
 	return nil
 }
 
-func NewAddFieldOperation(field *meta_description.Field) *AddFieldOperation {
+func NewAddFieldOperation(field *meta.Field) *AddFieldOperation {
 	return &AddFieldOperation{Field: field}
 }

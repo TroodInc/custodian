@@ -10,12 +10,11 @@ import (
 	"server/data"
 	"server/data/record"
 	"server/pg"
-	"server/transactions/file_transaction"
 	"utils"
 
 	"encoding/json"
 	"server"
-	"server/object/description"
+
 	"server/object/meta"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -30,11 +29,11 @@ var _ = Describe("Server", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -52,10 +51,10 @@ var _ = Describe("Server", func() {
 			Name: "a_lxsgk",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -63,12 +62,12 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "description",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -86,10 +85,10 @@ var _ = Describe("Server", func() {
 			Name: "d_5frz7",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -98,13 +97,13 @@ var _ = Describe("Server", func() {
 				{
 					Name:     "a",
 					LinkMeta: "a_lxsgk",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					Optional: false,
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -121,10 +120,10 @@ var _ = Describe("Server", func() {
 			Name: "a_lxsgk",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -132,14 +131,14 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:           "d_set",
-					Type:           description.FieldTypeArray,
+					Type:           meta.FieldTypeArray,
 					Optional:       true,
-					LinkType:       description.LinkTypeOuter,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       "d_5frz7",
 					OuterLinkField: "a",
 					RetrieveMode:   true,
@@ -240,10 +239,10 @@ var _ = Describe("Server", func() {
 				Name: "b_atzw9",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -251,12 +250,12 @@ var _ = Describe("Server", func() {
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 					{
 						Name:     "description",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -269,10 +268,10 @@ var _ = Describe("Server", func() {
 				Name: "c_s7ohu",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -280,21 +279,21 @@ var _ = Describe("Server", func() {
 					},
 					{
 						Name:     "b",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: bMetaObj.Name,
 						Optional: false,
 					},
 					{
 						Name:     "a",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: aMetaObj.Name,
 						Optional: false,
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -474,10 +473,10 @@ var _ = Describe("Server", func() {
 				Name: "e_m7o1b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -485,14 +484,14 @@ var _ = Describe("Server", func() {
 					},
 					{
 						Name:         "target",
-						Type:         description.FieldTypeGeneric,
-						LinkType:     description.LinkTypeInner,
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
 						LinkMetaList: []string{aMetaObj.Name},
 						Optional:     false,
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},

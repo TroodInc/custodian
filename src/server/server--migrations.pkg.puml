@@ -1,0 +1,258 @@
+@startuml
+namespace action {
+    class AddActionOperation << (S,Aquamarine) >> {
+        + Action *description.Action
+
+        - validate(metaDescription *description.MetaDescription) error
+
+        + SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+        + SyncDbDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) error
+
+    }
+    class RemoveActionOperation << (S,Aquamarine) >> {
+        + Action *description.Action
+
+        - validate(metaDescription *description.MetaDescription) error
+
+        + SyncMetaDescription(metaDescription *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+        + SyncDbDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) error
+
+    }
+    class UpdateActionOperation << (S,Aquamarine) >> {
+        + NewAction *description.Action
+        + CurrentAction *description.Action
+
+        + SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+        + SyncDbDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) error
+
+    }
+}
+
+"operations.AbstractMigrationOperation" <|-- "action.AddActionOperation"
+"operations.MigrationOperation" <|-- "action.AddActionOperation"
+"operations.AbstractMigrationOperation" <|-- "action.RemoveActionOperation"
+"operations.MigrationOperation" <|-- "action.RemoveActionOperation"
+"operations.AbstractMigrationOperation" <|-- "action.UpdateActionOperation"
+"operations.MigrationOperation" <|-- "action.UpdateActionOperation"
+
+namespace constructor {
+    class MigrationConstructor << (S,Aquamarine) >> {
+        - migrationManager *managers.MigrationManager
+
+        - processObjectCreation(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription
+        - processObjectRenaming(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription
+        - processObjectDeletion(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription
+        - processFieldsAddition(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription
+        - processFieldsRemoval(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription
+        - processFieldsUpdate(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription
+        - processActionsAddition(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription
+        - processActionsRemoval(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription
+        - processActionsUpdate(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription
+
+        + Construct(currentMetaDescription *description.MetaDescription, newMigrationMetaDescription *MigrationMetaDescription, transaction transactions.DbTransaction) (*MigrationDescription, error)
+
+    }
+}
+
+
+namespace description {
+    class MigrationActionDescription << (S,Aquamarine) >> {
+        + PreviousName string
+
+    }
+    class MigrationDescription << (S,Aquamarine) >> {
+        + Id string
+        + ApplyTo string
+        + DependsOn []string
+        + Operations []MigrationOperationDescription
+        + MetaDescription *description.MetaDescription
+
+        + Marshal() ([]byte, error)
+        + Unmarshal(inputReader io.Reader) (*MigrationDescription, error)
+        + MetaName() (string, error)
+
+    }
+    class MigrationFieldDescription << (S,Aquamarine) >> {
+        + PreviousName string
+
+    }
+    class MigrationMetaDescription << (S,Aquamarine) >> {
+        + Name string
+        + PreviousName string
+        + Key string
+        + Fields []MigrationFieldDescription
+        + Actions []MigrationActionDescription
+        + Cas bool
+
+        + Unmarshal(inputReader io.Reader) (*MigrationMetaDescription, error)
+        + MetaDescription() *description.MetaDescription
+        + FindFieldWithPreviousName(fieldName string) *MigrationFieldDescription
+        + FindActionWithPreviousName(actionName string) *MigrationActionDescription
+
+    }
+    class MigrationOperationDescription << (S,Aquamarine) >> {
+        + Type string
+        + Field *MigrationFieldDescription
+        + MetaDescription *description.MetaDescription
+        + Action *MigrationActionDescription
+
+    }
+    class NormalizationMigrationsFactory << (S,Aquamarine) >> {
+        - metaDescriptionSyncer meta.MetaDescriptionSyncer
+
+        - factoryAddOuterLinkMigrationsForMeta(metaDescription *description.MetaDescription) ([]*MigrationDescription, error)
+        - factoryAddOuterLinkMigrationsForNewField(metaName string, field *description.Field) ([]*MigrationDescription, error)
+        - factoryUpdateOuterLinkMigrationsForMeta(currentMetaDescription *description.MetaDescription, newMetaDescription *description.MetaDescription) ([]*MigrationDescription, error)
+        - factoryRemoveAutomaticallyAddedOuterField(metaDescription *description.MetaDescription, fieldToAdd *description.Field) []*MigrationDescription
+        - factoryRemoveOuterLinkMigrationsForMeta(metaDescription *description.MetaDescription) []*MigrationDescription
+        - factoryRemoveOuterLinkMigrationsForRemovedField(metaDescription *description.MetaDescription, field *description.Field) []*MigrationDescription
+        - factoryAddGenericOuterLinkMigrationsForMeta(metaDescription *description.MetaDescription) ([]*MigrationDescription, error)
+        - factoryAddGenericOuterLinkMigrationsForNewField(metaName string, field *description.Field) ([]*MigrationDescription, error)
+        - factoryUpdateGenericOuterLinkMigrationsForMeta(currentMetaDescription *description.MetaDescription, newMetaDescription *description.MetaDescription) ([]*MigrationDescription, error)
+        - factoryAddGenericOuterLinkMigrationsForUpdatedField(metaName string, currentField *description.Field, newField *description.Field) ([]*MigrationDescription, []*MigrationDescription, error)
+        - factoryRemoveGenericOuterLinkMigrationsForMeta(metaDescription *description.MetaDescription) []*MigrationDescription
+        - factoryRemoveGenericOuterLinkMigrationsForRemovedField(metaDescription *description.MetaDescription, field *description.Field) []*MigrationDescription
+
+        + Factory(metaDescription *description.MetaDescription, operation operations.MigrationOperation) ([]*MigrationDescription, []*MigrationDescription, error)
+
+    }
+    class ReversionMigrationDescriptionService << (S,Aquamarine) >> {
+        - getMetaName(migrationDescription *MigrationDescription) (string, error)
+        - invertOperation(previousStateMetaDescription *description.MetaDescription, operationDescription *MigrationOperationDescription) (*MigrationOperationDescription, error)
+
+        + Revert(previousStateMetaDescription *description.MetaDescription, migrationDescription *MigrationDescription) (*MigrationDescription, error)
+
+    }
+}
+"description.Action" *-- "description.MigrationActionDescription"
+"description.Field" *-- "description.MigrationFieldDescription"
+
+
+namespace field {
+    class AddFieldOperation << (S,Aquamarine) >> {
+        + Field *description.Field
+
+        - validate(metaDescription *description.MetaDescription) *errors.ServerError
+
+        + SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+
+    }
+    class RemoveFieldOperation << (S,Aquamarine) >> {
+        + Field *description.Field
+
+        - validate(metaDescription *description.MetaDescription) error
+
+        + SyncMetaDescription(metaDescription *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+
+    }
+    class UpdateFieldOperation << (S,Aquamarine) >> {
+        + NewField *description.Field
+        + CurrentField *description.Field
+
+        + SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+
+    }
+}
+
+"operations.AbstractMigrationOperation" <|-- "field.AddFieldOperation"
+"operations.AbstractMigrationOperation" <|-- "field.RemoveFieldOperation"
+"operations.AbstractMigrationOperation" <|-- "field.UpdateFieldOperation"
+
+namespace migrations {
+    class Migration << (S,Aquamarine) >> {
+        + ApplyTo *description.MetaDescription
+        + Operations []operations.MigrationOperation
+        + RunBefore []*description.MigrationDescription
+        + RunAfter []*description.MigrationDescription
+        + Direction string
+
+        + IsForward() bool
+
+    }
+    class MigrationFactory << (S,Aquamarine) >> {
+        - metaDescriptionSyncer meta.MetaDescriptionSyncer
+        - normalizationMigrationsFactory *description.NormalizationMigrationsFactory
+
+        - factory(migrationDescription *description.MigrationDescription) (*Migration, error)
+
+        + FactoryForward(migrationDescription *description.MigrationDescription) (*Migration, error)
+        + FactoryBackward(migrationDescription *description.MigrationDescription) (*Migration, error)
+
+    }
+    class migrations.MigrationErrorCode << (T, #FF7700) >>  {
+    }
+}
+"description.MigrationDescription" *-- "migrations.Migration"
+
+
+namespace object {
+    class CreateObjectOperation << (S,Aquamarine) >> {
+        + MetaDescription *description.MetaDescription
+
+        + SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+
+    }
+    class DeleteObjectOperation << (S,Aquamarine) >> {
+        + SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+
+    }
+    class RenameObjectOperation << (S,Aquamarine) >> {
+        + MetaDescription *description.MetaDescription
+
+        - validate(metaObj *description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) error
+
+        + SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+
+    }
+}
+
+"operations.AbstractMigrationOperation" <|-- "object.CreateObjectOperation"
+"operations.AbstractMigrationOperation" <|-- "object.DeleteObjectOperation"
+"operations.AbstractMigrationOperation" <|-- "object.RenameObjectOperation"
+
+namespace operations {
+    interface AbstractMigrationOperation  {
+        + SyncMetaDescription( *description.MetaDescription,  transactions.MetaDescriptionTransaction,  meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+
+    }
+    interface MigrationOperation  {
+        + SyncDbDescription(metaToApply *description.MetaDescription, dbTransaction transactions.DbTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) error
+        + SyncMetaDescription( *description.MetaDescription,  transactions.MetaDescriptionTransaction,  meta.MetaDescriptionSyncer) (*description.MetaDescription, error)
+
+    }
+}
+
+
+namespace storage {
+    class MigrationStorage << (S,Aquamarine) >> {
+        - storagePath string
+
+        - generateMigrationFileName(migrationId string) string
+
+        + Store(description *description.MigrationDescription) (string, error)
+        + Remove(description *description.MigrationDescription) error
+        + RemoveFile(migrationFileName string) error
+        + Get(migrationId string) (*description.MigrationDescription, error)
+        + Flush() error
+
+    }
+}
+
+
+namespace validation {
+    class MigrationValidationService << (S,Aquamarine) >> {
+        - migrationManager *managers.MigrationManager
+        - migrationStorage *storage.MigrationStorage
+
+        - validateMigrationAndItsSiblings(migrationDescription *description.MigrationDescription, siblingIds []string) error
+        - validateMigrationHavingSiblings(migrationDescription *description.MigrationDescription) error
+        - validateMigrationAgainstSingleSibling(migrationDescription *description.MigrationDescription, siblingMigrationDescription *description.MigrationDescription) error
+
+        + Validate(migrationDescription *description.MigrationDescription, transaction transactions.DbTransaction) error
+
+    }
+}
+
+
+"__builtin__.string" #.. "migrations.MigrationErrorCode"
+@enduml

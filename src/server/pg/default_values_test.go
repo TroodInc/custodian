@@ -3,17 +3,15 @@ package pg_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"server/pg"
-	"server/data"
 	"server/auth"
+	"server/data"
+	"server/pg"
 	"utils"
 
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
+
 	"server/object/meta"
+	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
 )
 
 var _ = Describe("PG MetaStore test", func() {
@@ -22,11 +20,11 @@ var _ = Describe("PG MetaStore test", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -40,10 +38,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -62,15 +60,15 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "ordering",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Def:      10,
 						Optional: false,
 					},
@@ -95,10 +93,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -117,15 +115,15 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "ordering",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Def:      10.98,
 						Optional: false,
 					},
@@ -150,10 +148,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -172,15 +170,15 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "is_active",
-						Type:     description.FieldTypeBool,
+						Type:     meta.FieldTypeBool,
 						Def:      true,
 						Optional: false,
 					},
@@ -205,10 +203,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -227,15 +225,15 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Def:      "Not specified",
 						Optional: false,
 					},
@@ -260,10 +258,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -282,15 +280,15 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "date",
-						Type:     description.FieldTypeDate,
+						Type:     meta.FieldTypeDate,
 						Def:      "2018-05-22",
 						Optional: false,
 					},
@@ -315,10 +313,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -337,15 +335,15 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "datetime",
-						Type:     description.FieldTypeDateTime,
+						Type:     meta.FieldTypeDateTime,
 						Def:      "2018-05-29T15:29:58.627755+05:00",
 						Optional: false,
 					},
@@ -370,10 +368,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 				},
@@ -392,15 +390,15 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:     "time",
-						Type:     description.FieldTypeTime,
+						Type:     meta.FieldTypeTime,
 						Def:      "15:29:58+07:00",
 						Optional: false,
 					},

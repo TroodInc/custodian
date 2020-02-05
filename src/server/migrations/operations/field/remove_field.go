@@ -1,25 +1,24 @@
 package field
 
 import (
+	"fmt"
 	"server/errors"
+	"server/migrations"
 	"server/object/meta"
 	"server/transactions"
-	"server/migrations"
-	"fmt"
-	"server/object/description"
 )
 
 type RemoveFieldOperation struct {
-	Field *description.Field
+	Field *meta.Field
 }
 
-func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	updatedMetaDescription := metaDescription.Clone()
 	if err := o.validate(updatedMetaDescription); err != nil {
 		return nil, err
 	}
 
-	updatedMetaDescription.Fields = make([]description.Field, 0)
+	updatedMetaDescription.Fields = make([]*meta.Field, 0)
 
 	//remove field from meta description
 	for i, currentField := range metaDescription.Fields {
@@ -28,14 +27,14 @@ func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *description.
 		}
 	}
 	//sync its MetaDescription
-	if _, err := metaDescriptionSyncer.Update(updatedMetaDescription.Name, *updatedMetaDescription); err != nil {
+	if _, err := metaDescriptionSyncer.Update(updatedMetaDescription.Name, updatedMetaDescription.ForExport()); err != nil {
 		return nil, err
 	} else {
 		return updatedMetaDescription, nil
 	}
 }
 
-func (o *RemoveFieldOperation) validate(metaDescription *description.MetaDescription) error {
+func (o *RemoveFieldOperation) validate(metaDescription *meta.Meta) error {
 	if metaDescription.FindField(o.Field.Name) == nil {
 		return errors.NewValidationError(
 			migrations.MigrationErrorInvalidDescription,
@@ -46,6 +45,6 @@ func (o *RemoveFieldOperation) validate(metaDescription *description.MetaDescrip
 	return nil
 }
 
-func NewRemoveFieldOperation(field *description.Field) *RemoveFieldOperation {
+func NewRemoveFieldOperation(field *meta.Field) *RemoveFieldOperation {
 	return &RemoveFieldOperation{Field: field}
 }

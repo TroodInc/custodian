@@ -6,22 +6,21 @@ import (
 	"net/http"
 	"server/pg"
 
-	"utils"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"utils"
 
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
+	"bytes"
+	"encoding/json"
+	"fmt"
 	"net/http/httptest"
+	"os"
 	"server"
 	"server/auth"
 	"server/data"
-	"server/object/description"
-	"encoding/json"
-	"fmt"
-	"os"
-	"bytes"
 	"server/data/record"
+
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
 )
 
 const SERVICE_DOMAIN = "custodian"
@@ -48,11 +47,11 @@ var _ = Describe("ABAC rules handling", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	var user *auth.User
@@ -67,10 +66,10 @@ var _ = Describe("ABAC rules handling", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -78,19 +77,19 @@ var _ = Describe("ABAC rules handling", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "owner_role",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
-					Name:	  "color",
-					Type:	  description.FieldTypeString,
+					Name:     "color",
+					Type:     meta.FieldTypeString,
 					Optional: true,
-					Def: 	  "red",
+					Def:      "red",
 				},
 			},
 		}

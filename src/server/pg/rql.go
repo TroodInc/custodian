@@ -4,15 +4,14 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/Q-CIS-DEV/go-rql-parser"
 	"logger"
 	"server/data"
-	"github.com/Q-CIS-DEV/go-rql-parser"
+	"server/data/types"
+	"server/object/meta"
 	"strconv"
 	"strings"
 	"text/template"
-	"server/data/types"
-	"server/object/meta"
-	"server/object/description"
 )
 
 //https://doc.apsstandard.org/2.1/spec/rql/
@@ -169,7 +168,7 @@ func (ctx *context) argsToOpExpr(args []interface{}, sep string) (expr, error) {
 	}, nil
 }
 
-func argToFieldVal(arg interface{}, field *meta.FieldDescription) (interface{}, error) {
+func argToFieldVal(arg interface{}, field *meta.Field) (interface{}, error) {
 	switch value := arg.(type) {
 	case *rqlParser.RqlNode:
 		vf, ok := valueFuncs[strings.ToUpper(value.Op)]
@@ -181,7 +180,7 @@ func argToFieldVal(arg interface{}, field *meta.FieldDescription) (interface{}, 
 			return nil, err
 		}
 		if val != nil && !field.IsValueTypeValid(val) {
-			t, _ := field.Type.String()
+			t := field.Type.String()
 			return nil, NewRqlError(ErrRQLWrongValue, "Value '%s' is wrong. Expected: %s", value, t)
 		}
 		return val, nil
@@ -231,7 +230,7 @@ func not(ctx *context, args []interface{}) (expr, error) {
 	}, nil
 }
 
-type sqlOp func(*meta.FieldDescription, []interface{}) (string, error)
+type sqlOp func(*meta.Field, []interface{}) (string, error)
 
 //Assemble SQL for the given expression
 func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (expr, error) {
@@ -264,8 +263,8 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 		// process related object`s table join
 		// do it only if the current iteration is not that last, because the target field for the query can have the
 		// "LinkMeta"
-		if field.Type == description.FieldTypeGeneric {
-			if field.LinkType == description.LinkTypeInner {
+		if field.Type == meta.FieldTypeGeneric {
+			if field.LinkType == meta.LinkTypeInner {
 				//apply filtering by generic fields _object value and skip the next iteration
 				i++
 				if fieldPathParts[i] != types.GenericInnerLinkObjectKey {
@@ -276,7 +275,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 					expression.WriteString(" AND ")
 				}
 			}
-		} else if field.Type == description.FieldTypeObjects {
+		} else if field.Type == meta.FieldTypeObjects {
 			//query which uses "Objects" field has to be replaced with query using LinkThrough
 			//eg: object A has "Objects" relation "bs" which references B. Query like eq(bs.name,Fedor) will be replace
 			//with query eq(a__b_set.b.name,Fedor) and processed in the common way
@@ -289,7 +288,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 
 		//fieldPathParts[len(fieldPathParts)-1] != types.GenericInnerLinkObjectKey
 		if i != len(fieldPathParts)-1 {
-			currentNode.RecursivelyFillChildNodes(currentNode.Depth+1, description.FieldModeQuery)
+			currentNode.RecursivelyFillChildNodes(currentNode.Depth+1, meta.FieldModeQuery)
 
 			linkedMeta := ctx.getMetaToJoin(field, fieldPathParts[i:])
 			if linkedMeta != nil {
@@ -297,8 +296,8 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 				//fill in all the options required for join operation
 				exists := &Exists{Table: GetTableName(linkedMeta.Name), Alias: alias + field.Name, RightTableAlias: alias}
 				if field.OuterLinkField != nil {
-					exists.RightTableColumn = linkedMeta.Key.Name
-					if field.Type == description.FieldTypeGeneric {
+					exists.RightTableColumn = linkedMeta.Key
+					if field.Type == meta.FieldTypeGeneric {
 						exists.FK = meta.GetGenericFieldKeyColumnName(field.OuterLinkField.Name)
 						exists.GenericTypeField = meta.GetGenericFieldTypeColumnName(field.OuterLinkField.Name)
 						exists.GenericType = currentMeta.Name
@@ -306,13 +305,13 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 						exists.FK = field.OuterLinkField.Name
 					}
 				} else {
-					if field.Type == description.FieldTypeGeneric {
+					if field.Type == meta.FieldTypeGeneric {
 						//cast object PK to string, because join is performed by generic __id field, which has string type
-						exists.FK = linkedMeta.Key.Name + "::text"
+						exists.FK = linkedMeta.Key + "::text"
 						exists.RightTableColumn = meta.GetGenericFieldKeyColumnName(field.Name)
 					} else {
 						exists.RightTableColumn = field.Name
-						exists.FK = linkedMeta.Key.Name
+						exists.FK = linkedMeta.Key
 					}
 				}
 
@@ -323,17 +322,17 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 				}
 
 				expectedNode, ok := currentNode.ChildNodes.Get(field.Name)
-				if field.Type == description.FieldTypeGeneric {
-					if field.LinkType == description.LinkTypeInner {
+				if field.Type == meta.FieldTypeGeneric {
+					if field.LinkType == meta.LinkTypeInner {
 						expectedNode = &data.Node{
-							KeyField:       linkedMeta.Key,
+							KeyField:       linkedMeta.GetKey(),
 							Meta:           linkedMeta,
 							ChildNodes:     *data.NewChildNodes(),
 							Depth:          1,
 							OnlyLink:       false,
 							Parent:         nil,
 							Type:           data.NodeTypeRegular,
-							SelectFields:   *data.NewSelectFields(linkedMeta.Key, linkedMeta.TableFields()),
+							SelectFields:   *data.NewSelectFields(linkedMeta.GetKey(), linkedMeta.TableFields()),
 						}
 					}
 				}
@@ -350,7 +349,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 			}
 		} else {
 			var fieldName string
-			if field.Type == description.FieldTypeGeneric {
+			if field.Type == meta.FieldTypeGeneric {
 				fieldName = meta.GetGenericFieldTypeColumnName(field.Name)
 			} else {
 				fieldName = field.Name
@@ -380,15 +379,15 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 //get meta to join based on fieldDescription and query path
 //eg: queryPath is "target.a.name" and field is generic, then A meta should be returned
 //regular field case is straightforward
-func (ctx *context) getMetaToJoin(fieldDescription *meta.FieldDescription, queryPath []string) *meta.Meta {
-	if fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner {
-		return fieldDescription.LinkMetaList.GetByName(queryPath[0])
+func (ctx *context) getMetaToJoin(fieldDescription *meta.Field, queryPath []string) *meta.Meta {
+	if fieldDescription.Type == meta.FieldTypeGeneric && fieldDescription.LinkType == meta.LinkTypeInner {
+		return fieldDescription.GetLinkMetaByName(queryPath[0])
 	} else {
 		return fieldDescription.LinkMeta
 	}
 }
 
-func (ctx *context) sqlOpIN(field *meta.FieldDescription, args []interface{}) (string, error) {
+func (ctx *context) sqlOpIN(field *meta.Field, args []interface{}) (string, error) {
 	expression := bytes.NewBufferString("IN (")
 	if valuesNode, ok := args[0].(*rqlParser.RqlNode); ok {
 		//case of list of values
@@ -415,7 +414,7 @@ func (ctx *context) sqlOpIN(field *meta.FieldDescription, args []interface{}) (s
 }
 
 func (ctx *context) sqlOpSimple(op string) sqlOp {
-	return func(f *meta.FieldDescription, vals []interface{}) (string, error) {
+	return func(f *meta.Field, vals []interface{}) (string, error) {
 		v, err := argToFieldVal(vals[0], f)
 		if err != nil {
 			return "", err
@@ -498,7 +497,7 @@ func is_null(ctx *context, args []interface{}) (expr, error) {
 		 res = "IS NOT NULL"
 	}
 
-	return ctx.makeFieldExpression(args, func(f *meta.FieldDescription, vals []interface{}) (string, error) {
+	return ctx.makeFieldExpression(args, func(f *meta.Field, vals []interface{}) (string, error) {
 		return res, nil
 	})
 }
@@ -506,7 +505,7 @@ func is_null(ctx *context, args []interface{}) (expr, error) {
 func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error) {
 	var b bytes.Buffer
 	sorts := st.rootNode.Sort()
-	sorts = append(sorts, rqlParser.Sort{By: root.Meta.Key.Name, Desc: false})
+	sorts = append(sorts, rqlParser.Sort{By: root.Meta.Key, Desc: false})
 	for i := range sorts {
 		fieldDescription := root.Meta.FindField(sorts[i].By)
 		if fieldDescription == nil {

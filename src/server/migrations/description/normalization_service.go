@@ -3,13 +3,12 @@ package description
 import (
 	"server/errors"
 	"server/object/meta"
-	"server/object/description_manager"
+	"utils"
 
-	object_description "server/object/description"
-	"server/migrations/operations"
-	"server/pg/migrations/operations/object"
-	"server/pg/migrations/operations/field"
 	"server/migrations"
+	"server/migrations/operations"
+	"server/pg/migrations/operations/field"
+	"server/pg/migrations/operations/object"
 )
 
 type NormalizationMigrationsFactory struct {
@@ -17,7 +16,7 @@ type NormalizationMigrationsFactory struct {
 }
 
 //Factories additional migration descriptions to handle links` changes
-func (nmf *NormalizationMigrationsFactory) Factory(metaDescription *object_description.MetaDescription, operation operations.MigrationOperation) ([]*MigrationDescription, []*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) Factory(metaDescription *meta.Meta, operation operations.MigrationOperation) ([]*MigrationDescription, []*MigrationDescription, error) {
 	runBefore := make([]*MigrationDescription, 0)
 	runAfter := make([]*MigrationDescription, 0)
 	switch concreteOperation := operation.(type) {
@@ -35,13 +34,13 @@ func (nmf *NormalizationMigrationsFactory) Factory(metaDescription *object_descr
 		}
 		return runBefore, runAfter, nil
 	case *field.AddFieldOperation:
-		if childRunAfter, err := nmf.factoryAddGenericOuterLinkMigrationsForNewField(metaDescription.Name, concreteOperation.Field); err != nil {
+		if childRunAfter, err := nmf.factoryAddGenericOuterLinkMigrationsForNewField(metaDescription, concreteOperation.Field); err != nil {
 			return nil, nil, err
 		} else {
 			runAfter = append(runAfter, childRunAfter...)
 		}
 
-		if childRunAfter, err := nmf.factoryAddOuterLinkMigrationsForNewField(metaDescription.Name, concreteOperation.Field); err != nil {
+		if childRunAfter, err := nmf.factoryAddOuterLinkMigrationsForNewField(metaDescription, concreteOperation.Field); err != nil {
 			return nil, nil, err
 		} else {
 			runAfter = append(runAfter, childRunAfter...)
@@ -50,7 +49,7 @@ func (nmf *NormalizationMigrationsFactory) Factory(metaDescription *object_descr
 		runBefore = append(runBefore, nmf.factoryRemoveAutomaticallyAddedOuterField(metaDescription, concreteOperation.Field)...)
 		return runBefore, runAfter, nil
 	case *field.UpdateFieldOperation:
-		return nmf.factoryAddGenericOuterLinkMigrationsForUpdatedField(metaDescription.Name, concreteOperation.CurrentField, concreteOperation.NewField)
+		return nmf.factoryAddGenericOuterLinkMigrationsForUpdatedField(metaDescription, concreteOperation.CurrentField, concreteOperation.NewField)
 	case *object.RenameObjectOperation:
 		if childRunAfter, err := nmf.factoryUpdateGenericOuterLinkMigrationsForMeta(metaDescription, concreteOperation.MetaDescription); err != nil {
 			return runBefore, runAfter, err
@@ -77,10 +76,10 @@ func (nmf *NormalizationMigrationsFactory) Factory(metaDescription *object_descr
 }
 
 //check meta for inner links and spawn a migrations to create an outer link
-func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForMeta(metaDescription *object_description.MetaDescription) ([]*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForMeta(metaDescription *meta.Meta) ([]*MigrationDescription, error) {
 	spawnedMigrations := make([]*MigrationDescription, 0)
 	for i := range metaDescription.Fields {
-		if spawnedChildMigrations, err := nmf.factoryAddOuterLinkMigrationsForNewField(metaDescription.Name, &metaDescription.Fields[i]); err != nil {
+		if spawnedChildMigrations, err := nmf.factoryAddOuterLinkMigrationsForNewField(metaDescription, metaDescription.Fields[i]); err != nil {
 			return spawnedMigrations, err
 		} else {
 			spawnedMigrations = append(spawnedMigrations, spawnedChildMigrations...)
@@ -90,23 +89,25 @@ func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForMeta(
 }
 
 //check meta for inner links and spawn a migrations to create an outer link
-func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForNewField(metaName string, field *object_description.Field, ) ([]*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForNewField(metaName *meta.Meta, field *meta.Field, ) ([]*MigrationDescription, error) {
 	spawnedMigrations := make([]*MigrationDescription, 0)
-	if field.Type == object_description.FieldTypeObject && field.LinkType == object_description.LinkTypeInner {
-		linkMetaDescription, _, err := nmf.metaDescriptionSyncer.Get(field.LinkMeta)
+	if field.Type == meta.FieldTypeObject && field.LinkType == meta.LinkTypeInner {
+		linkMetaMap, _, err := nmf.metaDescriptionSyncer.Get(field.LinkMeta.Name)
 		if err != nil {
 			return nil, err
 		}
 
+		linkMetaDescription := meta.NewMetaFromMap(linkMetaMap)
+
 		//add reverse outer
-		fieldName := meta.ReverseInnerLinkName(metaName)
+		fieldName := meta.ReverseInnerLinkName(metaName.Name)
 		//automatically added outer field should only be available for querying
-		outerField := object_description.Field{
+		outerField := meta.Field{
 			Name:           fieldName,
-			Type:           object_description.FieldTypeArray,
-			LinkType:       object_description.LinkTypeOuter,
+			Type:           meta.FieldTypeArray,
+			LinkType:       meta.LinkTypeOuter,
 			LinkMeta:       metaName,
-			OuterLinkField: field.Name,
+			OuterLinkField: field,
 			Optional:       true,
 			QueryMode:      true,
 			RetrieveMode:   false,
@@ -131,14 +132,14 @@ func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForNewFi
 }
 
 //check meta for inner links and spawn a migrations to update references to meta and their names if they were generated automatically
-func (nmf *NormalizationMigrationsFactory) factoryUpdateOuterLinkMigrationsForMeta(currentMetaDescription *object_description.MetaDescription, newMetaDescription *object_description.MetaDescription) ([]*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) factoryUpdateOuterLinkMigrationsForMeta(currentMetaDescription *meta.Meta, newMetaDescription *meta.Meta) ([]*MigrationDescription, error) {
 	spawnedMigrations := make([]*MigrationDescription, 0)
 	for _, field := range currentMetaDescription.Fields {
-		if field.Type == object_description.FieldTypeObject && field.LinkType == object_description.LinkTypeInner {
-			outerField := new(description_manager.MetaDescriptionManager).ReverseOuterField(currentMetaDescription.Name, &field, nmf.metaDescriptionSyncer)
+		if field.Type == meta.FieldTypeObject && field.LinkType == meta.LinkTypeInner {
+			outerField := new(meta.MetaDescriptionManager).ReverseOuterField(currentMetaDescription.Name, field, nmf.metaDescriptionSyncer)
 
 			updatedField := outerField.Clone()
-			updatedField.LinkMeta = newMetaDescription.Name
+			updatedField.LinkMeta = newMetaDescription
 
 			if outerField.Name == meta.ReverseInnerLinkName(currentMetaDescription.Name) { //field is automatically generated
 				updatedField.Name = meta.ReverseInnerLinkName(newMetaDescription.Name)
@@ -149,7 +150,7 @@ func (nmf *NormalizationMigrationsFactory) factoryUpdateOuterLinkMigrationsForMe
 				Field: &MigrationFieldDescription{Field: *updatedField, PreviousName: outerField.Name},
 			}
 			spawnedMigrations = append(spawnedMigrations, &MigrationDescription{
-				ApplyTo:    field.LinkMeta,
+				ApplyTo:    field.LinkMeta.Name,
 				Operations: []MigrationOperationDescription{updateFieldOperationDescription},
 			})
 
@@ -160,13 +161,13 @@ func (nmf *NormalizationMigrationsFactory) factoryUpdateOuterLinkMigrationsForMe
 
 //if an outer link field is explicitly specified and automatically created outer field exists
 //this existing field should be removed first
-func (nmf *NormalizationMigrationsFactory) factoryRemoveAutomaticallyAddedOuterField(metaDescription *object_description.MetaDescription, fieldToAdd *object_description.Field) []*MigrationDescription {
-	var existingOuterField *object_description.Field
-	if fieldToAdd.LinkType == object_description.LinkTypeOuter {
+func (nmf *NormalizationMigrationsFactory) factoryRemoveAutomaticallyAddedOuterField(metaDescription *meta.Meta, fieldToAdd *meta.Field) []*MigrationDescription {
+	var existingOuterField *meta.Field
+	if fieldToAdd.LinkType == meta.LinkTypeOuter {
 		for i, field := range metaDescription.Fields {
 			if field.OuterLinkField == fieldToAdd.OuterLinkField && field.LinkMeta == fieldToAdd.LinkMeta {
 				if field.Type == fieldToAdd.Type {
-					existingOuterField = &metaDescription.Fields[i]
+					existingOuterField = metaDescription.Fields[i]
 				}
 			}
 		}
@@ -186,18 +187,18 @@ func (nmf *NormalizationMigrationsFactory) factoryRemoveAutomaticallyAddedOuterF
 	return []*MigrationDescription{}
 }
 
-func (nmf *NormalizationMigrationsFactory) factoryRemoveOuterLinkMigrationsForMeta(metaDescription *object_description.MetaDescription) []*MigrationDescription {
+func (nmf *NormalizationMigrationsFactory) factoryRemoveOuterLinkMigrationsForMeta(metaDescription *meta.Meta) []*MigrationDescription {
 	spawnedMigrationDescriptions := make([]*MigrationDescription, 0)
 	for _, field := range metaDescription.Fields {
-		spawnedMigrationDescriptions = append(spawnedMigrationDescriptions, nmf.factoryRemoveOuterLinkMigrationsForRemovedField(metaDescription, &field)...)
+		spawnedMigrationDescriptions = append(spawnedMigrationDescriptions, nmf.factoryRemoveOuterLinkMigrationsForRemovedField(metaDescription, field)...)
 	}
 	return spawnedMigrationDescriptions
 }
 
-func (nmf *NormalizationMigrationsFactory) factoryRemoveOuterLinkMigrationsForRemovedField(metaDescription *object_description.MetaDescription, field *object_description.Field) []*MigrationDescription {
+func (nmf *NormalizationMigrationsFactory) factoryRemoveOuterLinkMigrationsForRemovedField(metaDescription *meta.Meta, field *meta.Field) []*MigrationDescription {
 	spawnedMigrationDescriptions := make([]*MigrationDescription, 0)
-	if field.Type == object_description.FieldTypeObject && field.LinkType == object_description.LinkTypeInner {
-		outerField := new(description_manager.MetaDescriptionManager).ReverseOuterField(metaDescription.Name, field, nmf.metaDescriptionSyncer)
+	if field.Type == meta.FieldTypeObject && field.LinkType == meta.LinkTypeInner {
+		outerField := new(meta.MetaDescriptionManager).ReverseOuterField(metaDescription.Name, field, nmf.metaDescriptionSyncer)
 		removeFieldOperationDescription := MigrationOperationDescription{
 			Type:  RemoveFieldOperation,
 			Field: &MigrationFieldDescription{Field: *outerField, PreviousName: ""},
@@ -205,7 +206,7 @@ func (nmf *NormalizationMigrationsFactory) factoryRemoveOuterLinkMigrationsForRe
 		spawnedMigrationDescriptions = append(
 			spawnedMigrationDescriptions,
 			&MigrationDescription{
-				ApplyTo:    field.LinkMeta,
+				ApplyTo:    field.LinkMeta.Name,
 				Operations: []MigrationOperationDescription{removeFieldOperationDescription},
 			},
 		)
@@ -214,10 +215,10 @@ func (nmf *NormalizationMigrationsFactory) factoryRemoveOuterLinkMigrationsForRe
 }
 
 //check meta for generic inner links and spawn a migrations to create an outer link
-func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsForMeta(metaDescription *object_description.MetaDescription) ([]*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsForMeta(metaDescription *meta.Meta) ([]*MigrationDescription, error) {
 	spawnedMigrations := make([]*MigrationDescription, 0)
 	for _, field := range metaDescription.Fields {
-		if migrations, err := nmf.factoryAddGenericOuterLinkMigrationsForNewField(metaDescription.Name, &field); err != nil {
+		if migrations, err := nmf.factoryAddGenericOuterLinkMigrationsForNewField(metaDescription, field); err != nil {
 			return nil, err
 		} else {
 			spawnedMigrations = append(spawnedMigrations, migrations...)
@@ -227,26 +228,29 @@ func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsF
 }
 
 //check if field is a generic inner link and spawn a migration to create an outer link
-func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsForNewField(metaName string, field *object_description.Field) ([]*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsForNewField(metaName *meta.Meta, field *meta.Field) ([]*MigrationDescription, error) {
 	spawnedMigrations := make([]*MigrationDescription, 0)
-	if field.Type == object_description.FieldTypeGeneric && field.LinkType == object_description.LinkTypeInner {
+	if field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeInner {
 		//add reverse outer link for each referenced meta
 		for _, linkMetaName := range field.LinkMetaList {
-			fieldName := meta.ReverseInnerLinkName(metaName)
-			linkMetaDescription, _, err := nmf.metaDescriptionSyncer.Get(linkMetaName)
+			fieldName := meta.ReverseInnerLinkName(metaName.Name)
+			linkMetaMap, _, err := nmf.metaDescriptionSyncer.Get(linkMetaName.Name)
 			if err != nil {
 				return nil, err
 			}
+
+			linkMetaDescription := meta.NewMetaFromMap(linkMetaMap)
+
 			if linkMetaDescription.FindField(fieldName) != nil {
 				continue
 			}
 
-			outerField := object_description.Field{
+			outerField := meta.Field{
 				Name:           fieldName,
-				Type:           object_description.FieldTypeGeneric,
-				LinkType:       object_description.LinkTypeOuter,
+				Type:           meta.FieldTypeGeneric,
+				LinkType:       meta.LinkTypeOuter,
 				LinkMeta:       metaName,
-				OuterLinkField: field.Name,
+				OuterLinkField: field,
 				Optional:       true,
 				QueryMode:      true,
 				RetrieveMode:   false,
@@ -270,14 +274,14 @@ func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsF
 }
 
 //check meta for generic inner links and spawn a migrations to update references to meta and their names if they were generated automatically
-func (nmf *NormalizationMigrationsFactory) factoryUpdateGenericOuterLinkMigrationsForMeta(currentMetaDescription *object_description.MetaDescription, newMetaDescription *object_description.MetaDescription) ([]*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) factoryUpdateGenericOuterLinkMigrationsForMeta(currentMetaDescription *meta.Meta, newMetaDescription *meta.Meta) ([]*MigrationDescription, error) {
 	spawnedMigrations := make([]*MigrationDescription, 0)
 	for _, field := range currentMetaDescription.Fields {
-		if field.Type == object_description.FieldTypeGeneric && field.LinkType == object_description.LinkTypeInner {
-			for linkMetaName, outerField := range new(description_manager.MetaDescriptionManager).ReverseGenericOuterFields(currentMetaDescription.Name, &field, nmf.metaDescriptionSyncer) {
+		if field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeInner {
+			for linkMetaName, outerField := range new(meta.MetaDescriptionManager).ReverseGenericOuterFields(currentMetaDescription.Name, field, nmf.metaDescriptionSyncer) {
 
 				updatedField := outerField.Clone()
-				updatedField.LinkMeta = newMetaDescription.Name
+				updatedField.LinkMeta = newMetaDescription
 
 				if outerField.Name == meta.ReverseInnerLinkName(currentMetaDescription.Name) { //field is automatically generated
 					updatedField.Name = meta.ReverseInnerLinkName(newMetaDescription.Name)
@@ -299,24 +303,24 @@ func (nmf *NormalizationMigrationsFactory) factoryUpdateGenericOuterLinkMigratio
 
 //check if field is a generic inner link and spawn a migration to create or remove an outer link
 //TODO: now it does not handle case of type`s change
-func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsForUpdatedField(metaName string, currentField *object_description.Field, newField *object_description.Field) ([]*MigrationDescription, []*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsForUpdatedField(metaName *meta.Meta, currentField *meta.Field, newField *meta.Field) ([]*MigrationDescription, []*MigrationDescription, error) {
 	runAfter := make([]*MigrationDescription, 0)
 	runBefore := make([]*MigrationDescription, 0)
 
-	if currentField.Type == object_description.FieldTypeGeneric && currentField.LinkType == object_description.LinkTypeInner {
-		if newField.Type == object_description.FieldTypeGeneric && newField.LinkType == object_description.LinkTypeInner {
+	if currentField.Type == meta.FieldTypeGeneric && currentField.LinkType == meta.LinkTypeInner {
+		if newField.Type == meta.FieldTypeGeneric && newField.LinkType == meta.LinkTypeInner {
 			//if field has already been added
 
-			excludedMetaNames := currentField.LinkMetaList.Diff(newField.LinkMetaList)
-			includedMetaNames := newField.LinkMetaList.Diff(currentField.LinkMetaList)
+			excludedMetaNames := utils.Diff(currentField.GetLinkMetaListNames(), newField.GetLinkMetaListNames())
+			includedMetaNames := utils.Diff(newField.GetLinkMetaListNames(), currentField.GetLinkMetaListNames())
 
 			for _, excludedMetaName := range excludedMetaNames {
-				outerField := object_description.Field{
-					Name:           meta.ReverseInnerLinkName(metaName),
-					Type:           object_description.FieldTypeGeneric,
-					LinkType:       object_description.LinkTypeOuter,
+				outerField := meta.Field{
+					Name:           meta.ReverseInnerLinkName(metaName.Name),
+					Type:           meta.FieldTypeGeneric,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       metaName,
-					OuterLinkField: newField.Name,
+					OuterLinkField: newField,
 					Optional:       true,
 					QueryMode:      true,
 					RetrieveMode:   false,
@@ -336,12 +340,12 @@ func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsF
 			}
 
 			for _, includedMetaName := range includedMetaNames {
-				outerField := object_description.Field{
-					Name:           meta.ReverseInnerLinkName(metaName),
-					Type:           object_description.FieldTypeGeneric,
-					LinkType:       object_description.LinkTypeOuter,
+				outerField := meta.Field{
+					Name:           meta.ReverseInnerLinkName(metaName.Name),
+					Type:           meta.FieldTypeGeneric,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       metaName,
-					OuterLinkField: newField.Name,
+					OuterLinkField: newField,
 					Optional:       true,
 					QueryMode:      true,
 					RetrieveMode:   false,
@@ -367,18 +371,18 @@ func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsF
 	return runBefore, runAfter, nil
 }
 
-func (nmf *NormalizationMigrationsFactory) factoryRemoveGenericOuterLinkMigrationsForMeta(metaDescription *object_description.MetaDescription) []*MigrationDescription {
+func (nmf *NormalizationMigrationsFactory) factoryRemoveGenericOuterLinkMigrationsForMeta(metaDescription *meta.Meta) []*MigrationDescription {
 	spawnedMigrationDescriptions := make([]*MigrationDescription, 0)
 	for _, field := range metaDescription.Fields {
-		spawnedMigrationDescriptions = append(spawnedMigrationDescriptions, nmf.factoryRemoveGenericOuterLinkMigrationsForRemovedField(metaDescription, &field)...)
+		spawnedMigrationDescriptions = append(spawnedMigrationDescriptions, nmf.factoryRemoveGenericOuterLinkMigrationsForRemovedField(metaDescription, field)...)
 	}
 	return spawnedMigrationDescriptions
 }
 
-func (nmf *NormalizationMigrationsFactory) factoryRemoveGenericOuterLinkMigrationsForRemovedField(metaDescription *object_description.MetaDescription, field *object_description.Field) []*MigrationDescription {
+func (nmf *NormalizationMigrationsFactory) factoryRemoveGenericOuterLinkMigrationsForRemovedField(metaDescription *meta.Meta, field *meta.Field) []*MigrationDescription {
 	spawnedMigrationDescriptions := make([]*MigrationDescription, 0)
-	if field.Type == object_description.FieldTypeGeneric && field.LinkType == object_description.LinkTypeInner {
-		for linkMetaName, outerFieldDescription := range new(description_manager.MetaDescriptionManager).ReverseGenericOuterFields(metaDescription.Name, field, nmf.metaDescriptionSyncer) {
+	if field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeInner {
+		for linkMetaName, outerFieldDescription := range new(meta.MetaDescriptionManager).ReverseGenericOuterFields(metaDescription.Name, field, nmf.metaDescriptionSyncer) {
 			removeFieldOperationDescription := MigrationOperationDescription{
 				Type:  RemoveFieldOperation,
 				Field: &MigrationFieldDescription{Field: *outerFieldDescription, PreviousName: ""},

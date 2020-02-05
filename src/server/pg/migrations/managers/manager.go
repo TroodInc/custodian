@@ -12,7 +12,6 @@ import (
 	_migrations "server/migrations"
 	migrations_description "server/migrations/description"
 	"server/migrations/migrations"
-	"server/object/description"
 	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/operations/object"
@@ -43,7 +42,7 @@ func (mm *MigrationManager) List(filter string) ([]*record.Record, error) {
 	return appliedMigrations, err
 }
 
-func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool, fake bool) (updatedMetaDescription *description.MetaDescription, err error) {
+func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool, fake bool) (updatedMetaDescription *meta.Meta, err error) {
 	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryForward(migrationDescription)
 
 	if err := mm.canApplyMigration(migration); err != nil {
@@ -59,13 +58,13 @@ func (mm *MigrationManager) Apply(migrationDescription *migrations_description.M
 }
 
 //Rollback object to the given migration`s state
-func (mm *MigrationManager) RollBackTo(migrationId string, shouldRecord bool, fake bool) (*description.MetaDescription, error) {
+func (mm *MigrationManager) RollBackTo(migrationId string, shouldRecord bool, fake bool) (*meta.Meta, error) {
 	subsequentMigrations, err := mm.getSubsequentMigrations(migrationId)
 	if err != nil {
 		return nil, err
 	}
 
-	var updatedMetaDescription *description.MetaDescription
+	var updatedMetaDescription *meta.Meta
 	for _, subsequentMigration := range subsequentMigrations {
 		if err != nil {
 			return nil, err
@@ -91,9 +90,9 @@ func (mm *MigrationManager) RollBackTo(migrationId string, shouldRecord bool, fa
 	return updatedMetaDescription, nil
 }
 
-func (mm *MigrationManager) rollback(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
+func (mm *MigrationManager) rollback(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool) (updatedMetaDescription *meta.Meta, err error) {
 	//Get a state which an object was in
-	var previousMetaDescriptionState *description.MetaDescription
+	var previousMetaDescriptionState *meta.Meta
 	if len(migrationDescription.DependsOn) > 0 {
 		parentMigrationRecord, err := mm.Get(migrationDescription.DependsOn[0])
 		if err != nil {
@@ -117,14 +116,14 @@ func (mm *MigrationManager) rollback(migrationDescription *migrations_descriptio
 	return mm.runMigration(migration, shouldRecord, false)
 }
 
-func (mm *MigrationManager) runMigration(migration *migrations.Migration, shouldRecord bool, fake bool) (updatedMetaDescription *description.MetaDescription, err error) {
+func (mm *MigrationManager) runMigration(migration *migrations.Migration, shouldRecord bool, fake bool) (updatedMetaDescription *meta.Meta, err error) {
 	for _, spawnedMigrationDescription := range migration.RunBefore {
 		if _, err := mm.Apply(spawnedMigrationDescription, false, fake); err != nil { //do not record applied spawned migrations, because of their ephemeral nature
 			return nil, err
 		}
 	}
 
-	var metaDescriptionToApply *description.MetaDescription
+	var metaDescriptionToApply *meta.Meta
 
 	//metaDescription should be retrieved again because it may mutate during runBefore migrations(eg automatically added outer link was removed)
 	if migration.ApplyTo != nil {
@@ -181,7 +180,7 @@ func (mm *MigrationManager) DropHistory() error {
 	}
 
 	transaction, err := mm.globalTransactionManager.DbTransactionManager.BeginTransaction()
-	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.migrationStore.MetaDescriptionSyncer)
+	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta, transaction, mm.migrationStore.MetaDescriptionSyncer)
 	if err != nil {
 		mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 		return err
@@ -341,7 +340,7 @@ func (mm *MigrationManager) ensureHistoryTableExists() (*meta.Meta, error) {
 	}
 
 	if doesNotExist {
-		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, transaction, mm.migrationStore.MetaDescriptionSyncer); err != nil {
+		if err = object.NewCreateObjectOperation(historyMeta).SyncDbDescription(nil, transaction, mm.migrationStore.MetaDescriptionSyncer); err != nil {
 			mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 			return nil, err
 		}
@@ -404,39 +403,39 @@ func (mm *MigrationManager) migrationParentIsValid(migration *migrations.Migrati
 }
 
 func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
-	historyMetaDescription := &description.MetaDescription{
+	historyMetaDescription := &meta.Meta{
 		Name: historyMetaName,
 		Key:  "migration_id",
-		Fields: []description.Field{
+		Fields: []*meta.Field{
 			{
 				Name:     "object",
-				Type:     description.FieldTypeString,
+				Type:     meta.FieldTypeString,
 				Optional: false,
 			}, {
 				Name:     "migration_id",
-				Type:     description.FieldTypeString,
+				Type:     meta.FieldTypeString,
 				Optional: false,
 			}, {
 				Name:     "predecessor_id",
-				Type:     description.FieldTypeString,
+				Type:     meta.FieldTypeString,
 				Optional: false,
 			}, {
-				Name:      "created",
-				Type:        description.FieldTypeDateTime,
+				Name:        "created",
+				Type:        meta.FieldTypeDateTime,
 				NowOnCreate: true,
 			}, {
 				Name: "order",
-				Type: description.FieldTypeNumber,
+				Type: meta.FieldTypeNumber,
 				Def: map[string]interface{}{
 					"func": "nextval",
 				},
 			}, {
-				Name: "operations",
-				Type: description.FieldTypeString,
+				Name:     "operations",
+				Type:     meta.FieldTypeString,
 				Optional: false,
 			}, {
-				Name: "meta_state",
-				Type: description.FieldTypeString,
+				Name:     "meta_state",
+				Type:     meta.FieldTypeString,
 				Optional: false,
 			},
 		},

@@ -7,9 +7,7 @@ import (
 	"log"
 	"logger"
 	"server/errors"
-	"server/object/description"
 	"server/object/meta"
-	"server/object/v2_meta"
 	"server/transactions"
 	"time"
 )
@@ -57,7 +55,7 @@ func (syncer *Syncer) NewDataManager() (*DataManager, error) {
 	return NewDataManager(syncer.db)
 }
 
-func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) error {
+func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) error {
 	tx := transaction.Transaction().(*sql.Tx)
 	var md *MetaDDL
 	var e error
@@ -73,27 +71,6 @@ func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDesc
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
 			return &DDLError{table: metaDescription.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
-		}
-	}
-	return nil
-}
-
-func (syncer *Syncer) V2CreateObj(transaction transactions.DbTransaction, meta *v2_meta.V2Meta, descriptionSyncer meta.MetaDescriptionSyncer) error {
-	tx := transaction.Transaction().(*sql.Tx)
-	var md *MetaDDL
-	var e error
-	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
-	if md, e = metaDdlFactory.V2Factory(meta); e != nil {
-		return e
-	}
-	var ds DdlStatementSet
-	if ds, e = md.CreateScript(); e != nil {
-		return e
-	}
-	for _, st := range ds {
-		logger.Debug("Creating object in DB: %syncer\n", st.Code)
-		if _, e := tx.Exec(st.Code); e != nil {
-			return &DDLError{table: meta.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
 		}
 	}
 	return nil
@@ -124,7 +101,7 @@ func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name str
 }
 
 //UpdateRecord an existing business object
-func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentMetaDescription *description.MetaDescription, newMetaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) error {
+func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentMetaDescription *meta.Meta, newMetaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) error {
 	tx := transaction.(*PgTransaction)
 	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
 	var err error
@@ -155,7 +132,7 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentM
 }
 
 //Calculates the difference between the given and the existing business object in the database
-func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) (DdlStatementSet, error) {
+func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) (DdlStatementSet, error) {
 	tx := transaction.(*PgTransaction)
 	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
 	newMetaDdl, e := metaDdlFactory.Factory(metaDescription)
@@ -177,7 +154,7 @@ func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaDe
 
 }
 
-func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) error {
+func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) error {
 	tx := transaction.(*PgTransaction)
 	ddlStatements, e := syncer.diffScripts(tx, metaDescription, descriptionSyncer)
 	if e != nil {
@@ -194,7 +171,7 @@ func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDe
 
 //Check if the given business object equals to the corresponding one stored in the database.
 //The validation fails if the given business object is different
-func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, metaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) (bool, error) {
+func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, metaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) (bool, error) {
 	ddlStatements, e := syncer.diffScripts(transaction, metaDescription, descriptionSyncer)
 	if e != nil {
 		return false, e

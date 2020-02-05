@@ -1,64 +1,107 @@
 package meta
 
 import (
-	"encoding/json"
-	. "server/object/description"
-	"server/object/v2_meta"
+	"github.com/getlantern/deepcopy"
+	"server/data/notifications"
 	"server/transactions"
 	"utils"
 )
 
 //Object metadata description.
 type Meta struct {
-	*MetaDescription
-	Key       *FieldDescription
-	Fields    []FieldDescription
+	Name    string                  `json:"name"`
+	Key     string                  `json:"key"`
+	Fields  []*Field                `json:"fields"`
+	Actions []*notifications.Action `json:"actions,omitempty"`
+	Cas     bool                    `json:"cas"`
 }
 
-func (m *Meta) FindField(name string) *FieldDescription {
-	for i, _ := range m.Fields {
-		if m.Fields[i].Name == name {
-			return &m.Fields[i]
+
+func NewMeta(name string, key string, fields []*Field, actions []*notifications.Action, cas bool) *Meta {
+	return &Meta{Name: name, Key: key, Fields: fields, Actions: actions, Cas: cas}
+}
+
+func NewMetaFromMap(object map[string]interface{}) *Meta {
+	result := &Meta{
+		Name:    object["name"].(string),
+		Key:     object["key"].(string),
+		Fields:  nil,
+		Actions: nil,
+		Cas:     object["cas"].(bool),
+	}
+
+	for _, field := range object["fields"].([]interface{}) {
+		result.Fields = append(result.Fields, NewFieldFromMap(field.(map[string]interface{})))
+	}
+
+	return result
+}
+
+func (m *Meta) Clone() *Meta {
+	metaDescription := new(Meta)
+	deepcopy.Copy(metaDescription, m)
+	return metaDescription
+}
+
+func (m *Meta) FindAction(actionName string) *notifications.Action {
+	for _, action := range m.Actions {
+		if action.Name == actionName {
+			return action
 		}
 	}
 	return nil
 }
 
-func V2FindField(fields []*Field, fieldName string) *Field {
-	for _, field := range fields {
-		if field.Name == fieldName {
+func (m *Meta) ForExport() map[string]interface{} {
+	result := map[string]interface{}{
+		"name": m.Name,
+		"key":  m.Key,
+		"cas":  m.Cas,
+		"fields": make([]map[string]interface{}, 0),
+		"actions": make([]map[string]interface{}, 0),
+	}
+
+	for _, field := range m.Fields {
+		result["fields"] = append(result["fields"].([]map[string]interface{}), field.ForExport())
+	}
+
+	return result
+}
+
+// TODO: Refactor fields storage to Map ...
+func (m *Meta) GetKey() *Field {
+	return m.FindField(m.Key)
+}
+
+func (m *Meta) FindField(name string) *Field {
+	for _, field := range m.Fields {
+		if field.Name == name {
 			return field
 		}
 	}
 	return nil
 }
+// <---
 
-func (m *Meta) AddField(fieldDescription FieldDescription) *FieldDescription {
-	m.Fields = append(m.Fields, fieldDescription)
-	m.MetaDescription.Fields = append(m.MetaDescription.Fields, *fieldDescription.Field)
-	return nil
+func (m *Meta) AddField(field *Field) {
+	m.Fields = append(m.Fields, field)
 }
 
 //Returns a list of fields which are presented in the DB
-func (m *Meta) TableFields() []*FieldDescription {
-	fields := make([]*FieldDescription, 0)
-	l := len(m.Fields)
-	for i := 0; i < l; i++ {
-		if m.Fields[i].LinkType != LinkTypeOuter && m.Fields[i].Type != FieldTypeObjects {
-			fields = append(fields, &m.Fields[i])
+func (m *Meta) TableFields() []*Field {
+	fields := make([]*Field, 0)
+	for _, field := range m.Fields{
+		if field.LinkType != LinkTypeOuter && field.Type != FieldTypeObjects {
+			fields = append(fields, field)
 		}
 	}
 	return fields
 }
 
-func (m *Meta) MarshalJSON() ([]byte, error) {
-	return json.Marshal(m.MetaDescription)
-}
-
-func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
-	isSimpleFieldWithSameTypeAsPk := f.IsSimple() && f.Type == m.Key.Type
+func (f *Field) canBeLinkTo(m *Meta) bool {
+	isSimpleFieldWithSameTypeAsPk := f.IsSimple() && f.Type == m.FindField(m.Key).Type
 	isInnerLinkToMeta := f.Type == FieldTypeObject && f.LinkMeta.Name == m.Name && f.LinkType == LinkTypeInner
-	isGenericInnerLinkToMeta := f.Type == FieldTypeGeneric && f.LinkType == LinkTypeInner && utils.Contains(f.Field.LinkMetaList, m.Name)
+	isGenericInnerLinkToMeta := f.Type == FieldTypeGeneric && f.LinkType == LinkTypeInner && utils.Contains(f.GetLinkMetaListNames(), m.Name)
 	canBeLinkTo := isSimpleFieldWithSameTypeAsPk || isInnerLinkToMeta || isGenericInnerLinkToMeta
 	return canBeLinkTo
 }
@@ -68,22 +111,20 @@ func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
 */
 
 type MetaDescriptionSyncer interface {
-	List() ([]*MetaDescription, bool, error)
-	Get(name string) (*MetaDescription, bool, error)
-	Create(fileTransaction transactions.MetaDescriptionTransaction, m MetaDescription) error
-	V2Create(fileTransaction transactions.MetaDescriptionTransaction, m *v2_meta.V2Meta) error
+	List() ([]map[string]interface{}, bool, error)
+	Get(name string) (map[string]interface{}, bool, error)
+	Create(transaction transactions.MetaDescriptionTransaction, name string, m map[string]interface{}) error
 	Remove(name string) (bool, error)
-	Update(name string, m MetaDescription) (bool, error)
+	Update(name string, m map[string]interface{}) (bool, error)
 }
 
 type MetaDbSyncer interface {
-	CreateObj(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
-	V2CreateObj(transactions.DbTransaction, *v2_meta.V2Meta, MetaDescriptionSyncer) error
+	CreateObj(transactions.DbTransaction, *Meta, MetaDescriptionSyncer) error
 	RemoveObj(transactions.DbTransaction, string, bool) error
-	UpdateObj(transactions.DbTransaction, *MetaDescription, *MetaDescription, MetaDescriptionSyncer) error
-	UpdateObjTo(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
-	ValidateObj(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) (bool, error)
+	UpdateObj(transactions.DbTransaction, *Meta, *Meta, MetaDescriptionSyncer) error
+	UpdateObjTo(transactions.DbTransaction, *Meta, MetaDescriptionSyncer) error
+	ValidateObj(transactions.DbTransaction, *Meta, MetaDescriptionSyncer) (bool, error)
 	BeginTransaction() (transactions.DbTransaction, error)
-	CommitTransaction(transactions.DbTransaction) (error)
-	RollbackTransaction(transactions.DbTransaction) (error)
+	CommitTransaction(transactions.DbTransaction) error
+	RollbackTransaction(transactions.DbTransaction) error
 }

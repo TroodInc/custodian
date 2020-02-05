@@ -1,22 +1,21 @@
 package object
 
 import (
-	"server/migrations/operations/object"
 	"database/sql"
-	"server/pg"
-	"logger"
-	"server/transactions"
 	"fmt"
-	"server/pg/migrations/operations/statement_factories"
-	"server/object/description"
+	"logger"
+	"server/migrations/operations/object"
 	"server/object/meta"
+	"server/pg"
+	"server/pg/migrations/operations/statement_factories"
+	"server/transactions"
 )
 
 type RenameObjectOperation struct {
 	object.RenameObjectOperation
 }
 
-func (o *RenameObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *RenameObjectOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	//rename table
@@ -35,7 +34,7 @@ func (o *RenameObjectOperation) SyncDbDescription(metaDescription *description.M
 		if err != nil {
 			return err
 		}
-		_, _, _, currentSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(&currentField, metaDescription.Name, metaDescription.Key)
+		_, _, _, currentSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(currentField, metaDescription.Name, metaDescription.Key)
 		if err != nil {
 			return err
 		}
@@ -75,6 +74,6 @@ func (o *RenameObjectOperation) factorySequenceStatements(statementSet *pg.DdlSt
 	return nil
 }
 
-func NewRenameObjectOperation(metaDescription *description.MetaDescription) *RenameObjectOperation {
+func NewRenameObjectOperation(metaDescription *meta.Meta) *RenameObjectOperation {
 	return &RenameObjectOperation{RenameObjectOperation: object.RenameObjectOperation{MetaDescription: metaDescription}}
 }

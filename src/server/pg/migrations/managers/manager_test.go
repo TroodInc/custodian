@@ -1,16 +1,16 @@
 package managers
 
 import (
+	"database/sql"
 	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"server/migrations/description"
+	"server/migrations/migrations"
+	"server/object/meta"
 	"server/pg"
+	pg_transactions "server/pg/transactions"
 	"server/transactions"
 	"utils"
-	pg_transactions "server/pg/transactions"
-	. "github.com/onsi/gomega"
-	"database/sql"
-	"server/migrations/migrations"
-	"server/migrations/description"
-	"server/object/meta"
 )
 
 var _ = Describe("MigrationManager", func() {
@@ -18,12 +18,12 @@ var _ = Describe("MigrationManager", func() {
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 	//transaction managers
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(nil, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	It("Creates migration history table if it does not exists", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()

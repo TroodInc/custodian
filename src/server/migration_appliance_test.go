@@ -7,35 +7,34 @@ import (
 	"net/http/httptest"
 	"server/pg"
 	"utils"
-	"server/transactions/file_transaction"
+
+	"bytes"
+	"encoding/json"
+	"fmt"
+	"server"
 
 	"server/object/meta"
+	"server/pg/migrations/managers"
+	"server/pg/migrations/operations/object"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server"
-	"encoding/json"
-	"bytes"
-	"fmt"
-	"server/object/description"
-	"server/pg/migrations/operations/object"
-	"server/pg/migrations/managers"
 )
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -182,10 +181,10 @@ var _ = Describe("Server", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -217,7 +216,7 @@ var _ = Describe("Server", func() {
 						"fields": []map[string]interface{}{
 							{
 								"name": "id",
-								"type": description.FieldTypeNumber,
+								"type": meta.FieldTypeNumber,
 								"default": map[string]interface{}{
 									"func": "nextval",
 								},
@@ -257,10 +256,10 @@ var _ = Describe("Server", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -292,7 +291,7 @@ var _ = Describe("Server", func() {
 						"fields": []map[string]interface{}{
 							{
 								"name": "id",
-								"type": description.FieldTypeNumber,
+								"type": meta.FieldTypeNumber,
 								"default": map[string]interface{}{
 									"func": "nextval",
 								},
@@ -332,10 +331,10 @@ var _ = Describe("Server", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -399,17 +398,17 @@ var _ = Describe("Server", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name: "some_field",
-					Type: description.FieldTypeString,
+					Type: meta.FieldTypeString,
 					Def:  "def-string",
 				},
 			},
@@ -473,17 +472,17 @@ var _ = Describe("Server", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name: "some_field",
-					Type: description.FieldTypeString,
+					Type: meta.FieldTypeString,
 					Def:  "def-string",
 				},
 			},

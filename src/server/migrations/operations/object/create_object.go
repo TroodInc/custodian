@@ -3,14 +3,13 @@ package object
 import (
 	"server/object/meta"
 	"server/transactions"
-	"server/object/description"
 )
 
 type CreateObjectOperation struct {
-	MetaDescription *description.MetaDescription
+	MetaDescription *meta.Meta
 }
 
-func (o *CreateObjectOperation) SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+func (o *CreateObjectOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	//sync its MetaDescription
 	if err := metaDescriptionSyncer.Create(transaction, *o.MetaDescription); err != nil {
 		return nil, err

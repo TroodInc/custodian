@@ -1,17 +1,11 @@
-package file_transaction
-
-import (
-	. "server/transactions"
-	"server/object/description"
-)
+package transactions
 
 type FileMetaDescriptionTransactionManager struct {
-	RemoveMetaCallback func(name string) (bool, error)
-	CreateMetaCallBack func(MetaDescriptionTransaction, description.MetaDescription) error
+	dataManager *FileMetaDescriptionSyncer
 }
 
-func (fm *FileMetaDescriptionTransactionManager) BeginTransaction(metaList []*description.MetaDescription) (MetaDescriptionTransaction, error) {
-	// store initial state
+func (fm *FileMetaDescriptionTransactionManager) BeginTransaction() (MetaDescriptionTransaction, error) {
+	metaList, _, _ := fm.dataManager.List()
 	return NewFileMetaDescriptionTransaction(Pending, metaList), nil
 }
 
@@ -31,17 +25,16 @@ func (fm *FileMetaDescriptionTransactionManager) RollbackTransaction(transaction
 	}
 	//remove created meta
 	for _, metaName := range transaction.CreatedMetaNameList() {
-		fm.RemoveMetaCallback(metaName)
+		fm.dataManager.Remove(metaName)
 	}
 	//restore initial state
 	for _, metaDescription := range transaction.InitialMetaList() {
-		fm.CreateMetaCallBack(transaction, *metaDescription)
+		fm.dataManager.Create(transaction, metaDescription["name"].(string), metaDescription)
 	}
 	transaction.SetState(RolledBack)
 	return nil
 }
 
-func NewFileMetaDescriptionTransactionManager(RemoveMetaCallback func(name string) (bool, error),
-	CreateMetaCallBack func(MetaDescriptionTransaction, description.MetaDescription) error) *FileMetaDescriptionTransactionManager {
-	return &FileMetaDescriptionTransactionManager{RemoveMetaCallback: RemoveMetaCallback, CreateMetaCallBack: CreateMetaCallBack}
+func NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer *FileMetaDescriptionSyncer) *FileMetaDescriptionTransactionManager {
+	return &FileMetaDescriptionTransactionManager{dataManager: metaDescriptionSyncer}
 }

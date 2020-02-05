@@ -5,14 +5,13 @@ import (
 	. "github.com/onsi/gomega"
 	"server/pg"
 	"utils"
-	"server/transactions/file_transaction"
 
-	pg_transactions "server/pg/transactions"
-	"server/object/meta"
-	"server/transactions"
-	"server/object/description"
-	"server/data"
 	"server/auth"
+	"server/data"
+
+	"server/object/meta"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
 )
 
 var _ = Describe("Store", func() {
@@ -21,11 +20,11 @@ var _ = Describe("Store", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -39,21 +38,21 @@ var _ = Describe("Store", func() {
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 					Optional: true,
 				}, {
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				}, {
 					Name:     "gender",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},

@@ -24,13 +24,11 @@ import (
 	"server/migrations"
 	"server/migrations/constructor"
 	migrations_description "server/migrations/description"
-	"server/object/description"
 	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/transactions/file_transaction"
 	"strconv"
 	"strings"
 	"time"
@@ -148,10 +146,12 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	//MetaDescription routes
 	syncer, err := pg.NewSyncer(config.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(
+		metaDescriptionSyncer,
+	)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
@@ -199,8 +199,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
-		metaDescriptionList := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
+		if globalTransaction, err := globalTransactionManager.BeginTransaction(); err != nil {
 			js.pushError(err)
 		} else {
 			//set transaction to the context
@@ -281,7 +280,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					depth = i
 				}
 
-				pkValue, _ := record.Meta.Key.ValueAsString(record.Data[record.Meta.Key.Name])
+				pkValue, _ := record.Meta.GetKey().ValueAsString(record.Data[record.Meta.Key])
 				if record, err := dataProcessor.Get(objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
 					err != nil {
 					sink.pushError(err)
@@ -550,7 +549,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/migrations/construct", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
+		if globalTransaction, err := globalTransactionManager.BeginTransaction(); err != nil {
 			globalTransactionManager.RollbackTransaction(globalTransaction)
 			js.pushError(err)
 			return
@@ -564,7 +563,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			migrationConstructor := constructor.NewMigrationConstructor(migrationManager)
 
-			var currentMetaDescription *description.MetaDescription
+			var currentMetaDescription *meta.Meta
 			if len(migrationMetaDescription.PreviousName) != 0 {
 				currentMetaDescription, _, err = metaDescriptionSyncer.Get(migrationMetaDescription.PreviousName)
 				if err != nil {

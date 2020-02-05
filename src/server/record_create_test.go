@@ -1,25 +1,24 @@
 package server_test
 
 import (
+	"bytes"
+	"encoding/json"
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"net/http"
-	"fmt"
 	"net/http/httptest"
-	"server/pg"
-	"server/data"
 	"server/auth"
-	"bytes"
-	"encoding/json"
+	"server/data"
+	"server/pg"
 	"utils"
-	"server/transactions/file_transaction"
+
+	"server"
+	"server/data/record"
 
 	"server/object/meta"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
-	"server"
-	"server/data/record"
 )
 
 var _ = Describe("Server", func() {
@@ -31,11 +30,11 @@ var _ = Describe("Server", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -53,10 +52,10 @@ var _ = Describe("Server", func() {
 			Name: "a_qbhbj",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -64,7 +63,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -84,10 +83,10 @@ var _ = Describe("Server", func() {
 			Name: "b_bezv9",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -95,7 +94,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -103,8 +102,8 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "a_qbhbj",
 				},
 			},
@@ -121,10 +120,10 @@ var _ = Describe("Server", func() {
 			Name: "a_qbhbj",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -132,7 +131,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -140,15 +139,15 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:           "b_set",
-					Type:           description.FieldTypeArray,
-					LinkType:       description.LinkTypeOuter,
+					Type:           meta.FieldTypeArray,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       "b_bezv9",
 					OuterLinkField: "a",
 					Optional:       true,
 				},
 			},
 		}
-		(&description.NormalizationService{}).Normalize(&metaDescription)
+		(&meta.NormalizationService{}).Normalize(&metaDescription)
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(metaObj.Name, metaObj, true)

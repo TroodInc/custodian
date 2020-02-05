@@ -1,22 +1,21 @@
 package object
 
 import (
-	"server/transactions"
-	"server/migrations/operations/object"
 	"database/sql"
-	"server/pg"
-	"logger"
 	"fmt"
-	"text/template"
-	"server/object/description"
+	"logger"
+	"server/migrations/operations/object"
 	"server/object/meta"
+	"server/pg"
+	"server/transactions"
+	"text/template"
 )
 
 type DeleteObjectOperation struct {
 	object.DeleteObjectOperation
 }
 
-func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
 	if metaDdl, err = pg.NewMetaDdlFactory(syncer).Factory(metaDescription); err != nil {

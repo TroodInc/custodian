@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"server/data/notifications"
 	"server/errors"
-	. "server/object/description"
 )
 
 type MetaFactory struct {
@@ -14,7 +13,7 @@ type MetaFactory struct {
 }
 
 // factory MetaDescription by provided MetaDescription
-func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescription) (*Meta, error) {
+func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *Meta) (*Meta, error) {
 	metaFactory.reset()
 
 	// pre-validate description
@@ -23,26 +22,26 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 	}
 
 	//create object meta
-	objectMeta := &Meta{MetaDescription: objectMetaDescription}
+	//objectMeta := &Meta{}
 	//root object is built manually, thus it should be placed to builtMetas manually too
-	metaFactory.builtMetas[objectMeta.Name] = objectMeta
+	metaFactory.builtMetas[objectMetaDescription.Name] = objectMetaDescription
 	// enqueue it for resolving
-	metaFactory.enqueueForResolving(objectMeta)
+	metaFactory.enqueueForResolving(objectMetaDescription)
 
 	if err := metaFactory.resolveEnqueued(); err != nil {
 		return nil, err
 	}
 
-	if err := metaFactory.checkOuterLinks(objectMeta); err != nil {
+	if err := metaFactory.checkOuterLinks(objectMetaDescription); err != nil {
 		return nil, err
 	}
-	if err := metaFactory.setOuterLinks(objectMeta); err != nil {
+	if err := metaFactory.setOuterLinks(); err != nil {
 		return nil, err
 	}
-	if err := metaFactory.setObjectsLinks(objectMeta); err != nil {
+	if err := metaFactory.setObjectsLinks(); err != nil {
 		return nil, err
 	}
-	return objectMeta, nil
+	return objectMetaDescription, nil
 }
 
 func (metaFactory *MetaFactory) resolveEnqueued() error {
@@ -56,7 +55,7 @@ func (metaFactory *MetaFactory) resolveEnqueued() error {
 				//meta regardless of whether meta is root or not, thus operations made in this case section duplicate
 				//operations for root meta. This behaviour should be fixed and tested to ensure no circular resolving
 				//happens
-				if err := metaFactory.setOuterLinks(currentMeta); err != nil {
+				if err := metaFactory.setOuterLinks(); err != nil {
 					return err
 				}
 			}
@@ -70,27 +69,28 @@ func (metaFactory *MetaFactory) resolveEnqueued() error {
 // fill MetaDescription with all required attributes
 func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 	//factory fields
-	currentMeta.Fields = make([]FieldDescription, 0, len(currentMeta.MetaDescription.Fields))
-	for _, field := range currentMeta.MetaDescription.Fields {
-		//field description factory may require to build another MetaDescription, this MetaDescription will be enqueued and processed
-		if fieldDescription, err := metaFactory.factoryFieldDescription(field, currentMeta); err != nil {
-			return err
-		} else {
-			currentMeta.Fields = append(currentMeta.Fields, *fieldDescription)
-		}
-	}
+	//currentMeta.Fields = make([]*Field, 0, len(currentMeta.Fields))
+	//for _, field := range currentMeta.Fields {
+	//	//field description factory may require to build another MetaDescription, this MetaDescription will be enqueued and processed
+	//	if fieldDescription, err := metaFactory.factoryFieldDescription(field, currentMeta); err != nil {
+	//		return err
+	//	} else {
+	//		currentMeta.Fields = append(currentMeta.Fields, fieldDescription)
+	//	}
+	//}
 
 	//check PK field
-	if currentMeta.Key = currentMeta.FindField(currentMeta.MetaDescription.Key); currentMeta.Key == nil {
+	currentPk := currentMeta.FindField(currentMeta.Key)
+	if currentPk == nil {
 		return errors.NewValidationError(
 			"new_meta",
-			fmt.Sprintf("MetaDescription '%s' is incorrect. The specified key '%s' Field not found", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key),
+			fmt.Sprintf("MetaDescription '%s' is incorrect. The specified key '%s' Field not found", currentMeta.Name, currentMeta.Key),
 			nil,
 		)
-	} else if !currentMeta.Key.IsSimple() {
+	} else if !currentPk.IsSimple() {
 		return errors.NewValidationError(
 			"new_meta",
-			fmt.Sprintf("MetaDescription '%s' is incorrect. The key Field '%s' is not simple", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Key),
+			fmt.Sprintf("MetaDescription '%s' is incorrect. The key Field '%s' is not simple", currentMeta.Name, currentMeta.Key),
 			nil,
 		)
 	}
@@ -101,14 +101,14 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
 			if cas.Type != FieldTypeNumber {
 				return errors.NewValidationError(
 					"new_meta",
-					fmt.Sprintf("The filed 'cas' specified in the MetaDescription '%s' as CAS must be type of 'number'", currentMeta.MetaDescription.Cas, currentMeta.MetaDescription.Name),
+					fmt.Sprintf("The filed 'cas' specified in the MetaDescription '%s' as CAS must be type of 'number'", currentMeta.Cas, currentMeta.Name),
 					nil,
 				)
 			}
 		} else {
 			return errors.NewValidationError(
 				"new_meta",
-				fmt.Sprintf("MetaDescription '%s' has CAS defined but the filed 'cas' it refers to is absent", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Cas),
+				fmt.Sprintf("MetaDescription '%s' has CAS defined but the filed 'cas' it refers to is absent", currentMeta.Name, currentMeta.Cas),
 				nil,
 			)
 		}
@@ -123,17 +123,16 @@ func (metaFactory *MetaFactory) buildMeta(metaName string) (metaObj *Meta, shoul
 		return metaObj, false, nil
 	}
 
-	metaDescription, _, err := metaFactory.metaDriver.Get(metaName)
 	if err != nil {
 		return nil, false, err
 	}
-	metaObj = &Meta{MetaDescription: metaDescription}
+	metaObj = &Meta{}
 	metaFactory.builtMetas[metaName] = metaObj
 	return metaObj, true, nil
 
 }
 
-func (metaFactory *MetaFactory) FactoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
+func (metaFactory *MetaFactory) FactoryFieldDescription(field *Field, objectMeta *Meta) (*Field, error) {
 	//public method to factory field and resolve metas
 	fieldDescription, err := metaFactory.factoryFieldDescription(field, objectMeta)
 	if err != nil {
@@ -154,7 +153,7 @@ func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, 
 		return metaObj, false
 	}
 
-	fields := []Field{
+	fields := []*Field{
 		{
 			Name: "id",
 			Type: FieldTypeNumber,
@@ -166,12 +165,12 @@ func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, 
 		{
 			Name:     ownerMeta.Name,
 			Type:     FieldTypeObject,
-			LinkMeta: ownerMeta.Name,
+			LinkMeta: ownerMeta,
 			LinkType: LinkTypeInner,
 			Optional: false,
 		},
 		{
-			Name:     field.LinkMeta,
+			Name:     field.LinkMeta.Name,
 			Type:     FieldTypeObject,
 			LinkMeta: field.LinkMeta,
 			LinkType: LinkTypeInner,
@@ -179,30 +178,26 @@ func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, 
 		},
 	}
 	//set outer link to the current field
-	field.OuterLinkField = fields[1].Name
-	//
-	metaDescription := NewMetaDescription(metaName, "id", fields, []notifications.Action{}, false)
-	metaObj = &Meta{MetaDescription: metaDescription}
-	return metaObj, true
+	field.OuterLinkField = fields[1]
+	return NewMeta(metaName, "id", fields, []*notifications.Action{}, false), true
 
 }
 
 //factory field description by provided Field
-func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta *Meta) (*FieldDescription, error) {
+func (metaFactory *MetaFactory) factoryFieldDescription(field *Field, objectMeta *Meta) (*Field, error) {
 	var err error
 
-	fieldDescription := FieldDescription{
-		Field:          &field,
+	fieldDescription := &Field{
 		Meta:           objectMeta,
 		LinkMeta:       nil,
 		OuterLinkField: nil,
-		LinkMetaList:   &MetaList{},
+		LinkMetaList:   []*Meta{},
 	}
 
-	if field.LinkMeta != "" {
+	if field.LinkMeta != nil {
 
 		var shouldBuild bool
-		if fieldDescription.LinkMeta, shouldBuild, err = metaFactory.buildMeta(field.LinkMeta); err != nil {
+		if fieldDescription.LinkMeta, shouldBuild, err = metaFactory.buildMeta(field.LinkMeta.Name); err != nil {
 			return nil, err
 		}
 		if shouldBuild {
@@ -213,7 +208,7 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 	if field.Type == FieldTypeObjects && field.LinkType == LinkTypeInner {
 
 		var shouldBuild bool
-		if fieldDescription.LinkThrough, shouldBuild = metaFactory.buildThroughMeta(&field, objectMeta); err != nil {
+		if fieldDescription.LinkThrough, shouldBuild = metaFactory.buildThroughMeta(field, objectMeta); err != nil {
 			return nil, err
 		}
 		if shouldBuild {
@@ -223,21 +218,21 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 
 	if len(field.LinkMetaList) > 0 {
 		for _, metaName := range field.LinkMetaList {
-			if linkMeta, shouldBuild, err := metaFactory.buildMeta(metaName); err != nil {
+			if linkMeta, shouldBuild, err := metaFactory.buildMeta(metaName.Name); err != nil {
 				return nil, errors.NewValidationError(
 					"new_meta",
 					fmt.Sprintf("Generic field references meta %s, which does not exist", metaName),
 					nil,
 				)
 			} else {
-				fieldDescription.LinkMetaList.AddMeta(linkMeta)
+				fieldDescription.LinkMetaList = append(fieldDescription.LinkMetaList, linkMeta)
 				if shouldBuild {
 					metaFactory.enqueueForResolving(linkMeta)
 				}
 			}
 		}
 	}
-	return &fieldDescription, nil
+	return fieldDescription, nil
 }
 
 //enqueue MetaDescription to build
@@ -263,45 +258,42 @@ func (metaFactory *MetaFactory) popMetaToResolve() *Meta {
 }
 
 //check outer links for each processed Metal
-func (metaFactory *MetaFactory) setOuterLinks(objectMeta *Meta) error {
+func (metaFactory *MetaFactory) setOuterLinks() error {
 	for _, currentObjectMeta := range metaFactory.builtMetas {
 		//processing outer links
-		for i, _ := range currentObjectMeta.Fields {
-			field := &currentObjectMeta.Fields[i]
+		for _, field := range currentObjectMeta.Fields {
 			if field.LinkType != LinkTypeOuter {
 				continue
 			}
-			field.OuterLinkField = field.LinkMeta.FindField(field.Field.OuterLinkField)
+			field.OuterLinkField = field.LinkMeta.FindField(field.OuterLinkField.Name)
 		}
 	}
 	return nil
 }
 
 //check outer links for each processed Metal
-func (metaFactory *MetaFactory) setObjectsLinks(objectMeta *Meta) error {
+func (metaFactory *MetaFactory) setObjectsLinks() error {
 	for _, currentObjectMeta := range metaFactory.builtMetas {
 		//processing outer links
-		for i, _ := range currentObjectMeta.Fields {
-			field := &currentObjectMeta.Fields[i]
+		for _, field := range currentObjectMeta.Fields {
 			if field.Type != FieldTypeObjects {
 				continue
 			}
-			field.OuterLinkField = field.LinkThrough.FindField(field.Field.OuterLinkField)
+			field.OuterLinkField = field.LinkThrough.FindField(field.OuterLinkField.Name)
 		}
 	}
 	return nil
 }
 
 func (metaFactory *MetaFactory) checkOuterLinks(objectMeta *Meta) error {
-	for i, _ := range objectMeta.Fields {
-		field := &objectMeta.Fields[i]
+	for _, field := range objectMeta.Fields {
 		if field.LinkType != LinkTypeOuter {
 			continue
 		}
-		if outerLinkField := field.LinkMeta.FindField(field.Field.OuterLinkField); outerLinkField == nil {
+		if outerLinkField := field.LinkMeta.FindField(field.OuterLinkField.Name); outerLinkField == nil {
 			return errors.NewValidationError(
 				"new_meta",
-				fmt.Sprintf("Field '%s' has incorrect outer link. MetaDescription '%s' has no Field '%s'", field.Name, field.LinkMeta.Name, field.Field.OuterLinkField),
+				fmt.Sprintf("Field '%s' has incorrect outer link. MetaDescription '%s' has no Field '%s'", field.Name, field.Name, field.OuterLinkField),
 				nil,
 			)
 		} else if !outerLinkField.canBeLinkTo(field.Meta) {

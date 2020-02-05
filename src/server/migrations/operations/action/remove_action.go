@@ -5,8 +5,6 @@ import (
 	"server/data/notifications"
 	"server/errors"
 	"server/migrations"
-	"server/object/description"
-	meta_description "server/object/description"
 	"server/object/meta"
 	"server/transactions"
 )
@@ -15,13 +13,13 @@ type RemoveActionOperation struct {
 	Action *notifications.Action
 }
 
-func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	updatedMetaDescription := metaDescription.Clone()
 	if err := o.validate(updatedMetaDescription); err != nil {
 		return nil, err
 	}
 
-	updatedMetaDescription.Actions = make([]notifications.Action, 0)
+	updatedMetaDescription.Actions = make([]*notifications.Action, 0)
 
 	//remove action from the meta description
 	for i, currentAction := range metaDescription.Actions {
@@ -37,7 +35,7 @@ func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description
 	}
 }
 
-func (o *RemoveActionOperation) validate(metaDescription *description.MetaDescription) error {
+func (o *RemoveActionOperation) validate(metaDescription *meta.Meta) error {
 	if metaDescription.FindAction(o.Action.Name) == nil {
 		return errors.NewValidationError(
 			migrations.MigrationErrorInvalidDescription,
@@ -48,7 +46,7 @@ func (o *RemoveActionOperation) validate(metaDescription *description.MetaDescri
 	return nil
 }
 
-func (o *RemoveActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *RemoveActionOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	return nil
 }
 

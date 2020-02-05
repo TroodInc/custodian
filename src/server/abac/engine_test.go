@@ -5,12 +5,11 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/record"
-	"server/object/description"
+
 	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/transactions/file_transaction"
 	"utils"
 
 	. "github.com/onsi/ginkgo"
@@ -218,11 +217,11 @@ var _ = Describe("Abac Engine", func() {
 
 		dataManager, _ := syncer.NewDataManager()
 		//transaction managers
-		fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+		fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 		globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-		metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+		metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 		abacTree := jsonToObject(`{
@@ -256,12 +255,12 @@ var _ = Describe("Abac Engine", func() {
 				Name: "t_employee",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
-						Name: "id", Type: description.FieldTypeNumber, Optional: true,
+						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{Name: "total", Type: description.FieldTypeNumber, Optional: true},
+					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
 				},
 			})
 			Expect(err).To(BeNil())
@@ -272,17 +271,17 @@ var _ = Describe("Abac Engine", func() {
 				Name: "t_client",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
-						Name: "id", Type: description.FieldTypeNumber, Optional: true,
+						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{Name: "name", Type: description.FieldTypeString, Optional: true},
-					{Name: "total", Type: description.FieldTypeNumber, Optional: true},
-					{Name: "owner", Type: description.FieldTypeNumber, Optional: true},
-					{Name: "manager", Type: description.FieldTypeNumber, Optional: true},
+					{Name: "name", Type: meta.FieldTypeString, Optional: true},
+					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
+					{Name: "owner", Type: meta.FieldTypeNumber, Optional: true},
+					{Name: "manager", Type: meta.FieldTypeNumber, Optional: true},
 					{
-						Name: "employee", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
+						Name: "employee", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
 						LinkMeta: "t_employee", Optional: false,
 					},
 				},
@@ -295,17 +294,17 @@ var _ = Describe("Abac Engine", func() {
 				Name: "t_payment",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
-						Name: "id", Type: description.FieldTypeNumber, Optional: true,
+						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
 					{
-						Name: "client", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
+						Name: "client", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
 						LinkMeta: "t_client", Optional: false,
 					},
-					{Name: "responsible", Type: description.FieldTypeNumber, Optional: false},
-					{Name: "total", Type: description.FieldTypeNumber, Optional: true},
+					{Name: "responsible", Type: meta.FieldTypeNumber, Optional: false},
+					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
 				},
 			})
 			Expect(err).To(BeNil())
@@ -316,25 +315,25 @@ var _ = Describe("Abac Engine", func() {
 				Name: "t_client",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
-						Name: "id", Type: description.FieldTypeNumber, Optional: true,
+						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{Name: "name", Type: description.FieldTypeString, Optional: true},
-					{Name: "total", Type: description.FieldTypeNumber, Optional: true},
-					{Name: "owner", Type: description.FieldTypeNumber, Optional: true},
-					{Name: "manager", Type: description.FieldTypeNumber, Optional: true},
+					{Name: "name", Type: meta.FieldTypeString, Optional: true},
+					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
+					{Name: "owner", Type: meta.FieldTypeNumber, Optional: true},
+					{Name: "manager", Type: meta.FieldTypeNumber, Optional: true},
 					{
-						Name: "employee", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
+						Name: "employee", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
 						LinkMeta: "t_employee", Optional: false,
 					}, {
-						Name: "payments", Type: description.FieldTypeArray, LinkType: description.LinkTypeOuter,
+						Name: "payments", Type: meta.FieldTypeArray, LinkType: meta.LinkTypeOuter,
 						LinkMeta: "t_payment", OuterLinkField: "client", Optional: true,
 					},
 				},
 			}
-			(&description.NormalizationService{}).Normalize(&mdClientNew)
+			(&meta.NormalizationService{}).Normalize(&mdClientNew)
 			metaClientNew, err := metaStore.NewMeta(&mdClientNew)
 			Expect(err).To(BeNil())
 

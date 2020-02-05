@@ -1,22 +1,21 @@
 package field
 
 import (
-	meta_description "server/object/description"
-	"server/transactions"
 	"database/sql"
-	"server/migrations/operations/field"
-	"server/pg"
 	"fmt"
 	"logger"
-	"server/pg/migrations/operations/statement_factories"
+	"server/migrations/operations/field"
 	"server/object/meta"
+	"server/pg"
+	"server/pg/migrations/operations/statement_factories"
+	"server/transactions"
 )
 
 type AddFieldOperation struct {
 	field.AddFieldOperation
 }
 
-func (o *AddFieldOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *AddFieldOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	columns, ifk, _, seq, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescriptionToApply.Name, metaDescriptionToApply.Key)
@@ -59,7 +58,7 @@ func (o *AddFieldOperation) addSequenceStatement(statementSet *pg.DdlStatementSe
 	}
 }
 
-func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescriptionToApply *meta_description.MetaDescription) error {
+func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescriptionToApply *meta.Meta) error {
 	statementFactory := new(statement_factories.ColumnStatementFactory)
 	tableName := pg.GetTableName(metaDescriptionToApply.Name)
 	for _, column := range columns {
@@ -72,7 +71,7 @@ func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet
 	return nil
 }
 
-func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaDescriptionToApply *meta_description.MetaDescription) error {
+func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaDescriptionToApply *meta.Meta) error {
 	if ifk == nil {
 		return nil
 	}
@@ -87,6 +86,6 @@ func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatement
 	return nil
 }
 
-func NewAddFieldOperation(targetField *meta_description.Field) *AddFieldOperation {
+func NewAddFieldOperation(targetField *meta.Field) *AddFieldOperation {
 	return &AddFieldOperation{field.AddFieldOperation{Field: targetField}}
 }

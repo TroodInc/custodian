@@ -3,14 +3,13 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/meta"
-	"server/object/description"
-	"server/pg"
 	"server/data"
-	"utils"
+
+	"server/object/meta"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
-	"server/transactions/file_transaction"
 	"server/transactions"
+	"utils"
 )
 
 var _ = Describe("Node", func() {
@@ -19,11 +18,11 @@ var _ = Describe("Node", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -37,10 +36,10 @@ var _ = Describe("Node", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 				},
 			}
@@ -53,16 +52,16 @@ var _ = Describe("Node", func() {
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 					{
 						Name:     "a",
-						Type:     description.FieldTypeObject,
+						Type:     meta.FieldTypeObject,
 						Optional: true,
-						LinkType: description.LinkTypeInner,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
@@ -76,16 +75,16 @@ var _ = Describe("Node", func() {
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 					{
 						Name:     "b",
-						Type:     description.FieldTypeObject,
+						Type:     meta.FieldTypeObject,
 						Optional: true,
-						LinkType: description.LinkTypeInner,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: "b",
 					},
 				},
@@ -99,16 +98,16 @@ var _ = Describe("Node", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 					{
 						Name:     "c",
-						Type:     description.FieldTypeObject,
+						Type:     meta.FieldTypeObject,
 						Optional: true,
-						LinkType: description.LinkTypeInner,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: "c",
 					},
 				},
@@ -128,7 +127,7 @@ var _ = Describe("Node", func() {
 					OnlyLink:   false,
 					Parent:     nil,
 				}
-				node.RecursivelyFillChildNodes(100, description.FieldModeRetrieve)
+				node.RecursivelyFillChildNodes(100, meta.FieldModeRetrieve)
 				Expect(node.ChildNodes.Nodes()["c"].ChildNodes.Nodes()["b"].ChildNodes.Nodes()["a"].ChildNodes.Nodes()).To(HaveLen(0))
 			})
 		})

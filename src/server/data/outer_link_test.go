@@ -3,15 +3,14 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/description"
+	"server/auth"
+	"server/data"
+
 	"server/object/meta"
 	"server/pg"
-	"server/data"
-	"utils"
-	"server/transactions/file_transaction"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/auth"
+	"utils"
 )
 
 var _ = Describe("Data", func() {
@@ -20,11 +19,11 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -38,10 +37,10 @@ var _ = Describe("Data", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -61,10 +60,10 @@ var _ = Describe("Data", func() {
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -72,8 +71,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "a",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: "a",
 						Optional: false,
 					},
@@ -91,10 +90,10 @@ var _ = Describe("Data", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -102,15 +101,15 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:           "b_set",
-						Type:           description.FieldTypeArray,
-						LinkType:       description.LinkTypeOuter,
+						Type:           meta.FieldTypeArray,
+						LinkType:       meta.LinkTypeOuter,
 						LinkMeta:       "b",
 						OuterLinkField: "a",
 						Optional:       true,
 					},
 				},
 			}
-			(&description.NormalizationService{}).Normalize(&aMetaDescription)
+			(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
 			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)

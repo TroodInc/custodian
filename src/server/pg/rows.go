@@ -3,17 +3,16 @@ package pg
 import (
 	"database/sql"
 	"reflect"
+	"server/data/types"
 	"server/errors"
 	"server/object/meta"
-	"server/data/types"
-	"server/object/description"
 )
 
 type Rows struct {
 	*sql.Rows
 }
 
-func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription, ) ([]interface{}, error) {
+func (rows *Rows) getDefaultValues(fields []*meta.Field, ) ([]interface{}, error) {
 	values := make([]interface{}, 0)
 	for _, field := range fields {
 		if newValue, err := newFieldValue(field, field.Optional); err != nil {
@@ -29,7 +28,7 @@ func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription, ) ([]interfa
 	return values, nil
 }
 
-func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
+func (rows *Rows) Parse(fields []*meta.Field) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
@@ -37,7 +36,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 
 	result := make([]map[string]interface{}, 0)
 	i := 0
-	fieldByColumnName := func(columnName string) *meta.FieldDescription {
+	fieldByColumnName := func(columnName string) *meta.Field {
 		fieldName := columnName
 		if meta.IsGenericFieldColumn(columnName) {
 			fieldName = meta.ReverseGenericFieldName(fieldName)
@@ -60,7 +59,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 			}
 			result = append(result, make(map[string]interface{}))
 			for j, columnName := range cols {
-				if fieldByColumnName(columnName).Type == description.FieldTypeDate {
+				if fieldByColumnName(columnName).Type == meta.FieldTypeDate {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -71,7 +70,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = string([]rune(*value)[0:10])
 					}
-				} else if fieldByColumnName(columnName).Type == description.FieldTypeTime {
+				} else if fieldByColumnName(columnName).Type == meta.FieldTypeTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -82,7 +81,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = string([]rune(*value)[11:])
 					}
-				} else if fieldByColumnName(columnName).Type == description.FieldTypeDateTime {
+				} else if fieldByColumnName(columnName).Type == meta.FieldTypeDateTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -93,7 +92,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *string:
 						result[i][columnName] = *value
 					}
-				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == description.FieldTypeGeneric {
+				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == meta.FieldTypeGeneric {
 
 					//
 					value := values[j].(*sql.NullString)
@@ -110,24 +109,24 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					if meta.IsGenericFieldTypeColumn(columnName) {
 						if value.String != "" {
 							castAssembledValue.ObjectName = value.String
-							if linkMeta := fieldDescription.LinkMetaList.GetByName(value.String); linkMeta == nil {
+							if linkMeta := fieldDescription.GetLinkMetaByName(value.String); linkMeta == nil {
 								return nil, errors.NewFatalError(ErrDMLFailed, "Generic field '%s' references improper meta '%s'", map[string]string{
 									"field": fieldDescription.Name,
 									"object": castAssembledValue.ObjectName,
 								})
 							} else {
-								castAssembledValue.PkName = linkMeta.Key.Name
+								castAssembledValue.PkName = linkMeta.Key
 							}
 						}
 					} else if meta.IsGenericFieldKeyColumn(columnName) {
 						if value.String != "" {
-							if linkMeta := fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName); linkMeta == nil {
+							if linkMeta := fieldDescription.GetLinkMetaByName(castAssembledValue.ObjectName); linkMeta == nil {
 								return nil, errors.NewFatalError(ErrDMLFailed, "Generic field %s references improper meta'%s'", map[string]string{
 									"field": fieldDescription.Name,
 									"object": castAssembledValue.ObjectName,
 								})
 							} else {
-								castAssembledValue.Pk, _ = linkMeta.Key.ValueFromString(value.String)
+								castAssembledValue.Pk, _ = linkMeta.GetKey().ValueFromString(value.String)
 							}
 						}
 					}

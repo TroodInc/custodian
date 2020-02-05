@@ -3,18 +3,17 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"server/data"
-	"utils"
 	"server/auth"
+	"server/data"
+	"server/data/record"
+	"server/data/types"
+
 	"server/object/meta"
-	"server/object/description"
-	"server/transactions/file_transaction"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
 	"strconv"
-	"server/data/types"
-	"server/data/record"
+	"utils"
 )
 
 var _ = Describe("Data", func() {
@@ -23,11 +22,11 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -41,10 +40,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -63,10 +62,10 @@ var _ = Describe("Data", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -74,8 +73,8 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     false,
 				},
@@ -111,10 +110,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -133,10 +132,10 @@ var _ = Describe("Data", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -144,8 +143,8 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     false,
 				},
@@ -168,10 +167,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -179,7 +178,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -193,10 +192,10 @@ var _ = Describe("Data", func() {
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -215,10 +214,10 @@ var _ = Describe("Data", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -226,8 +225,8 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name, cMetaObj.Name},
 					Optional:     false,
 				},
@@ -265,10 +264,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -287,10 +286,10 @@ var _ = Describe("Data", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -298,8 +297,8 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name},
 					Optional:     true,
 				},
@@ -331,10 +330,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -351,10 +350,10 @@ var _ = Describe("Data", func() {
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -373,10 +372,10 @@ var _ = Describe("Data", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -384,14 +383,14 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{aMetaObj.Name, cMetaObj.Name},
 					Optional:     false,
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				},
 			},
@@ -429,10 +428,10 @@ var _ = Describe("Data", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -440,7 +439,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -457,10 +456,10 @@ var _ = Describe("Data", func() {
 				Name: "d",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -468,8 +467,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "a",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: "a",
 					},
 				},
@@ -486,10 +485,10 @@ var _ = Describe("Data", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -497,13 +496,13 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 					{
 						Name:           "d_set",
-						Type:           description.FieldTypeArray,
-						LinkType:       description.LinkTypeOuter,
+						Type:           meta.FieldTypeArray,
+						LinkType:       meta.LinkTypeOuter,
 						LinkMeta:       "d",
 						OuterLinkField: "a",
 						RetrieveMode:   true,
@@ -525,10 +524,10 @@ var _ = Describe("Data", func() {
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -536,8 +535,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target",
-						Type:         description.FieldTypeGeneric,
-						LinkType:     description.LinkTypeInner,
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
 						LinkMetaList: []string{"a"},
 						Optional:     true,
 					},
@@ -557,10 +556,10 @@ var _ = Describe("Data", func() {
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -568,8 +567,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target",
-						Type:         description.FieldTypeGeneric,
-						LinkType:     description.LinkTypeInner,
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
 						LinkMetaList: []string{"b"},
 						Optional:     true,
 					},
@@ -701,10 +700,10 @@ var _ = Describe("Data", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -712,7 +711,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -728,10 +727,10 @@ var _ = Describe("Data", func() {
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -753,10 +752,10 @@ var _ = Describe("Data", func() {
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -764,8 +763,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target",
-						Type:         description.FieldTypeGeneric,
-						LinkType:     description.LinkTypeInner,
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
 						LinkMetaList: []string{"a", "c"},
 						Optional:     true,
 					},

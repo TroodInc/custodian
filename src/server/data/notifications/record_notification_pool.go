@@ -10,10 +10,10 @@ type RecordSetNotificationPool struct {
 	notifications        []*RecordNotification
 	notificationChannels map[string][]chan *noti.Event
 	Notifiers            map[string]map[Method][] *noti.Notifier
-	actions              map[string][]Action
+	actions              map[string][]*Action
 }
 
-func NewRecordSetNotificationPool(actions map[string][]Action) *RecordSetNotificationPool {
+func NewRecordSetNotificationPool(actions map[string][]*Action) *RecordSetNotificationPool {
 	pool := &RecordSetNotificationPool{
 		notifications: make([]*RecordNotification, 0),
 		Notifiers:     make(map[string]map[Method][] *noti.Notifier, 0),

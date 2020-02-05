@@ -1,21 +1,20 @@
 package data_test
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/description"
+	"server/auth"
+	"server/data"
+	"server/data/record"
+	"server/data/types"
+
 	"server/object/meta"
 	"server/pg"
-	"server/data"
-	"utils"
-	"server/auth"
-	"strconv"
-	"server/data/types"
-	"server/transactions/file_transaction"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/data/record"
-	"fmt"
+	"strconv"
+	"utils"
 )
 
 var _ = Describe("Data", func() {
@@ -24,11 +23,11 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -47,10 +46,10 @@ var _ = Describe("Data", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -58,7 +57,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -74,10 +73,10 @@ var _ = Describe("Data", func() {
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -85,19 +84,19 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 					{
 						Name:         "target",
-						Type:         description.FieldTypeGeneric,
-						LinkType:     description.LinkTypeInner,
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
 						LinkMetaList: []string{"a"},
 						Optional:     true,
 					},
 				},
 			}
-			(&description.NormalizationService{}).Normalize(&bMetaDescription)
+			(&meta.NormalizationService{}).Normalize(&bMetaDescription)
 			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(bMetaObj)
@@ -109,10 +108,10 @@ var _ = Describe("Data", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -120,20 +119,20 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 					{
 						Name:           "b_set",
-						Type:           description.FieldTypeGeneric,
-						LinkType:       description.LinkTypeOuter,
+						Type:           meta.FieldTypeGeneric,
+						LinkType:       meta.LinkTypeOuter,
 						LinkMeta:       "b",
 						OuterLinkField: "target",
 						Optional:       true,
 					},
 				},
 			}
-			(&description.NormalizationService{}).Normalize(&aMetaDescription)
+			(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
 			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)

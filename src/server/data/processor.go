@@ -6,7 +6,6 @@ import (
 	"server/data/errors"
 	"server/data/notifications"
 	. "server/data/record"
-	"server/object/description"
 	"server/object/meta"
 	"server/transactions"
 	"strings"
@@ -22,9 +21,9 @@ type ExecuteContext interface {
 
 type DataManager interface {
 	Db() (interface{})
-	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
-	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
-	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
+	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.Field, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
+	Get(m *meta.Meta, fields []*meta.Field, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
+	GetAll(m *meta.Meta, fileds []*meta.Field, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
 	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, processor *Processor) (error)
 	PrepareCreateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
 	PrepareUpdateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
@@ -57,9 +56,9 @@ type SearchContext struct {
 	DbTransaction transactions.DbTransaction
 }
 
-func isBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
+func isBackLink(m *meta.Meta, f *meta.Field) bool {
 	for i, _ := range m.Fields {
-		if m.Fields[i].LinkType == description.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
+		if m.Fields[i].LinkType == meta.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
 			return true
 		}
 	}
@@ -69,7 +68,7 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 	if objectMeta, e := processor.GetMeta(objectClass); e != nil {
 		return nil, e
 	} else {
-		if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
+		if pk, e := objectMeta.GetKey().ValueFromString(key); e != nil {
 			return nil, e
 		} else {
 			transaction, _ := processor.transactionManager.BeginTransaction()
@@ -77,7 +76,7 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 
 			//
 			root := &Node{
-				KeyField:       objectMeta.Key,
+				KeyField:       objectMeta.GetKey(),
 				Meta:           objectMeta,
 				ChildNodes:     *NewChildNodes(),
 				Depth:          1,
@@ -85,11 +84,11 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 				plural:         false,
 				Parent:         nil,
 				Type:           NodeTypeRegular,
-				SelectFields:   *NewSelectFields(objectMeta.Key, objectMeta.TableFields()),
+				SelectFields:   *NewSelectFields(objectMeta.GetKey(), objectMeta.TableFields()),
 				RetrievePolicy: new(AggregatedRetrievePolicyFactory).Factory(includePaths, excludePaths),
 			}
 
-			err := root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
+			err := root.RecursivelyFillChildNodes(ctx.depthLimit, meta.FieldModeRetrieve)
 			if err != nil {
 				processor.transactionManager.RollbackTransaction(transaction)
 				return nil, err
@@ -122,7 +121,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 		retrievePolicy := new(AggregatedRetrievePolicyFactory).Factory(includePaths, excludePaths)
 		//
 		root := &Node{
-			KeyField:       businessObject.Key,
+			KeyField:       businessObject.GetKey(),
 			Meta:           businessObject,
 			ChildNodes:     *NewChildNodes(),
 			Depth:          1,
@@ -130,10 +129,10 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 			plural:         false,
 			Parent:         nil,
 			Type:           NodeTypeRegular,
-			SelectFields:   *NewSelectFields(businessObject.Key, businessObject.TableFields()),
+			SelectFields:   *NewSelectFields(businessObject.GetKey(), businessObject.TableFields()),
 			RetrievePolicy: retrievePolicy,
 		}
-		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+		root.RecursivelyFillChildNodes(searchContext.depthLimit, meta.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
 
@@ -159,7 +158,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *meta.Meta, filter string, depth int, omitOuters bool, sink func(record *Record) error) (int, error) {
 	searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
 	root := &Node{
-		KeyField:     metaObj.Key,
+		KeyField:     metaObj.GetKey(),
 		Meta:         metaObj,
 		ChildNodes:   *NewChildNodes(),
 		Depth:        1,
@@ -167,9 +166,9 @@ func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction
 		plural:       false,
 		Parent:       nil,
 		Type:         NodeTypeRegular,
-		SelectFields: *NewSelectFields(metaObj.Key, metaObj.TableFields()),
+		SelectFields: *NewSelectFields(metaObj.GetKey(), metaObj.TableFields()),
 	}
-	root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+	root.RecursivelyFillChildNodes(searchContext.depthLimit, meta.FieldModeRetrieve)
 
 	parser := rqlParser.NewParser()
 	rqlNode, err := parser.Parse(strings.NewReader(filter))
@@ -189,7 +188,7 @@ func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction
 }
 
 type DNode struct {
-	KeyField   *meta.FieldDescription
+	KeyField   *meta.Field
 	Meta       *meta.Meta
 	ChildNodes map[string]*DNode
 	Plural     bool
@@ -197,7 +196,7 @@ type DNode struct {
 
 func (dn *DNode) fillOuterChildNodes() {
 	for _, f := range dn.Meta.Fields {
-		if f.LinkType == description.LinkTypeOuter {
+		if f.LinkType == meta.LinkTypeOuter {
 			dn.ChildNodes[f.Name] = &DNode{KeyField: f.OuterLinkField,
 				Meta: f.LinkMeta,
 				ChildNodes: make(map[string]*DNode),
@@ -274,7 +273,7 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeRemove {
 			for _, record := range recordSetOperation.RecordSet.Records {
-				recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+				recordPkAsStr, _ := record.Meta.GetKey().ValueAsString(record.Pk())
 				if _, err := processor.RemoveRecord(
 					record.Meta.Name,
 					recordPkAsStr,
@@ -367,7 +366,7 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 				}
 			} else if recordSetOperation.Type == RecordOperationTypeRemove {
 				for _, record := range recordSetOperation.RecordSet.Records {
-					recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+					recordPkAsStr, _ := record.Meta.GetKey().ValueAsString(record.Pk())
 					if _, err := processor.RemoveRecord(
 						record.Meta.Name,
 						recordPkAsStr,
@@ -421,12 +420,12 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 		return nil, err
 	}
 	// get and fill key value
-	if pkValue, e := objectMeta.Key.ValueFromString(key); e != nil {
+	if pkValue, e := objectMeta.GetKey().ValueFromString(key); e != nil {
 		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, e
 	} else {
 		//recordData data must contain valid recordData`s PK value
-		recordData[objectMeta.Key.Name] = pkValue
+		recordData[objectMeta.Key] = pkValue
 	}
 	// extract processing node
 	recordProcessingNode, err := new(RecordProcessingTreeBuilder).Build(&Record{Meta: objectMeta, Data: recordData}, processor, dbTransaction)
@@ -463,7 +462,7 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 			}
 		} else if recordSetOperation.Type == RecordOperationTypeRemove {
 			for _, record := range recordSetOperation.RecordSet.Records {
-				recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+				recordPkAsStr, _ := record.Meta.GetKey().ValueAsString(record.Pk())
 				if _, err := processor.RemoveRecord(
 					record.Meta.Name,
 					recordPkAsStr,
@@ -554,7 +553,7 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 				}
 			} else if recordSetOperation.Type == RecordOperationTypeRemove {
 				for _, record := range recordSetOperation.RecordSet.Records {
-					recordPkAsStr, _ := record.Meta.Key.ValueAsString(record.Pk())
+					recordPkAsStr, _ := record.Meta.GetKey().ValueAsString(record.Pk())
 					if _, err := processor.RemoveRecord(
 						record.Meta.Name,
 						recordPkAsStr,
@@ -697,8 +696,8 @@ func (processor *Processor) consumeRecords(nextCallback func() (map[string]inter
 			return nil, err
 		}
 		if strictPkCheck {
-			keyValue, ok := recordData[objectMeta.Key.Name]
-			if !ok || !objectMeta.Key.Type.TypeAsserter()(keyValue) {
+			keyValue, ok := recordData[objectMeta.Key]
+			if !ok || !objectMeta.GetKey().Type.TypeAsserter()(keyValue) {
 				return nil, errors.NewDataError(objectMeta.Name, errors.ErrKeyValueNotFound, "Key value not found or has a wrong type", objectMeta.Name)
 			}
 		}

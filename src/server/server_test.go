@@ -10,14 +10,13 @@ import (
 	"bytes"
 	"encoding/json"
 	"server/object/meta"
-	"server/transactions/file_transaction"
 	"utils"
 
 	"net/http/httptest"
 	"server"
 	"server/auth"
 	"server/data"
-	"server/object/description"
+
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
 )
@@ -31,11 +30,11 @@ var _ = Describe("Server", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -120,10 +119,10 @@ var _ = Describe("Server", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",

@@ -3,18 +3,16 @@ package pg_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"server/pg"
-	"server/data"
-	"server/auth"
-	"utils"
 	"regexp"
+	"server/auth"
+	"server/data"
+	"server/pg"
+	"utils"
 
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
+
 	"server/object/meta"
+	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
 )
 
 var _ = Describe("PG MetaStore test", func() {
@@ -23,10 +21,10 @@ var _ = Describe("PG MetaStore test", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -40,17 +38,17 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "select",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -71,17 +69,17 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "select",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -105,10 +103,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -123,17 +121,17 @@ var _ = Describe("PG MetaStore test", func() {
 					Name: "order",
 					Key:  "id",
 					Cas:  false,
-					Fields: []description.Field{
+					Fields: []meta.Field{
 						{
 							Name: "id",
-							Type: description.FieldTypeNumber,
+							Type: meta.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
 							Optional: true,
 						}, {
 							Name:     "select",
-							Type:     description.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 					},
@@ -155,10 +153,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -166,7 +164,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "select",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -180,10 +178,10 @@ var _ = Describe("PG MetaStore test", func() {
 					Name: "order",
 					Key:  "id",
 					Cas:  false,
-					Fields: []description.Field{
+					Fields: []meta.Field{
 						{
 							Name: "id",
-							Type: description.FieldTypeNumber,
+							Type: meta.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -208,10 +206,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -219,7 +217,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:        "date",
-						Type:        description.FieldTypeDate,
+						Type:        meta.FieldTypeDate,
 						Optional:    true,
 						NowOnCreate: true,
 					},
@@ -244,10 +242,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -255,7 +253,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "time",
-						Type:     description.FieldTypeTime,
+						Type:     meta.FieldTypeTime,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "now",
@@ -282,10 +280,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -293,7 +291,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:        "created",
-						Type:        description.FieldTypeDateTime,
+						Type:        meta.FieldTypeDateTime,
 						Optional:    true,
 						NowOnCreate: true,
 					},
@@ -318,10 +316,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -341,10 +339,10 @@ var _ = Describe("PG MetaStore test", func() {
 						Name: "order",
 						Key:  "id",
 						Cas:  false,
-						Fields: []description.Field{
+						Fields: []meta.Field{
 							{
 								Name:     "id",
-								Type:     description.FieldTypeNumber,
+								Type:     meta.FieldTypeNumber,
 								Optional: true,
 								Def: map[string]interface{}{
 									"func": "nextval",
@@ -352,7 +350,7 @@ var _ = Describe("PG MetaStore test", func() {
 							},
 							{
 								Name:        "created",
-								Type:        description.FieldTypeDateTime,
+								Type:        meta.FieldTypeDateTime,
 								Optional:    true,
 								NowOnCreate: true,
 							},
@@ -374,10 +372,10 @@ var _ = Describe("PG MetaStore test", func() {
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -385,7 +383,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "order",
-						Type:     description.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},

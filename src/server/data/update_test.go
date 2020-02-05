@@ -3,17 +3,16 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"server/data"
 	"server/auth"
-	"strconv"
-	"utils"
-	"server/transactions/file_transaction"
+	"server/data"
+	"server/data/record"
+
+	"server/object/meta"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/meta"
-	"server/object/description"
-	"server/data/record"
+	"strconv"
+	"utils"
 )
 
 var _ = Describe("Data", func() {
@@ -22,11 +21,11 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -41,10 +40,10 @@ var _ = Describe("Data", func() {
 				Name: "order",
 				Key:  "order",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "order",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -52,7 +51,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name: "select",
-						Type: description.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 				},
 			}
@@ -83,10 +82,10 @@ var _ = Describe("Data", func() {
 			Name: "position",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -94,7 +93,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name: "name",
-					Type: description.FieldTypeString,
+					Type: meta.FieldTypeString,
 				},
 			},
 		}
@@ -109,10 +108,10 @@ var _ = Describe("Data", func() {
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -120,13 +119,13 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "position",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "position",
 				},
 				{
 					Name: "name",
-					Type: description.FieldTypeString,
+					Type: meta.FieldTypeString,
 				},
 			},
 		}
@@ -188,10 +187,10 @@ var _ = Describe("Data", func() {
 			Name: "position",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -199,7 +198,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name: "name",
-					Type: description.FieldTypeString,
+					Type: meta.FieldTypeString,
 				},
 			},
 		}
@@ -231,10 +230,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -242,7 +241,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -272,10 +271,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -283,13 +282,13 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		(&description.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
@@ -301,10 +300,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -312,18 +311,18 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "ds",
-					Type:     description.FieldTypeObjects,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObjects,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "d",
 				},
 			},
 		}
-		(&description.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
@@ -336,10 +335,10 @@ var _ = Describe("Data", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -347,21 +346,21 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
+					Type:     meta.FieldTypeObject,
 					Optional: true,
-					LinkType: description.LinkTypeInner,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "a",
 					OnDelete: onDelete,
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
 		}
 		metaObj, err := metaStore.NewMeta(&bMetaDescription)
-		(&description.NormalizationService{}).Normalize(&bMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
@@ -373,10 +372,10 @@ var _ = Describe("Data", func() {
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -384,20 +383,20 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "b",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "b",
 					Optional: true,
 				},
 				{
 					Name:     "d",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "d",
 					Optional: true,
 				},
@@ -415,15 +414,15 @@ var _ = Describe("Data", func() {
 			Name: "d",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -440,10 +439,10 @@ var _ = Describe("Data", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -451,28 +450,28 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
+					Type:     meta.FieldTypeObject,
 					Optional: true,
-					LinkType: description.LinkTypeInner,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "a",
-					OnDelete: description.OnDeleteCascade.ToVerbose(),
+					OnDelete: meta.OnDeleteCascade.ToVerbose(),
 				},
 				{
 					Name:           "c_set",
-					Type:           description.FieldTypeArray,
-					LinkType:       description.LinkTypeOuter,
+					Type:           meta.FieldTypeArray,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       "c",
 					OuterLinkField: "b",
 					Optional:       true,
 				},
 			},
 		}
-		(&description.NormalizationService{}).Normalize(&metaDescription)
+		(&meta.NormalizationService{}).Normalize(&metaDescription)
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(metaObj.Name, metaObj, true)
@@ -486,10 +485,10 @@ var _ = Describe("Data", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name: "id",
-					Type: description.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -497,20 +496,20 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     description.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "b_set",
-					Type:     description.FieldTypeArray,
-					LinkType: description.LinkTypeOuter,
+					Type:     meta.FieldTypeArray,
+					LinkType: meta.LinkTypeOuter,
 					LinkMeta: "b", OuterLinkField: "a",
 					Optional: true,
 				},
 			},
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		(&description.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 		Expect(err).To(BeNil())
@@ -518,7 +517,7 @@ var _ = Describe("Data", func() {
 	}
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(meta.OnDeleteCascade.ToVerbose())
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -538,7 +537,7 @@ var _ = Describe("Data", func() {
 
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(meta.OnDeleteCascade.ToVerbose())
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -558,7 +557,7 @@ var _ = Describe("Data", func() {
 
 	It("Can perform update of record with nested outer records of mixed types: new record, existing record`s PK and existing record`s new data at once", func() {
 		havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(meta.OnDeleteCascade.ToVerbose())
 		aMetaObj := havingObjectAWithManuallySetOuterLink()
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
@@ -592,7 +591,7 @@ var _ = Describe("Data", func() {
 
 	It("Processes delete logic for outer records which are not presented in update data. `Cascade` strategy case ", func() {
 		havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(meta.OnDeleteCascade.ToVerbose())
 		aMetaObj := havingObjectAWithManuallySetOuterLink()
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
@@ -640,7 +639,7 @@ var _ = Describe("Data", func() {
 
 	It("Processes delete logic for outer records which are not presented in update data. `SetNull` strategy case ", func() {
 		havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteSetNull.ToVerbose())
+		bMetaObj := havingObjectB(meta.OnDeleteSetNull.ToVerbose())
 		aMetaObj := havingObjectAWithManuallySetOuterLink()
 
 		aRecord, err := dataProcessor.CreateRecord(
@@ -694,7 +693,7 @@ var _ = Describe("Data", func() {
 
 	It("Processes delete logic for outer records which are not presented in update data. `Restrict` strategy case ", func() {
 		havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteRestrict.ToVerbose())
+		bMetaObj := havingObjectB(meta.OnDeleteRestrict.ToVerbose())
 		aMetaObj := havingObjectAWithManuallySetOuterLink()
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
@@ -722,7 +721,7 @@ var _ = Describe("Data", func() {
 
 	It("Updates record with nested records with mixed values(both valuable and null)", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(description.OnDeleteRestrict.ToVerbose())
+		bMetaObj := havingObjectB(meta.OnDeleteRestrict.ToVerbose())
 		dMetaObj := havingObjectD()
 		cMetaObj := havingObjectC()
 

@@ -3,7 +3,7 @@ package pg
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/description"
+
 	"server/object/meta"
 	"server/transactions"
 	"utils"
@@ -18,23 +18,23 @@ import (
 var _ = Describe("RQL test", func(){
 	appConfig := utils.GetConfig()
 	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer,transactions.NewGlobalTransactionManager(nil, nil) )
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer,transactions.NewGlobalTransactionManager(nil, nil) )
 
 	metaDescription := description.MetaDescription{
 		Name: "test",
 		Key:  "id",
 		Cas:  false,
-		Fields: []description.Field{
+		Fields: []meta.Field{
 			{
 				Name: "id",
-				Type: description.FieldTypeNumber,
+				Type: meta.FieldTypeNumber,
 				Def: map[string]interface{}{
 					"func": "nextval",
 				},
 				Optional: true,
 			}, {
 				Name:     "test_field",
-				Type:     description.FieldTypeString,
+				Type:     meta.FieldTypeString,
 				Optional: true,
 			},
 		},

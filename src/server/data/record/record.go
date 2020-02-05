@@ -2,7 +2,6 @@ package record
 
 import (
 	"server/data/types"
-	"server/object/description"
 	"server/object/meta"
 	"time"
 )
@@ -53,20 +52,20 @@ func (record *Record) CollapseLinks() {
 		switch link := v.(type) {
 		case types.LazyLink:
 			if link.IsOuter {
-				if link.Field.Type == description.FieldTypeArray {
+				if link.Field.Type == meta.FieldTypeArray {
 					if a, prs := link.Obj[link.Field.Name]; !prs || a == nil {
 						link.Obj[link.Field.Name] = make([]interface{}, link.NeighboursCount)
 					}
 					(link.Obj[link.Field.Name]).([]interface{})[link.Index] = record.Data
-				} else if link.Field.Type == description.FieldTypeObjects {
+				} else if link.Field.Type == meta.FieldTypeObjects {
 					if a, prs := link.Obj[link.Field.Name]; !prs || a == nil {
 						link.Obj[link.Field.Name] = make([]interface{}, link.NeighboursCount)
 					}
 					(link.Obj[link.Field.Name]).([]interface{})[link.Index] = record.Data
-				} else if link.Field.Type == description.FieldTypeObject {
+				} else if link.Field.Type == meta.FieldTypeObject {
 					link.Obj[link.Field.Name] = record.Data
 				}
-				record.Data[k] = link.Obj[link.Field.LinkMeta.Key.Name]
+				record.Data[k] = link.Obj[link.Field.LinkMeta.Key]
 			} else {
 				record.Data[k] = link.Obj
 			}
@@ -75,7 +74,7 @@ func (record *Record) CollapseLinks() {
 				record.Data[k] = link.Id
 			}
 		case *types.AGenericInnerLink:
-			if link.LinkType == description.LinkTypeOuter {
+			if link.LinkType == meta.LinkTypeOuter {
 				if _, ok := record.Data[link.Field.Name]; !ok {
 					link.RecordData[link.Field.Name] = make([]interface{}, link.NeighboursCount)
 				}
@@ -134,9 +133,9 @@ func (record *Record) PrepareData(operationType RecordOperationType) {
 		switch link := v.(type) {
 		case types.LazyLink:
 			if link.IsOuter {
-				record.RawData[k] = link.Obj[link.Field.LinkMeta.Key.Name]
+				record.RawData[k] = link.Obj[link.Field.LinkMeta.Key]
 			} else {
-				record.RawData[k] = link.Obj[link.Field.Meta.Key.Name]
+				record.RawData[k] = link.Obj[link.Field.Meta.Key]
 			}
 		case *types.AGenericInnerLink:
 			//fill PK if it is presented in RecordData stash, case of newly created record
@@ -156,11 +155,11 @@ func (record *Record) setAutoValues(operationType RecordOperationType) {
 		if operationType == RecordOperationTypeUpdate && field.NowOnUpdate || operationType == RecordOperationTypeCreate && field.NowOnCreate {
 			var value string
 			switch field.Type {
-			case description.FieldTypeDateTime:
+			case meta.FieldTypeDateTime:
 				value = time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00")
-			case description.FieldTypeDate:
+			case meta.FieldTypeDate:
 				value = time.Now().UTC().Format("2006-01-02")
-			case description.FieldTypeTime:
+			case meta.FieldTypeTime:
 				value = time.Now().UTC().Format("15:04:05.123456789")
 			}
 			if value != "" {
@@ -171,17 +170,18 @@ func (record *Record) setAutoValues(operationType RecordOperationType) {
 }
 
 func (record *Record) Pk() interface{} {
-	return record.Data[record.Meta.Key.Name]
+	return record.Data[record.Meta.Key]
 }
 
 func (record *Record) PkAsString() string {
-	pkAsString, _ := record.Meta.Key.ValueAsString(record.Pk())
+	keyField := record.Meta.FindField(record.Meta.Key)
+	pkAsString, _ := keyField.ValueAsString(record.Pk())
 	return pkAsString
 }
 
 func (record *Record) IsPhantom() bool {
 	// probably not best solution to determine isPhantom value, but it requires DB access for each record otherwise
-	_, pkIsSet := record.Data[record.Meta.Key.Name]
+	_, pkIsSet := record.Data[record.Meta.Key]
 	return !pkIsSet
 }
 

@@ -1,15 +1,14 @@
 package data
 
 import (
-	"logger"
-	"server/object/meta"
-	"github.com/Q-CIS-DEV/go-rql-parser"
-	"server/data/types"
-	. "server/data/record"
-	"server/object/description"
-	"strings"
-	"fmt"
 	"errors"
+	"fmt"
+	"github.com/Q-CIS-DEV/go-rql-parser"
+	"logger"
+	. "server/data/record"
+	"server/data/types"
+	"server/object/meta"
+	"strings"
 )
 
 type NodeType int
@@ -30,12 +29,12 @@ const (
 )
 
 type SelectFields struct {
-	KeyField  *meta.FieldDescription
-	FieldList []*meta.FieldDescription
+	KeyField  *meta.Field
+	FieldList []*meta.Field
 	Type      SelectType
 }
 
-func (sf *SelectFields) Exclude(field *meta.FieldDescription) error {
+func (sf *SelectFields) Exclude(field *meta.Field) error {
 	if sf.Type == SelectFieldsTypeInclude {
 		return errors.New("attempted to exclude field from the node, which already has another included one")
 	}
@@ -51,11 +50,11 @@ func (sf *SelectFields) Exclude(field *meta.FieldDescription) error {
 	return nil
 }
 
-func (sf *SelectFields) Include(field *meta.FieldDescription) error {
+func (sf *SelectFields) Include(field *meta.Field) error {
 	if sf.Type == SelectFieldsTypeExclude {
 		return errors.New("attempted to exclude field from the node, which already has another included one")
 	} else if sf.Type == SelectFieldsTypeFull {
-		sf.FieldList = []*meta.FieldDescription{sf.KeyField}
+		sf.FieldList = []*meta.Field{sf.KeyField}
 	}
 
 	sf.Type = SelectFieldsTypeInclude
@@ -70,7 +69,7 @@ func (sf *SelectFields) Include(field *meta.FieldDescription) error {
 	return nil
 }
 
-func NewSelectFields(keyField *meta.FieldDescription, fieldList []*meta.FieldDescription) *SelectFields {
+func NewSelectFields(keyField *meta.Field, fieldList []*meta.Field) *SelectFields {
 	return &SelectFields{KeyField: keyField, FieldList: fieldList, Type: SelectFieldsTypeFull}
 }
 
@@ -118,9 +117,9 @@ func NewChildNodes() *ChildNodes {
 
 type Node struct {
 	//LinkField is a field which links to the target object
-	LinkField *meta.FieldDescription
+	LinkField *meta.Field
 	//KeyField is a field of the target object which LinkField is linking to
-	KeyField       *meta.FieldDescription
+	KeyField       *meta.Field
 	Meta           *meta.Meta
 	ChildNodes     ChildNodes
 	Depth          int
@@ -134,15 +133,15 @@ type Node struct {
 }
 
 func (node *Node) keyAsString(recordValues map[string]interface{}, objectMeta *meta.Meta) (string, error) {
-	v := recordValues[objectMeta.Key.Name]
-	str, err := objectMeta.Key.ValueAsString(v)
+	v := recordValues[objectMeta.Key]
+	str, err := objectMeta.GetKey().ValueAsString(v)
 	return str, err
 }
 
 func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMeta *meta.Meta) (interface{}, error) {
-	v := recordValues[objectMeta.Key.Name]
-	valueAsString, _ := objectMeta.Key.ValueAsString(v)
-	castValue, err := objectMeta.Key.ValueFromString(valueAsString)
+	v := recordValues[objectMeta.Key]
+	valueAsString, _ := objectMeta.GetKey().ValueAsString(v)
+	castValue, err := objectMeta.GetKey().ValueFromString(valueAsString)
 	return castValue, err
 }
 
@@ -160,7 +159,7 @@ func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode)
 }
 
 func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
-	var fields []*meta.FieldDescription = nil
+	var fields []*meta.Field = nil
 	var objectMeta *meta.Meta
 	var pkValue interface{}
 
@@ -195,12 +194,12 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 	}
 
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{objectMeta.Key}
+		fields = []*meta.Field{objectMeta.GetKey()}
 	} else {
 		fields = node.SelectFields.FieldList
 	}
 
-	obj, err := sc.dm.Get(objectMeta, fields, objectMeta.Key.Name, pkValue, sc.DbTransaction)
+	obj, err := sc.dm.Get(objectMeta, fields, objectMeta.Key, pkValue, sc.DbTransaction)
 	if err != nil || obj == nil {
 		return nil, err
 	}
@@ -216,9 +215,9 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 
 func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]interface{}, error) {
 	logger.Debug("Resolving plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
-	var fields []*meta.FieldDescription = nil
+	var fields []*meta.Field = nil
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{node.Meta.Key}
+		fields = []*meta.Field{node.Meta.GetKey()}
 	} else {
 		fields = node.SelectFields.FieldList
 	}
@@ -246,9 +245,9 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 //Resolve records referenced by generic outer field
 func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, objectMeta *meta.Meta) ([]interface{}, error) {
 	logger.Debug("Resolving generic plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
-	var fields []*meta.FieldDescription = nil
+	var fields []*meta.Field = nil
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{node.Meta.Key}
+		fields = []*meta.Field{node.Meta.GetKey()}
 	}
 	if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{
 		meta.GetGenericFieldKeyColumnName(node.KeyField.Name):  key,
@@ -279,7 +278,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 		//get a field which points to parent object
 		linkField := node.Meta.FindField(node.LinkField.Meta.Name)
 		//specify field, which value should be retrieved
-		fields := []*meta.FieldDescription{node.KeyField}
+		fields := []*meta.Field{node.KeyField}
 		if records, err := sc.dm.GetAll(node.Meta, fields, map[string]interface{}{linkField.Name: key}, sc.DbTransaction); err != nil {
 			return nil, err
 		} else {
@@ -290,7 +289,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 			return result, nil
 		}
 	} else {
-		keyStr, _ := node.LinkField.Meta.Key.ValueAsString(key)
+		keyStr, _ := node.LinkField.Meta.GetKey().ValueAsString(key)
 		//query records of LinkMeta by LinkThrough`s field
 		//Eg: for record of object A with ID 56 which has "Objects" relation to B called "bs" filter will look like this:
 		//eq(b__s_set.a,56)
@@ -298,7 +297,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 		filter := fmt.Sprintf("eq(%s.%s,%s)", node.LinkField.LinkThrough.FindField(node.LinkField.LinkMeta.Name).ReverseOuterField().Name, node.LinkField.Meta.Name, keyStr)
 		searchContext := SearchContext{depthLimit: 1, dm: sc.dm, lazyPath: "/custodian/data/bulk", DbTransaction: sc.DbTransaction, omitOuters: sc.omitOuters}
 		root := &Node{
-			KeyField:       node.LinkField.LinkMeta.Key,
+			KeyField:       node.LinkField.LinkMeta.GetKey(),
 			Meta:           node.LinkField.LinkMeta,
 			ChildNodes:     *NewChildNodes(),
 			Depth:          1,
@@ -306,10 +305,10 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 			plural:         false,
 			Parent:         nil,
 			Type:           NodeTypeRegular,
-			SelectFields:   *NewSelectFields(node.LinkField.LinkMeta.Key, node.LinkField.LinkMeta.TableFields()),
+			SelectFields:   *NewSelectFields(node.LinkField.LinkMeta.GetKey(), node.LinkField.LinkMeta.TableFields()),
 			RetrievePolicy: node.RetrievePolicy,
 		}
-		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
+		root.RecursivelyFillChildNodes(searchContext.depthLimit, meta.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
@@ -326,7 +325,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 	}
 }
 
-func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode) {
+func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode meta.FieldMode) {
 	//process regular links, skip generic child nodes
 	onlyLink := false
 	if node.Depth >= depthLimit {
@@ -334,24 +333,24 @@ func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.Fie
 	}
 	if node.Meta != nil {
 		for i := range node.Meta.Fields {
-			node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+			node.FillChildNode(node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
 		}
 	}
 }
 
-func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLink bool, fieldMode description.FieldMode, policy *AggregatedRetrievePolicy) *Node {
+func (node *Node) FillChildNode(fieldDescription *meta.Field, onlyLink bool, fieldMode meta.FieldMode, policy *AggregatedRetrievePolicy) *Node {
 	//process regular links, skip generic child nodes
 
 	//skip outer link which does not have retrieve mode set to true
-	if fieldDescription.LinkType == description.LinkTypeOuter && !fieldDescription.RetrieveMode && fieldMode != description.FieldModeQuery {
+	if fieldDescription.LinkType == meta.LinkTypeOuter && !fieldDescription.RetrieveMode && fieldMode != meta.FieldModeQuery {
 		return nil
 	}
 	childNodes := *NewChildNodes()
 
-	if fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, fieldDescription)) {
+	if fieldDescription.Type == meta.FieldTypeObject && fieldDescription.LinkType == meta.LinkTypeInner && (node.Parent == nil || !isBackLink(node.Parent.Meta, fieldDescription)) {
 		node.ChildNodes.Set(fieldDescription.Name, &Node{
 			LinkField:      fieldDescription,
-			KeyField:       fieldDescription.LinkMeta.Key,
+			KeyField:       fieldDescription.LinkMeta.GetKey(),
 			Meta:           fieldDescription.LinkMeta,
 			ChildNodes:     childNodes,
 			Depth:          node.Depth + 1,
@@ -359,10 +358,10 @@ func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLin
 			plural:         false,
 			Parent:         node,
 			Type:           NodeTypeRegular,
-			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.Key, fieldDescription.LinkMeta.TableFields()),
+			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.GetKey(), fieldDescription.LinkMeta.TableFields()),
 			RetrievePolicy: policy,
 		})
-	} else if fieldDescription.Type == description.FieldTypeArray && fieldDescription.LinkType == description.LinkTypeOuter {
+	} else if fieldDescription.Type == meta.FieldTypeArray && fieldDescription.LinkType == meta.LinkTypeOuter {
 		node.ChildNodes.Set(fieldDescription.Name, &Node{
 			LinkField:      fieldDescription,
 			KeyField:       fieldDescription.OuterLinkField,
@@ -373,10 +372,10 @@ func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLin
 			plural:         true,
 			Parent:         node,
 			Type:           NodeTypeRegular,
-			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.Key, fieldDescription.LinkMeta.TableFields()),
+			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.GetKey(), fieldDescription.LinkMeta.TableFields()),
 			RetrievePolicy: policy,
 		})
-	} else if fieldDescription.Type == description.FieldTypeObjects {
+	} else if fieldDescription.Type == meta.FieldTypeObjects {
 		node.ChildNodes.Set(fieldDescription.Name, &Node{
 			LinkField:      fieldDescription,
 			KeyField:       fieldDescription.LinkThrough.FindField(fieldDescription.LinkMeta.Name),
@@ -387,11 +386,11 @@ func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLin
 			plural:         true,
 			Parent:         node,
 			Type:           NodeTypeRegular,
-			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.Key, fieldDescription.LinkMeta.TableFields()),
+			SelectFields:   *NewSelectFields(fieldDescription.LinkMeta.GetKey(), fieldDescription.LinkMeta.TableFields()),
 			RetrievePolicy: policy,
 		})
-	} else if fieldDescription.Type == description.FieldTypeGeneric {
-		if fieldDescription.LinkType == description.LinkTypeInner {
+	} else if fieldDescription.Type == meta.FieldTypeGeneric {
+		if fieldDescription.LinkType == meta.LinkTypeInner {
 			node.ChildNodes.Set(fieldDescription.Name, &Node{
 				LinkField:      fieldDescription,
 				KeyField:       nil,
@@ -401,12 +400,12 @@ func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLin
 				OnlyLink:       onlyLink,
 				plural:         false,
 				Parent:         node,
-				MetaList:       fieldDescription.LinkMetaList,
+				MetaList:       &meta.MetaList{fieldDescription.LinkMetaList},
 				Type:           NodeTypeGeneric,
 				RetrievePolicy: policy,
 			})
 
-		} else if fieldDescription.LinkType == description.LinkTypeOuter {
+		} else if fieldDescription.LinkType == meta.LinkTypeOuter {
 			node.ChildNodes.Set(fieldDescription.Name, &Node{
 				LinkField:      fieldDescription,
 				KeyField:       fieldDescription.OuterLinkField,
@@ -428,7 +427,7 @@ func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLin
 	}
 }
 
-func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode description.FieldMode) error {
+func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode meta.FieldMode) error {
 	node.fillDirectChildNodes(depthLimit, fieldMode)
 	if !node.IsOfGenericType() {
 		nodesToProcess := make([]*Node, 0)
@@ -504,6 +503,6 @@ func (node *Node) Clone() *Node {
 		Parent:       node.Parent,
 		MetaList:     node.MetaList,
 		Type:         node.Type,
-		SelectFields: SelectFields{FieldList: append([]*meta.FieldDescription(nil), node.SelectFields.FieldList...), Type: node.SelectFields.Type},
+		SelectFields: SelectFields{FieldList: append([]*meta.Field(nil), node.SelectFields.FieldList...), Type: node.SelectFields.Type},
 	}
 }

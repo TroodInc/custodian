@@ -3,15 +3,14 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"server/data"
 	"server/auth"
-	"utils"
-	"server/transactions/file_transaction"
+	"server/data"
+
+	"server/object/meta"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/meta"
-	"server/object/description"
+	"utils"
 )
 
 var _ = Describe("RecordSetOperations removal", func() {
@@ -20,11 +19,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -38,10 +37,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -62,10 +61,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -73,10 +72,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "a",
-					OnDelete: description.OnDeleteCascade.ToVerbose(),
+					OnDelete: meta.OnDeleteCascade.ToVerbose(),
 				},
 			},
 		}
@@ -114,10 +113,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -138,10 +137,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -149,11 +148,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "a",
 					Optional: true,
-					OnDelete: description.OnDeleteSetNull.ToVerbose(),
+					OnDelete: meta.OnDeleteSetNull.ToVerbose(),
 				},
 			},
 		}
@@ -191,10 +190,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -215,10 +214,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -226,11 +225,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: "a",
 					Optional: true,
-					OnDelete: description.OnDeleteRestrict.ToVerbose(),
+					OnDelete: meta.OnDeleteRestrict.ToVerbose(),
 				},
 			},
 		}
@@ -254,10 +253,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -278,10 +277,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -289,11 +288,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{"a"},
 					Optional:     true,
-					OnDelete:     description.OnDeleteSetNull.ToVerbose(),
+					OnDelete:     meta.OnDeleteSetNull.ToVerbose(),
 				},
 			},
 		}
@@ -335,10 +334,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -359,10 +358,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []description.Field{
+			Fields: []meta.Field{
 				{
 					Name:     "id",
-					Type:     description.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -370,11 +369,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:         "target_object",
-					Type:         description.FieldTypeGeneric,
-					LinkType:     description.LinkTypeInner,
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
 					LinkMetaList: []string{"a"},
 					Optional:     true,
-					OnDelete:     description.OnDeleteCascade.ToVerbose(),
+					OnDelete:     meta.OnDeleteCascade.ToVerbose(),
 				},
 			},
 		}

@@ -6,23 +6,22 @@ import (
 	"server/object/meta"
 	"server/pg"
 	"server/transactions/file_transaction"
-	"utils"
-
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
+	"utils"
 )
 
 var _ = Describe("File MetaDescription driver", func() {
-	fileMetaDriver := meta.NewFileMetaDescriptionSyncer("./")
+	fileMetaDriver := transactions.NewFileMetaDescriptionSyncer("./")
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(fileMetaDriver.Remove, fileMetaDriver.Create)
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(fileMetaDriver)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(fileMetaDriver, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -36,11 +35,10 @@ var _ = Describe("File MetaDescription driver", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			fileMetaDriver.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+			fileMetaDriver.Create(globalTransaction.MetaDescriptionTransaction, metaDescription.Name, metaDescription.ForExport())
 
 			Context("and this object is removed within transaction", func() {
-				metaDescriptionList := metaStore.List()
-				fileMetaTransaction, err := fileMetaTransactionManager.BeginTransaction(metaDescriptionList)
+				fileMetaTransaction, err := fileMetaTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				fileMetaDriver.Remove(metaDescription.Name)
@@ -65,12 +63,11 @@ var _ = Describe("File MetaDescription driver", func() {
 			metaDescriptionList := metaStore.List()
 			metaTransaction, err := fileMetaTransactionManager.BeginTransaction(metaDescriptionList)
 			Expect(err).To(BeNil())
-			err = fileMetaDriver.Create(metaTransaction, *metaDescription)
+			err = fileMetaDriver.Create(metaTransaction, metaDescription.Name, metaDescription.ForExport())
 			Expect(err).To(BeNil())
 
 			Context("and another object is created within new transaction", func() {
-				metaDescriptionList := metaStore.List()
-				metaTransaction, err := fileMetaTransactionManager.BeginTransaction(metaDescriptionList)
+				metaTransaction, err := fileMetaTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				bMetaDescription := GetBaseMetaData(utils.RandomString(8))

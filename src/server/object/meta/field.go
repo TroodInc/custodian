@@ -1,4 +1,4 @@
-package description
+package meta
 
 import (
 	"encoding/json"
@@ -28,57 +28,57 @@ const (
 	FieldModeQuery
 )
 
-func AsFieldType(s string) (FieldType, bool) {
+func AsFieldType(s string) FieldType {
 	switch s {
 	case "string":
-		return FieldTypeString, true
+		return FieldTypeString
 	case "number":
-		return FieldTypeNumber, true
+		return FieldTypeNumber
 	case "bool":
-		return FieldTypeBool, true
+		return FieldTypeBool
 	case "array":
-		return FieldTypeArray, true
+		return FieldTypeArray
 	case "object":
-		return FieldTypeObject, true
+		return FieldTypeObject
 	case "objects":
-		return FieldTypeObjects, true
+		return FieldTypeObjects
 	case "generic":
-		return FieldTypeGeneric, true
+		return FieldTypeGeneric
 	case "datetime":
-		return FieldTypeDateTime, true
+		return FieldTypeDateTime
 	case "date":
-		return FieldTypeDate, true
+		return FieldTypeDate
 	case "time":
-		return FieldTypeTime, true
+		return FieldTypeTime
 	default:
-		return 0, false
+		return 0
 	}
 }
 
-func (fieldType FieldType) String() (string, bool) {
+func (fieldType FieldType) String() string {
 	switch fieldType {
 	case FieldTypeString:
-		return "string", true
+		return "string"
 	case FieldTypeNumber:
-		return "number", true
+		return "number"
 	case FieldTypeBool:
-		return "bool", true
+		return "bool"
 	case FieldTypeArray:
-		return "array", true
+		return "array"
 	case FieldTypeObject:
-		return "object", true
+		return "object"
 	case FieldTypeObjects:
-		return "objects", true
+		return "objects"
 	case FieldTypeDateTime:
-		return "datetime", true
+		return "datetime"
 	case FieldTypeDate:
-		return "date", true
+		return "date"
 	case FieldTypeTime:
-		return "time", true
+		return "time"
 	case FieldTypeGeneric:
-		return "generic", true
+		return "generic"
 	default:
-		return "", false
+		return ""
 	}
 }
 
@@ -169,7 +169,7 @@ func (fieldType *FieldType) UnmarshalJSON(b []byte) error {
 	if e := json.Unmarshal(b, &str); e != nil {
 		return e
 	}
-	if assumedFieldType, ok := AsFieldType(str); ok {
+	if assumedFieldType := AsFieldType(str); assumedFieldType > 0 {
 		*fieldType = assumedFieldType
 		return nil
 	} else {
@@ -178,7 +178,7 @@ func (fieldType *FieldType) UnmarshalJSON(b []byte) error {
 }
 
 func (fieldType FieldType) MarshalJSON() ([]byte, error) {
-	if s, ok := fieldType.String(); ok {
+	if s := fieldType.String(); s != "" {
 		return json.Marshal(s)
 	} else {
 		return nil, NewMetaDescriptionError("", "json_marshal", ErrJsonMarshal, "Incorrect field type: %v", fieldType)
@@ -203,14 +203,14 @@ func (lt LinkType) String() (string, bool) {
 	}
 }
 
-func AsLinkType(s string) (LinkType, bool) {
+func AsLinkType(s string) LinkType {
 	switch s {
 	case "outer":
-		return LinkTypeOuter, true
+		return LinkTypeOuter
 	case "inner":
-		return LinkTypeInner, true
+		return LinkTypeInner
 	default:
-		return 0, false
+		return 0
 	}
 }
 
@@ -237,7 +237,7 @@ func (lt *LinkType) UnmarshalJSON(b []byte) error {
 	if e := json.Unmarshal(b, &s); e != nil {
 		return e
 	}
-	if l, ok := AsLinkType(s); ok {
+	if l := AsLinkType(s); l > 0 {
 		*lt = l
 		return nil
 	} else {
@@ -261,82 +261,4 @@ type DefConstBool struct{ Value bool }
 type DefExpr struct {
 	Func string
 	Args []interface{}
-}
-
-//FieldDescription description.
-type Field struct {
-	Name           string       `json:"name"`
-	Type           FieldType    `json:"type"`
-	LinkMeta       string       `json:"linkMeta,omitempty"`     //only for array and "object"
-	LinkMetaList   MetaNameList `json:"linkMetaList,omitempty"` //only for array and "object"
-	LinkType       LinkType     `json:"linkType,omitempty"`
-	OuterLinkField string       `json:"outerLinkField,omitempty"`
-	Optional       bool         `json:"optional"`
-	Unique         bool         `json:"unique"`
-	OnDelete       string       `json:"onDelete,omitempty"`
-	Def            interface{}  `json:"default,omitempty"`
-	NowOnUpdate    bool         `json:"nowOnUpdate,omitempty"`
-	NowOnCreate    bool         `json:"nowOnCreate,omitempty"`
-	QueryMode      bool         `json:"queryMode,omitempty"`    //only for outer links, true if field should be used for querying
-	RetrieveMode   bool         `json:"retrieveMode,omitempty"` //only for outer links, true if field should be used for data retrieving
-	LinkThrough    string       `json:"linkThrough,omitempty"`  //only for "objects" field
-}
-
-func (f *Field) IsSimple() bool {
-	return f.Type != FieldTypeObject && f.Type != FieldTypeArray && f.Type != FieldTypeGeneric && f.Type != FieldTypeObjects
-}
-
-func (f *Field) IsLink() bool {
-	return f.Type == FieldTypeObject || f.Type == FieldTypeArray || f.Type == FieldTypeGeneric || f.Type == FieldTypeObjects
-}
-
-func (f *Field) Default() Def {
-	switch t := f.Def.(type) {
-	case string:
-		return DefConstStr{t}
-	case float64:
-		return DefConstFloat{t}
-	case int:
-		return DefConstInt{t}
-	case bool:
-		return DefConstBool{t}
-	case map[string]interface{}:
-		var args []interface{}
-		if a, ok := t["args"]; ok {
-			args = a.([]interface{})
-		}
-		return DefExpr{Func: t["func"].(string), Args: args}
-	default:
-		return nil
-	}
-}
-
-func (f *Field) Clone() *Field {
-	return &Field{
-		Name:           f.Name,
-		Type:           f.Type,
-		LinkMeta:       f.LinkMeta,
-		LinkMetaList:   f.LinkMetaList,
-		LinkType:       f.LinkType,
-		OuterLinkField: f.OuterLinkField,
-		Optional:       f.Optional,
-		Unique:       	f.Unique,
-		OnDelete:       f.OnDelete,
-		Def:            f.Def,
-		QueryMode:      f.QueryMode,
-		RetrieveMode:   f.RetrieveMode,
-		LinkThrough:    f.LinkThrough,
-	}
-}
-
-func (f *Field) OnDeleteStrategy() *OnDeleteStrategy {
-	if f.Type == FieldTypeObject || (f.Type == FieldTypeGeneric && f.LinkType == LinkTypeInner) {
-		onDeleteStrategy, err := GetOnDeleteStrategyByVerboseName(f.OnDelete)
-		if err != nil {
-			panic(err.Error())
-		} else {
-			return &onDeleteStrategy
-		}
-	}
-	return nil
 }

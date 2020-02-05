@@ -3,25 +3,26 @@ package managers
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+
 	migrations_description "server/migrations/description"
 	"server/object"
 	"server/object/description"
 	"server/object/meta"
 	"server/pg"
+	"server/pg/migrations/operations/object"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/transactions/file_transaction"
 	"utils"
 )
 
 var _ = Describe("Outer links spawned migrations appliance", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
@@ -60,18 +61,18 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
-				[]description.Field{
+				[]meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name:     "a",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: metaDescription.Name,
 						Optional: false,
 					},
@@ -110,18 +111,18 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			bMetaDescription := description.NewMetaDescription(
 				"b",
 				"id",
-				[]description.Field{
+				[]meta.Field{
 					{
 						Name: "id",
-						Type: description.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name:     "a",
-						Type:     description.FieldTypeObject,
-						LinkType: description.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: metaDescription.Name,
 						Optional: false,
 					},
@@ -157,10 +158,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					{
 						Type: migrations_description.AddFieldOperation,
 						Field: &migrations_description.MigrationFieldDescription{
-							Field: description.Field{
+							Field: meta.Field{
 								Name:           "explicitly_set_b_set",
-								Type:           description.FieldTypeArray,
-								LinkType:       description.LinkTypeOuter,
+								Type:           meta.FieldTypeArray,
+								LinkType:       meta.LinkTypeOuter,
 								OuterLinkField: "a",
 								LinkMeta:       "b",
 							},
@@ -200,10 +201,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
-				field := description.Field{
+				field := meta.Field{
 					Name:     "target_object",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaDescription.Name,
 					Optional: false,
 				}
@@ -237,10 +238,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
-				field := description.Field{
+				field := meta.Field{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaDescription.Name,
 					Optional: false,
 				}
@@ -292,10 +293,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
-				field := description.Field{
+				field := meta.Field{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaDescription.Name,
 					Optional: false,
 				}
@@ -344,10 +345,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 				Expect(err).To(BeNil())
 
-				field := description.Field{
+				field := meta.Field{
 					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaDescription.Name,
 					Optional: false,
 				}

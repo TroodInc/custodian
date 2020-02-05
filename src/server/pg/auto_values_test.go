@@ -3,17 +3,15 @@ package pg_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-
-	"server/pg"
-	"server/data"
 	"server/auth"
+	"server/data"
+	"server/pg"
 	"utils"
 
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
+
 	"server/object/meta"
+	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
 )
 
 var _ = Describe("PG Auto Values Test", func() {
@@ -22,10 +20,10 @@ var _ = Describe("PG Auto Values Test", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -42,27 +40,27 @@ var _ = Describe("PG Auto Values Test", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:        "datetime",
-						Type:        description.FieldTypeDateTime,
+						Type:        meta.FieldTypeDateTime,
 						NowOnUpdate: true,
 						Optional:    true,
 					},
 					{
 						Name:        "date",
-						Type:        description.FieldTypeDate,
+						Type:        meta.FieldTypeDate,
 						NowOnUpdate: true,
 						Optional:    true,
 					},
 					{
 						Name:        "time",
-						Type:        description.FieldTypeTime,
+						Type:        meta.FieldTypeTime,
 						NowOnUpdate: true,
 						Optional:    true,
 					},
@@ -99,27 +97,27 @@ var _ = Describe("PG Auto Values Test", func() {
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []description.Field{
+				Fields: []meta.Field{
 					{
 						Name:     "id",
-						Type:     description.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:        "datetime",
-						Type:        description.FieldTypeDateTime,
+						Type:        meta.FieldTypeDateTime,
 						NowOnCreate: true,
 						Optional:    true,
 					},
 					{
 						Name:        "date",
-						Type:        description.FieldTypeDate,
+						Type:        meta.FieldTypeDate,
 						NowOnCreate: true,
 						Optional:    true,
 					},
 					{
 						Name:        "time",
-						Type:        description.FieldTypeTime,
+						Type:        meta.FieldTypeTime,
 						NowOnCreate: true,
 						Optional:    true,
 					},
