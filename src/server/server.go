@@ -747,14 +747,12 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 			ctx.Value("resource").(string), ctx.Value("action").(string),
 		)
 
-		if rule != nil {
-			if !passed && rule.Result == "allow" {
+		if !passed {
+			if rule != nil && rule.Filter != nil && rule.Result == "deny" {
+				sink.Status = "RESTRICTED"
+			} else {
 				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
 				return
-			}
-
-			if rule.Result == "deny" {
-				sink.Status = "RESTRICTED"
 			}
 		}
 
