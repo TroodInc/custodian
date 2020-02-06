@@ -73,7 +73,7 @@ var _ = Describe("FilterExpression", func() {
 		}
 
 		filterValue := filterExpression.String()
-		Expect(filterValue).To(Equal("not(eq(owner.is_superuser,0)"))
+		Expect(filterValue).To(Equal("not(eq(owner.is_superuser,0))"))
 	})
 
 	It("Can stringify complex expression", func() {

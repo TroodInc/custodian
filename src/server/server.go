@@ -366,20 +366,25 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 
 		_, rule := abac_resolver.Check(p.ByName("name"), "data_GET") // ??
-
 		user_filters := q.Get("q")
 
-		var filters = ""
-		if rule != nil && rule.Filter != nil && user_filters != "" {
-			filters = rule.Filter.String() + "," + user_filters
-		} else if user_filters != "" {
-			filters = user_filters
-		} else if rule != nil && rule.Filter != nil {
-			filters = rule.Filter.String()
+		var filters []string
+		if rule != nil && rule.Filter != nil {
+			if rule.Result == "deny" {
+				filters = append(filters, rule.Filter.Invert().String())
+			} else {
+				filters = append(filters, rule.Filter.String())
+			}
+		}
+
+		if user_filters != "" {
+			filters = append(filters, user_filters)
 		}
 
 		result := make([]interface{}, 0)
-		count, records, e := dataProcessor.GetBulk(p.ByName("name"), filters, q["only"], q["exclude"], depth, omitOuters)
+		count, records, e := dataProcessor.GetBulk(
+			p.ByName("name"), strings.Join(filters, ","), q["only"], q["exclude"], depth, omitOuters,
+		)
 
 		if e != nil {
 			sink.pushError(e)
@@ -783,13 +788,17 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 		abac_resolver := ctx.Value("abac").(abac.TroodABAC)
 		abac_resolver.DataSource["ctx"] = resolver_context
 
-		passed, _ := abac_resolver.Check(
+		passed, rule := abac_resolver.Check(
 			ctx.Value("resource").(string), ctx.Value("action").(string),
 		)
 
 		if !passed {
-			returnError(w, abac.NewError("Access restricted by ABAC access rule"))
-			return
+			if rule != nil && rule.Filter != nil && rule.Result == "deny" {
+				sink.Status = "RESTRICTED"
+			} else {
+				returnError(w, abac.NewError("Access restricted by ABAC access rule"))
+				return
+			}
 		}
 
 		query  := make(url.Values)
@@ -902,12 +911,13 @@ func (r *httpRequest) asJsonSource() (*JsonSource, error) {
 
 //The JSON object sink into the HTTP response.
 type JsonSink struct {
-	rw http.ResponseWriter
+	rw     http.ResponseWriter
+	Status string
 }
 
 //Converts http.ResponseWriter into JsonSink.
 func asJsonSink(w http.ResponseWriter) (*JsonSink, error) {
-	return &JsonSink{w}, nil
+	return &JsonSink{w, "OK"}, nil
 }
 
 //Push an error into JsonSink.
@@ -917,7 +927,7 @@ func (js *JsonSink) pushError(e error) {
 
 //Push an JSON object into JsonSink
 func (js *JsonSink) pushObj(object interface{}) {
-	responseData := map[string]interface{}{"status": "OK"}
+	responseData := map[string]interface{}{"status": js.Status}
 	if object != nil {
 		responseData["data"] = object
 	}
@@ -931,7 +941,7 @@ func (js *JsonSink) pushObj(object interface{}) {
 }
 
 func (js *JsonSink) pushList(objects []interface{}, total int) {
-	responseData := map[string]interface{}{"status": "OK"}
+	responseData := map[string]interface{}{"status": js.Status}
 	if objects == nil {
 		objects = make([]interface{},0)
 	}

@@ -2,8 +2,6 @@ package abac
 
 import (
 	"encoding/json"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"server/auth"
 	"server/data"
 	"server/data/record"
@@ -14,20 +12,23 @@ import (
 	"server/transactions"
 	"server/transactions/file_transaction"
 	"utils"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 type User struct {
-	Id     int    `json:"id"`
-	Login  string `json:"login"`
-	Status string `json:"status"`
-	Role   string `json:"role"`
+	ID      int                    `json:"id"`
+	Login   string                 `json:"login"`
+	Status  string                 `json:"status"`
+	Role    string                 `json:"role"`
 	Profile map[string]interface{} `json:"profile"`
 }
 
-func json_to_object(json_obj string) map[string]interface{} {
+func jsonToObject(jsonObj string) map[string]interface{} {
 	var condition map[string]interface{}
 
-	json.Unmarshal([]byte(json_obj), &condition)
+	json.Unmarshal([]byte(jsonObj), &condition)
 	return condition
 }
 
@@ -40,7 +41,7 @@ var _ = Describe("Abac Engine", func() {
 				"active",
 				"admin",
 				map[string]interface{}{
-					"id": 1,
+					"id":   1,
 					"name": "John",
 				}},
 			"ctx": nil,
@@ -52,22 +53,22 @@ var _ = Describe("Abac Engine", func() {
 	Describe("Operators", func() {
 		It("Must check if values exact equal", func() {
 			Context("for string values", func() {
-				result_false, _ := operatorExact("first", "second")
-				Expect(result_false).To(BeFalse())
+				resultFalse, _ := operatorExact("first", "second")
+				Expect(resultFalse).To(BeFalse())
 
-				result_true, _ := operatorExact("same", "same")
-				Expect(result_true).To(BeTrue())
+				resultTrue, _ := operatorExact("same", "same")
+				Expect(resultTrue).To(BeTrue())
 			})
 
 			Context("for numeric values", func() {
-				int_float_check, _ := operatorExact(2, 3.5)
-				Expect(int_float_check).To(BeFalse())
+				intFloatCheck, _ := operatorExact(2, 3.5)
+				Expect(intFloatCheck).To(BeFalse())
 
-				int_int_check, _ := operatorExact(2, 2)
-				Expect(int_int_check).To(BeTrue())
+				intIntCheck, _ := operatorExact(2, 2)
+				Expect(intIntCheck).To(BeTrue())
 
-				float_float_check, _ := operatorExact(float64(1), float64(1))
-				Expect(float_float_check).To(BeTrue())
+				floatFloatCheck, _ := operatorExact(float64(1), float64(1))
+				Expect(floatFloatCheck).To(BeTrue())
 			})
 		})
 
@@ -76,11 +77,11 @@ var _ = Describe("Abac Engine", func() {
 				var list []interface{}
 				list = append(list, "a", "b", "c")
 
-				result_false, _ := operatorIn(list, "z")
-				Expect(result_false).To(BeFalse())
+				resultFalse, _ := operatorIn(list, "z")
+				Expect(resultFalse).To(BeFalse())
 
-				result_true, _ := operatorIn(list, "a")
-				Expect(result_true).To(BeTrue())
+				resultTrue, _ := operatorIn(list, "a")
+				Expect(resultTrue).To(BeTrue())
 			})
 		})
 
@@ -89,26 +90,34 @@ var _ = Describe("Abac Engine", func() {
 	Describe("Reveal values from attr paths", func() {
 
 		It("must reveal from Object", func() {
-			operand, value, is_filter := resolver.reveal("sbj.role", "admin")
+			operand, value, isFilter := resolver.reveal("sbj.role", "admin")
 
 			Expect(operand).To(BeIdenticalTo("admin"))
 			Expect(value).To(BeIdenticalTo("admin"))
-			Expect(is_filter).To(BeFalse())
+			Expect(isFilter).To(BeFalse())
 		})
 
 		It("must reveal from map", func() {
-			operand, value, is_filter := resolver.reveal("obj.owner", "sbj.profile.id")
+			operand, value, isFilter := resolver.reveal("obj.owner", "sbj.profile.id")
 
 			Expect(operand).To(BeIdenticalTo("owner"))
 			Expect(value).To(BeIdenticalTo(1))
-			Expect(is_filter).To(BeTrue())
+			Expect(isFilter).To(BeTrue())
+		})
+
+		It("must reveal non-existing properties as nil", func() {
+			operand, value, isFilter := resolver.reveal("sbj.some.nonexisting.prop", "sbj.another")
+
+			Expect(operand).To(BeNil())
+			Expect(value).To(BeNil())
+			Expect(isFilter).To(BeFalse())
 		})
 	})
 
 	Describe("Rules", func() {
 
 		It("must evaluate sbj EQ condition", func() {
-			condition := json_to_object(`{"sbj.role": "admin"}`)
+			condition := jsonToObject(`{"sbj.role": "admin"}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -116,7 +125,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate sbj IN condition", func() {
-			condition := json_to_object(`{"sbj.role": {"in": ["manager", "admin"]}}`)
+			condition := jsonToObject(`{"sbj.role": {"in": ["manager", "admin"]}}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -124,7 +133,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate sbj NOT condition", func() {
-			condition := json_to_object(`{"sbj.role": {"not": "manager"}}`)
+			condition := jsonToObject(`{"sbj.role": {"not": "manager"}}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -132,7 +141,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate OR sbj condition", func() {
-			condition := json_to_object(`{"or": [
+			condition := jsonToObject(`{"or": [
 				{"sbj.role": {"not": "manager"}},
 				{"sbj.id": 5}
 			]}`)
@@ -142,7 +151,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate AND sbj condition", func() {
-			condition := json_to_object(`{"and": [
+			condition := jsonToObject(`{"and": [
 				{"sbj.role": {"not": "manager"}},
 				{"sbj.id": 10}	
 			]}`)
@@ -152,7 +161,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate and or condition", func() {
-			condition := json_to_object(`{
+			condition := jsonToObject(`{
                 "or": [
 					{"obj.executor.account": "sbj.id"},
 					{"obj.responsible.account": "sbj.id"}
@@ -164,7 +173,13 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate wildcard value", func() {
-			condition := json_to_object(`{"sbj.role": "*"}`)
+			condition := jsonToObject(`{"sbj.role": "*"}`)
+			result, _ := resolver.evaluateCondition(condition)
+			Expect(result).To(BeTrue())
+		})
+
+		It("must evaluate condition with null/non-existing arguments", func() {
+			condition := jsonToObject(`{"sbj.none.existing.field": null}`)
 			result, _ := resolver.evaluateCondition(condition)
 			Expect(result).To(BeTrue())
 		})
@@ -172,7 +187,7 @@ var _ = Describe("Abac Engine", func() {
 
 	Describe("Building filter expression", func() {
 		It("Can parse rule and build correct filter expression", func() {
-			condition := json_to_object(`{
+			condition := jsonToObject(`{
                 "or": [
 					{"obj.executor.account": "sbj.id"},
 					{"obj.responsible.account": "sbj.id"}
@@ -191,7 +206,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("Returns nil if there are no suitable rules to build filter expression", func() {
-			condition := json_to_object(`{"sbj.role": "admin"}`)
+			condition := jsonToObject(`{"sbj.role": "admin"}`)
 			_, rule := resolver.EvaluateRule(map[string]interface{}{"rule": condition, "result": "allow"})
 			Expect(rule.Filter).To(BeNil())
 		})
@@ -210,7 +225,7 @@ var _ = Describe("Abac Engine", func() {
 		metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
-		abac_tree := json_to_object(`{
+		abacTree := jsonToObject(`{
 			"t_client": {
 				"data_GET": [
 					{ "result": "allow", "rule": { "sbj.role": "admin" }, "mask": [] },
@@ -239,14 +254,14 @@ var _ = Describe("Abac Engine", func() {
 		It("Must filter Custodian Nodes", func() {
 			metaEmployee, err := metaStore.NewMeta(&description.MetaDescription{
 				Name: "t_employee",
-				Key: "id",
-				Cas: false,
-				Fields: []description.Field {
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
 					{
 						Name: "id", Type: description.FieldTypeNumber, Optional: true,
-						Def: map[string]interface{}{ "func": "nextval", },
+						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{ Name: "total", Type: description.FieldTypeNumber, Optional: true, },
+					{Name: "total", Type: description.FieldTypeNumber, Optional: true},
 				},
 			})
 			Expect(err).To(BeNil())
@@ -260,12 +275,12 @@ var _ = Describe("Abac Engine", func() {
 				Fields: []description.Field{
 					{
 						Name: "id", Type: description.FieldTypeNumber, Optional: true,
-						Def: map[string]interface{}{ "func": "nextval", },
+						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{ Name: "name", Type: description.FieldTypeString, Optional: true, },
-					{ Name: "total", Type: description.FieldTypeNumber, Optional: true, },
-					{ Name: "owner", Type: description.FieldTypeNumber, Optional: true, },
-					{ Name: "manager", Type: description.FieldTypeNumber, Optional: true, },
+					{Name: "name", Type: description.FieldTypeString, Optional: true},
+					{Name: "total", Type: description.FieldTypeNumber, Optional: true},
+					{Name: "owner", Type: description.FieldTypeNumber, Optional: true},
+					{Name: "manager", Type: description.FieldTypeNumber, Optional: true},
 					{
 						Name: "employee", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
 						LinkMeta: "t_employee", Optional: false,
@@ -278,19 +293,19 @@ var _ = Describe("Abac Engine", func() {
 
 			metaPayment, err := metaStore.NewMeta(&description.MetaDescription{
 				Name: "t_payment",
-				Key: "id",
-				Cas: false,
-				Fields: []description.Field {
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
 					{
 						Name: "id", Type: description.FieldTypeNumber, Optional: true,
-						Def: map[string]interface{}{ "func": "nextval", },
+						Def: map[string]interface{}{"func": "nextval"},
 					},
 					{
 						Name: "client", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
 						LinkMeta: "t_client", Optional: false,
 					},
-					{ Name: "responsible", Type: description.FieldTypeNumber, Optional: false, },
-					{ Name: "total", Type: description.FieldTypeNumber, Optional: true, },
+					{Name: "responsible", Type: description.FieldTypeNumber, Optional: false},
+					{Name: "total", Type: description.FieldTypeNumber, Optional: true},
 				},
 			})
 			Expect(err).To(BeNil())
@@ -304,18 +319,18 @@ var _ = Describe("Abac Engine", func() {
 				Fields: []description.Field{
 					{
 						Name: "id", Type: description.FieldTypeNumber, Optional: true,
-						Def: map[string]interface{}{ "func": "nextval", },
+						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{ Name: "name", Type: description.FieldTypeString, Optional: true, },
-					{ Name: "total", Type: description.FieldTypeNumber, Optional: true, },
-					{ Name: "owner", Type: description.FieldTypeNumber, Optional: true, },
-					{ Name: "manager", Type: description.FieldTypeNumber, Optional: true, },
+					{Name: "name", Type: description.FieldTypeString, Optional: true},
+					{Name: "total", Type: description.FieldTypeNumber, Optional: true},
+					{Name: "owner", Type: description.FieldTypeNumber, Optional: true},
+					{Name: "manager", Type: description.FieldTypeNumber, Optional: true},
 					{
 						Name: "employee", Type: description.FieldTypeObject, LinkType: description.LinkTypeInner,
 						LinkMeta: "t_employee", Optional: false,
-					},{
+					}, {
 						Name: "payments", Type: description.FieldTypeArray, LinkType: description.LinkTypeOuter,
-						LinkMeta: "t_payment",  OuterLinkField: "client", Optional: true,
+						LinkMeta: "t_payment", OuterLinkField: "client", Optional: true,
 					},
 				},
 			}
@@ -328,7 +343,7 @@ var _ = Describe("Abac Engine", func() {
 
 			recordEmployee, err := dataProcessor.CreateRecord(metaEmployee.Name, map[string]interface{}{}, auth.User{})
 
-			recordClient_1, err := dataProcessor.CreateRecord(
+			recordClientOne, err := dataProcessor.CreateRecord(
 				metaClient.Name,
 				map[string]interface{}{
 					"name": "client_1", "total": 9000, "owner": 1, "manager": 1, "employee": recordEmployee.Data["id"],
@@ -344,12 +359,12 @@ var _ = Describe("Abac Engine", func() {
 
 			_, err = dataProcessor.CreateRecord(
 				metaPayment.Name,
-				map[string]interface{}{"client": recordClient_1.Data["id"], "responsible": 1, "total": 1488}, auth.User{},
+				map[string]interface{}{"client": recordClientOne.Data["id"], "responsible": 1, "total": 1488}, auth.User{},
 			)
 
 			_, err = dataProcessor.CreateRecord(
 				metaPayment.Name,
-				map[string]interface{}{"client": recordClient_1.Data["id"], "responsible": 2, "total": 7777}, auth.User{},
+				map[string]interface{}{"client": recordClientOne.Data["id"], "responsible": 2, "total": 7777}, auth.User{},
 			)
 
 			abac := GetTroodABAC(
@@ -360,12 +375,12 @@ var _ = Describe("Abac Engine", func() {
 						"active",
 						"manager",
 						map[string]interface{}{
-							"id": 1,
+							"id":   1,
 							"name": "John",
 						}},
 					"ctx": nil,
 				},
-				abac_tree,
+				abacTree,
 				"deny",
 			)
 
@@ -381,6 +396,17 @@ var _ = Describe("Abac Engine", func() {
 			Expect(filtered.(*record.Record).Data["employee"]).To(Equal(map[string]string{"access": "denied"}))
 			Expect(filtered.(*record.Record).Data["total"]).To(Equal(map[string]string{"access": "denied"}))
 			Expect(filtered.(*record.Record).Data["payments"]).To(HaveLen(1))
+		})
+	})
+
+	Describe("Allow/Deny resolutions", func() {
+		It("Must resolve to True if only obj rules are set in policy", func() {
+			condition := jsonToObject(`{"obj.color": "red"}`)
+
+			result, filters := resolver.evaluateCondition(condition)
+
+			Expect(result).To(BeTrue())
+			Expect(filters).NotTo(BeNil())
 		})
 	})
 })

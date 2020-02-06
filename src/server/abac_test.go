@@ -86,6 +86,12 @@ var _ = Describe("ABAC rules handling", func() {
 					Type:     description.FieldTypeString,
 					Optional: true,
 				},
+				{
+					Name:	  "color",
+					Type:	  description.FieldTypeString,
+					Optional: true,
+					Def: 	  "red",
+				},
 			},
 		}
 		metaObj, err := metaStore.NewMeta(&metaDescription)
@@ -119,9 +125,131 @@ var _ = Describe("ABAC rules handling", func() {
 								},
 							},
 						},
+						"meta": map[string]interface{}{
+							"*": []interface{}{
+								map[string]interface{}{
+									"result": "allow",
+									"rule": map[string]interface{}{
+										"sbj.role": map[string]interface{}{"eq": "admin"},
+									},
+								},
+							},
+							"GET": []interface{}{
+								map[string]interface{}{
+									"result": "allow",
+									"rule": map[string]interface{}{
+										"sbj.role": map[string]interface{}{"eq": "manager"},
+									},
+								},
+							},
+						},
 					},
 				},
 			}
+		})
+
+		Context("Unauthorized User", func() {
+			It("Must deny unauthorized", func() {
+				user = &auth.User{
+					Authorized: false,
+					ABAC: map[string]interface{}{
+						"_default_resolution": "allow",
+						SERVICE_DOMAIN: map[string]interface{}{
+							"a": map[string]interface{}{
+								"*": []interface{}{
+									map[string]interface{}{
+										"result": "deny",
+										"rule": map[string]interface{}{
+											"sbj.authorized": map[string]interface{}{"eq": false},
+										},
+									},
+								},
+							},
+						},
+					},
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/data/a", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+		})
+
+		Context("Meta & Wildcard rules", func() {
+			It("Must allow meta list with ACTION rule set", func() {
+				user.Role = "manager"
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/meta", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+			})
+
+			It("Must deny meta Creation", func() {
+				user.Role = "manager"
+				httpServer = get_server(user)
+				encodedMetaData := []byte(`{"name":"test","key":"id","cas":false,"fields":[{"name":"id","type":"number","optional":true}]}`)
+
+				url := fmt.Sprintf("%s/meta", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+
+			It("Must deny meta list for Unauthorized", func() {
+				user.Role = ""
+				user.Authorized = false
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/meta", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+
+			It("Must allow meta list by wildcard", func() {
+				user.Role = "admin"
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/meta", appConfig.UrlPrefix)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+			})
 		})
 
 		Context("And this user has the role 'manager'", func() {
@@ -317,16 +445,19 @@ var _ = Describe("ABAC rules handling", func() {
 
 	Describe("Deny result tests", func() {
 
-		var url string
+		var obj_url, list_url string
 		JustBeforeEach(func() {
 			aObject := factoryObjectA()
 			aRecord, err := dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Blue record", "owner_role": "user", "color": "blue"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Red record", "owner_role": "user",}, auth.User{})
 			Expect(err).To(BeNil())
 
-			url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
+			list_url = fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, aObject.Name)
+			obj_url = fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 		})
 
-		Context("Default resoution set to deny globaly", func() {
+		Context("Sbj rules with default resoution set to deny globaly", func() {
 
 			var abac_tree = map[string]interface{}{
 				"_default_resolution": "deny",
@@ -343,6 +474,12 @@ var _ = Describe("ABAC rules handling", func() {
 								"rule": map[string]interface{}{
 									"sbj.role": "disabled",
 								},
+							},map[string]interface{} {
+								"result": "deny",
+								"rule": map[string]interface{}{
+									"sbj.role": "restricted",
+									"obj.color": "red",
+								},
 							},
 						},
 					},
@@ -355,7 +492,7 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				httpServer = get_server(user)
 
-				var request, _ = http.NewRequest("GET", url, nil)
+				var request, _ = http.NewRequest("GET", obj_url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
@@ -370,7 +507,7 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				httpServer = get_server(user)
 
-				var request, _ = http.NewRequest("GET", url, nil)
+				var request, _ = http.NewRequest("GET", obj_url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
@@ -386,7 +523,7 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				httpServer = get_server(user)
 
-				var request, _ = http.NewRequest("GET", url, nil)
+				var request, _ = http.NewRequest("GET", obj_url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
@@ -402,13 +539,85 @@ var _ = Describe("ABAC rules handling", func() {
 				}
 				httpServer = get_server(user)
 
-				var request, _ = http.NewRequest("GET", url, nil)
+				var request, _ = http.NewRequest("GET", obj_url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
 				var body map[string]interface{}
 				json.Unmarshal([]byte(responseBody), &body)
 				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+
+			It("Must deny if only obj rules is set with deny resolution", func() {
+				var abac_tree = map[string]interface{}{
+					"_default_resolution": "allow",
+					SERVICE_DOMAIN: map[string]interface{}{
+						"a": map[string]interface{}{
+							"data_GET": []interface{}{
+								map[string]interface{}{
+									"result": "deny",
+									"rule": map[string]interface{}{
+										"obj.color": "red",
+									},
+								},
+							},
+						},
+					},
+				}
+
+				user = &auth.User{
+					ABAC: abac_tree,
+				}
+
+				httpServer = get_server(user)
+
+				var request, _ = http.NewRequest("GET", obj_url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+
+				fmt.Fprintln(GinkgoWriter, body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+		})
+
+		Context("Must invert rules and deny resolution", func() {
+			var abac_tree = map[string]interface{}{
+				"_default_resolution": "allow",
+				SERVICE_DOMAIN: map[string]interface{}{
+					"a": map[string]interface{}{
+						"data_GET": []interface{}{
+							map[string]interface{}{
+								"result": "deny",
+								"rule": map[string]interface{}{
+									"sbj.role": "user",
+									"obj.color": "red",
+								},
+							},
+						},
+					},
+				},
+			}
+
+			It("Must show only blue for users", func(){
+				user = &auth.User{
+					Role: "user", ABAC: abac_tree,
+				}
+				httpServer = get_server(user)
+
+				var request, _ = http.NewRequest("GET", list_url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+
+				Expect(body["status"].(string)).To(Equal("RESTRICTED"))
+				data := body["data"].([]interface{})
+				Expect(len(data)).To(Equal(1))
+				Expect(data[0].(map[string]interface{})["color"].(string)).To(Equal("blue"))
 			})
 		})
 	})
