@@ -61,6 +61,7 @@ func (abac *TroodABAC) FindRules(resource string, action string) []interface{} {
 
 	paths := []string{
 		resource + "." + action, resource + "." + actionBase[0] + "_*", resource + ".*",
+		"*." + action, "*." + actionBase[0] + "_*", "*.*",
 	}
 
 	for _, path := range paths {
