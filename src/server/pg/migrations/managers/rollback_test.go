@@ -21,7 +21,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 

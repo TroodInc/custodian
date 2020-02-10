@@ -22,11 +22,12 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -422,7 +423,7 @@ var _ = Describe("Data", func() {
 		var bRecord *record.Record
 		var err error
 
-		havingObjectA := func() {
+		havingObjectA := func() *meta.Meta {
 			By("having two objects: A and B")
 			aMetaDescription := meta.Meta{
 				Name: "a",
@@ -448,9 +449,10 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
+			return aMetaObj
 		}
 
-		havingObjectD := func() {
+		havingObjectD := func(A *meta.Meta) *meta.Meta {
 			By("having object D with ")
 			dMetaDescription := meta.Meta{
 				Name: "d",
@@ -469,7 +471,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: A,
 					},
 				},
 			}
@@ -477,9 +479,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(dMetaObj)
 			Expect(err).To(BeNil())
+
+			return dMetaObj
 		}
 
-		havingObjectAWithOuterLinkToD := func() {
+		havingObjectAWithOuterLinkToD := func(D *meta.Meta) {
 			By("having object A with outer link to D")
 			aMetaDescription := meta.Meta{
 				Name: "a",
@@ -503,8 +507,8 @@ var _ = Describe("Data", func() {
 						Name:           "d_set",
 						Type:           meta.FieldTypeArray,
 						LinkType:       meta.LinkTypeOuter,
-						LinkMeta:       "d",
-						OuterLinkField: "a",
+						LinkMeta:       D,
+						OuterLinkField: D.FindField("a"),
 						RetrieveMode:   true,
 						Optional:       true,
 					},
@@ -516,7 +520,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 		}
 
-		havingObjectBWithGenericLinkToA := func() {
+		havingObjectBWithGenericLinkToA := func(A *meta.Meta) *meta.Meta {
 
 			By("B contains generic inner field")
 
@@ -537,7 +541,7 @@ var _ = Describe("Data", func() {
 						Name:         "target",
 						Type:         meta.FieldTypeGeneric,
 						LinkType:     meta.LinkTypeInner,
-						LinkMetaList: []string{"a"},
+						LinkMetaList: []*meta.Meta{A},
 						Optional:     true,
 					},
 				},
@@ -546,9 +550,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
+
+			return bMetaObj
 		}
 
-		havingObjectCWithGenericLinkToB := func() {
+		havingObjectCWithGenericLinkToB := func(B *meta.Meta) {
 
 			By("C contains generic inner field")
 
@@ -569,7 +575,7 @@ var _ = Describe("Data", func() {
 						Name:         "target",
 						Type:         meta.FieldTypeGeneric,
 						LinkType:     meta.LinkTypeInner,
-						LinkMetaList: []string{"b"},
+						LinkMetaList: []*meta.Meta{B},
 						Optional:     true,
 					},
 				},
@@ -592,9 +598,9 @@ var _ = Describe("Data", func() {
 
 		It("can retrieve record containing generic inner value as a key", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			Describe("And having a record of object A", havingARecordOfObjectA)
+			aMeta := havingObjectA()
+			havingObjectBWithGenericLinkToA(aMeta)
+			havingARecordOfObjectA()
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
 
@@ -610,9 +616,9 @@ var _ = Describe("Data", func() {
 
 		It("can retrieve record containing generic inner value as a full object", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			Describe("And having a record of object A", havingARecordOfObjectA)
+			aMeta := havingObjectA()
+			havingObjectBWithGenericLinkToA(aMeta)
+			havingARecordOfObjectA()
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectB)
 
@@ -626,9 +632,9 @@ var _ = Describe("Data", func() {
 
 		It("can retrieve record containing nested generic relations", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B with generic link to A", havingObjectBWithGenericLinkToA)
-			Describe("And having object C with generic link to B", havingObjectCWithGenericLinkToB)
+			aMeta := havingObjectA()
+			bMeta := havingObjectBWithGenericLinkToA(aMeta)
+			havingObjectCWithGenericLinkToB(bMeta)
 
 			Describe("And having a record of object A", havingARecordOfObjectA)
 
@@ -650,9 +656,9 @@ var _ = Describe("Data", func() {
 		})
 
 		It("can retrieve record containing null generic inner value", func() {
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			Describe("And having a record of object A", havingARecordOfObjectA)
+			aMeta := havingObjectA()
+			havingObjectBWithGenericLinkToA(aMeta)
+			havingARecordOfObjectA()
 
 			bRecord, err = dataProcessor.CreateRecord("b", map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
@@ -664,11 +670,11 @@ var _ = Describe("Data", func() {
 		})
 
 		It("can retrieve record with generic value respecting specified depth", func() {
-			havingObjectA()
-			havingObjectD()
-			havingObjectAWithOuterLinkToD()
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			Describe("And having a record of object A", havingARecordOfObjectA)
+			aMeta := havingObjectA()
+			dMeta := havingObjectD(aMeta)
+			havingObjectAWithOuterLinkToD(dMeta)
+			havingObjectBWithGenericLinkToA(aMeta)
+			havingARecordOfObjectA()
 
 			_, err := dataProcessor.CreateRecord(
 				"d", map[string]interface{}{"a": aRecord.Pk()}, auth.User{},
@@ -695,7 +701,7 @@ var _ = Describe("Data", func() {
 		var cRecord *record.Record
 		var err error
 
-		havingObjectA := func() {
+		havingObjectA := func() *meta.Meta {
 			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
@@ -720,9 +726,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
+
+			return aMetaObj
 		}
 
-		havingObjectC := func() {
+		havingObjectC := func() *meta.Meta {
 			cMetaDescription := meta.Meta{
 				Name: "c",
 				Key:  "id",
@@ -742,9 +750,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(cMetaObj)
 			Expect(err).To(BeNil())
+
+			return cMetaObj
 		}
 
-		havingObjectBWithGenericLinkToAAndC := func() {
+		havingObjectBWithGenericLinkToAAndC := func(A, C *meta.Meta) {
 
 			By("B contains generic inner field")
 
@@ -765,7 +775,7 @@ var _ = Describe("Data", func() {
 						Name:         "target",
 						Type:         meta.FieldTypeGeneric,
 						LinkType:     meta.LinkTypeInner,
-						LinkMetaList: []string{"a", "c"},
+						LinkMetaList: []*meta.Meta{A, C},
 						Optional:     true,
 					},
 				},
@@ -798,9 +808,9 @@ var _ = Describe("Data", func() {
 
 		It("can retrieve record with generic field as key by querying by A record`s field", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+			aMeta := havingObjectA()
+			cMeta := havingObjectC()
+			havingObjectBWithGenericLinkToAAndC(aMeta, cMeta)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("And having a record of object C", havingARecordOfObjectC)
 
@@ -818,9 +828,9 @@ var _ = Describe("Data", func() {
 
 		It("can retrieve record with generic field as full object by querying by A record`s field", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+			aMeta := havingObjectA()
+			cMeta := havingObjectC()
+			havingObjectBWithGenericLinkToAAndC(aMeta, cMeta)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
@@ -836,9 +846,9 @@ var _ = Describe("Data", func() {
 
 		It("can query records by generic_field's type", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+			aMeta := havingObjectA()
+			cMeta := havingObjectC()
+			havingObjectBWithGenericLinkToAAndC(aMeta, cMeta)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
@@ -857,9 +867,9 @@ var _ = Describe("Data", func() {
 
 		It("can create record with nested new inner generic record", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+			aMeta := havingObjectA()
+			cMeta := havingObjectC()
+			havingObjectBWithGenericLinkToAAndC(aMeta, cMeta)
 
 			bRecordData := map[string]interface{}{"target": map[string]interface{}{"_object": "a", "name": "Some A record"}}
 
@@ -871,9 +881,9 @@ var _ = Describe("Data", func() {
 
 		It("can create record with nested existing inner generic record", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("Having object C", havingObjectC)
-			Describe("And having object B", havingObjectBWithGenericLinkToAAndC)
+			aMeta := havingObjectA()
+			cMeta := havingObjectC()
+			havingObjectBWithGenericLinkToAAndC(aMeta, cMeta)
 
 			existingARecord, err := dataProcessor.CreateRecord(
 				"a",

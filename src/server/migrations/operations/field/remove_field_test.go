@@ -18,7 +18,7 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
@@ -48,7 +48,7 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 			},
 		}
 		globalTransaction, _ := globalTransactionManager.BeginTransaction()
-		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, metaDescription.Name, metaDescription.ForExport())
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
@@ -68,7 +68,8 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 		Expect(objectMeta).NotTo(BeNil())
 
 		//ensure MetaDescription has been removed from file
-		metaDescription, _, err := metaDescriptionSyncer.Get(objectMeta.Name)
+		metaMap, _, err := metaDescriptionSyncer.Get(objectMeta.Name)
+		metaDescription = meta.NewMetaFromMap(metaMap)
 		Expect(metaDescription).NotTo(BeNil())
 		Expect(metaDescription.Fields).To(HaveLen(1))
 		Expect(metaDescription.Fields[0].Name).To(Equal("id"))

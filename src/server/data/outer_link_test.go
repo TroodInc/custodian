@@ -19,11 +19,12 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -55,7 +56,7 @@ var _ = Describe("Data", func() {
 			return aMetaObj
 		}
 
-		havingObjectBLinkedToA := func() *meta.Meta {
+		havingObjectBLinkedToA := func(A *meta.Meta) *meta.Meta {
 			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
@@ -73,7 +74,7 @@ var _ = Describe("Data", func() {
 						Name:     "a",
 						Type:     meta.FieldTypeObject,
 						LinkType: meta.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: A,
 						Optional: false,
 					},
 				},
@@ -85,7 +86,7 @@ var _ = Describe("Data", func() {
 			return bMetaObj
 		}
 
-		havingObjectAWithManuallySpecifiedOuterLinkToB := func() *meta.Meta {
+		havingObjectAWithManuallySpecifiedOuterLinkToB := func(B *meta.Meta) *meta.Meta {
 			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
@@ -103,8 +104,8 @@ var _ = Describe("Data", func() {
 						Name:           "b_set",
 						Type:           meta.FieldTypeArray,
 						LinkType:       meta.LinkTypeOuter,
-						LinkMeta:       "b",
-						OuterLinkField: "a",
+						LinkMeta:       B,
+						OuterLinkField: B.FindField("a"),
 						Optional:       true,
 					},
 				},
@@ -119,9 +120,9 @@ var _ = Describe("Data", func() {
 
 		It("retrieves data if outer link RetrieveMode is on", func() {
 
-			havingObjectA()
-			havingObjectBLinkedToA()
-			objectA := havingObjectAWithManuallySpecifiedOuterLinkToB()
+			aMeta := havingObjectA()
+			bMeta := havingObjectBLinkedToA(aMeta)
+			objectA := havingObjectAWithManuallySpecifiedOuterLinkToB(bMeta)
 
 			aRecord, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
@@ -133,7 +134,7 @@ var _ = Describe("Data", func() {
 		It("does not retrieve data if outer link RetrieveMode is off", func() {
 
 			objectA := havingObjectA()
-			havingObjectBLinkedToA()
+			havingObjectBLinkedToA(objectA)
 
 			aRecord, err := dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())

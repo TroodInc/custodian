@@ -18,7 +18,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
@@ -54,7 +54,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			},
 		}
 		globalTransaction, err := globalTransactionManager.BeginTransaction()
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, metaDescription.Name, metaDescription.ForExport())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
 	})
@@ -71,7 +71,8 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		Expect(metaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file with new field
-		metaDescription, _, err = metaDescriptionSyncer.Get(metaDescription.Name)
+		description, _, err := metaDescriptionSyncer.Get(metaDescription.Name)
+		metaDescription = meta.NewMetaFromMap(description)
 		Expect(metaDescription).NotTo(BeNil())
 		Expect(metaDescription.Fields).To(HaveLen(2))
 		Expect(metaDescription.Fields[1].Name).To(Equal("name"))

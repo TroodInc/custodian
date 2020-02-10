@@ -1,6 +1,7 @@
 package migrations_test
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	migrations_description "server/migrations/description"
@@ -21,7 +22,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
@@ -69,10 +70,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 	Describe("Automated generic fields` migrations` spawning", func() {
 		It("adds reverse generic outer link while object is being created", func() {
-			bMetaDescription := description.NewMetaDescription(
-				"b",
-				"id",
-				[]*meta.Field{
+			bMetaDescription := &meta.Meta{
+				Name:"b",
+				Key: "id",
+				Fields: []*meta.Field{
 					{
 						Name: "id",
 						Type: meta.FieldTypeNumber,
@@ -88,9 +89,9 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 						Optional:     false,
 					},
 				},
-				nil,
-				false,
-			)
+				Actions: nil,
+				Cas: false,
+			}
 
 			migrationDescription := &migrations_description.MigrationDescription{
 				Id:        "some-unique-id",

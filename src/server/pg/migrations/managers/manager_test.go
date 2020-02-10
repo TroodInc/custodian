@@ -23,7 +23,7 @@ var _ = Describe("MigrationManager", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(nil, dbTransactionManager)
 
-	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	It("Creates migration history table if it does not exists", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()

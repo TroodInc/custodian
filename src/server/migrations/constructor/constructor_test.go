@@ -25,7 +25,7 @@ var _ = Describe("Migration Constructor", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
@@ -307,13 +307,6 @@ var _ = Describe("Migration Constructor", func() {
 							Optional: false,
 						},
 						{
-							Name:         "target_object",
-							Type:         meta.FieldTypeGeneric,
-							LinkType:     meta.LinkTypeInner,
-							LinkMetaList: []string{"a"},
-							Optional:     false,
-						},
-						{
 							Name:     "created",
 							Type:     meta.FieldTypeDateTime,
 							Optional: true,
@@ -347,15 +340,6 @@ var _ = Describe("Migration Constructor", func() {
 								Optional: false,
 							},
 							PreviousName: "existing_field",
-						},
-						{
-							Field: meta.Field{
-								Name:         "target_object",
-								Type:         meta.FieldTypeGeneric,
-								LinkType:     meta.LinkTypeInner,
-								LinkMetaList: []string{"a"},
-								Optional:     false,
-							},
 						},
 						{
 							Field: meta.Field{
@@ -401,15 +385,6 @@ var _ = Describe("Migration Constructor", func() {
 								Name:     "existing_field",
 								Type:     meta.FieldTypeString,
 								Optional: true,
-							},
-						},
-						{
-							Field: meta.Field{
-								Name:         "target_object",
-								Type:         meta.FieldTypeGeneric,
-								LinkType:     meta.LinkTypeInner,
-								LinkMetaList: []string{"a"},
-								Optional:     false,
 							},
 						},
 						{
@@ -461,15 +436,6 @@ var _ = Describe("Migration Constructor", func() {
 						},
 						{
 							Field: meta.Field{
-								Name:         "target_object",
-								Type:         meta.FieldTypeGeneric,
-								LinkType:     meta.LinkTypeInner,
-								LinkMetaList: []string{"a"},
-								Optional:     false,
-							},
-						},
-						{
-							Field: meta.Field{
 								Name:     "created",
 								Type:     meta.FieldTypeDateTime,
 								Optional: true,
@@ -511,15 +477,6 @@ var _ = Describe("Migration Constructor", func() {
 								Name:     "existing_field",
 								Type:     meta.FieldTypeString,
 								Optional: false,
-							},
-						},
-						{
-							Field: meta.Field{
-								Name:         "target_object",
-								Type:         meta.FieldTypeGeneric,
-								LinkType:     meta.LinkTypeInner,
-								LinkMetaList: []string{"a"},
-								Optional:     false,
 							},
 						},
 						{
@@ -566,15 +523,6 @@ var _ = Describe("Migration Constructor", func() {
 								Name:     "existing_field",
 								Type:     meta.FieldTypeString,
 								Optional: false,
-							},
-						},
-						{
-							Field: meta.Field{
-								Name:         "target_object",
-								Type:         meta.FieldTypeGeneric,
-								LinkType:     meta.LinkTypeInner,
-								LinkMetaList: []string{"a"},
-								Optional:     false,
 							},
 						},
 						{
@@ -626,15 +574,6 @@ var _ = Describe("Migration Constructor", func() {
 						},
 						{
 							Field: meta.Field{
-								Name:         "target_object",
-								Type:         meta.FieldTypeGeneric,
-								LinkType:     meta.LinkTypeInner,
-								LinkMetaList: []string{"a"},
-								Optional:     false,
-							},
-						},
-						{
-							Field: meta.Field{
 								Name:     "created",
 								Type:     meta.FieldTypeDateTime,
 								Optional: true,
@@ -676,15 +615,6 @@ var _ = Describe("Migration Constructor", func() {
 								Name:     "existing_field",
 								Type:     meta.FieldTypeString,
 								Optional: false,
-							},
-						},
-						{
-							Field: meta.Field{
-								Name:         "target_object",
-								Type:         meta.FieldTypeGeneric,
-								LinkType:     meta.LinkTypeInner,
-								LinkMetaList: []string{"a", "b"},
-								Optional:     false,
 							},
 						},
 						{
@@ -775,7 +705,7 @@ var _ = Describe("Migration Constructor", func() {
 						Optional: false,
 					},
 				},
-				Actions: []notifications.Action{
+				Actions: []*notifications.Action{
 					{
 						Name:     "new_action",
 						Method:   notifications.MethodCreate,
@@ -826,7 +756,7 @@ var _ = Describe("Migration Constructor", func() {
 							Optional: false,
 						},
 					},
-					Actions: []notifications.Action{
+					Actions: []*notifications.Action{
 						{
 							Name:     "new_action",
 							Method:   notifications.MethodCreate,

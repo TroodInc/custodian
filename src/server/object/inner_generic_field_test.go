@@ -4,7 +4,6 @@ import (
 	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/migrations/description"
 	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -18,10 +17,11 @@ var _ = Describe("Inner generic field", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -48,7 +48,7 @@ var _ = Describe("Inner generic field", func() {
 			Name:         "target",
 			Type:         description.FieldTypeGeneric,
 			LinkType:     description.LinkTypeInner,
-			LinkMetaList: []string{aMetaObj.Name, bMetaObj.Name},
+			LinkMetaList: []*meta.Meta{aMetaObj, bMetaObj},
 			Optional:     false,
 		})
 
@@ -74,7 +74,7 @@ var _ = Describe("Inner generic field", func() {
 		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(cMeta.Fields).To(HaveLen(2))
-		Expect(cMeta.Fields[1].LinkMetaList.GetAll()).To(HaveLen(2))
+		Expect(cMeta.Fields[1].LinkMetaList).To(HaveLen(2))
 	})
 
 	It("Validates linked metas", func() {
@@ -172,7 +172,7 @@ var _ = Describe("Inner generic field", func() {
 
 		cMetaObj, _, err := metaStore.Get(cMetaDescription.Name, true)
 		Expect(err).To(BeNil())
-		Expect(cMetaObj.Fields[1].LinkMetaList.GetAll()).To(HaveLen(1))
+		Expect(cMetaObj.Fields[1].LinkMetaList).To(HaveLen(1))
 	})
 
 	It("can create object with inner generic field", func() {

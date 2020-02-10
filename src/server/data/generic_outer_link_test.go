@@ -23,11 +23,12 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -41,7 +42,7 @@ var _ = Describe("Data", func() {
 		var bRecord *record.Record
 		var err error
 
-		havingObjectA := func() {
+		havingObjectA := func() *meta.Meta {
 			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
@@ -66,9 +67,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
+
+			return aMetaObj
 		}
 
-		havingObjectBWithGenericLinkToA := func() {
+		havingObjectBWithGenericLinkToA := func(A *meta.Meta) *meta.Meta {
 			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
@@ -91,7 +94,7 @@ var _ = Describe("Data", func() {
 						Name:         "target",
 						Type:         meta.FieldTypeGeneric,
 						LinkType:     meta.LinkTypeInner,
-						LinkMetaList: []string{"a"},
+						LinkMetaList: []*meta.Meta{A},
 						Optional:     true,
 					},
 				},
@@ -101,9 +104,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(bMetaObj)
 			Expect(err).To(BeNil())
+
+			return bMetaObj
 		}
 
-		havingObjectAWithGenericOuterLinkToB := func() {
+		havingObjectAWithGenericOuterLinkToB := func(B *meta.Meta) {
 			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
@@ -126,8 +131,8 @@ var _ = Describe("Data", func() {
 						Name:           "b_set",
 						Type:           meta.FieldTypeGeneric,
 						LinkType:       meta.LinkTypeOuter,
-						LinkMeta:       "b",
-						OuterLinkField: "target",
+						LinkMeta:       B,
+						OuterLinkField: B.FindField("target"),
 						Optional:       true,
 					},
 				},
@@ -151,9 +156,9 @@ var _ = Describe("Data", func() {
 
 		It("can retrieve record with outer generic field as key", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			Describe("And having object A containing outer field referencing object B", havingObjectAWithGenericOuterLinkToB)
+			aMeta := havingObjectA()
+			bMeta := havingObjectBWithGenericLinkToA(aMeta)
+			havingObjectAWithGenericOuterLinkToB(bMeta)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
@@ -166,9 +171,9 @@ var _ = Describe("Data", func() {
 
 		It("can retrieve record with outer generic field as object", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			Describe("And having object A containing outer field referencing object B", havingObjectAWithGenericOuterLinkToB)
+			aMeta := havingObjectA()
+			bMeta := havingObjectBWithGenericLinkToA(aMeta)
+			havingObjectAWithGenericOuterLinkToB(bMeta)
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
@@ -181,9 +186,9 @@ var _ = Describe("Data", func() {
 		})
 
 		It("can create record with nested records referenced by outer generic link, referenced record does not exist", func() {
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			havingObjectAWithGenericOuterLinkToB()
+			aMeta := havingObjectA()
+			bMeta := havingObjectBWithGenericLinkToA(aMeta)
+			havingObjectAWithGenericOuterLinkToB(bMeta)
 
 			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{}}}
 			aRecord, err := dataProcessor.CreateRecord("a", aRecordData, auth.User{})
@@ -197,9 +202,9 @@ var _ = Describe("Data", func() {
 		})
 
 		It("can create record with nested records referenced by outer generic link, referenced record exists", func() {
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			Describe("And having object A with manually set outer link to B", havingObjectAWithGenericOuterLinkToB)
+			aMeta := havingObjectA()
+			bMeta := havingObjectBWithGenericLinkToA(aMeta)
+			havingObjectAWithGenericOuterLinkToB(bMeta)
 
 			bRecord, err := dataProcessor.CreateRecord("b", map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
@@ -226,9 +231,10 @@ var _ = Describe("Data", func() {
 
 		It("can query records by outer generic field value", func() {
 
-			Describe("Having object A", havingObjectA)
-			Describe("And having object B", havingObjectBWithGenericLinkToA)
-			Describe("And having object A containing outer field referencing object B", havingObjectAWithGenericOuterLinkToB)
+			aMeta := havingObjectA()
+			bMeta := havingObjectBWithGenericLinkToA(aMeta)
+			havingObjectAWithGenericOuterLinkToB(bMeta)
+
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 

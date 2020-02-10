@@ -3,7 +3,6 @@ package object
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/migrations/description"
 	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -17,10 +16,11 @@ var _ = Describe("Outer generic field", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -52,7 +52,7 @@ var _ = Describe("Outer generic field", func() {
 		})
 		metaObj, err := metaStore.NewMeta(cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		err = metaStore.Create(cMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
@@ -83,6 +83,20 @@ var _ = Describe("Outer generic field", func() {
 
 	It("Detects non-existing linked meta", func() {
 		By("having an object A, referencing non-existing object B")
+		bMetaDescription := meta.Meta{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
 
 		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{

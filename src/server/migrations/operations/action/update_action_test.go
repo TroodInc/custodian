@@ -20,7 +20,7 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &transactions.FileMetaDescriptionTransactionManager{}
+	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
@@ -42,7 +42,7 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 					},
 				},
 			},
-			Actions: []notifications.Action{
+			Actions: []*notifications.Action{
 				{Name: "new_action",
 					Method:   notifications.MethodCreate,
 					Protocol: noti.REST,
@@ -51,7 +51,7 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 			},
 		}
 		globalTransaction, _ := globalTransactionManager.BeginTransaction()
-		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, metaDescription.Name, metaDescription.ForExport())
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
@@ -80,8 +80,8 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 		Expect(metaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file with updated action
-		metaDescription, _, err = metaDescriptionSyncer.Get(metaDescription.Name)
-		Expect(metaDescription).NotTo(BeNil())
+		description, _, err := metaDescriptionSyncer.Get(metaDescription.Name)
+		Expect(description).NotTo(BeNil())
 		Expect(metaDescription.Actions).To(HaveLen(1))
 		Expect(metaDescription.Actions[0].Name).To(Equal("updated_action"))
 		Expect(metaDescription.Actions[0].Args[0]).To(Equal("http://localhost:3000/some-another-handler"))
