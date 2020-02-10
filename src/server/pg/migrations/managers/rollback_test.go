@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	migrations_description "server/migrations/description"
+	"server/object"
 	"server/object/description"
 	"server/object/meta"
 	"server/pg"
@@ -47,21 +48,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 		BeforeEach(func() {
 			//Create object A by applying a migration
-			aMetaDescription = description.NewMetaDescription(
-				"a",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-				},
-				nil,
-				false,
-			)
+			aMetaDescription = object.GetBaseMetaData(utils.RandomString(8))
 
 			firstAppliedMigrationDescription = &migrations_description.MigrationDescription{
 				Id:        "1",
@@ -225,25 +212,11 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			})
 		})
 		It("It can rollback `RenameObject` migration", func() {
-			updatedAMetaDescription := description.NewMetaDescription(
-				"updated_a",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-				},
-				nil,
-				false,
-			)
+			updatedAMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
 
 			secondAppliedMigrationDescription := &migrations_description.MigrationDescription{
 				Id:        "2",
-				ApplyTo:   "a",
+				ApplyTo:   aMetaDescription.Name,
 				DependsOn: []string{firstAppliedMigrationDescription.Id},
 				Operations: [] migrations_description.MigrationOperationDescription{
 					{
@@ -281,7 +254,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 		It("It can rollback `DeleteObject` migration", func() {
 			secondAppliedMigrationDescription := &migrations_description.MigrationDescription{
 				Id:        "2",
-				ApplyTo:   "a",
+				ApplyTo:   aMetaDescription.Name,
 				DependsOn: []string{firstAppliedMigrationDescription.Id},
 				Operations: [] migrations_description.MigrationOperationDescription{
 					{

@@ -60,70 +60,28 @@ var _ = Describe("Objects field", func() {
 	})
 
 	It("can build meta with 'objects' field and filled 'throughLink'", func() {
-		aMetaDescription := description.MetaDescription{
-			Name: "a_cyq6u",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		bMetaDescription := description.MetaDescription{
-			Name: "b_6ru7k",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		updatedAMetaDescription := description.MetaDescription{
-			Name: aMetaDescription.Name,
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "b",
-					Type:     description.FieldTypeObjects,
-					LinkMeta: bMetaDescription.Name,
-					LinkType: description.LinkTypeInner,
-				},
-			},
-		}
+		aMetaDescription := GetBaseMetaData(utils.RandomString(8))
+		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
 
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
+		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+			Name:     "b",
+			Type:     description.FieldTypeObjects,
+			LinkMeta: bMetaDescription.Name,
+			LinkType: description.LinkTypeInner,
+		})
+
 		//check field's properties
-		updatedAMetaObj, err := metaStore.NewMeta(&updatedAMetaDescription)
+		updatedAMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		Expect(updatedAMetaObj.Fields).To(HaveLen(2))
 		Expect(updatedAMetaObj.Fields[1].LinkMeta.Name).To(Equal(bMetaDescription.Name))

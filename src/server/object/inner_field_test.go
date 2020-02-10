@@ -29,46 +29,19 @@ var _ = Describe("Inner generic field", func() {
 	})
 
 	It("automatically creates reverse outer link field", func() {
-		aMetaDescription := description.MetaDescription{
-			Name: "a_g0ua9",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaDescription := description.MetaDescription{
-			Name: "b_p5sab",
-			Key:  "id",
-			Cas:  false,
-			Fields: []description.Field{
-				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "a",
-					Type:     description.FieldTypeObject,
-					LinkType: description.LinkTypeInner,
-					LinkMeta: aMetaDescription.Name,
-				},
-			},
-		}
-		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
+		bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+			Name:     "a",
+			Type:     description.FieldTypeObject,
+			LinkType: description.LinkTypeInner,
+			LinkMeta: aMetaObj.Name,
+		})
+		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
@@ -76,7 +49,7 @@ var _ = Describe("Inner generic field", func() {
 		aMetaObj, _, err = metaStore.Get(aMetaObj.Name, true)
 		Expect(err).To(BeNil())
 
-		reverseField := aMetaObj.FindField("b_p5sab_set")
+		reverseField := aMetaObj.FindField(bMetaObj.Name + "_set")
 		Expect(reverseField).NotTo(BeNil())
 		Expect(reverseField.Type).To(Equal(description.FieldTypeArray))
 		Expect(reverseField.LinkType).To(Equal(description.LinkTypeOuter))

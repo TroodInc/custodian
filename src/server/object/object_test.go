@@ -3,12 +3,11 @@ package object
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"utils"
-	"server/pg"
 	"server/object/meta"
+	"server/pg"
 	"server/transactions/file_transaction"
+	"utils"
 
-	"server/object/description"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
 )
@@ -33,22 +32,11 @@ var _ = Describe("File MetaDescription driver", func() {
 	It("can restore objects on rollback", func() {
 
 		Context("having an object", func() {
-			metaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: false,
-					},
-				},
-			}
+			metaDescription := GetBaseMetaData(utils.RandomString(8))
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			fileMetaDriver.Create(globalTransaction.MetaDescriptionTransaction, metaDescription)
+			fileMetaDriver.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 
 			Context("and this object is removed within transaction", func() {
 				metaDescriptionList, _, _ := metaStore.List()
@@ -73,22 +61,11 @@ var _ = Describe("File MetaDescription driver", func() {
 
 	It("removes objects created during transaction on rollback", func() {
 		Context("having an object", func() {
-			metaDescription := description.MetaDescription{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name:     "id",
-						Type:     description.FieldTypeNumber,
-						Optional: false,
-					},
-				},
-			}
+			metaDescription := GetBaseMetaData(utils.RandomString(8))
 			metaDescriptionList, _, _ := metaStore.List()
 			metaTransaction, err := fileMetaTransactionManager.BeginTransaction(metaDescriptionList)
 			Expect(err).To(BeNil())
-			err = fileMetaDriver.Create(metaTransaction, metaDescription)
+			err = fileMetaDriver.Create(metaTransaction, *metaDescription)
 			Expect(err).To(BeNil())
 
 			Context("and another object is created within new transaction", func() {
@@ -96,19 +73,8 @@ var _ = Describe("File MetaDescription driver", func() {
 				metaTransaction, err := fileMetaTransactionManager.BeginTransaction(metaDescriptionList)
 				Expect(err).To(BeNil())
 
-				bMetaDescription := description.MetaDescription{
-					Name: "b",
-					Key:  "id",
-					Cas:  false,
-					Fields: []description.Field{
-						{
-							Name:     "id",
-							Type:     description.FieldTypeNumber,
-							Optional: false,
-						},
-					},
-				}
-				fileMetaDriver.Create(metaTransaction, bMetaDescription)
+				bMetaDescription := GetBaseMetaData(utils.RandomString(8))
+				fileMetaDriver.Create(metaTransaction, *bMetaDescription)
 
 				Context("B object should be removed after rollback", func() {
 					err = fileMetaTransactionManager.RollbackTransaction(metaTransaction)
