@@ -45,8 +45,6 @@ var _ = Describe("MigrationManager", func() {
 	})
 
 	It("Records migration", func() {
-		dbTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
 		migrationUid := "c1be598d"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
@@ -56,17 +54,13 @@ var _ = Describe("MigrationManager", func() {
 		Expect(err).To(BeNil())
 
 		Expect(migrationHistoryId).To(Equal(migrationUid))
-
-		dbTransactionManager.RollbackTransaction(dbTransaction)
 	})
 
 	It("Does not apply same migration twice", func() {
-		dbTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
 		migrationUid := "c1be59xd"
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
-		_, err = NewMigrationManager(
+		_, err := NewMigrationManager(
 			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
@@ -75,7 +69,5 @@ var _ = Describe("MigrationManager", func() {
 			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).NotTo(BeNil())
-
-		dbTransactionManager.RollbackTransaction(dbTransaction)
 	})
 })

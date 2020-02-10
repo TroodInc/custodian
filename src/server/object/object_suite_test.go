@@ -3,7 +3,6 @@ package object
 import (
 	"github.com/onsi/ginkgo/reporters"
 	"os"
-	"server/object/description"
 	"testing"
 
 	. "github.com/onsi/ginkgo"
@@ -20,19 +19,3 @@ func TestData(t *testing.T) {
 	}
 }
 
-func GetBaseMetaData(name string) *description.MetaDescription {
-	return &description.MetaDescription{
-		Name: name,
-		Key:  "id",
-		Cas:  false,
-		Fields: []description.Field{
-			{
-				Name: "id",
-				Type: description.FieldTypeNumber,
-				Def: map[string]interface{}{
-					"func": "nextval",
-				},
-			},
-		},
-	}
-}
