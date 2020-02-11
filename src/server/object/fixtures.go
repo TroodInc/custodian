@@ -1,14 +1,16 @@
 package object
 
-func GetBaseMetaData(name string) *Meta {
-	return &Meta{
+import "server/object/meta"
+
+func GetBaseMetaData(name string) *meta.Meta {
+	return &meta.Meta{
 		Name: name,
 		Key:  "id",
 		Cas:  false,
-		Fields: []*Field{
+		Fields: []*meta.Field{
 			{
 				Name: "id",
-				Type: FieldTypeNumber,
+				Type: meta.FieldTypeNumber,
 				Def: map[string]interface{}{
 					"func": "nextval",
 				},

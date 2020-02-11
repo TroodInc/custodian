@@ -6,7 +6,7 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/record"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -26,7 +26,7 @@ var _ = Describe("Data", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -37,14 +37,14 @@ var _ = Describe("Data", func() {
 	It("Can update records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
 
-			metaDescription := object.Meta{
+			metaDescription := meta.Meta{
 				Name: "order",
 				Key:  "order",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "order",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -52,7 +52,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name: "select",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 				},
 			}
@@ -79,14 +79,14 @@ var _ = Describe("Data", func() {
 	It("Can perform bulk update", func() {
 		By("Having Position object")
 
-		positionMetaDescription := object.Meta{
+		positionMetaDescription := meta.Meta{
 			Name: "position",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -94,7 +94,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name: "name",
-					Type: object.FieldTypeString,
+					Type: meta.FieldTypeString,
 				},
 			},
 		}
@@ -105,14 +105,14 @@ var _ = Describe("Data", func() {
 
 		By("and Person object")
 
-		metaDescription := object.Meta{
+		metaDescription := meta.Meta{
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -120,13 +120,13 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "position",
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaObj,
 				},
 				{
 					Name: "name",
-					Type: object.FieldTypeString,
+					Type: meta.FieldTypeString,
 				},
 			},
 		}
@@ -184,14 +184,14 @@ var _ = Describe("Data", func() {
 	It("Can perform update", func() {
 		By("Having Position object")
 
-		positionMetaDescription := object.Meta{
+		positionMetaDescription := meta.Meta{
 			Name: "position",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -199,7 +199,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name: "name",
-					Type: object.FieldTypeString,
+					Type: meta.FieldTypeString,
 				},
 			},
 		}
@@ -227,14 +227,14 @@ var _ = Describe("Data", func() {
 	It("Can update record with null value", func() {
 		By("Having A object")
 
-		positionMetaDescription := object.Meta{
+		positionMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -242,7 +242,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -267,15 +267,15 @@ var _ = Describe("Data", func() {
 
 	})
 
-	havingObjectA := func() *object.Meta {
-		aMetaDescription := object.Meta{
+	havingObjectA := func() *meta.Meta {
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -283,28 +283,28 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		(&object.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
 
-	havingObjectAWithObjectsLinkToD := func(D *object.Meta) *object.Meta {
-		aMetaDescription := object.Meta{
+	havingObjectAWithObjectsLinkToD := func(D *meta.Meta) *meta.Meta {
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -312,18 +312,18 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "ds",
-					Type:     object.FieldTypeObjects,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObjects,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: D,
 				},
 			},
 		}
-		(&object.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
@@ -331,15 +331,15 @@ var _ = Describe("Data", func() {
 		return aMetaObj
 	}
 
-	havingObjectB := func(A *object.Meta, onDelete string) *object.Meta {
-		bMetaDescription := object.Meta{
+	havingObjectB := func(A *meta.Meta, onDelete string) *meta.Meta {
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -347,36 +347,36 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "a",
-					Type:     object.FieldTypeObject,
+					Type:     meta.FieldTypeObject,
 					Optional: true,
-					LinkType: object.LinkTypeInner,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: A,
 					OnDelete: onDelete,
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
 		}
 		metaObj, err := metaStore.NewMeta(&bMetaDescription)
-		(&object.NormalizationService{}).Normalize(&bMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
 
-	havingObjectC := func(B, D *object.Meta) *object.Meta {
-		metaDescription := object.Meta{
+	havingObjectC := func(B, D *meta.Meta) *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -384,20 +384,20 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "b",
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: B,
 					Optional: true,
 				},
 				{
 					Name:     "d",
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: D,
 					Optional: true,
 				},
@@ -410,20 +410,20 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	havingObjectD := func() *object.Meta {
-		metaDescription := object.Meta{
+	havingObjectD := func() *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "d",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -435,15 +435,15 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	factoryObjectBWithManuallySetOuterLinkToC := func(A, C *object.Meta) *object.Meta {
-		metaDescription := object.Meta{
+	factoryObjectBWithManuallySetOuterLinkToC := func(A, C *meta.Meta) *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -451,28 +451,28 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "a",
-					Type:     object.FieldTypeObject,
+					Type:     meta.FieldTypeObject,
 					Optional: true,
-					LinkType: object.LinkTypeInner,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: A,
-					OnDelete: object.OnDeleteCascade.ToVerbose(),
+					OnDelete: meta.OnDeleteCascade.ToVerbose(),
 				},
 				{
 					Name:           "c_set",
-					Type:           object.FieldTypeArray,
-					LinkType:       object.LinkTypeOuter,
+					Type:           meta.FieldTypeArray,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       C,
 					OuterLinkField: C.FindField("b"),
 					Optional:       true,
 				},
 			},
 		}
-		(&object.NormalizationService{}).Normalize(&metaDescription)
+		(&meta.NormalizationService{}).Normalize(&metaDescription)
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(metaObj.Name, metaObj, true)
@@ -480,16 +480,16 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	havingObjectAWithManuallySetOuterLink := func(B *object.Meta) *object.Meta {
+	havingObjectAWithManuallySetOuterLink := func(B *meta.Meta) *meta.Meta {
 
-		aMetaDescription := object.Meta{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -497,13 +497,13 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:           "b_set",
-					Type:           object.FieldTypeArray,
-					LinkType:       object.LinkTypeOuter,
+					Type:           meta.FieldTypeArray,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       B,
 					OuterLinkField: B.FindField("a"),
 					Optional:       true,
@@ -511,7 +511,7 @@ var _ = Describe("Data", func() {
 			},
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		(&object.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
 		Expect(err).To(BeNil())
@@ -519,7 +519,7 @@ var _ = Describe("Data", func() {
 	}
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(aMetaObj, object.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, meta.OnDeleteCascade.ToVerbose())
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -539,7 +539,7 @@ var _ = Describe("Data", func() {
 
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(aMetaObj, object.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, meta.OnDeleteCascade.ToVerbose())
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
@@ -559,7 +559,7 @@ var _ = Describe("Data", func() {
 
 	It("Can perform update of record with nested outer records of mixed types: new record, existing record`s PK and existing record`s new data at once", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(aMetaObj, object.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, meta.OnDeleteCascade.ToVerbose())
 		aMetaObj = havingObjectAWithManuallySetOuterLink(bMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
@@ -593,7 +593,7 @@ var _ = Describe("Data", func() {
 
 	It("Processes delete logic for outer records which are not presented in update data. `Cascade` strategy case ", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(aMetaObj, object.OnDeleteCascade.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, meta.OnDeleteCascade.ToVerbose())
 		aMetaObj = havingObjectAWithManuallySetOuterLink(bMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
@@ -641,7 +641,7 @@ var _ = Describe("Data", func() {
 
 	It("Processes delete logic for outer records which are not presented in update data. `SetNull` strategy case ", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(aMetaObj, object.OnDeleteSetNull.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, meta.OnDeleteSetNull.ToVerbose())
 		aMetaObj = havingObjectAWithManuallySetOuterLink(bMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(
@@ -695,7 +695,7 @@ var _ = Describe("Data", func() {
 
 	It("Processes delete logic for outer records which are not presented in update data. `Restrict` strategy case ", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(aMetaObj, object.OnDeleteRestrict.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, meta.OnDeleteRestrict.ToVerbose())
 		aMetaObj = havingObjectAWithManuallySetOuterLink(bMetaObj)
 
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
@@ -723,7 +723,7 @@ var _ = Describe("Data", func() {
 
 	It("Updates record with nested records with mixed values(both valuable and null)", func() {
 		aMetaObj := havingObjectA()
-		bMetaObj := havingObjectB(aMetaObj, object.OnDeleteRestrict.ToVerbose())
+		bMetaObj := havingObjectB(aMetaObj, meta.OnDeleteRestrict.ToVerbose())
 		dMetaObj := havingObjectD()
 		cMetaObj := havingObjectC(bMetaObj, dMetaObj)
 

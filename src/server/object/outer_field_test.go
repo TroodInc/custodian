@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -20,14 +21,14 @@ var _ = Describe("Outer field", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
 
-	havingAMeta := func() *Meta {
+	havingAMeta := func() *meta.Meta {
 		aMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
@@ -35,12 +36,12 @@ var _ = Describe("Outer field", func() {
 		return aMetaObj
 	}
 
-	havingBMeta := func(A *Meta) *Meta {
+	havingBMeta := func(A *meta.Meta) *meta.Meta {
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
 			Name:     "a",
-			Type:     FieldTypeObject,
-			LinkType: LinkTypeInner,
+			Type:     meta.FieldTypeObject,
+			LinkType: meta.LinkTypeInner,
 			LinkMeta: A,
 			Optional: false,
 		})
@@ -51,16 +52,16 @@ var _ = Describe("Outer field", func() {
 		return bMetaObj
 	}
 
-	havingAMetaWithManuallySetBSetLink := func(A, B *Meta) *Meta {
+	havingAMetaWithManuallySetBSetLink := func(A, B *meta.Meta) *meta.Meta {
 		aMetaDescription := GetBaseMetaData(A.Name)
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
 			Name:           "b_set",
-			Type:           FieldTypeArray,
-			LinkType:       LinkTypeOuter,
+			Type:           meta.FieldTypeArray,
+			LinkType:       meta.LinkTypeOuter,
 			LinkMeta:       B,
 			OuterLinkField: B.FindField("a"),
 		})
-		(&NormalizationService{}).Normalize(aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
@@ -132,14 +133,14 @@ var _ = Describe("Outer field", func() {
 
 		//A meta updated with outer link to b
 		aMetaDescription := GetBaseMetaData(aMetaObj.Name)
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
 			Name:           "custom_b_set",
-			Type:           FieldTypeArray,
-			LinkType:       LinkTypeOuter,
+			Type:           meta.FieldTypeArray,
+			LinkType:       meta.LinkTypeOuter,
 			LinkMeta:       bMetaObj,
 			OuterLinkField: bMetaObj.FindField("a"),
 		})
-		(&NormalizationService{}).Normalize(aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(aMetaDescription)
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)

@@ -3,7 +3,7 @@ package pg
 import (
 	"database/sql"
 	"fmt"
-	"server/object"
+	"server/object/meta"
 )
 
 type Reverser struct {
@@ -90,7 +90,7 @@ func (r *Reverser) Columns(cols *[]Column, pk *string) error {
 	var column, dbtype, defval string
 	var dbdefval sql.NullString
 	var notnull, ok bool
-	var coltyp object.FieldType
+	var coltyp meta.FieldType
 	var colsmap = make(map[string]int)
 	for i := 0; colrows.Next(); i++ {
 		if err = colrows.Scan(&column, &dbtype, &dbdefval, &notnull); err != nil {
@@ -168,7 +168,7 @@ func (r *Reverser) Constraints(ifks *[]IFK, ofks *[]OFK) error {
 		if err = ifkrows.Scan(&fromCol, &toTbl, &toCol, &OnDeleteStrategyCode); err != nil {
 			return &DDLError{table: r.table, code: ErrInternal, msg: "parse IFK:" + err.Error()}
 		}
-		*ifks = append(*ifks, IFK{fromCol, toTbl, toCol, object.GetOnDeleteStrategyByDbCode(OnDeleteStrategyCode).ToDbValue(), ""})
+		*ifks = append(*ifks, IFK{fromCol, toTbl, toCol, meta.GetOnDeleteStrategyByDbCode(OnDeleteStrategyCode).ToDbValue(), ""})
 	}
 
 	return nil

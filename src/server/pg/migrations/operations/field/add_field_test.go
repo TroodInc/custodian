@@ -2,9 +2,9 @@ package field
 
 import (
 	"database/sql"
+	"server/object/meta"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	object2 "server/object"
 
 	"server/pg"
 	"server/pg/migrations/operations/object"
@@ -23,9 +23,9 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *object2.Meta
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -38,14 +38,14 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = &object2.Meta{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object2.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object2.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -67,7 +67,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 		//
 
-		field := object2.Field{Name: "new_field", Type: object2.FieldTypeString, Optional: true}
+		field := meta.Field{Name: "new_field", Type: meta.FieldTypeString, Optional: true}
 		fieldOperation := NewAddFieldOperation(&field)
 
 		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
@@ -82,7 +82,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Columns).To(HaveLen(2))
 		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
-		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(object2.FieldTypeString))
+		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(meta.FieldTypeString))
 		Expect(metaDdlFromDB.Columns[1].Name).To(Equal("new_field"))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -101,9 +101,9 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		//sync MetaDescription with DB
 
 		//
-		field := object2.Field{
+		field := meta.Field{
 			Name:     "new_field",
-			Type:     object2.FieldTypeNumber,
+			Type:     meta.FieldTypeNumber,
 			Optional: true,
 			Def: map[string]interface{}{
 				"func": "nextval",
@@ -138,14 +138,14 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//create linked MetaDescription obj
-		linkedMetaDescription := &object2.Meta{
+		linkedMetaDescription := &meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object2.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object2.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -161,13 +161,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//Run field operations
-		field := object2.Field{
+		field := meta.Field{
 			Name:     "link_to_a",
-			Type:     object2.FieldTypeObject,
-			LinkType: object2.LinkTypeInner,
+			Type:     meta.FieldTypeObject,
+			LinkType: meta.LinkTypeInner,
 			LinkMeta: linkedMetaDescription.Name,
 			Optional: false,
-			OnDelete: object2.OnDeleteCascadeVerbose,
+			OnDelete: meta.OnDeleteCascadeVerbose,
 		}
 
 		fieldOperation := NewAddFieldOperation(&field)
@@ -187,7 +187,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.IFKs[0].ToTable).To(Equal(pg.GetTableName(linkedMetaDescription.Name)))
 		Expect(metaDdlFromDB.IFKs[0].ToColumn).To(Equal(linkedMetaDescription.Key))
 		Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("link_to_a"))
-		Expect(metaDdlFromDB.IFKs[0].OnDelete).To(Equal(object2.OnDeleteCascadeDb))
+		Expect(metaDdlFromDB.IFKs[0].OnDelete).To(Equal(meta.OnDeleteCascadeDb))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})

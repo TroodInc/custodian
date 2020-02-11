@@ -6,7 +6,7 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/record"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -25,7 +25,7 @@ var _ = Describe("Data", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -35,14 +35,14 @@ var _ = Describe("Data", func() {
 
 	It("can outputs by 'Objects' field values respecting specified depth value set to 1", func() {
 		Context("having an object with outer link to another object", func() {
-			aMetaDescription := object.Meta{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -50,7 +50,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name: "name",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 				},
 			}
@@ -59,14 +59,14 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 
-			bMetaDescription := object.Meta{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -74,8 +74,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "as",
-						Type:     object.FieldTypeObjects,
-						LinkType: object.LinkTypeInner,
+						Type:     meta.FieldTypeObjects,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: aMetaObj,
 						Optional: true,
 					},
@@ -124,14 +124,14 @@ var _ = Describe("Data", func() {
 
 	It("can outputs by 'Objects' field values respecting specified depth value set to 2", func() {
 		Context("having an object with outer link to another object", func() {
-			aMetaDescription := object.Meta{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -139,7 +139,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name: "name",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 				},
 			}
@@ -148,14 +148,14 @@ var _ = Describe("Data", func() {
 			err = metaStore.Create(aMetaObj)
 			Expect(err).To(BeNil())
 
-			bMetaDescription := object.Meta{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -163,8 +163,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "as",
-						Type:     object.FieldTypeObjects,
-						LinkType: object.LinkTypeInner,
+						Type:     meta.FieldTypeObjects,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: aMetaObj,
 						Optional: true,
 					},

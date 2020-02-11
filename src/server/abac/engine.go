@@ -2,7 +2,7 @@ package abac
 
 import (
 	"server/data/record"
-	"server/object"
+	"server/object/meta"
 	"strings"
 )
 
@@ -220,13 +220,13 @@ func (abac *TroodABAC) MaskRecord(obj *record.Record, action string) (bool, inte
 					field := obj.Meta.FindField(key)
 
 					switch field.Type {
-					case object.FieldTypeObject:
+					case meta.FieldTypeObject:
 						// Then Apply masks for sub-object
 						if item, ok := val.(*record.Record); ok {
 							_, obj.Data[key] = abac.MaskRecord(item, action)
 						}
 
-					case object.FieldTypeArray:
+					case meta.FieldTypeArray:
 						val := val.([]interface{})
 						var subSet []*record.Record
 						// Skip records with no access and apply mask on remained

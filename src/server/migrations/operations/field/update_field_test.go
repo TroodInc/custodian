@@ -3,7 +3,7 @@ package field
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -21,9 +21,9 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *object.Meta
+	var metaDescription *meta.Meta
 
 	//setup transaction
 	AfterEach(func() {
@@ -33,21 +33,21 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = &object.Meta{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def:      "empty",
 				},
@@ -61,7 +61,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 	It("replaces a field in metaDescription`s file", func() {
 
-		field := object.Field{Name: "name", Type: object.FieldTypeNumber, Optional: false, Def: nil}
+		field := meta.Field{Name: "name", Type: meta.FieldTypeNumber, Optional: false, Def: nil}
 
 		operation := NewUpdateFieldOperation(metaDescription.FindField("name"), &field)
 		globalTransaction, err := globalTransactionManager.BeginTransaction()
@@ -72,14 +72,14 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 		//ensure MetaDescription has been save to file with new field
 		description, _, err := metaDescriptionSyncer.Get(metaDescription.Name)
-		metaDescription = object.NewMetaFromMap(description)
+		metaDescription = meta.NewMetaFromMap(description)
 		Expect(metaDescription).NotTo(BeNil())
 		Expect(metaDescription.Fields).To(HaveLen(2))
 		Expect(metaDescription.Fields[1].Name).To(Equal("name"))
 
 		Expect(metaDescription.FindField("name").Optional).To(BeFalse())
 		Expect(metaDescription.FindField("name").Def).To(BeNil())
-		Expect(metaDescription.FindField("name").Type).To(Equal(object.FieldTypeNumber))
+		Expect(metaDescription.FindField("name").Type).To(Equal(meta.FieldTypeNumber))
 
 		//clean up
 		metaDescriptionSyncer.Remove(metaDescription.Name)

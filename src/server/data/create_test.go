@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 	"server/auth"
 	"server/data"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -25,7 +25,7 @@ var _ = Describe("Create test", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -33,15 +33,15 @@ var _ = Describe("Create test", func() {
 		Expect(err).To(BeNil())
 	})
 
-	havingObjectA := func() *object.Meta {
-		aMetaDescription := object.Meta{
+	havingObjectA := func() *meta.Meta {
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -49,12 +49,12 @@ var _ = Describe("Create test", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
 		}
-		(&object.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
@@ -62,15 +62,15 @@ var _ = Describe("Create test", func() {
 		return aMetaObj
 	}
 
-	havingObjectB := func(A *object.Meta) *object.Meta {
-		bMetaDescription := object.Meta{
+	havingObjectB := func(A *meta.Meta) *meta.Meta {
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -78,20 +78,20 @@ var _ = Describe("Create test", func() {
 				},
 				{
 					Name:     "a",
-					Type:     object.FieldTypeObject,
+					Type:     meta.FieldTypeObject,
 					Optional: false,
-					LinkType: object.LinkTypeInner,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: A,
-					OnDelete: object.OnDeleteCascade.ToVerbose(),
+					OnDelete: meta.OnDeleteCascade.ToVerbose(),
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
 		}
-		(&object.NormalizationService{}).Normalize(&bMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&bMetaDescription)
 		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
@@ -99,15 +99,15 @@ var _ = Describe("Create test", func() {
 		return bMetaObj
 	}
 
-	havingObjectC := func() *object.Meta {
-		cMetaDescription := object.Meta{
+	havingObjectC := func() *meta.Meta {
+		cMetaDescription := meta.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -115,12 +115,12 @@ var _ = Describe("Create test", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
 		}
-		(&object.NormalizationService{}).Normalize(&cMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&cMetaDescription)
 		cMetaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(cMetaObj)
@@ -128,15 +128,15 @@ var _ = Describe("Create test", func() {
 		return cMetaObj
 	}
 
-	havingObjectAWithManuallySetOuterLinkToB := func(B *object.Meta) *object.Meta {
-		aMetaDescription := object.Meta{
+	havingObjectAWithManuallySetOuterLinkToB := func(B *meta.Meta) *meta.Meta {
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -144,20 +144,20 @@ var _ = Describe("Create test", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:           "b_set",
-					Type:           object.FieldTypeArray,
-					LinkType:       object.LinkTypeOuter,
+					Type:           meta.FieldTypeArray,
+					LinkType:       meta.LinkTypeOuter,
 					OuterLinkField: B.FindField("a"),
 					LinkMeta:       B,
 					Optional:       true,
 				},
 			},
 		}
-		(&object.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
@@ -165,15 +165,15 @@ var _ = Describe("Create test", func() {
 		return aMetaObj
 	}
 
-	havingObjectAWithObjectsLinkToB := func(C *object.Meta) *object.Meta {
-		aMetaDescription := object.Meta{
+	havingObjectAWithObjectsLinkToB := func(C *meta.Meta) *meta.Meta {
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -181,18 +181,18 @@ var _ = Describe("Create test", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "cs",
-					Type:     object.FieldTypeObjects,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObjects,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: C,
 				},
 			},
 		}
-		(&object.NormalizationService{}).Normalize(&aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
@@ -203,14 +203,14 @@ var _ = Describe("Create test", func() {
 	XIt("can create a record containing null value of foreign key field", func() {
 
 		Context("having Reason object", func() {
-			reasonMetaDescription := object.Meta{
+			reasonMetaDescription := meta.Meta{
 				Name: "test_reason",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -221,14 +221,14 @@ var _ = Describe("Create test", func() {
 			Expect(err).To(BeNil())
 
 			Context("and Lead object referencing Reason object", func() {
-				leadMetaDescription := object.Meta{
+				leadMetaDescription := meta.Meta{
 					Name: "test_lead",
 					Key:  "id",
 					Cas:  false,
-					Fields: []*object.Field{
+					Fields: []*meta.Field{
 						{
 							Name: "id",
-							Type: object.FieldTypeNumber,
+							Type: meta.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -236,13 +236,13 @@ var _ = Describe("Create test", func() {
 						},
 						{
 							Name: "name",
-							Type: object.FieldTypeString,
+							Type: meta.FieldTypeString,
 						},
 						{
 							Name:     "decline_reason",
-							Type:     object.FieldTypeObject,
+							Type:     meta.FieldTypeObject,
 							Optional: true,
-							LinkType: object.LinkTypeInner,
+							LinkType: meta.LinkTypeInner,
 							LinkMeta: reasonMetaObj,
 						},
 					},
@@ -265,14 +265,14 @@ var _ = Describe("Create test", func() {
 
 	It("can create record without specifying any value", func() {
 		Context("having an object with optional fields", func() {
-			metaDescription := object.Meta{
+			metaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -280,7 +280,7 @@ var _ = Describe("Create test", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -298,14 +298,14 @@ var _ = Describe("Create test", func() {
 
 	It("can create record with null value for optional field", func() {
 		Context("having an object", func() {
-			metaDescription := object.Meta{
+			metaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -313,7 +313,7 @@ var _ = Describe("Create test", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -330,14 +330,14 @@ var _ = Describe("Create test", func() {
 
 	It("Can create records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
-			metaDescription := object.Meta{
+			metaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -345,7 +345,7 @@ var _ = Describe("Create test", func() {
 					},
 					{
 						Name: "order",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 				},
 			}
@@ -366,14 +366,14 @@ var _ = Describe("Create test", func() {
 
 	It("Can insert numeric value into string field", func() {
 		Context("having an object with string field", func() {
-			metaDescription := object.Meta{
+			metaDescription := meta.Meta{
 				Name: "test_order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -381,7 +381,7 @@ var _ = Describe("Create test", func() {
 					},
 					{
 						Name: "name",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 				},
 			}

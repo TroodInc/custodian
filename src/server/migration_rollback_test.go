@@ -5,7 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
-	"server/object"
+	"server/object/meta"
 	"server/pg"
 	"utils"
 
@@ -34,7 +34,7 @@ var _ = Describe("Rollback migrations", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -57,18 +57,18 @@ var _ = Describe("Rollback migrations", func() {
 	AfterEach(flushDb)
 
 	Context("Having applied `create` migration for object A", func() {
-		var aMetaDescription *object.Meta
+		var aMetaDescription *meta.Meta
 		var firstAppliedMigrationDescription *migrations_description.MigrationDescription
 
 		BeforeEach(func() {
 			//Create object A by applying a migration
-			aMetaDescription = &object.Meta{
+			aMetaDescription = &meta.Meta{
 				Name: "a",
 				Key: "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -99,9 +99,9 @@ var _ = Describe("Rollback migrations", func() {
 			var secondAppliedMigrationDescription *migrations_description.MigrationDescription
 
 			BeforeEach(func() {
-				field := object.Field{
+				field := meta.Field{
 					Name:     "title",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				}
 
@@ -127,9 +127,9 @@ var _ = Describe("Rollback migrations", func() {
 
 				BeforeEach(func() {
 					//Create object A by applying a migration
-					field := object.Field{
+					field := meta.Field{
 						Name:     "new_title",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					}
 

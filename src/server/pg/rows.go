@@ -5,14 +5,14 @@ import (
 	"reflect"
 	"server/data/types"
 	"server/errors"
-	"server/object"
+	"server/object/meta"
 )
 
 type Rows struct {
 	*sql.Rows
 }
 
-func (rows *Rows) getDefaultValues(fields []*object.Field, ) ([]interface{}, error) {
+func (rows *Rows) getDefaultValues(fields []*meta.Field, ) ([]interface{}, error) {
 	values := make([]interface{}, 0)
 	for _, field := range fields {
 		if newValue, err := newFieldValue(field, field.Optional); err != nil {
@@ -28,7 +28,7 @@ func (rows *Rows) getDefaultValues(fields []*object.Field, ) ([]interface{}, err
 	return values, nil
 }
 
-func (rows *Rows) Parse(fields []*object.Field) ([]map[string]interface{}, error) {
+func (rows *Rows) Parse(fields []*meta.Field) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
@@ -36,10 +36,10 @@ func (rows *Rows) Parse(fields []*object.Field) ([]map[string]interface{}, error
 
 	result := make([]map[string]interface{}, 0)
 	i := 0
-	fieldByColumnName := func(columnName string) *object.Field {
+	fieldByColumnName := func(columnName string) *meta.Field {
 		fieldName := columnName
-		if object.IsGenericFieldColumn(columnName) {
-			fieldName = object.ReverseGenericFieldName(fieldName)
+		if meta.IsGenericFieldColumn(columnName) {
+			fieldName = meta.ReverseGenericFieldName(fieldName)
 		}
 
 		for _, field := range fields {
@@ -59,7 +59,7 @@ func (rows *Rows) Parse(fields []*object.Field) ([]map[string]interface{}, error
 			}
 			result = append(result, make(map[string]interface{}))
 			for j, columnName := range cols {
-				if fieldByColumnName(columnName).Type == object.FieldTypeDate {
+				if fieldByColumnName(columnName).Type == meta.FieldTypeDate {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -70,7 +70,7 @@ func (rows *Rows) Parse(fields []*object.Field) ([]map[string]interface{}, error
 					case *string:
 						result[i][columnName] = string([]rune(*value)[0:10])
 					}
-				} else if fieldByColumnName(columnName).Type == object.FieldTypeTime {
+				} else if fieldByColumnName(columnName).Type == meta.FieldTypeTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -81,7 +81,7 @@ func (rows *Rows) Parse(fields []*object.Field) ([]map[string]interface{}, error
 					case *string:
 						result[i][columnName] = string([]rune(*value)[11:])
 					}
-				} else if fieldByColumnName(columnName).Type == object.FieldTypeDateTime {
+				} else if fieldByColumnName(columnName).Type == meta.FieldTypeDateTime {
 					switch value := values[j].(type) {
 					case *sql.NullString:
 						if value.Valid {
@@ -92,7 +92,7 @@ func (rows *Rows) Parse(fields []*object.Field) ([]map[string]interface{}, error
 					case *string:
 						result[i][columnName] = *value
 					}
-				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == object.FieldTypeGeneric {
+				} else if fieldDescription := fieldByColumnName(columnName); fieldDescription.Type == meta.FieldTypeGeneric {
 
 					//
 					value := values[j].(*sql.NullString)
@@ -106,7 +106,7 @@ func (rows *Rows) Parse(fields []*object.Field) ([]map[string]interface{}, error
 						castAssembledValue = assembledValue.(*types.GenericInnerLink)
 					}
 					//fill corresponding value
-					if object.IsGenericFieldTypeColumn(columnName) {
+					if meta.IsGenericFieldTypeColumn(columnName) {
 						if value.String != "" {
 							castAssembledValue.ObjectName = value.String
 							if linkMeta := fieldDescription.GetLinkMetaByName(value.String); linkMeta == nil {
@@ -118,7 +118,7 @@ func (rows *Rows) Parse(fields []*object.Field) ([]map[string]interface{}, error
 								castAssembledValue.PkName = linkMeta.Key
 							}
 						}
-					} else if object.IsGenericFieldKeyColumn(columnName) {
+					} else if meta.IsGenericFieldKeyColumn(columnName) {
 						if value.String != "" {
 							if linkMeta := fieldDescription.GetLinkMetaByName(castAssembledValue.ObjectName); linkMeta == nil {
 								return nil, errors.NewFatalError(ErrDMLFailed, "Generic field %s references improper meta'%s'", map[string]string{

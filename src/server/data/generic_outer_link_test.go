@@ -8,7 +8,7 @@ import (
 	"server/data"
 	"server/data/record"
 	"server/data/types"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -28,7 +28,7 @@ var _ = Describe("Data", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -42,15 +42,15 @@ var _ = Describe("Data", func() {
 		var bRecord *record.Record
 		var err error
 
-		havingObjectA := func() *object.Meta {
-			aMetaDescription := object.Meta{
+		havingObjectA := func() *meta.Meta {
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -58,7 +58,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -71,15 +71,15 @@ var _ = Describe("Data", func() {
 			return aMetaObj
 		}
 
-		havingObjectBWithGenericLinkToA := func(A *object.Meta) *object.Meta {
-			bMetaDescription := object.Meta{
+		havingObjectBWithGenericLinkToA := func(A *meta.Meta) *meta.Meta {
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -87,19 +87,19 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 					{
 						Name:         "target",
-						Type:         object.FieldTypeGeneric,
-						LinkType:     object.LinkTypeInner,
-						LinkMetaList: []*object.Meta{A},
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []*meta.Meta{A},
 						Optional:     true,
 					},
 				},
 			}
-			(&object.NormalizationService{}).Normalize(&bMetaDescription)
+			(&meta.NormalizationService{}).Normalize(&bMetaDescription)
 			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 			Expect(err).To(BeNil())
 			err = metaStore.Create(bMetaObj)
@@ -108,15 +108,15 @@ var _ = Describe("Data", func() {
 			return bMetaObj
 		}
 
-		havingObjectAWithGenericOuterLinkToB := func(B *object.Meta) {
-			aMetaDescription := object.Meta{
+		havingObjectAWithGenericOuterLinkToB := func(B *meta.Meta) {
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -124,20 +124,20 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 					{
 						Name:           "b_set",
-						Type:           object.FieldTypeGeneric,
-						LinkType:       object.LinkTypeOuter,
+						Type:           meta.FieldTypeGeneric,
+						LinkType:       meta.LinkTypeOuter,
 						LinkMeta:       B,
 						OuterLinkField: B.FindField("target"),
 						Optional:       true,
 					},
 				},
 			}
-			(&object.NormalizationService{}).Normalize(&aMetaDescription)
+			(&meta.NormalizationService{}).Normalize(&aMetaDescription)
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
 			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)

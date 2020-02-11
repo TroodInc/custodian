@@ -2,7 +2,7 @@ package record
 
 import (
 	"server/data/types"
-	"server/object"
+	"server/object/meta"
 	"strings"
 )
 
@@ -28,7 +28,7 @@ func getSimpleValue(targetRecord *Record, keyParts []string, getRecordCallback f
 		nestedObjectField := targetRecord.Meta.FindField(keyPart)
 
 		//case of retrieving value or PK of generic field
-		if nestedObjectField.Type == object.FieldTypeGeneric && len(keyParts) == 2 {
+		if nestedObjectField.Type == meta.FieldTypeGeneric && len(keyParts) == 2 {
 			if genericFieldValue, ok := rawKeyValue.(map[string]interface{}); ok {
 				return genericFieldValue[keyParts[1]]
 			}

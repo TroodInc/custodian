@@ -4,6 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	migrations_description "server/migrations/description"
+	"server/object/meta"
 
 	"server/object"
 	"server/pg"
@@ -23,7 +24,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -41,7 +42,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 	AfterEach(flushDb)
 
 	Context("Having applied `create` migration for object A", func() {
-		var aMetaDescription *object.Meta
+		var aMetaDescription *meta.Meta
 		var firstAppliedMigrationDescription *migrations_description.MigrationDescription
 
 		BeforeEach(func() {
@@ -89,9 +90,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 			BeforeEach(func() {
 				//Create object A by applying a migration
-				field := object.Field{
+				field := meta.Field{
 					Name:     "title",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				}
 
@@ -128,9 +129,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			})
 
 			It("It can rollback `RemoveField` migration", func() {
-				field := object.Field{
+				field := meta.Field{
 					Name:     "title",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				}
 
@@ -169,9 +170,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 				BeforeEach(func() {
 					//Create object A by applying a migration
-					field := object.Field{
+					field := meta.Field{
 						Name:     "new_title",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					}
 

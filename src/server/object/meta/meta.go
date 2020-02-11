@@ -1,4 +1,4 @@
-package object
+package meta
 
 import (
 	"github.com/getlantern/deepcopy"

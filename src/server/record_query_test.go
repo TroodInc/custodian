@@ -9,7 +9,7 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/record"
-	"server/object"
+	"server/object/meta"
 	"server/pg"
 	"utils"
 
@@ -34,7 +34,7 @@ var _ = Describe("Server", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -47,15 +47,15 @@ var _ = Describe("Server", func() {
 		Expect(err).To(BeNil())
 	})
 
-	makeObjectA := func() *object.Meta {
-		metaDescription := object.Meta{
+	makeObjectA := func() *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "a_lxsgk",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -63,12 +63,12 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "description",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -81,15 +81,15 @@ var _ = Describe("Server", func() {
 		return  aMetaObj
 	}
 
-	makeObjectD := func(A *object.Meta) *object.Meta {
-		dMetaDescription := object.Meta{
+	makeObjectD := func(A *meta.Meta) *meta.Meta {
+		dMetaDescription := meta.Meta{
 			Name: "d_5frz7",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -98,13 +98,13 @@ var _ = Describe("Server", func() {
 				{
 					Name:     "a",
 					LinkMeta: A,
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					Optional: false,
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -116,15 +116,15 @@ var _ = Describe("Server", func() {
 		return dMetaObj
 	}
 
-	updateObjctAWithDSet := func(D *object.Meta) *object.Meta {
-		aMetaDescription := object.Meta{
+	updateObjctAWithDSet := func(D *meta.Meta) *meta.Meta {
+		aMetaDescription := meta.Meta{
 			Name: "a_lxsgk",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -132,14 +132,14 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:           "d_set",
-					Type:           object.FieldTypeArray,
+					Type:           meta.FieldTypeArray,
 					Optional:       true,
-					LinkType:       object.LinkTypeOuter,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       D,
 					OuterLinkField: D.FindField("a"),
 					RetrieveMode:   true,
@@ -154,7 +154,7 @@ var _ = Describe("Server", func() {
 	}
 
 	Context("Having object A", func() {
-		var aMetaObj *object.Meta
+		var aMetaObj *meta.Meta
 		BeforeEach(func() {
 			aMetaObj = makeObjectA()
 		})
@@ -236,14 +236,14 @@ var _ = Describe("Server", func() {
 		var aRecord, bRecord, cRecord, dRecord *record.Record
 		BeforeEach(func() {
 			aMetaObj := makeObjectA()
-			bMetaDescription := object.Meta{
+			bMetaDescription := meta.Meta{
 				Name: "b_atzw9",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -251,12 +251,12 @@ var _ = Describe("Server", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 					{
 						Name:     "description",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -265,14 +265,14 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 			err = metaStore.Create(bMetaObj)
 
-			cMetaDescription := object.Meta{
+			cMetaDescription := meta.Meta{
 				Name: "c_s7ohu",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -280,21 +280,21 @@ var _ = Describe("Server", func() {
 					},
 					{
 						Name:     "b",
-						Type:     object.FieldTypeObject,
-						LinkType: object.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: bMetaObj,
 						Optional: false,
 					},
 					{
 						Name:     "a",
-						Type:     object.FieldTypeObject,
-						LinkType: object.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: aMetaObj,
 						Optional: false,
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},
@@ -470,14 +470,14 @@ var _ = Describe("Server", func() {
 			dMetaObj := makeObjectD(aMetaObj)
 			aMetaObj = updateObjctAWithDSet(dMetaObj)
 
-			metaDescription := object.Meta{
+			metaDescription := meta.Meta{
 				Name: "e_m7o1b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -485,14 +485,14 @@ var _ = Describe("Server", func() {
 					},
 					{
 						Name:         "target",
-						Type:         object.FieldTypeGeneric,
-						LinkType:     object.LinkTypeInner,
-						LinkMetaList: []*object.Meta{aMetaObj},
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []*meta.Meta{aMetaObj},
 						Optional:     false,
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: true,
 					},
 				},

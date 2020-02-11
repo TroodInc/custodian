@@ -1,15 +1,15 @@
 package operations
 
 import (
-	"server/object"
+	"server/object/meta"
 	"server/transactions"
 )
 
 type MigrationOperation interface {
-	SyncDbDescription(metaToApply *object.Meta, dbTransaction transactions.DbTransaction, metaDescriptionSyncer object.MetaDescriptionSyncer) (err error)
-	SyncMetaDescription(*object.Meta, transactions.MetaDescriptionTransaction, object.MetaDescriptionSyncer) (*object.Meta, error)
+	SyncDbDescription(metaToApply *meta.Meta, dbTransaction transactions.DbTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (err error)
+	SyncMetaDescription(*meta.Meta, transactions.MetaDescriptionTransaction, meta.MetaDescriptionSyncer) (*meta.Meta, error)
 }
 
 type AbstractMigrationOperation interface {
-	SyncMetaDescription(*object.Meta, transactions.MetaDescriptionTransaction, object.MetaDescriptionSyncer) (*object.Meta, error)
+	SyncMetaDescription(*meta.Meta, transactions.MetaDescriptionTransaction, meta.MetaDescriptionSyncer) (*meta.Meta, error)
 }

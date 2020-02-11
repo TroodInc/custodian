@@ -3,6 +3,7 @@ package managers
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/object/meta"
 
 	migrations_description "server/migrations/description"
 	"server/object"
@@ -23,12 +24,12 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
 
-	var metaDescription *object.Meta
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -43,7 +44,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 	JustBeforeEach(func() {
 		metaDescription = object.GetBaseMetaData(utils.RandomString(8))
 		//create MetaDescription
-		metaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
 		err = metaStore.Create(metaObj)
@@ -53,10 +54,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 	Describe("Spawned migrations` appliance", func() {
 		It("adds reverse outer link while object is being created", func() {
 			bMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields, &object.Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
 				Name:     "a",
-				Type:     object.FieldTypeObject,
-				LinkType: object.LinkTypeInner,
+				Type:     meta.FieldTypeObject,
+				LinkType: meta.LinkTypeInner,
 				LinkMeta: metaDescription,
 				Optional: false,
 			})
@@ -77,16 +78,16 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			Expect(err).To(BeNil())
 
 			aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
-			Expect(aMetaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
-			Expect(aMetaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
+			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
+			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
 		})
 
 		It("replaces automatically added reverse outer link with explicitly specified new one", func() {
 			bMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields, &object.Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
 				Name:     "a",
-				Type:     object.FieldTypeObject,
-				LinkType: object.LinkTypeInner,
+				Type:     meta.FieldTypeObject,
+				LinkType: meta.LinkTypeInner,
 				LinkMeta: metaDescription,
 				Optional: false,
 			})
@@ -107,7 +108,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			Expect(err).To(BeNil())
 
 			aMetaMap, _, err := metaDescriptionSyncer.Get(metaDescription.Name)
-			aMetaDescription := object.NewMetaFromMap(aMetaMap)
+			aMetaDescription := meta.NewMetaFromMap(aMetaMap)
 			Expect(err).To(BeNil())
 			Expect(aMetaDescription.FindField(bMetaDescription.Name + "_set")).NotTo(BeNil())
 
@@ -119,10 +120,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					{
 						Type: migrations_description.AddFieldOperation,
 						Field: &migrations_description.MigrationFieldDescription{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:           "explicitly_set_b_set",
-								Type:           object.FieldTypeArray,
-								LinkType:       object.LinkTypeOuter,
+								Type:           meta.FieldTypeArray,
+								LinkType:       meta.LinkTypeOuter,
 								OuterLinkField: bMetaDescription.FindField("a"),
 								LinkMeta:       bMetaDescription,
 							},
@@ -140,13 +141,13 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 		})
 
 		Context("having object B", func() {
-			var bMetaDescription *object.Meta
+			var bMetaDescription *meta.Meta
 			BeforeEach(func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				bMetaDescription = object.GetBaseMetaData(utils.RandomString(8))
-				bMetaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)
@@ -160,10 +161,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
-				field := object.Field{
+				field := meta.Field{
 					Name:     "target_object",
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaDescription,
 					Optional: false,
 				}
@@ -185,8 +186,8 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 				aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
-				Expect(aMetaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
-				Expect(aMetaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
+				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
+				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
@@ -197,10 +198,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
-				field := object.Field{
+				field := meta.Field{
 					Name:     "a",
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaDescription,
 					Optional: false,
 				}
@@ -252,10 +253,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
-				field := object.Field{
+				field := meta.Field{
 					Name:     "a",
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaDescription,
 					Optional: false,
 				}
@@ -296,7 +297,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				metaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
 
-				Expect(metaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
+				Expect(metaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
 
 			})
 
@@ -304,10 +305,10 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
-				field := object.Field{
+				field := meta.Field{
 					Name:     "a",
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: metaDescription,
 					Optional: false,
 				}
@@ -347,7 +348,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 				metaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
-				Expect(metaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
+				Expect(metaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
 			})
 		})
 	})

@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"server/data/errors"
 	"server/data/record"
-	"server/object"
+	"server/object/meta"
 	"server/transactions"
 )
 
@@ -21,18 +21,18 @@ func (r *RecordRemovalTreeBuilder) Extract(record *record.Record, processor *Pro
 	}
 }
 
-func (r *RecordRemovalTreeBuilder) makeFilter(innerField *object.Field, ownerId string) string {
+func (r *RecordRemovalTreeBuilder) makeFilter(innerField *meta.Field, ownerId string) string {
 	return fmt.Sprintf("eq(%s,%s)", innerField.Name, ownerId)
 }
 
-func (r *RecordRemovalTreeBuilder) makeGenericFilter(innerField *object.Field, ownerObjectName string, ownerId string) string {
+func (r *RecordRemovalTreeBuilder) makeGenericFilter(innerField *meta.Field, ownerObjectName string, ownerId string) string {
 	return fmt.Sprintf("eq(%s.%s.%s,%s)", innerField.Name, ownerObjectName, innerField.GetLinkMetaByName(ownerObjectName).Key, ownerId)
 }
 
 //iterate through record`s fields and process outer relations
 func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRemovalNode, processor *Processor, dbTransaction transactions.DbTransaction) error {
 	for _, field := range recordNode.Record.Meta.Fields {
-		if field.Type == object.FieldTypeArray || (field.Type == object.FieldTypeGeneric && field.LinkType == object.LinkTypeOuter) {
+		if field.Type == meta.FieldTypeArray || (field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeOuter) {
 			var relatedRecords []*record.Record
 
 			pkAsString, err := recordNode.Record.Meta.GetKey().ValueAsString(recordNode.Record.Pk())
@@ -40,9 +40,9 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 				return err
 			}
 			filter := ""
-			if field.Type == object.FieldTypeArray {
+			if field.Type == meta.FieldTypeArray {
 				filter = r.makeFilter(field.OuterLinkField, pkAsString)
-			} else if field.Type == object.FieldTypeGeneric {
+			} else if field.Type == meta.FieldTypeGeneric {
 				filter = r.makeGenericFilter(field.OuterLinkField, recordNode.Record.Meta.Name, pkAsString)
 			}
 			_, relatedRecords, err = processor.GetBulk(field.LinkMeta.Name, filter, nil, nil, 1, false)
@@ -60,20 +60,20 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 						field.OuterLinkField,
 					)
 					switch *newRecordNode.OnDeleteStrategy {
-					case object.OnDeleteCascade:
+					case meta.OnDeleteCascade:
 						if err := r.fillWithDependingRecords(newRecordNode, processor, dbTransaction); err != nil {
 							return err
 						}
 						recordNode.Children[field.Name] = append(recordNode.Children[field.Name], newRecordNode)
-					case object.OnDeleteRestrict:
+					case meta.OnDeleteRestrict:
 						relatedPkAsString, _ := newRecordNode.Record.Meta.GetKey().ValueAsString(newRecordNode.Record.Pk())
 						return errors.NewRemovalError(
 							field.Meta.Name,
 							fmt.Sprintf("record with PK '%s' referenced by record of '%s' with PK '%s' in strict mode", pkAsString, newRecordNode.Record.Meta.Name, relatedPkAsString),
 						)
-					case object.OnDeleteSetNull:
+					case meta.OnDeleteSetNull:
 						recordNode.Children[field.Name] = append(recordNode.Children[field.Name], newRecordNode)
-					case object.OnDeleteSetDefault:
+					case meta.OnDeleteSetDefault:
 						recordNode.Children[field.Name] = append(recordNode.Children[field.Name], newRecordNode)
 					}
 				}

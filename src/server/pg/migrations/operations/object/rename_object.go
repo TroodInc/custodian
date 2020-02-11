@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"logger"
 	"server/migrations/operations/object"
-	object2 "server/object"
+	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/operations/statement_factories"
 	"server/transactions"
@@ -15,7 +15,7 @@ type RenameObjectOperation struct {
 	object.RenameObjectOperation
 }
 
-func (o *RenameObjectOperation) SyncDbDescription(metaDescription *object2.Meta, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
+func (o *RenameObjectOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	//rename table
@@ -74,6 +74,6 @@ func (o *RenameObjectOperation) factorySequenceStatements(statementSet *pg.DdlSt
 	return nil
 }
 
-func NewRenameObjectOperation(metaDescription *object2.Meta) *RenameObjectOperation {
+func NewRenameObjectOperation(metaDescription *meta.Meta) *RenameObjectOperation {
 	return &RenameObjectOperation{RenameObjectOperation: object.RenameObjectOperation{MetaDescription: metaDescription}}
 }

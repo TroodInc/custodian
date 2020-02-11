@@ -2,9 +2,9 @@ package field
 
 import (
 	"database/sql"
+	"server/object/meta"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	object2 "server/object"
 
 	"server/pg"
 	"server/pg/migrations/operations/object"
@@ -23,9 +23,9 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *object2.Meta
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -41,21 +41,21 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		//setup MetaObj
 		JustBeforeEach(func() {
 			//"Direct" case
-			metaDescription = &object2.Meta{
+			metaDescription = &meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object2.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object2.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name: "number",
-						Type: object2.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -126,21 +126,21 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		BeforeEach(func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			//MetaDescription B
-			bMetaDescription := &object2.Meta{
+			bMetaDescription := &meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object2.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object2.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name: "number",
-						Type: object2.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -156,23 +156,23 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			err = operation.SyncDbDescription(bMetaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//MetaDescription A
-			metaDescription = &object2.Meta{
+			metaDescription = &meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object2.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object2.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name:     "b",
-						Type:     object2.FieldTypeObject,
+						Type:     meta.FieldTypeObject,
 						LinkMeta: bMetaDescription,
-						LinkType: object2.LinkTypeInner,
+						LinkType: meta.LinkTypeInner,
 					},
 				},
 			}

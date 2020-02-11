@@ -3,7 +3,7 @@ package field
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object"
+	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -20,20 +20,20 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *object.Meta
+	var metaDescription *meta.Meta
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = &object.Meta{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -54,7 +54,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	It("adds a field into metaDescription`s file", func() {
 
-		field := object.Field{Name: "new_field", Type: object.FieldTypeString, Optional: true}
+		field := meta.Field{Name: "new_field", Type: meta.FieldTypeString, Optional: true}
 
 		operation := NewAddFieldOperation(&field)
 		globalTransaction, _ := globalTransactionManager.BeginTransaction()
@@ -67,7 +67,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(objectMeta.FindField("new_field")).NotTo(BeNil())
 		//ensure MetaDescription has been save to file with new field
 		metaMap, _, err := metaDescriptionSyncer.Get(objectMeta.Name)
-		metaDescription = object.NewMetaFromMap(metaMap)
+		metaDescription = meta.NewMetaFromMap(metaMap)
 		Expect(metaDescription).NotTo(BeNil())
 		Expect(metaDescription.Fields).To(HaveLen(2))
 		Expect(metaDescription.Fields[1].Name).To(Equal("new_field"))

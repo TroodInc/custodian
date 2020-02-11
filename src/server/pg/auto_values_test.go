@@ -5,7 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"server/auth"
 	"server/data"
-	"server/object"
+	"server/object/meta"
 	"server/pg"
 	"utils"
 
@@ -24,7 +24,7 @@ var _ = Describe("PG Auto Values Test", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -33,35 +33,35 @@ var _ = Describe("PG Auto Values Test", func() {
 	})
 
 	Context("Having an object with fields with autoOnUpdate set to true", func() {
-		var metaObj *object.Meta
+		var metaObj *meta.Meta
 
 		BeforeEach(func() {
 			var err error
-			metaDescription := object.Meta{
+			metaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:        "datetime",
-						Type:        object.FieldTypeDateTime,
+						Type:        meta.FieldTypeDateTime,
 						NowOnUpdate: true,
 						Optional:    true,
 					},
 					{
 						Name:        "date",
-						Type:        object.FieldTypeDate,
+						Type:        meta.FieldTypeDate,
 						NowOnUpdate: true,
 						Optional:    true,
 					},
 					{
 						Name:        "time",
-						Type:        object.FieldTypeTime,
+						Type:        meta.FieldTypeTime,
 						NowOnUpdate: true,
 						Optional:    true,
 					},
@@ -90,35 +90,35 @@ var _ = Describe("PG Auto Values Test", func() {
 	})
 
 	Context("Having an object with fields with autoOnCreate set to true", func() {
-		var metaObj *object.Meta
+		var metaObj *meta.Meta
 
 		BeforeEach(func() {
 			var err error
-			metaDescription := object.Meta{
+			metaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeNumber,
+						Type:     meta.FieldTypeNumber,
 						Optional: false,
 					},
 					{
 						Name:        "datetime",
-						Type:        object.FieldTypeDateTime,
+						Type:        meta.FieldTypeDateTime,
 						NowOnCreate: true,
 						Optional:    true,
 					},
 					{
 						Name:        "date",
-						Type:        object.FieldTypeDate,
+						Type:        meta.FieldTypeDate,
 						NowOnCreate: true,
 						Optional:    true,
 					},
 					{
 						Name:        "time",
-						Type:        object.FieldTypeTime,
+						Type:        meta.FieldTypeTime,
 						NowOnCreate: true,
 						Optional:    true,
 					},

@@ -7,18 +7,18 @@ import (
 	"server/migrations/description"
 	"server/migrations/operations"
 	"server/migrations/operations/action"
-	object2 "server/object"
+	"server/object/meta"
 	"server/pg/migrations/operations/field"
 	"server/pg/migrations/operations/object"
 )
 
 type OperationFactory struct{}
 
-func (of *OperationFactory) Factory(migrationDescription *description.MigrationDescription, operationDescription *description.MigrationOperationDescription, metaDescription *object2.Meta) (operations.MigrationOperation, error) {
+func (of *OperationFactory) Factory(migrationDescription *description.MigrationDescription, operationDescription *description.MigrationOperationDescription, metaDescription *meta.Meta) (operations.MigrationOperation, error) {
 	switch operationDescription.Type {
 	case description.AddFieldOperation:
 		// migrationDescription.Id == "" indicated that current migration is added automatically and outer field should not be used for data retrieval
-		if migrationDescription.Id != "" && operationDescription.Field.LinkType == object2.LinkTypeOuter {
+		if migrationDescription.Id != "" && operationDescription.Field.LinkType == meta.LinkTypeOuter {
 			operationDescription.Field.RetrieveMode = true
 			operationDescription.Field.QueryMode = true
 		}
@@ -35,7 +35,7 @@ func (of *OperationFactory) Factory(migrationDescription *description.MigrationD
 			return nil, errors.NewValidationError(migrations.MigrationErrorInvalidDescription, fmt.Sprintf("meta %s has no field %s", metaDescription.Name, operationDescription.Field.PreviousName), nil)
 		}
 		// migrationDescription.Id == "" indicated that current migration is added automatically and outer field should not be used for data retrieval
-		if migrationDescription.Id != "" && operationDescription.Field.LinkType == object2.LinkTypeOuter {
+		if migrationDescription.Id != "" && operationDescription.Field.LinkType == meta.LinkTypeOuter {
 			operationDescription.Field.RetrieveMode = true
 			operationDescription.Field.QueryMode = true
 		}

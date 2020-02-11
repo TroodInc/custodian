@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"logger"
 	"server/migrations/operations/object"
-	object2 "server/object"
+	"server/object/meta"
 	"server/pg"
 	"server/transactions"
 	"text/template"
@@ -16,7 +16,7 @@ type CreateObjectOperation struct {
 	object.CreateObjectOperation
 }
 
-func (o *CreateObjectOperation) SyncDbDescription(_ *object2.Meta, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
+func (o *CreateObjectOperation) SyncDbDescription(_ *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
 	if metaDdl, err = pg.NewMetaDdlFactory(syncer).Factory(o.MetaDescription); err != nil {
@@ -95,6 +95,6 @@ var parsedTemplate = template.Must(
 		).Parse(columnsSubTemplate)).Parse(InnerFKSubTemplate),
 )
 
-func NewCreateObjectOperation(metaDescription *object2.Meta) *CreateObjectOperation {
+func NewCreateObjectOperation(metaDescription *meta.Meta) *CreateObjectOperation {
 	return &CreateObjectOperation{object.CreateObjectOperation{MetaDescription: metaDescription}}
 }

@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"server/auth"
 	"server/data"
-	"server/object"
+	"server/object/meta"
 	"server/pg"
 	"utils"
 
@@ -35,7 +35,7 @@ var _ = Describe("Server", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -48,15 +48,15 @@ var _ = Describe("Server", func() {
 		Expect(err).To(BeNil())
 	})
 
-	factoryObjectA := func() *object.Meta {
-		metaDescription := object.Meta{
+	factoryObjectA := func() *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "a_qbhbj",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -64,7 +64,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -79,15 +79,15 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectB := func(A *object.Meta) *object.Meta {
-		metaDescription := object.Meta{
+	factoryObjectB := func(A *meta.Meta) *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "b_bezv9",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -95,7 +95,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -103,8 +103,8 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "a",
-					Type:     object.FieldTypeObject,
-					LinkType: object.LinkTypeInner,
+					Type:     meta.FieldTypeObject,
+					LinkType: meta.LinkTypeInner,
 					LinkMeta: A,
 				},
 			},
@@ -116,15 +116,15 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectAWithManuallySetOuterLinkToB := func(B *object.Meta) *object.Meta {
-		metaDescription := object.Meta{
+	factoryObjectAWithManuallySetOuterLinkToB := func(B *meta.Meta) *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "a_qbhbj",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -132,7 +132,7 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -140,15 +140,15 @@ var _ = Describe("Server", func() {
 				},
 				{
 					Name:           "b_set",
-					Type:           object.FieldTypeArray,
-					LinkType:       object.LinkTypeOuter,
+					Type:           meta.FieldTypeArray,
+					LinkType:       meta.LinkTypeOuter,
 					LinkMeta:       B,
 					OuterLinkField: B.FindField("a"),
 					Optional:       true,
 				},
 			},
 		}
-		(&object.NormalizationService{}).Normalize(&metaDescription)
+		(&meta.NormalizationService{}).Normalize(&metaDescription)
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(metaObj.Name, metaObj, true)
@@ -157,7 +157,7 @@ var _ = Describe("Server", func() {
 	}
 	XContext("having a record of given object", func() {
 		var aRecord *record.Record
-		var objectB *object.Meta
+		var objectB *meta.Meta
 		BeforeEach(func() {
 			objectA := factoryObjectA()
 			objectB = factoryObjectB(objectA)

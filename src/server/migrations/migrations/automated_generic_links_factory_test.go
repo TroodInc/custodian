@@ -6,6 +6,7 @@ import (
 	migrations_description "server/migrations/description"
 	. "server/migrations/migrations"
 	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	"server/pg/migrations/managers"
@@ -25,10 +26,10 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
 
-	var metaDescription *object.Meta
+	var metaDescription *meta.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -40,27 +41,27 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 	//setup MetaDescription
 	JustBeforeEach(func() {
-		metaDescription = &object.Meta{
+		metaDescription = &meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:     "date",
-					Type:     object.FieldTypeDate,
+					Type:     meta.FieldTypeDate,
 					Optional: false,
 				},
 			},
 		}
 		//create MetaDescription
-		metaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
 		err = metaStore.Create(metaObj)
@@ -69,22 +70,22 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 	Describe("Automated generic fields` migrations` spawning", func() {
 		It("adds reverse generic outer link while object is being created", func() {
-			bMetaDescription := &object.Meta{
+			bMetaDescription := &meta.Meta{
 				Name:"b",
 				Key: "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 					},
 					{
 						Name:         "target_object",
-						Type:         object.FieldTypeGeneric,
-						LinkType:     object.LinkTypeInner,
-						LinkMetaList: []*object.Meta{metaDescription},
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []*meta.Meta{metaDescription},
 						Optional:     false,
 					},
 				},
@@ -109,14 +110,14 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			Expect(err).To(BeNil())
 			Expect(migration.RunAfter).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
-			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName("b")))
+			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
 		})
 
 		Context("having object B", func() {
-			var bMetaDescription *object.Meta
+			var bMetaDescription *meta.Meta
 			BeforeEach(func() {
 				bMetaDescription = object.GetBaseMetaData(utils.RandomString(8))
-				bMetaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)
@@ -124,11 +125,11 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			})
 
 			It("adds a reverse generic outer link when a new inner generic field is being added to an object", func() {
-				field := object.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{metaDescription},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -149,15 +150,15 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(err).To(BeNil())
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName("b")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
 			})
 
 			It("removes and adds reverse generic outer links while inner generic field`s LinkMetaList is being updated", func() {
-				field := object.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{metaDescription},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -177,18 +178,18 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(err).To(BeNil())
 
 				cMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
-				cMetaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
+				cMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(cMetaObj)
 				Expect(err).To(BeNil())
 
 				//LinkMetaList is being changed
-				field = object.Field{
+				field = meta.Field{
 					Name:         "target_object",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{cMetaDescription},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{cMetaDescription},
 					Optional:     false,
 				}
 
@@ -210,20 +211,20 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
 
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Type).To(Equal(migrations_description.AddFieldOperation))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName("b")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
 			})
 
 			It("renames reverse generic outer links if object which owns inner generic link is being renamed", func() {
-				field := object.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{metaDescription},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -263,15 +264,15 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Type).To(Equal(migrations_description.UpdateFieldOperation))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName("bb")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("bb")))
 			})
 
 			It("removes generic outer links if object which owns inner generic link is being deleted", func() {
-				field := object.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{metaDescription},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -308,15 +309,15 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
 			})
 
 			It("removes generic outer links if inner generic link is being removed", func() {
-				field := object.Field{
+				field := meta.Field{
 					Name:         "target_object",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{metaDescription},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -353,7 +354,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
 			})
 		})
 	})

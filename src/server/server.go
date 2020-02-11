@@ -24,7 +24,7 @@ import (
 	"server/migrations"
 	"server/migrations/constructor"
 	migrations_description "server/migrations/description"
-	"server/object"
+	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
@@ -155,7 +155,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager,
@@ -553,14 +553,14 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			migrationConstructor := constructor.NewMigrationConstructor(migrationManager)
 
-			var currentMetaDescription *object.Meta
+			var currentMetaDescription *meta.Meta
 			if len(migrationMetaDescription.PreviousName) != 0 {
 				currentMetaMap, _, err := metaDescriptionSyncer.Get(migrationMetaDescription.PreviousName)
 				if err != nil {
 					js.pushError(err)
 					return
 				}
-				currentMetaDescription = object.NewMetaFromMap(currentMetaMap)
+				currentMetaDescription = meta.NewMetaFromMap(currentMetaMap)
 			}
 			//migration constructor expects migrationMetaDescription to be nil if object is being deleted
 			//in its turn, object is supposed to be deleted if migrationMetaDescription.name is an empty string

@@ -2,12 +2,12 @@ package migrations
 
 import (
 	"server/migrations/description"
-	"server/object"
+	"server/object/meta"
 	pg_operations "server/pg/migrations/operations"
 )
 
 type MigrationFactory struct {
-	metaDescriptionSyncer          object.MetaDescriptionSyncer
+	metaDescriptionSyncer          meta.MetaDescriptionSyncer
 	normalizationMigrationsFactory *description.NormalizationMigrationsFactory
 }
 
@@ -36,7 +36,7 @@ func (mf *MigrationFactory) factory(migrationDescription *description.MigrationD
 		if applyTo, _, err := mf.metaDescriptionSyncer.Get(migration.MigrationDescription.ApplyTo); err != nil {
 			return nil, err
 		} else {
-			migration.ApplyTo = object.NewMetaFromMap(applyTo)
+			migration.ApplyTo = meta.NewMetaFromMap(applyTo)
 		}
 	}
 
@@ -64,6 +64,6 @@ func (mf *MigrationFactory) factory(migrationDescription *description.MigrationD
 	return migration, nil
 }
 
-func NewMigrationFactory(metaDescriptionSyncer object.MetaDescriptionSyncer) *MigrationFactory {
+func NewMigrationFactory(metaDescriptionSyncer meta.MetaDescriptionSyncer) *MigrationFactory {
 	return &MigrationFactory{metaDescriptionSyncer: metaDescriptionSyncer, normalizationMigrationsFactory: description.NewNormalizationMigrationsFactory(metaDescriptionSyncer)}
 }

@@ -3,7 +3,7 @@ package pg_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object"
+	meta2 "server/object/meta"
 	"server/pg"
 	"utils"
 
@@ -25,7 +25,7 @@ var _ = Describe("Store", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta2.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -35,25 +35,25 @@ var _ = Describe("Store", func() {
 
 	It("Having an record for person with null value", func() {
 		//create meta
-		meta := object.Meta{
+		meta := meta2.Meta{
 			Name: "person",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta2.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta2.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 					Optional: true,
 				}, {
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta2.FieldTypeString,
 					Optional: false,
 				}, {
 					Name:     "gender",
-					Type:     object.FieldTypeString,
+					Type:     meta2.FieldTypeString,
 					Optional: true,
 				},
 			},

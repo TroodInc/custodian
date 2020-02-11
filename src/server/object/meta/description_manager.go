@@ -1,4 +1,4 @@
-package object
+package meta
 
 type MetaDescriptionManager struct {
 }

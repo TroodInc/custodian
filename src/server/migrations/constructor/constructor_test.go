@@ -7,7 +7,7 @@ import (
 	"server/errors"
 	migration_description "server/migrations/description"
 	"server/noti"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	"server/pg/migrations/managers"
@@ -29,7 +29,7 @@ var _ = Describe("Migration Constructor", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath, globalTransactionManager))
 
@@ -45,13 +45,13 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &object.Meta{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -63,9 +63,9 @@ var _ = Describe("Migration Constructor", func() {
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
-						Field: object.Field{
+						Field: meta.Field{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						PreviousName: "",
@@ -91,9 +91,9 @@ var _ = Describe("Migration Constructor", func() {
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
-						Field: object.Field{
+						Field: meta.Field{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						PreviousName: "",
@@ -117,13 +117,13 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &object.Meta{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -135,9 +135,9 @@ var _ = Describe("Migration Constructor", func() {
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
-						Field: object.Field{
+						Field: meta.Field{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						PreviousName: "",
@@ -162,13 +162,13 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &object.Meta{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -191,13 +191,13 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &object.Meta{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -209,17 +209,17 @@ var _ = Describe("Migration Constructor", func() {
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
-						Field: object.Field{
+						Field: meta.Field{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						PreviousName: "",
 					},
 					{
-						Field: object.Field{
+						Field: meta.Field{
 							Name:     "new_field",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						PreviousName: "",
@@ -243,18 +243,18 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &object.Meta{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 					{
 						Name:     "existing_field",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -266,9 +266,9 @@ var _ = Describe("Migration Constructor", func() {
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
-						Field: object.Field{
+						Field: meta.Field{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						PreviousName: "",
@@ -289,26 +289,26 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		Describe("Update field", func() {
-			var currentMetaDescription *object.Meta
+			var currentMetaDescription *meta.Meta
 			BeforeEach(func() {
 
-				currentMetaDescription = &object.Meta{
+				currentMetaDescription = &meta.Meta{
 					Name: "a",
 					Key:  "id",
-					Fields: []*object.Field{
+					Fields: []*meta.Field{
 						{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						{
 							Name:     "existing_field",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						{
 							Name:     "created",
-							Type:     object.FieldTypeDateTime,
+							Type:     meta.FieldTypeDateTime,
 							Optional: true,
 						},
 					},
@@ -326,25 +326,25 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "new_field",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "existing_field",
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "created",
-								Type:     object.FieldTypeDateTime,
+								Type:     meta.FieldTypeDateTime,
 								Optional: true,
 							},
 						},
@@ -372,25 +372,25 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
 						},
 
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "existing_field",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: true,
 							},
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "created",
-								Type:     object.FieldTypeDateTime,
+								Type:     meta.FieldTypeDateTime,
 								Optional: true,
 							},
 						},
@@ -419,25 +419,25 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "existing_field",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 								Def:      "some_value",
 							},
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "created",
-								Type:     object.FieldTypeDateTime,
+								Type:     meta.FieldTypeDateTime,
 								Optional: true,
 							},
 						},
@@ -465,24 +465,24 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "existing_field",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:        "created",
-								Type:        object.FieldTypeDateTime,
+								Type:        meta.FieldTypeDateTime,
 								NowOnCreate: true,
 								Optional:    true,
 							},
@@ -511,24 +511,24 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "existing_field",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:        "created",
-								Type:        object.FieldTypeDateTime,
+								Type:        meta.FieldTypeDateTime,
 								NowOnUpdate: true,
 								Optional:    true,
 							},
@@ -557,25 +557,25 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "existing_field",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
-								OnDelete: object.OnDeleteRestrictVerbose,
+								OnDelete: meta.OnDeleteRestrictVerbose,
 							},
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "created",
-								Type:     object.FieldTypeDateTime,
+								Type:     meta.FieldTypeDateTime,
 								Optional: true,
 							},
 						},
@@ -603,24 +603,24 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "existing_field",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 						},
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "created",
-								Type:     object.FieldTypeDateTime,
+								Type:     meta.FieldTypeDateTime,
 								Optional: true,
 							},
 						},
@@ -644,13 +644,13 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &object.Meta{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -662,9 +662,9 @@ var _ = Describe("Migration Constructor", func() {
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
-						Field: object.Field{
+						Field: meta.Field{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						PreviousName: "",
@@ -695,13 +695,13 @@ var _ = Describe("Migration Constructor", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			currentMetaDescription := &object.Meta{
+			currentMetaDescription := &meta.Meta{
 				Name: "a",
 				Key:  "id",
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name:     "id",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -720,9 +720,9 @@ var _ = Describe("Migration Constructor", func() {
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
-						Field: object.Field{
+						Field: meta.Field{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 						PreviousName: "",
@@ -743,16 +743,16 @@ var _ = Describe("Migration Constructor", func() {
 		})
 
 		Describe("Update action", func() {
-			var currentMetaDescription *object.Meta
+			var currentMetaDescription *meta.Meta
 			BeforeEach(func() {
 
-				currentMetaDescription = &object.Meta{
+				currentMetaDescription = &meta.Meta{
 					Name: "a",
 					Key:  "id",
-					Fields: []*object.Field{
+					Fields: []*meta.Field{
 						{
 							Name:     "id",
-							Type:     object.FieldTypeString,
+							Type:     meta.FieldTypeString,
 							Optional: false,
 						},
 					},
@@ -777,9 +777,9 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
@@ -818,9 +818,9 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
@@ -858,9 +858,9 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",
@@ -898,9 +898,9 @@ var _ = Describe("Migration Constructor", func() {
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
-							Field: object.Field{
+							Field: meta.Field{
 								Name:     "id",
-								Type:     object.FieldTypeString,
+								Type:     meta.FieldTypeString,
 								Optional: false,
 							},
 							PreviousName: "",

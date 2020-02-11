@@ -2,14 +2,14 @@ package pg
 
 import (
 	"fmt"
-	"server/object"
+	"server/object/meta"
 )
 
 type MetaDdlFactory struct {
-	metaDescriptionSyncer object.MetaDescriptionSyncer
+	metaDescriptionSyncer meta.MetaDescriptionSyncer
 }
 
-func (mdf *MetaDdlFactory) Factory(metaDescription *object.Meta) (*MetaDDL, error) {
+func (mdf *MetaDdlFactory) Factory(metaDescription *meta.Meta) (*MetaDDL, error) {
 	var metaDdl = &MetaDDL{Table: GetTableName(metaDescription.Name), Pk: metaDescription.Key}
 	metaDdl.Columns = make([]Column, 0, )
 	metaDdl.IFKs = make([]IFK, 0)
@@ -34,18 +34,18 @@ func (mdf *MetaDdlFactory) Factory(metaDescription *object.Meta) (*MetaDDL, erro
 	return metaDdl, nil
 }
 
-func (mdf *MetaDdlFactory) FactoryFieldProperties(field *object.Field, metaName string, metaKey string) ([]Column, *IFK, *OFK, *Seq, error) {
+func (mdf *MetaDdlFactory) FactoryFieldProperties(field *meta.Field, metaName string, metaKey string) ([]Column, *IFK, *OFK, *Seq, error) {
 	if field.IsSimple() {
 		return mdf.factorySimpleFieldProperties(field, metaName)
-	} else if field.Type == object.FieldTypeObject && field.LinkType == object.LinkTypeInner {
+	} else if field.Type == meta.FieldTypeObject && field.LinkType == meta.LinkTypeInner {
 		return mdf.processInnerLinkField(field, metaName)
-	} else if field.LinkType == object.LinkTypeOuter && field.Type == object.FieldTypeArray {
+	} else if field.LinkType == meta.LinkTypeOuter && field.Type == meta.FieldTypeArray {
 		return mdf.processOuterLinkField(field, metaName, metaKey)
-	} else if field.Type == object.FieldTypeObjects {
+	} else if field.Type == meta.FieldTypeObjects {
 		return mdf.processObjectsInnerLinkField(field, metaName, metaKey)
-	} else if field.Type == object.FieldTypeGeneric && field.LinkType == object.LinkTypeInner {
+	} else if field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeInner {
 		return mdf.processGenericInnerLinkField(metaName, field)
-	} else if field.Type == object.FieldTypeGeneric && field.LinkType == object.LinkTypeOuter {
+	} else if field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeOuter {
 		return nil, nil, nil, nil, nil
 	} else {
 		return nil, nil, nil, nil, &DDLError{table: metaName, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(field.LinkType), string(field.LinkType))}
@@ -55,7 +55,7 @@ func (mdf *MetaDdlFactory) FactoryFieldProperties(field *object.Field, metaName 
 	return nil, nil, nil, nil, nil
 }
 
-func (mdf *MetaDdlFactory) factorySimpleFieldProperties(field *object.Field, metaName string) ([]Column, *IFK, *OFK, *Seq, error) {
+func (mdf *MetaDdlFactory) factorySimpleFieldProperties(field *meta.Field, metaName string) ([]Column, *IFK, *OFK, *Seq, error) {
 	column, err := mdf.factoryBlankColumn(metaName, field)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -63,7 +63,7 @@ func (mdf *MetaDdlFactory) factorySimpleFieldProperties(field *object.Field, met
 	return []Column{*column}, nil, nil, mdf.factorySequence(metaName, field), nil
 }
 
-func (mdf *MetaDdlFactory) processInnerLinkField(field *object.Field, metaName string) ([]Column, *IFK, *OFK, *Seq, error) {
+func (mdf *MetaDdlFactory) processInnerLinkField(field *meta.Field, metaName string) ([]Column, *IFK, *OFK, *Seq, error) {
 	column, err := mdf.factoryBlankColumn(metaName, field)
 	if err != nil {
 		return nil, nil, nil, nil, err
@@ -74,7 +74,7 @@ func (mdf *MetaDdlFactory) processInnerLinkField(field *object.Field, metaName s
 		return nil, nil, nil, nil, err
 	}
 
-	linkMetaDescription := object.NewMetaFromMap(linkMetaMap)
+	linkMetaDescription := meta.NewMetaFromMap(linkMetaMap)
 	column.Typ = linkMetaDescription.FindField(linkMetaDescription.Key).Type
 
 	ifk := IFK{
@@ -88,26 +88,26 @@ func (mdf *MetaDdlFactory) processInnerLinkField(field *object.Field, metaName s
 	return []Column{*column}, &ifk, nil, mdf.factorySequence(metaName, field), nil
 }
 
-func (mdf *MetaDdlFactory) processObjectsInnerLinkField(field *object.Field, metaName string, metaKey string) ([]Column, *IFK, *OFK, *Seq, error) {
+func (mdf *MetaDdlFactory) processObjectsInnerLinkField(field *meta.Field, metaName string, metaKey string) ([]Column, *IFK, *OFK, *Seq, error) {
 	outerForeignKey := OFK{FromTable: GetTableName(field.LinkThrough.Name), FromColumn: field.OuterLinkField.Name, ToTable: GetTableName(metaName), ToColumn: metaKey}
 	return nil, nil, &outerForeignKey, nil, nil
 }
 
-func (mdf *MetaDdlFactory) processOuterLinkField(field *object.Field, metaName string, metaKey string) ([]Column, *IFK, *OFK, *Seq, error) {
+func (mdf *MetaDdlFactory) processOuterLinkField(field *meta.Field, metaName string, metaKey string) ([]Column, *IFK, *OFK, *Seq, error) {
 	outerForeignKey := OFK{FromTable: GetTableName(field.LinkMeta.Name), FromColumn: field.OuterLinkField.Name, ToTable: GetTableName(metaName), ToColumn: metaKey}
 	return nil, nil, &outerForeignKey, nil, nil
 }
 
-func (mdf *MetaDdlFactory) processGenericInnerLinkField(metaName string, field *object.Field) ([]Column, *IFK, *OFK, *Seq, error) {
+func (mdf *MetaDdlFactory) processGenericInnerLinkField(metaName string, field *meta.Field) ([]Column, *IFK, *OFK, *Seq, error) {
 	typeColumn := Column{}
-	typeColumn.Name = object.GetGenericFieldTypeColumnName(field.Name)
-	typeColumn.Typ = object.FieldTypeString
+	typeColumn.Name = meta.GetGenericFieldTypeColumnName(field.Name)
+	typeColumn.Typ = meta.FieldTypeString
 	typeColumn.Optional = field.Optional
 	typeColumn.Unique = false
 
 	keyColumn := Column{}
-	keyColumn.Name = object.GetGenericFieldKeyColumnName(field.Name)
-	keyColumn.Typ = object.FieldTypeString
+	keyColumn.Name = meta.GetGenericFieldKeyColumnName(field.Name)
+	keyColumn.Typ = meta.FieldTypeString
 	keyColumn.Optional = field.Optional
 	keyColumn.Unique = false
 
@@ -115,7 +115,7 @@ func (mdf *MetaDdlFactory) processGenericInnerLinkField(metaName string, field *
 }
 
 // factory common column
-func (mdf *MetaDdlFactory) factoryBlankColumn(metaName string, field *object.Field) (*Column, error) {
+func (mdf *MetaDdlFactory) factoryBlankColumn(metaName string, field *meta.Field) (*Column, error) {
 	column := Column{}
 	column.Name = field.Name
 	column.Typ = field.Type
@@ -132,7 +132,7 @@ func (mdf *MetaDdlFactory) factoryBlankColumn(metaName string, field *object.Fie
 }
 
 // factory default value sequence
-func (mdf *MetaDdlFactory) factorySequence(metaName string, field *object.Field) *Seq {
+func (mdf *MetaDdlFactory) factorySequence(metaName string, field *meta.Field) *Seq {
 	colDef, err := newColDefVal(metaName, field)
 	if err != nil {
 		return nil
@@ -145,7 +145,7 @@ func (mdf *MetaDdlFactory) factorySequence(metaName string, field *object.Field)
 }
 
 //get default value
-func (mdf *MetaDdlFactory) getDefaultValue(metaName string, field *object.Field) (string, error) {
+func (mdf *MetaDdlFactory) getDefaultValue(metaName string, field *meta.Field) (string, error) {
 	colDef, err := newColDefVal(metaName, field)
 	if err != nil {
 		return "", err
@@ -153,6 +153,6 @@ func (mdf *MetaDdlFactory) getDefaultValue(metaName string, field *object.Field)
 	return colDef.ddlVal()
 }
 
-func NewMetaDdlFactory(metaDescriptionSyncer object.MetaDescriptionSyncer) *MetaDdlFactory {
+func NewMetaDdlFactory(metaDescriptionSyncer meta.MetaDescriptionSyncer) *MetaDdlFactory {
 	return &MetaDdlFactory{metaDescriptionSyncer: metaDescriptionSyncer}
 }

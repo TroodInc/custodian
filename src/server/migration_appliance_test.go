@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"net/http/httptest"
 	"server/object"
+	"server/object/meta"
 	"server/pg"
 	"utils"
 
@@ -33,7 +34,7 @@ var _ = Describe("Server", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -192,7 +193,7 @@ var _ = Describe("Server", func() {
 						"fields": []map[string]interface{}{
 							{
 								"name": "id",
-								"type": object.FieldTypeNumber,
+								"type": meta.FieldTypeNumber,
 								"default": map[string]interface{}{
 									"func": "nextval",
 								},
@@ -248,7 +249,7 @@ var _ = Describe("Server", func() {
 						"fields": []map[string]interface{}{
 							{
 								"name": "id",
-								"type": object.FieldTypeNumber,
+								"type": meta.FieldTypeNumber,
 								"default": map[string]interface{}{
 									"func": "nextval",
 								},
@@ -331,9 +332,9 @@ var _ = Describe("Server", func() {
 	It("Can rename field by application of migration", func() {
 		//Create A object
 		aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &object.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
 			Name: "some_field",
-			Type: object.FieldTypeString,
+			Type: meta.FieldTypeString,
 			Def:  "def-string",
 		})
 
@@ -386,9 +387,9 @@ var _ = Describe("Server", func() {
 	It("Can remove field by appliance of migration", func() {
 		//Create A object
 		aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &object.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
 			Name: "some_field",
-			Type: object.FieldTypeString,
+			Type: meta.FieldTypeString,
 			Def:  "def-string",
 		})
 

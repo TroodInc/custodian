@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/errors"
+	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -21,7 +22,7 @@ var _ = FDescribe("The PG MetaStore", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(fileMetaDriver)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := NewStore(fileMetaDriver, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(fileMetaDriver, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -54,11 +55,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields, &Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
 				Name:     "a_fk",
-				Type:     FieldTypeObject,
+				Type:     meta.FieldTypeObject,
 				Optional: true,
-				LinkType: LinkTypeInner,
+				LinkType: meta.LinkTypeInner,
 				LinkMeta: aMeta,
 			})
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
@@ -66,11 +67,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 			err = metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
-			aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
+			aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
 				Name:           "b_set",
-				Type:           FieldTypeObject,
+				Type:           meta.FieldTypeObject,
 				Optional:       true,
-				LinkType:       LinkTypeOuter,
+				LinkType:       meta.LinkTypeOuter,
 				LinkMeta:       bMeta,
 				OuterLinkField: bMeta.FindField("a_fk"),
 			})
@@ -98,11 +99,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 			metaStore.Create(aMeta)
 
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields,  &Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields,  &meta.Field{
 				Name:     "a_fk",
-				Type:     FieldTypeObject,
+				Type:     meta.FieldTypeObject,
 				Optional: true,
-				LinkType: LinkTypeInner,
+				LinkType: meta.LinkTypeInner,
 				LinkMeta: aMeta,
 			})
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
@@ -130,11 +131,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 			metaStore.Create(aMeta)
 
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields,  &Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields,  &meta.Field{
 				Name:     "a_fk",
-				Type:     FieldTypeObject,
+				Type:     meta.FieldTypeObject,
 				Optional: true,
-				LinkType: LinkTypeInner,
+				LinkType: meta.LinkTypeInner,
 				LinkMeta: aMeta,
 			})
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
@@ -142,11 +143,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 			metaStore.Create(bMeta)
 			Expect(err).To(BeNil())
 
-			aMetaDescription.Fields = append(aMetaDescription.Fields,  &Field{
+			aMetaDescription.Fields = append(aMetaDescription.Fields,  &meta.Field{
 				Name:           "b_set",
-				Type:           FieldTypeObject,
+				Type:           meta.FieldTypeObject,
 				Optional:       true,
-				LinkType:       LinkTypeOuter,
+				LinkType:       meta.LinkTypeOuter,
 				LinkMeta:       bMeta,
 				OuterLinkField: bMeta.FindField("a_fk"),
 			})
@@ -173,14 +174,14 @@ var _ = FDescribe("The PG MetaStore", func() {
 	It("checks object for fields with duplicated names when creating object", func() {
 		Context("having an object description with duplicated field names", func() {
 			metaDescription := GetBaseMetaData(utils.RandomString(8))
-			metaDescription.Fields = append(metaDescription.Fields, []*Field{
+			metaDescription.Fields = append(metaDescription.Fields, []*meta.Field{
 				{
 					Name:     "name",
-					Type:     FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				}, {
 					Name:     "name",
-					Type:     FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			}...)
@@ -197,9 +198,9 @@ var _ = FDescribe("The PG MetaStore", func() {
 	It("can change field type of existing object", func() {
 		By("having an existing object with string field")
 		metaDescription := GetBaseMetaData(utils.RandomString(8))
-		metaDescription.Fields = append(metaDescription.Fields,  &Field{
+		metaDescription.Fields = append(metaDescription.Fields,  &meta.Field{
 			Name:     "name",
-			Type:     FieldTypeNumber,
+			Type:     meta.FieldTypeNumber,
 			Optional: false,
 		})
 		metaObj, err := metaStore.NewMeta(metaDescription)
@@ -209,9 +210,9 @@ var _ = FDescribe("The PG MetaStore", func() {
 
 		Context("when object is updated with modified field`s type", func() {
 			metaDescription = GetBaseMetaData(metaDescription.Name)
-			metaDescription.Fields = append(metaDescription.Fields, &Field{
+			metaDescription.Fields = append(metaDescription.Fields, &meta.Field{
 				Name:     "name",
-				Type:     FieldTypeString,
+				Type:     meta.FieldTypeString,
 				Optional: false,
 			})
 			metaObj, err := metaStore.NewMeta(metaDescription)
@@ -229,7 +230,7 @@ var _ = FDescribe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			Expect(err).To(BeNil())
-			Expect(actualMeta.Columns[1].Typ).To(Equal(FieldTypeString))
+			Expect(actualMeta.Columns[1].Typ).To(Equal(meta.FieldTypeString))
 		})
 	})
 
@@ -239,11 +240,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 		By("and having an object B referencing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields,  &Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields,  &meta.Field{
 				Name:     "a",
 				LinkMeta: aMetaDescription,
-				Type:     FieldTypeObject,
-				LinkType: LinkTypeInner,
+				Type:     meta.FieldTypeObject,
+				LinkType: meta.LinkTypeInner,
 				Optional: false,
 			})
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
@@ -271,7 +272,7 @@ var _ = FDescribe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(bMeta.Name, true)
-			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(OnDeleteCascade))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -282,11 +283,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields,  &Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields,  &meta.Field{
 				Name:     "a",
 				LinkMeta: aMetaDescription,
-				Type:     FieldTypeObject,
-				LinkType: LinkTypeInner,
+				Type:     meta.FieldTypeObject,
+				LinkType: meta.LinkTypeInner,
 				OnDelete: "cascade",
 				Optional: false,
 			})
@@ -316,7 +317,7 @@ var _ = FDescribe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(bMeta.Name, true)
-			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(OnDeleteCascade))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -327,11 +328,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields,  &Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields,  &meta.Field{
 				Name:     "a",
 				LinkMeta: aMetaDescription,
-				Type:     FieldTypeObject,
-				LinkType: LinkTypeInner,
+				Type:     meta.FieldTypeObject,
+				LinkType: meta.LinkTypeInner,
 				OnDelete: "setNull",
 				Optional: false,
 			})
@@ -360,7 +361,7 @@ var _ = FDescribe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(bMeta.Name, true)
-			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(OnDeleteSetNull))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteSetNull))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -371,11 +372,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields,  &Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields,  &meta.Field{
 				Name:     "a",
 				LinkMeta: aMetaDescription,
-				Type:     FieldTypeObject,
-				LinkType: LinkTypeInner,
+				Type:     meta.FieldTypeObject,
+				LinkType: meta.LinkTypeInner,
 				OnDelete: "restrict",
 				Optional: false,
 			})
@@ -404,7 +405,7 @@ var _ = FDescribe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(bMeta.Name, true)
-			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(OnDeleteRestrict))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteRestrict))
 			Expect(err).To(BeNil())
 		})
 	})
@@ -415,11 +416,11 @@ var _ = FDescribe("The PG MetaStore", func() {
 		By("and having an object B reversing A")
 		Context("when object is updated with modified field`s type", func() {
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-			bMetaDescription.Fields = append(bMetaDescription.Fields,  &Field{
+			bMetaDescription.Fields = append(bMetaDescription.Fields,  &meta.Field{
 				Name:     "a",
 				LinkMeta: aMetaDescription,
-				Type:     FieldTypeObject,
-				LinkType: LinkTypeInner,
+				Type:     meta.FieldTypeObject,
+				LinkType: meta.LinkTypeInner,
 				OnDelete: "setDefault",
 				Optional: false,
 			})
@@ -448,7 +449,7 @@ var _ = FDescribe("The PG MetaStore", func() {
 
 			//assert meta
 			bMeta, _, err = metaStore.Get(bMeta.Name, true)
-			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(OnDeleteSetDefault))
+			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteSetDefault))
 			Expect(err).To(BeNil())
 		})
 	})

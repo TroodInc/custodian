@@ -7,7 +7,7 @@ import (
 	"net/http/httptest"
 	"server/data/notifications"
 	"server/noti"
-	"server/object"
+	"server/object/meta"
 	"server/pg"
 	"utils"
 
@@ -35,7 +35,7 @@ var _ = XDescribe("Migration`s construction", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	BeforeEach(func() {
 		//setup server
@@ -54,20 +54,20 @@ var _ = XDescribe("Migration`s construction", func() {
 		Expect(err).To(BeNil())
 	}
 
-	factoryObjectA := func() *object.Meta {
-		metaDescription := object.Meta{
+	factoryObjectA := func() *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				},
 			},

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"logger"
 	"server/migrations/operations/object"
-	object2 "server/object"
+	"server/object/meta"
 	"server/pg"
 	"server/transactions"
 	"text/template"
@@ -15,7 +15,7 @@ type DeleteObjectOperation struct {
 	object.DeleteObjectOperation
 }
 
-func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *object2.Meta, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
+func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
 	if metaDdl, err = pg.NewMetaDdlFactory(syncer).Factory(metaDescription); err != nil {

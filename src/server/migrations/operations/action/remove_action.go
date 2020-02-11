@@ -5,7 +5,7 @@ import (
 	"server/data/notifications"
 	"server/errors"
 	"server/migrations"
-	"server/object"
+	"server/object/meta"
 	"server/transactions"
 )
 
@@ -13,7 +13,7 @@ type RemoveActionOperation struct {
 	Action *notifications.Action
 }
 
-func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *object.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer object.MetaDescriptionSyncer) (*object.Meta, error) {
+func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
 	updatedMetaDescription := metaDescription.Clone()
 	if err := o.validate(updatedMetaDescription); err != nil {
 		return nil, err
@@ -35,7 +35,7 @@ func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *object.Meta
 	}
 }
 
-func (o *RemoveActionOperation) validate(metaDescription *object.Meta) error {
+func (o *RemoveActionOperation) validate(metaDescription *meta.Meta) error {
 	if metaDescription.FindAction(o.Action.Name) == nil {
 		return errors.NewValidationError(
 			migrations.MigrationErrorInvalidDescription,
@@ -46,7 +46,7 @@ func (o *RemoveActionOperation) validate(metaDescription *object.Meta) error {
 	return nil
 }
 
-func (o *RemoveActionOperation) SyncDbDescription(metaDescriptionToApply *object.Meta, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
+func (o *RemoveActionOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	return nil
 }
 

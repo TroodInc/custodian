@@ -7,7 +7,7 @@ import (
 	"server/data"
 	"server/data/record"
 	"server/data/types"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -27,7 +27,7 @@ var _ = Describe("Data", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -37,14 +37,14 @@ var _ = Describe("Data", func() {
 
 	It("can create a record containing generic inner value", func() {
 		By("having two objects: A and B")
-		aMetaDescription := object.Meta{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -59,14 +59,14 @@ var _ = Describe("Data", func() {
 
 		By("B contains generic inner field")
 
-		bMetaDescription := object.Meta{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -74,9 +74,9 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{aMetaObj},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{aMetaObj},
 					Optional:     false,
 				},
 			},
@@ -107,14 +107,14 @@ var _ = Describe("Data", func() {
 
 	It("cant create a record containing generic inner value with pk referencing not existing record", func() {
 		By("having two objects: A and B")
-		aMetaDescription := object.Meta{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -129,14 +129,14 @@ var _ = Describe("Data", func() {
 
 		By("B contains generic inner field")
 
-		bMetaDescription := object.Meta{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -144,9 +144,9 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{aMetaObj},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{aMetaObj},
 					Optional:     false,
 				},
 			},
@@ -164,14 +164,14 @@ var _ = Describe("Data", func() {
 
 	It("can update a record containing generic inner value", func() {
 		By("having three objects: A, B and C")
-		aMetaDescription := object.Meta{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -179,7 +179,7 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 			},
@@ -189,14 +189,14 @@ var _ = Describe("Data", func() {
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		cMetaDescription := object.Meta{
+		cMetaDescription := meta.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -211,14 +211,14 @@ var _ = Describe("Data", func() {
 
 		By("B contains generic inner field")
 
-		bMetaDescription := object.Meta{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -226,9 +226,9 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{aMetaObj, cMetaObj},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{aMetaObj, cMetaObj},
 					Optional:     false,
 				},
 			},
@@ -261,14 +261,14 @@ var _ = Describe("Data", func() {
 
 	It("can update a record with null generic inner value", func() {
 		By("having three objects: A, B and C")
-		aMetaDescription := object.Meta{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -283,14 +283,14 @@ var _ = Describe("Data", func() {
 
 		By("B contains generic inner field")
 
-		bMetaDescription := object.Meta{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -298,9 +298,9 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{aMetaObj},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{aMetaObj},
 					Optional:     true,
 				},
 			},
@@ -327,14 +327,14 @@ var _ = Describe("Data", func() {
 
 	It("can update a record containing generic inner value without affecting value itself and it outputs generic value right", func() {
 		By("having three objects: A, B and C")
-		aMetaDescription := object.Meta{
+		aMetaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -347,14 +347,14 @@ var _ = Describe("Data", func() {
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		cMetaDescription := object.Meta{
+		cMetaDescription := meta.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -369,14 +369,14 @@ var _ = Describe("Data", func() {
 
 		By("B contains generic inner field")
 
-		bMetaDescription := object.Meta{
+		bMetaDescription := meta.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name: "id",
-					Type: object.FieldTypeNumber,
+					Type: meta.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -384,14 +384,14 @@ var _ = Describe("Data", func() {
 				},
 				{
 					Name:         "target",
-					Type:         object.FieldTypeGeneric,
-					LinkType:     object.LinkTypeInner,
-					LinkMetaList: []*object.Meta{aMetaObj, cMetaObj},
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{aMetaObj, cMetaObj},
 					Optional:     false,
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: false,
 				},
 			},
@@ -423,16 +423,16 @@ var _ = Describe("Data", func() {
 		var bRecord *record.Record
 		var err error
 
-		havingObjectA := func() *object.Meta {
+		havingObjectA := func() *meta.Meta {
 			By("having two objects: A and B")
-			aMetaDescription := object.Meta{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -440,7 +440,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -452,16 +452,16 @@ var _ = Describe("Data", func() {
 			return aMetaObj
 		}
 
-		havingObjectD := func(A *object.Meta) *object.Meta {
+		havingObjectD := func(A *meta.Meta) *meta.Meta {
 			By("having object D with ")
-			dMetaDescription := object.Meta{
+			dMetaDescription := meta.Meta{
 				Name: "d",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -469,8 +469,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "a",
-						Type:     object.FieldTypeObject,
-						LinkType: object.LinkTypeInner,
+						Type:     meta.FieldTypeObject,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: A,
 					},
 				},
@@ -483,16 +483,16 @@ var _ = Describe("Data", func() {
 			return dMetaObj
 		}
 
-		havingObjectAWithOuterLinkToD := func(D *object.Meta) {
+		havingObjectAWithOuterLinkToD := func(D *meta.Meta) {
 			By("having object A with outer link to D")
-			aMetaDescription := object.Meta{
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -500,13 +500,13 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 					{
 						Name:           "d_set",
-						Type:           object.FieldTypeArray,
-						LinkType:       object.LinkTypeOuter,
+						Type:           meta.FieldTypeArray,
+						LinkType:       meta.LinkTypeOuter,
 						LinkMeta:       D,
 						OuterLinkField: D.FindField("a"),
 						RetrieveMode:   true,
@@ -520,18 +520,18 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 		}
 
-		havingObjectBWithGenericLinkToA := func(A *object.Meta) *object.Meta {
+		havingObjectBWithGenericLinkToA := func(A *meta.Meta) *meta.Meta {
 
 			By("B contains generic inner field")
 
-			bMetaDescription := object.Meta{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -539,9 +539,9 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target",
-						Type:         object.FieldTypeGeneric,
-						LinkType:     object.LinkTypeInner,
-						LinkMetaList: []*object.Meta{A},
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []*meta.Meta{A},
 						Optional:     true,
 					},
 				},
@@ -554,18 +554,18 @@ var _ = Describe("Data", func() {
 			return bMetaObj
 		}
 
-		havingObjectCWithGenericLinkToB := func(B *object.Meta) {
+		havingObjectCWithGenericLinkToB := func(B *meta.Meta) {
 
 			By("C contains generic inner field")
 
-			cMetaDescription := object.Meta{
+			cMetaDescription := meta.Meta{
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -573,9 +573,9 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target",
-						Type:         object.FieldTypeGeneric,
-						LinkType:     object.LinkTypeInner,
-						LinkMetaList: []*object.Meta{B},
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []*meta.Meta{B},
 						Optional:     true,
 					},
 				},
@@ -701,15 +701,15 @@ var _ = Describe("Data", func() {
 		var cRecord *record.Record
 		var err error
 
-		havingObjectA := func() *object.Meta {
-			aMetaDescription := object.Meta{
+		havingObjectA := func() *meta.Meta {
+			aMetaDescription := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -717,7 +717,7 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "name",
-						Type:     object.FieldTypeString,
+						Type:     meta.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -730,15 +730,15 @@ var _ = Describe("Data", func() {
 			return aMetaObj
 		}
 
-		havingObjectC := func() *object.Meta {
-			cMetaDescription := object.Meta{
+		havingObjectC := func() *meta.Meta {
+			cMetaDescription := meta.Meta{
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -754,18 +754,18 @@ var _ = Describe("Data", func() {
 			return cMetaObj
 		}
 
-		havingObjectBWithGenericLinkToAAndC := func(A, C *object.Meta) {
+		havingObjectBWithGenericLinkToAAndC := func(A, C *meta.Meta) {
 
 			By("B contains generic inner field")
 
-			bMetaDescription := object.Meta{
+			bMetaDescription := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeNumber,
+						Type: meta.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -773,9 +773,9 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:         "target",
-						Type:         object.FieldTypeGeneric,
-						LinkType:     object.LinkTypeInner,
-						LinkMetaList: []*object.Meta{A, C},
+						Type:         meta.FieldTypeGeneric,
+						LinkType:     meta.LinkTypeInner,
+						LinkMetaList: []*meta.Meta{A, C},
 						Optional:     true,
 					},
 				},

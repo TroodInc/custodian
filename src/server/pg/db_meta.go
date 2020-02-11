@@ -2,7 +2,7 @@ package pg
 
 import (
 	"database/sql"
-	"server/object"
+	"server/object/meta"
 	"server/transactions"
 )
 
@@ -25,10 +25,10 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (map[string]interface{}, boo
 
 	ddl, _ := MetaDDLFromDB(transaction.Transaction().(*sql.Tx), name)
 
-	metaObj := object.Meta{Name: name, Key: ddl.Pk}
+	metaObj := meta.Meta{Name: name, Key: ddl.Pk}
 
 	for _, col := range ddl.Columns {
-		metaObj.Fields = append(metaObj.Fields, &object.Field{
+		metaObj.Fields = append(metaObj.Fields, &meta.Field{
 			Name: col.Name,
 			Type: col.Typ,
 			Optional: col.Optional,

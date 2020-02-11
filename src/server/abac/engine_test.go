@@ -5,7 +5,7 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/record"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -222,7 +222,7 @@ var _ = Describe("Abac Engine", func() {
 		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 		globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-		metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+		metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 		abacTree := jsonToObject(`{
@@ -252,37 +252,37 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("Must filter Custodian Nodes", func() {
-			metaEmployee, err := metaStore.NewMeta(&object.Meta{
+			metaEmployee, err := metaStore.NewMeta(&meta.Meta{
 				Name: "t_employee",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
-						Name: "id", Type: object.FieldTypeNumber, Optional: true,
+						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{Name: "total", Type: object.FieldTypeNumber, Optional: true},
+					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
 				},
 			})
 			Expect(err).To(BeNil())
 			err = metaStore.Create(metaEmployee)
 			Expect(err).To(BeNil())
 
-			metaClient, err := metaStore.NewMeta(&object.Meta{
+			metaClient, err := metaStore.NewMeta(&meta.Meta{
 				Name: "t_client",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
-						Name: "id", Type: object.FieldTypeNumber, Optional: true,
+						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{Name: "name", Type: object.FieldTypeString, Optional: true},
-					{Name: "total", Type: object.FieldTypeNumber, Optional: true},
-					{Name: "owner", Type: object.FieldTypeNumber, Optional: true},
-					{Name: "manager", Type: object.FieldTypeNumber, Optional: true},
+					{Name: "name", Type: meta.FieldTypeString, Optional: true},
+					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
+					{Name: "owner", Type: meta.FieldTypeNumber, Optional: true},
+					{Name: "manager", Type: meta.FieldTypeNumber, Optional: true},
 					{
-						Name: "employee", Type: object.FieldTypeObject, LinkType: object.LinkTypeInner,
+						Name: "employee", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
 						LinkMeta: metaEmployee, Optional: false,
 					},
 				},
@@ -291,50 +291,50 @@ var _ = Describe("Abac Engine", func() {
 			err = metaStore.Create(metaClient)
 			Expect(err).To(BeNil())
 
-			metaPayment, err := metaStore.NewMeta(&object.Meta{
+			metaPayment, err := metaStore.NewMeta(&meta.Meta{
 				Name: "t_payment",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
-						Name: "id", Type: object.FieldTypeNumber, Optional: true,
+						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
 					{
-						Name: "client", Type: object.FieldTypeObject, LinkType: object.LinkTypeInner,
+						Name: "client", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
 						LinkMeta: metaClient, Optional: false,
 					},
-					{Name: "responsible", Type: object.FieldTypeNumber, Optional: false},
-					{Name: "total", Type: object.FieldTypeNumber, Optional: true},
+					{Name: "responsible", Type: meta.FieldTypeNumber, Optional: false},
+					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
 				},
 			})
 			Expect(err).To(BeNil())
 			err = metaStore.Create(metaPayment)
 			Expect(err).To(BeNil())
 
-			mdClientNew := object.Meta{
+			mdClientNew := meta.Meta{
 				Name: "t_client",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
-						Name: "id", Type: object.FieldTypeNumber, Optional: true,
+						Name: "id", Type: meta.FieldTypeNumber, Optional: true,
 						Def: map[string]interface{}{"func": "nextval"},
 					},
-					{Name: "name", Type: object.FieldTypeString, Optional: true},
-					{Name: "total", Type: object.FieldTypeNumber, Optional: true},
-					{Name: "owner", Type: object.FieldTypeNumber, Optional: true},
-					{Name: "manager", Type: object.FieldTypeNumber, Optional: true},
+					{Name: "name", Type: meta.FieldTypeString, Optional: true},
+					{Name: "total", Type: meta.FieldTypeNumber, Optional: true},
+					{Name: "owner", Type: meta.FieldTypeNumber, Optional: true},
+					{Name: "manager", Type: meta.FieldTypeNumber, Optional: true},
 					{
-						Name: "employee", Type: object.FieldTypeObject, LinkType: object.LinkTypeInner,
+						Name: "employee", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner,
 						LinkMeta: metaEmployee, Optional: false,
 					}, {
-						Name: "payments", Type: object.FieldTypeArray, LinkType: object.LinkTypeOuter,
+						Name: "payments", Type: meta.FieldTypeArray, LinkType: meta.LinkTypeOuter,
 						LinkMeta: metaPayment, OuterLinkField: metaPayment.FindField("client"), Optional: true,
 					},
 				},
 			}
-			(&object.NormalizationService{}).Normalize(&mdClientNew)
+			(&meta.NormalizationService{}).Normalize(&mdClientNew)
 			metaClientNew, err := metaStore.NewMeta(&mdClientNew)
 			Expect(err).To(BeNil())
 

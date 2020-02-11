@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/data"
-	"server/object"
+	"server/object/meta"
 
 	"server/pg"
 	pg_transactions "server/pg/transactions"
@@ -23,7 +23,7 @@ var _ = Describe("Node", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -33,14 +33,14 @@ var _ = Describe("Node", func() {
 	It("can fill child nodes with circular dependency", func() {
 
 		Describe("Having three objects with mediated circular dependency", func() {
-			objectA := object.Meta{
+			objectA := meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 				},
 			}
@@ -49,20 +49,20 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectAMeta)
 			Expect(err).To(BeNil())
 
-			objectB := object.Meta{
+			objectB := meta.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 					{
 						Name:     "a",
-						Type:     object.FieldTypeObject,
+						Type:     meta.FieldTypeObject,
 						Optional: true,
-						LinkType: object.LinkTypeInner,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: objectAMeta,
 					},
 				},
@@ -72,20 +72,20 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectBMeta)
 			Expect(err).To(BeNil())
 
-			objectC := object.Meta{
+			objectC := meta.Meta{
 				Name: "c",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 					{
 						Name:     "b",
-						Type:     object.FieldTypeObject,
+						Type:     meta.FieldTypeObject,
 						Optional: true,
-						LinkType: object.LinkTypeInner,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: objectBMeta,
 					},
 				},
@@ -95,20 +95,20 @@ var _ = Describe("Node", func() {
 			err = metaStore.Create(objectCMeta)
 			Expect(err).To(BeNil())
 
-			objectA = object.Meta{
+			objectA = meta.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*object.Field{
+				Fields: []*meta.Field{
 					{
 						Name: "id",
-						Type: object.FieldTypeString,
+						Type: meta.FieldTypeString,
 					},
 					{
 						Name:     "c",
-						Type:     object.FieldTypeObject,
+						Type:     meta.FieldTypeObject,
 						Optional: true,
-						LinkType: object.LinkTypeInner,
+						LinkType: meta.LinkTypeInner,
 						LinkMeta: objectCMeta,
 					},
 				},
@@ -128,7 +128,7 @@ var _ = Describe("Node", func() {
 					OnlyLink:   false,
 					Parent:     nil,
 				}
-				node.RecursivelyFillChildNodes(100, object.FieldModeRetrieve)
+				node.RecursivelyFillChildNodes(100, meta.FieldModeRetrieve)
 				Expect(node.ChildNodes.Nodes()["c"].ChildNodes.Nodes()["b"].ChildNodes.Nodes()["a"].ChildNodes.Nodes()).To(HaveLen(0))
 			})
 		})

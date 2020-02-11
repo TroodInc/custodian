@@ -6,7 +6,7 @@ import (
 	"server/data/errors"
 	"server/data/notifications"
 	. "server/data/record"
-	"server/object"
+	"server/object/meta"
 	"server/transactions"
 	"strings"
 )
@@ -21,23 +21,23 @@ type ExecuteContext interface {
 
 type DataManager interface {
 	Db() (interface{})
-	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*object.Field, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
-	Get(m *object.Meta, fields []*object.Field, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
-	GetAll(m *object.Meta, fileds []*object.Field, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
+	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.Field, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
+	Get(m *meta.Meta, fields []*meta.Field, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
+	GetAll(m *meta.Meta, fileds []*meta.Field, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
 	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, processor *Processor) (error)
-	PrepareCreateOperation(m *object.Meta, objs []map[string]interface{}) (transactions.Operation, error)
-	PrepareUpdateOperation(m *object.Meta, objs []map[string]interface{}) (transactions.Operation, error)
+	PrepareCreateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
+	PrepareUpdateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
 }
 
 type Processor struct {
-	metaStore                 *object.MetaStore
+	metaStore                 *meta.MetaStore
 	dataManager               DataManager
 	transactionManager        transactions.DbTransactionManager
 	vCache                    map[string]objectClassValidator
 	RecordSetNotificationPool *notifications.RecordSetNotificationPool
 }
 
-func NewProcessor(m *object.MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
+func NewProcessor(m *meta.MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool(m.GetActions())
 	return &Processor{
 		m,
@@ -56,9 +56,9 @@ type SearchContext struct {
 	DbTransaction transactions.DbTransaction
 }
 
-func isBackLink(m *object.Meta, f *object.Field) bool {
+func isBackLink(m *meta.Meta, f *meta.Field) bool {
 	for i, _ := range m.Fields {
-		if m.Fields[i].LinkType == object.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
+		if m.Fields[i].LinkType == meta.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
 			return true
 		}
 	}
@@ -88,7 +88,7 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 				RetrievePolicy: new(AggregatedRetrievePolicyFactory).Factory(includePaths, excludePaths),
 			}
 
-			err := root.RecursivelyFillChildNodes(ctx.depthLimit, object.FieldModeRetrieve)
+			err := root.RecursivelyFillChildNodes(ctx.depthLimit, meta.FieldModeRetrieve)
 			if err != nil {
 				processor.transactionManager.RollbackTransaction(transaction)
 				return nil, err
@@ -132,7 +132,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 			SelectFields:   *NewSelectFields(businessObject.GetKey(), businessObject.TableFields()),
 			RetrievePolicy: retrievePolicy,
 		}
-		root.RecursivelyFillChildNodes(searchContext.depthLimit, object.FieldModeRetrieve)
+		root.RecursivelyFillChildNodes(searchContext.depthLimit, meta.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
 
@@ -155,7 +155,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 
 //Todo: this method is a shadow of GetBulk, the only difference is that it gets Meta object, not meta`s name
 //perhaps it should become public and replace current GetBulk
-func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *object.Meta, filter string, depth int, omitOuters bool, sink func(record *Record) error) (int, error) {
+func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *meta.Meta, filter string, depth int, omitOuters bool, sink func(record *Record) error) (int, error) {
 	searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
 	root := &Node{
 		KeyField:     metaObj.GetKey(),
@@ -168,7 +168,7 @@ func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction
 		Type:         NodeTypeRegular,
 		SelectFields: *NewSelectFields(metaObj.GetKey(), metaObj.TableFields()),
 	}
-	root.RecursivelyFillChildNodes(searchContext.depthLimit, object.FieldModeRetrieve)
+	root.RecursivelyFillChildNodes(searchContext.depthLimit, meta.FieldModeRetrieve)
 
 	parser := rqlParser.NewParser()
 	rqlNode, err := parser.Parse(strings.NewReader(filter))
@@ -188,15 +188,15 @@ func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction
 }
 
 type DNode struct {
-	KeyField   *object.Field
-	Meta       *object.Meta
+	KeyField   *meta.Field
+	Meta       *meta.Meta
 	ChildNodes map[string]*DNode
 	Plural     bool
 }
 
 func (dn *DNode) fillOuterChildNodes() {
 	for _, f := range dn.Meta.Fields {
-		if f.LinkType == object.LinkTypeOuter {
+		if f.LinkType == meta.LinkTypeOuter {
 			dn.ChildNodes[f.Name] = &DNode{KeyField: f.OuterLinkField,
 				Meta: f.LinkMeta,
 				ChildNodes: make(map[string]*DNode),
@@ -217,7 +217,7 @@ func (dn *DNode) recursivelyFillOuterChildNodes() {
 	}
 }
 
-func (processor *Processor) GetMeta(objectName string) (*object.Meta, error) {
+func (processor *Processor) GetMeta(objectName string) (*meta.Meta, error) {
 	objectMeta, ok, err := processor.metaStore.Get(objectName, true)
 	if err != nil {
 		return nil, err
@@ -688,7 +688,7 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 }
 
 //consume all records from callback function
-func (processor *Processor) consumeRecords(nextCallback func() (map[string]interface{}, error), objectMeta *object.Meta, strictPkCheck bool) ([]*Record, error) {
+func (processor *Processor) consumeRecords(nextCallback func() (map[string]interface{}, error), objectMeta *meta.Meta, strictPkCheck bool) ([]*Record, error) {
 	var records = make([]*Record, 0)
 	// collect records
 	for recordData, err := nextCallback(); err != nil || (recordData != nil); recordData, err = nextCallback() {

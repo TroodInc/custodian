@@ -3,6 +3,7 @@ package object
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -19,7 +20,7 @@ var _ = Describe("File MetaDescription driver", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(fileMetaDriver)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := NewStore(fileMetaDriver, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(fileMetaDriver, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

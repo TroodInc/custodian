@@ -4,7 +4,7 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"net/http"
-	"server/object"
+	"server/object/meta"
 	"server/pg"
 
 	"utils"
@@ -52,7 +52,7 @@ var _ = Describe("ABAC rules handling", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	var user *auth.User
@@ -62,15 +62,15 @@ var _ = Describe("ABAC rules handling", func() {
 		Expect(err).To(BeNil())
 	}
 
-	factoryObjectA := func() *object.Meta {
-		metaDescription := object.Meta{
+	factoryObjectA := func() *meta.Meta {
+		metaDescription := meta.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*object.Field{
+			Fields: []*meta.Field{
 				{
 					Name:     "id",
-					Type:     object.FieldTypeNumber,
+					Type:     meta.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -78,17 +78,17 @@ var _ = Describe("ABAC rules handling", func() {
 				},
 				{
 					Name:     "name",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "owner_role",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 				},
 				{
 					Name:     "color",
-					Type:     object.FieldTypeString,
+					Type:     meta.FieldTypeString,
 					Optional: true,
 					Def:      "red",
 				},
@@ -340,7 +340,7 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And an A record belongs to managers", func() {
 			var err error
 			var url string
-			var aObject *object.Meta
+			var aObject *meta.Meta
 			var aRecord *record.Record
 
 			JustBeforeEach(func() {
@@ -393,7 +393,7 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And this user has the role 'admin'", func() {
 			var err error
 			var url string
-			var aObject *object.Meta
+			var aObject *meta.Meta
 			var aRecord *record.Record
 
 			JustBeforeEach(func() {
