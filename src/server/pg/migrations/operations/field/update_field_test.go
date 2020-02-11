@@ -300,7 +300,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					{
 						Name:     "b",
 						Type:     meta.FieldTypeObject,
-						LinkMeta: bMetaDescription.Name,
+						LinkMeta: bMetaDescription,
 						LinkType: meta.LinkTypeInner,
 					},
 				},

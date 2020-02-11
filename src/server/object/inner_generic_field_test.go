@@ -44,10 +44,10 @@ var _ = Describe("Inner generic field", func() {
 		By("and object C, containing generic inner field")
 
 		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
+		cMetaDescription.Fields = append(cMetaDescription.Fields, &meta.Field{
 			Name:         "target",
-			Type:         description.FieldTypeGeneric,
-			LinkType:     description.LinkTypeInner,
+			Type:         meta.FieldTypeGeneric,
+			LinkType:     meta.LinkTypeInner,
 			LinkMetaList: []*meta.Meta{aMetaObj, bMetaObj},
 			Optional:     false,
 		})
@@ -80,40 +80,77 @@ var _ = Describe("Inner generic field", func() {
 	It("Validates linked metas", func() {
 		By("having an object A, referencing non-existing object B")
 
-		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
-			Name:         "target",
-			Type:         description.FieldTypeGeneric,
-			LinkType:     description.LinkTypeInner,
-			LinkMetaList: []string{"b"},
-			Optional:     false,
-		})
-
+		cMetaDescription := meta.Meta{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{"b"},
+					Optional:     false,
+				},
+			},
+		}
 		By("MetaDescription should not be created")
-		_, err := metaStore.NewMeta(cMetaDescription)
+		_, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(Not(BeNil()))
 	})
 
 	It("can remove generic field from object", func() {
 
 		By("having object A with generic field")
-		metaDescription := GetBaseMetaData(utils.RandomString(8))
-		metaDescription.Fields = append(metaDescription.Fields, description.Field{
-			Name:         "target",
-			Type:         description.FieldTypeGeneric,
-			LinkType:     description.LinkTypeInner,
-			LinkMetaList: []string{},
-			Optional:     false,
-		})
-
-		metaObj, err := metaStore.NewMeta(metaDescription)
+		metaDescription := meta.Meta{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []string{},
+					Optional:     false,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		By("when generic field is removed from object and object has been updated")
 
-		metaDescription = GetBaseMetaData(metaDescription.Name)
-		metaObj, err = metaStore.NewMeta(metaDescription)
+		metaDescription = meta.Meta{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		metaObj, err = metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
@@ -142,25 +179,66 @@ var _ = Describe("Inner generic field", func() {
 
 	It("does not leave orphan links in LinkMetaList on object removal", func() {
 		By("having two objects A and B reference by generic field of object C")
-		aMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
+		aMetaDescription := meta.Meta{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
+		bMetaDescription := meta.Meta{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		cMetaDescription :=  GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
-			Name:         "target",
-			Type:         description.FieldTypeGeneric,
-			LinkType:     description.LinkTypeInner,
-			LinkMetaList: []string{aMetaObj.Name, bMetaObj.Name},
-			Optional:     false,
-		})
-		metaObj, err := metaStore.NewMeta(cMetaDescription)
+		cMetaDescription := meta.Meta{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{aMetaObj, bMetaObj},
+					Optional:     false,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
@@ -177,59 +255,126 @@ var _ = Describe("Inner generic field", func() {
 
 	It("can create object with inner generic field", func() {
 		By("having object A")
-
-		aMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
+		aMetaDescription := meta.Meta{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and object C, containing generic inner field")
 
-		cMetaDescription :=  GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
-			Name:         "target",
-			Type:         description.FieldTypeGeneric,
-			LinkType:     description.LinkTypeInner,
-			LinkMetaList: []string{aMetaObj.Name},
-			Optional:     false,
-		})
-		metaObj, err := metaStore.NewMeta(cMetaDescription)
+		cMetaDescription := meta.Meta{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{aMetaObj},
+					Optional:     false,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 
 		// check meta fields
-		aMeta, _, err := metaStore.Get(aMetaObj.Name, true)
+		aMeta, _, err := metaStore.Get(aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
-		Expect(aMeta.Fields[1].Name).To(Equal(cMetaDescription.Name + "_set"))
+		Expect(aMeta.Fields[1].Name).To(Equal("c_set"))
 		Expect(aMeta.Fields[1].LinkType).To(Equal(meta.LinkTypeOuter))
 		Expect(aMeta.Fields[1].Type).To(Equal(meta.FieldTypeGeneric))
 	})
 
 	It("can create object with inner generic field", func() {
 		By("having two objects: A and B")
-		aMetaObj, err := metaStore.NewMeta( GetBaseMetaData(utils.RandomString(8)))
+		aMetaDescription := meta.Meta{
+			Name: "a",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaObj, err := metaStore.NewMeta( GetBaseMetaData(utils.RandomString(8)))
+		bMetaDescription := meta.Meta{
+			Name: "b",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+			},
+		}
+		bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and object C, containing generic inner field")
 
-		cMetaDescription :=  GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
-			Name:         "target",
-			Type:         description.FieldTypeGeneric,
-			LinkType:     description.LinkTypeInner,
-			LinkMetaList: []string{aMetaObj.Name, bMetaObj.Name},
-			Optional:     false,
-		})
-		metaObj, err := metaStore.NewMeta(cMetaDescription)
+		cMetaDescription := meta.Meta{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{aMetaObj, bMetaObj},
+					Optional:     false,
+				},
+			},
+		}
+		metaObj, err := metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
@@ -240,22 +385,35 @@ var _ = Describe("Inner generic field", func() {
 		Expect(aMeta.Fields).To(HaveLen(2))
 
 		By("removing object A from object`s C LinkMetaList")
-		cMetaDescription =  GetBaseMetaData(cMetaDescription.Name)
-		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
-			Name:         "target",
-			Type:         description.FieldTypeGeneric,
-			LinkType:     description.LinkTypeInner,
-			LinkMetaList: []string{bMetaObj.Name},
-			Optional:     false,
-		})
-		metaObj, err = metaStore.NewMeta(cMetaDescription)
+		cMetaDescription = meta.Meta{
+			Name: "c",
+			Key:  "id",
+			Cas:  false,
+			Fields: []*meta.Field{
+				{
+					Name: "id",
+					Type: meta.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+				},
+				{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{bMetaObj},
+					Optional:     false,
+				},
+			},
+		}
+		metaObj, err = metaStore.NewMeta(&cMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(metaObj.Name, metaObj, true)
 		Expect(err).To(BeNil())
 
 		//c_set field should be removed from object A
 		// check A meta fields
-		aMeta, _, err = metaStore.Get(aMetaObj.Name, true)
+		aMeta, _, err = metaStore.Get(aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(1))
 	})

@@ -71,11 +71,11 @@ var _ = Describe("Objects field", func() {
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
 			Name:     "b",
-			Type:     description.FieldTypeObjects,
-			LinkMeta: bMetaDescription.Name,
-			LinkType: description.LinkTypeInner,
+			Type:     meta.FieldTypeObjects,
+			LinkMeta: bMetaDescription,
+			LinkType: meta.LinkTypeInner,
 		})
 
 		//check field's properties

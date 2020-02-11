@@ -50,7 +50,7 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 			},
 		}
 		globalTransaction, _ := globalTransactionManager.BeginTransaction()
-		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, metaDescription.Name, metaDescription.ForExport())
 		Expect(err).To(BeNil())
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})

@@ -65,7 +65,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 						Name:         "target_object",
 						Type:         meta.FieldTypeGeneric,
 						LinkType:     meta.LinkTypeInner,
-						LinkMetaList: []string{metaDescription.Name},
+						LinkMetaList: []*meta.Meta{metaDescription},
 						Optional:     false,
 					},
 				},
@@ -106,11 +106,11 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 			})
 
 			It("adds a reverse generic outer link when a new inner generic field is being added to an object", func() {
-				field := description.Field{
+				field := meta.Field{
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -140,7 +140,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{metaDescription.Name},
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -171,7 +171,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{cMetaDescription.Name},
+					LinkMetaList: []*meta.Meta{cMetaDescription},
 					Optional:     false,
 				}
 
@@ -206,7 +206,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{metaDescription.Name},
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -255,7 +255,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{metaDescription.Name},
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -301,7 +301,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Name:         "target_object",
 					Type:         meta.FieldTypeGeneric,
 					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{metaDescription.Name},
+					LinkMetaList: []*meta.Meta{metaDescription},
 					Optional:     false,
 				}
 

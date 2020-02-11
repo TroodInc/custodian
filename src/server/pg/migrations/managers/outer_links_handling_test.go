@@ -6,10 +6,8 @@ import (
 
 	migrations_description "server/migrations/description"
 	"server/object"
-	"server/object/description"
 	"server/object/meta"
 	"server/pg"
-	"server/pg/migrations/operations/object"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
 	"utils"
@@ -205,7 +203,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					Name:     "target_object",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: metaDescription.Name,
+					LinkMeta: metaDescription,
 					Optional: false,
 				}
 
@@ -242,7 +240,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					Name:     "a",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: metaDescription.Name,
+					LinkMeta: metaDescription,
 					Optional: false,
 				}
 
@@ -297,7 +295,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					Name:     "a",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: metaDescription.Name,
+					LinkMeta: metaDescription,
 					Optional: false,
 				}
 
@@ -349,7 +347,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 					Name:     "a",
 					Type:     meta.FieldTypeObject,
 					LinkType: meta.LinkTypeInner,
-					LinkMeta: metaDescription.Name,
+					LinkMeta: metaDescription,
 					Optional: false,
 				}
 

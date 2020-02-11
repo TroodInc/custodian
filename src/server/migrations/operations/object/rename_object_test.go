@@ -74,11 +74,11 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		Expect(updatedMetaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file
-		updatedMetaDescription, _, err = metaDescriptionSyncer.Get(updatedMetaDescription.Name)
-		Expect(metaDescription).NotTo(BeNil())
+		updatedMetaMap, _, err := metaDescriptionSyncer.Get(updatedMetaDescription.Name)
+		Expect(updatedMetaMap).NotTo(BeNil())
 		//ensure previous MetaDescription does not exist
-		metaDescription, _, err = metaDescriptionSyncer.Get(metaDescription.Name)
-		Expect(metaDescription).To(BeNil())
+		metaMap, _, err := metaDescriptionSyncer.Get(metaDescription.Name)
+		Expect(metaMap).To(BeNil())
 
 		//clean up
 		_, err = metaDescriptionSyncer.Remove(updatedMetaDescription.Name)

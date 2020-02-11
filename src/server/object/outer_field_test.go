@@ -38,11 +38,11 @@ var _ = Describe("Outer field", func() {
 
 	havingBMeta := func(A *meta.Meta) *meta.Meta {
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
 			Name:     "a",
-			Type:     description.FieldTypeObject,
-			LinkType: description.LinkTypeInner,
-			LinkMeta: A.Name,
+			Type:     meta.FieldTypeObject,
+			LinkType: meta.LinkTypeInner,
+			LinkMeta: A,
 			Optional: false,
 		})
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
@@ -54,14 +54,14 @@ var _ = Describe("Outer field", func() {
 
 	havingAMetaWithManuallySetBSetLink := func(A, B *meta.Meta) *meta.Meta {
 		aMetaDescription := GetBaseMetaData(A.Name)
-		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
 			Name:           "b_set",
-			Type:           description.FieldTypeArray,
-			LinkType:       description.LinkTypeOuter,
-			LinkMeta:       B.Name,
-			OuterLinkField: "a",
+			Type:           meta.FieldTypeArray,
+			LinkType:       meta.LinkTypeOuter,
+			LinkMeta:       B,
+			OuterLinkField: B.FindField("a"),
 		})
-		(&description.NormalizationService{}).Normalize(aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
@@ -133,14 +133,14 @@ var _ = Describe("Outer field", func() {
 
 		//A meta updated with outer link to b
 		aMetaDescription := GetBaseMetaData(aMetaObj.Name)
-		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
 			Name:           "custom_b_set",
-			Type:           description.FieldTypeArray,
-			LinkType:       description.LinkTypeOuter,
-			LinkMeta:       bMetaObj.Name,
-			OuterLinkField: "a",
+			Type:           meta.FieldTypeArray,
+			LinkType:       meta.LinkTypeOuter,
+			LinkMeta:       bMetaObj,
+			OuterLinkField: bMetaObj.FindField("a"),
 		})
-		(&description.NormalizationService{}).Normalize(aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(aMetaDescription)
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)

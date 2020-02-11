@@ -34,11 +34,11 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
 			Name:     "a",
-			Type:     description.FieldTypeObject,
-			LinkType: description.LinkTypeInner,
-			LinkMeta: aMetaObj.Name,
+			Type:     meta.FieldTypeObject,
+			LinkType: meta.LinkTypeInner,
+			LinkMeta: aMetaObj,
 		})
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())

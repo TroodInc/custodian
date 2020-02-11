@@ -32,7 +32,7 @@ var _ = Describe("File MetaDescription driver", func() {
 
 		Context("having an object", func() {
 			metaDescription := GetBaseMetaData(utils.RandomString(8))
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			fileMetaDriver.Create(globalTransaction.MetaDescriptionTransaction, metaDescription.Name, metaDescription.ForExport())
@@ -60,8 +60,7 @@ var _ = Describe("File MetaDescription driver", func() {
 	It("removes objects created during transaction on rollback", func() {
 		Context("having an object", func() {
 			metaDescription := GetBaseMetaData(utils.RandomString(8))
-			metaDescriptionList := metaStore.List()
-			metaTransaction, err := fileMetaTransactionManager.BeginTransaction(metaDescriptionList)
+			metaTransaction, err := fileMetaTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 			err = fileMetaDriver.Create(metaTransaction, metaDescription.Name, metaDescription.ForExport())
 			Expect(err).To(BeNil())
@@ -71,7 +70,7 @@ var _ = Describe("File MetaDescription driver", func() {
 				Expect(err).To(BeNil())
 
 				bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-				fileMetaDriver.Create(metaTransaction, *bMetaDescription)
+				fileMetaDriver.Create(metaTransaction, bMetaDescription.Name, bMetaDescription.ForExport())
 
 				Context("B object should be removed after rollback", func() {
 					err = fileMetaTransactionManager.RollbackTransaction(metaTransaction)
