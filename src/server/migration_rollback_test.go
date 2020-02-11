@@ -5,12 +5,12 @@ import (
 	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
+	"server/object"
 	"server/pg"
 	"utils"
 
 	"server"
 
-	"server/object/meta"
 	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -34,7 +34,7 @@ var _ = Describe("Rollback migrations", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -57,18 +57,18 @@ var _ = Describe("Rollback migrations", func() {
 	AfterEach(flushDb)
 
 	Context("Having applied `create` migration for object A", func() {
-		var aMetaDescription *meta.Meta
+		var aMetaDescription *object.Meta
 		var firstAppliedMigrationDescription *migrations_description.MigrationDescription
 
 		BeforeEach(func() {
 			//Create object A by applying a migration
-			aMetaDescription = &meta.Meta{
+			aMetaDescription = &object.Meta{
 				Name: "a",
 				Key: "id",
-				Fields: []*meta.Field{
+				Fields: []*object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -99,13 +99,9 @@ var _ = Describe("Rollback migrations", func() {
 			var secondAppliedMigrationDescription *migrations_description.MigrationDescription
 
 			BeforeEach(func() {
-				//Create object A by applying a migration
-				globalTransaction, err := globalTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
-
-				field := meta.Field{
+				field := object.Field{
 					Name:     "title",
-					Type:     meta.FieldTypeString,
+					Type:     object.FieldTypeString,
 					Optional: false,
 				}
 
@@ -121,10 +117,9 @@ var _ = Describe("Rollback migrations", func() {
 					},
 				}
 
+				var err error
 				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, true, false)
 				Expect(err).To(BeNil())
-
-				globalTransactionManager.CommitTransaction(globalTransaction)
 			})
 
 			Context("Having applied `UpdateField` migration for object A", func() {
@@ -132,9 +127,9 @@ var _ = Describe("Rollback migrations", func() {
 
 				BeforeEach(func() {
 					//Create object A by applying a migration
-					field := meta.Field{
+					field := object.Field{
 						Name:     "new_title",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					}
 

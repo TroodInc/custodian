@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
+	"server/object"
 	"server/pg"
 	"utils"
 
@@ -13,7 +14,6 @@ import (
 	"server"
 	migrations_description "server/migrations/description"
 
-	"server/object/meta"
 	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -32,7 +32,7 @@ var _ = Describe("Migrations` listing", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -56,16 +56,16 @@ var _ = Describe("Migrations` listing", func() {
 	AfterEach(flushDb)
 
 	Context("Having an applied migration", func() {
-		var metaDescription *meta.Meta
+		var metaDescription *object.Meta
 		var migrationDescription *migrations_description.MigrationDescription
 		BeforeEach(func() {
-			metaDescription = &meta.Meta{
+			metaDescription = &object.Meta{
 				Name: "b",
 				Key: "id",
-				Fields: []*meta.Field{
+				Fields: []*object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},

@@ -2,12 +2,12 @@ package record
 
 import (
 	"server/data/types"
-	"server/object/meta"
+	"server/object"
 	"time"
 )
 
 type Record struct {
-	Meta    *meta.Meta
+	Meta    *object.Meta
 	Data    map[string]interface{}
 	RawData map[string]interface{}
 	Links   []*types.LazyLink
@@ -52,17 +52,17 @@ func (record *Record) CollapseLinks() {
 		switch link := v.(type) {
 		case types.LazyLink:
 			if link.IsOuter {
-				if link.Field.Type == meta.FieldTypeArray {
+				if link.Field.Type == object.FieldTypeArray {
 					if a, prs := link.Obj[link.Field.Name]; !prs || a == nil {
 						link.Obj[link.Field.Name] = make([]interface{}, link.NeighboursCount)
 					}
 					(link.Obj[link.Field.Name]).([]interface{})[link.Index] = record.Data
-				} else if link.Field.Type == meta.FieldTypeObjects {
+				} else if link.Field.Type == object.FieldTypeObjects {
 					if a, prs := link.Obj[link.Field.Name]; !prs || a == nil {
 						link.Obj[link.Field.Name] = make([]interface{}, link.NeighboursCount)
 					}
 					(link.Obj[link.Field.Name]).([]interface{})[link.Index] = record.Data
-				} else if link.Field.Type == meta.FieldTypeObject {
+				} else if link.Field.Type == object.FieldTypeObject {
 					link.Obj[link.Field.Name] = record.Data
 				}
 				record.Data[k] = link.Obj[link.Field.LinkMeta.Key]
@@ -74,7 +74,7 @@ func (record *Record) CollapseLinks() {
 				record.Data[k] = link.Id
 			}
 		case *types.AGenericInnerLink:
-			if link.LinkType == meta.LinkTypeOuter {
+			if link.LinkType == object.LinkTypeOuter {
 				if _, ok := record.Data[link.Field.Name]; !ok {
 					link.RecordData[link.Field.Name] = make([]interface{}, link.NeighboursCount)
 				}
@@ -155,11 +155,11 @@ func (record *Record) setAutoValues(operationType RecordOperationType) {
 		if operationType == RecordOperationTypeUpdate && field.NowOnUpdate || operationType == RecordOperationTypeCreate && field.NowOnCreate {
 			var value string
 			switch field.Type {
-			case meta.FieldTypeDateTime:
+			case object.FieldTypeDateTime:
 				value = time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00")
-			case meta.FieldTypeDate:
+			case object.FieldTypeDate:
 				value = time.Now().UTC().Format("2006-01-02")
-			case meta.FieldTypeTime:
+			case object.FieldTypeTime:
 				value = time.Now().UTC().Format("15:04:05.123456789")
 			}
 			if value != "" {
@@ -185,6 +185,6 @@ func (record *Record) IsPhantom() bool {
 	return !pkIsSet
 }
 
-func NewRecord(meta *meta.Meta, data map[string]interface{}) *Record {
+func NewRecord(meta *object.Meta, data map[string]interface{}) *Record {
 	return  &Record{Meta: meta, Data: data, RawData: nil, Links: make([]*types.LazyLink, 0)}
 }

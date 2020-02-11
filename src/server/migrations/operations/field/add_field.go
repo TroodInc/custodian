@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"server/errors"
 	"server/migrations"
-	"server/object/meta"
+	"server/object"
 	"server/transactions"
 )
 
 type AddFieldOperation struct {
-	Field *meta.Field
+	Field *object.Field
 }
 
-func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
+func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *object.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer object.MetaDescriptionSyncer) (*object.Meta, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 	if err := o.validate(metaDescriptionToApply); err != nil {
 		//TODO:This is a workaround to avoid duplicated outer field (<meta-name>_set) to be created.
@@ -34,11 +34,11 @@ func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Met
 	}
 }
 
-func (o *AddFieldOperation) validate(metaDescription *meta.Meta) *errors.ServerError {
+func (o *AddFieldOperation) validate(metaDescription *object.Meta) *errors.ServerError {
 	existingField := metaDescription.FindField(o.Field.Name)
 	if existingField != nil {
-		if existingField.LinkType == meta.LinkTypeOuter {
-			if o.Field.LinkType == meta.LinkTypeOuter {
+		if existingField.LinkType == object.LinkTypeOuter {
+			if o.Field.LinkType == object.LinkTypeOuter {
 				if o.Field.OuterLinkField != existingField.OuterLinkField {
 					return errors.NewValidationError(migrations.MigrationErrorDuplicated, "", nil)
 				}
@@ -53,6 +53,6 @@ func (o *AddFieldOperation) validate(metaDescription *meta.Meta) *errors.ServerE
 	return nil
 }
 
-func NewAddFieldOperation(field *meta.Field) *AddFieldOperation {
+func NewAddFieldOperation(field *object.Field) *AddFieldOperation {
 	return &AddFieldOperation{Field: field}
 }

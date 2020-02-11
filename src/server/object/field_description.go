@@ -1,4 +1,4 @@
-package meta
+package object
 
 import (
 	"fmt"
@@ -9,37 +9,37 @@ import (
 )
 
 type Field struct {
-	Name           string       `json:"name"`
-	Type           FieldType    `json:"type"`
-	LinkType       LinkType     `json:"linkType,omitempty"`
-	Optional       bool         `json:"optional"`
-	Unique         bool         `json:"unique"`
-	OnDelete       string       `json:"onDelete,omitempty"`
-	Def            interface{}  `json:"default,omitempty"`
-	NowOnUpdate    bool         `json:"nowOnUpdate,omitempty"`
-	NowOnCreate    bool         `json:"nowOnCreate,omitempty"`
-	QueryMode      bool         `json:"queryMode,omitempty"`    //only for outer links, true if field should be used for querying
-	RetrieveMode   bool         `json:"retrieveMode,omitempty"` //only for outer links, true if field should be used for data retrieving
+	Name         string      `json:"name"`
+	Type         FieldType   `json:"type"`
+	LinkType     LinkType    `json:"linkType,omitempty"`
+	Optional     bool        `json:"optional"`
+	Unique       bool        `json:"unique"`
+	OnDelete     string      `json:"onDelete,omitempty"`
+	Def          interface{} `json:"default,omitempty"`
+	NowOnUpdate  bool        `json:"nowOnUpdate,omitempty"`
+	NowOnCreate  bool        `json:"nowOnCreate,omitempty"`
+	QueryMode    bool        `json:"queryMode,omitempty"`    //only for outer links, true if field should be used for querying
+	RetrieveMode bool        `json:"retrieveMode,omitempty"` //only for outer links, true if field should be used for data retrieving
 
 	Meta           *Meta
 
-	LinkMeta       *Meta		`json:"linkMeta,omitempty"`     //only for array and "object"
-	OuterLinkField *Field		`json:"outerLinkField,omitempty"`
-	LinkMetaList   []*Meta		`json:"linkMetaList,omitempty"` //only for array and "object"
-	LinkThrough    *Meta		`json:"linkThrough,omitempty"`  //only for "objects" field
+	LinkMeta       *Meta   `json:"linkMeta,omitempty"` //only for array and "object"
+	OuterLinkField *Field  `json:"outerLinkField,omitempty"`
+	LinkMetaList   []*Meta `json:"linkMetaList,omitempty"` //only for array and "object"
+	LinkThrough    *Meta   `json:"linkThrough,omitempty"`  //only for "objects" field
 }
 
 func NewFieldFromMap(object map[string]interface{}) *Field {
 	result := &Field{
-		Name:           object["name"].(string),
-		Type:           AsFieldType(object["type"].(string)),
-		Optional:       object["optional"].(bool),
-		Unique:         object["unique"].(bool),
-		OnDelete:       object["onDelete"].(string),
-		Def:            nil,
-		NowOnUpdate:    false,
-		NowOnCreate:    false,
-		LinkMeta: 		&Meta{},
+		Name:        object["name"].(string),
+		Type:        AsFieldType(object["type"].(string)),
+		Optional:    object["optional"].(bool),
+		Unique:      object["unique"].(bool),
+		OnDelete:    object["onDelete"].(string),
+		Def:         nil,
+		NowOnUpdate: false,
+		NowOnCreate: false,
+		LinkMeta:    &Meta{},
 	}
 
 	if object["linkType"] != nil {

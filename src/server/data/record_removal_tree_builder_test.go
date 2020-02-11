@@ -6,8 +6,8 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/errors"
+	"server/object"
 
-	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -25,7 +25,7 @@ var _ = Describe("Record tree extractor", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -33,16 +33,16 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 	})
 
-	havingAMetaDescription := func() *meta.Meta {
+	havingAMetaDescription := func() *object.Meta {
 		By("Having A meta")
-		aMetaDescription := meta.Meta{
+		aMetaDescription := object.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -53,16 +53,16 @@ var _ = Describe("Record tree extractor", func() {
 		return &aMetaDescription
 	}
 
-	havingBMetaDescription := func(A *meta.Meta) *meta.Meta {
+	havingBMetaDescription := func(A *object.Meta) *object.Meta {
 		By("Having B referencing A with 'setNull' strategy")
-		bMetaDescription := meta.Meta{
+		bMetaDescription := object.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -70,8 +70,8 @@ var _ = Describe("Record tree extractor", func() {
 				},
 				{
 					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
+					Type:     object.FieldTypeObject,
+					LinkType: object.LinkTypeInner,
 					LinkMeta: A,
 					OnDelete: "setNull",
 					Optional: false,
@@ -81,16 +81,16 @@ var _ = Describe("Record tree extractor", func() {
 		return &bMetaDescription
 	}
 
-	havingCMetaDescription := func(B *meta.Meta) *meta.Meta {
+	havingCMetaDescription := func(B *object.Meta) *object.Meta {
 		By("Having C meta referencing B meta with 'cascade' strategy")
-		cMetaDescription := meta.Meta{
+		cMetaDescription := object.Meta{
 			Name: "c",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -98,8 +98,8 @@ var _ = Describe("Record tree extractor", func() {
 				},
 				{
 					Name:     "b",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
+					Type:     object.FieldTypeObject,
+					LinkType: object.LinkTypeInner,
 					LinkMeta: B,
 					OnDelete: "cascade",
 				},
@@ -108,7 +108,7 @@ var _ = Describe("Record tree extractor", func() {
 		return &cMetaDescription
 	}
 
-	createMeta := func(metaDescription *meta.Meta) *meta.Meta {
+	createMeta := func(metaDescription *object.Meta) *object.Meta {
 		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(metaObj)
@@ -120,7 +120,7 @@ var _ = Describe("Record tree extractor", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription(aMeta)
-		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteSetNull.ToVerbose()
+		bMetaDescription.Fields[1].OnDelete = object.OnDeleteSetNull.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription(bMeta))
 
@@ -148,14 +148,14 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(recordNode.Children).To(HaveKey("b_set"))
 		Expect(recordNode.Children["b_set"]).To(HaveLen(1))
 		Expect(recordNode.Children["b_set"][0].Children).To(BeEmpty())
-		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(meta.OnDeleteSetNull))
+		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(object.OnDeleteSetNull))
 	})
 
 	It("returns error with 'restrict' strategy", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription(aMeta)
-		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteRestrict.ToVerbose()
+		bMetaDescription.Fields[1].OnDelete = object.OnDeleteRestrict.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription(bMeta))
 
@@ -185,7 +185,7 @@ var _ = Describe("Record tree extractor", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription(aMeta)
-		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteCascade.ToVerbose()
+		bMetaDescription.Fields[1].OnDelete = object.OnDeleteCascade.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription(bMeta))
 
@@ -212,11 +212,11 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(recordNode.Children).To(HaveLen(1))
 		Expect(recordNode.Children).To(HaveKey("b_set"))
 		Expect(recordNode.Children["b_set"]).To(HaveLen(1))
-		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(meta.OnDeleteCascade))
+		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(object.OnDeleteCascade))
 		Expect(recordNode.Children["b_set"][0].Children).To(HaveLen(1))
 		Expect(recordNode.Children["b_set"][0].Children).To(HaveKey("c_set"))
 		Expect(recordNode.Children["b_set"][0].Children["c_set"]).To(HaveLen(1))
-		Expect(*(recordNode.Children["b_set"][0].Children["c_set"][0].OnDeleteStrategy)).To(Equal(meta.OnDeleteCascade))
+		Expect(*(recordNode.Children["b_set"][0].Children["c_set"][0].OnDeleteStrategy)).To(Equal(object.OnDeleteCascade))
 		Expect(recordNode.Children["b_set"][0].Children["c_set"][0].Children).To(BeEmpty())
 	})
 })

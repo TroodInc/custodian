@@ -1,15 +1,15 @@
 package description
 
 import (
+	"fmt"
 	"server/errors"
 	"server/migrations"
-	"fmt"
-	"server/object/meta"
+	"server/object"
 )
 
 type ReversionMigrationDescriptionService struct{}
 
-func (rmds *ReversionMigrationDescriptionService) Revert(previousStateMetaDescription *meta.Meta, migrationDescription *MigrationDescription) (*MigrationDescription, error) {
+func (rmds *ReversionMigrationDescriptionService) Revert(previousStateMetaDescription *object.Meta, migrationDescription *MigrationDescription) (*MigrationDescription, error) {
 	metaName, err := rmds.getMetaName(migrationDescription)
 	if err != nil {
 		return nil, err
@@ -48,7 +48,7 @@ func (rmds *ReversionMigrationDescriptionService) getMetaName(migrationDescripti
 	return metaName, err
 }
 
-func (rmds *ReversionMigrationDescriptionService) invertOperation(previousStateMetaDescription *meta.Meta, operationDescription *MigrationOperationDescription) (*MigrationOperationDescription, error) {
+func (rmds *ReversionMigrationDescriptionService) invertOperation(previousStateMetaDescription *object.Meta, operationDescription *MigrationOperationDescription) (*MigrationOperationDescription, error) {
 	invertedOperation := &MigrationOperationDescription{}
 	switch operationDescription.Type {
 	case CreateObjectOperation:

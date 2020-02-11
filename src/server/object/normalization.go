@@ -1,4 +1,4 @@
-package meta
+package object
 
 type NormalizationService struct {
 }

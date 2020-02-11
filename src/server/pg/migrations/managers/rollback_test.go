@@ -6,8 +6,6 @@ import (
 	migrations_description "server/migrations/description"
 
 	"server/object"
-	"server/object/description"
-	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -25,7 +23,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -43,7 +41,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 	AfterEach(flushDb)
 
 	Context("Having applied `create` migration for object A", func() {
-		var aMetaDescription *meta.Meta
+		var aMetaDescription *object.Meta
 		var firstAppliedMigrationDescription *migrations_description.MigrationDescription
 
 		BeforeEach(func() {
@@ -91,9 +89,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 			BeforeEach(func() {
 				//Create object A by applying a migration
-				field := meta.Field{
+				field := object.Field{
 					Name:     "title",
-					Type:     meta.FieldTypeString,
+					Type:     object.FieldTypeString,
 					Optional: false,
 				}
 
@@ -130,9 +128,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			})
 
 			It("It can rollback `RemoveField` migration", func() {
-				field := meta.Field{
+				field := object.Field{
 					Name:     "title",
-					Type:     meta.FieldTypeString,
+					Type:     object.FieldTypeString,
 					Optional: false,
 				}
 
@@ -171,9 +169,9 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 
 				BeforeEach(func() {
 					//Create object A by applying a migration
-					field := meta.Field{
+					field := object.Field{
 						Name:     "new_title",
-						Type:     meta.FieldTypeString,
+						Type:     object.FieldTypeString,
 						Optional: false,
 					}
 

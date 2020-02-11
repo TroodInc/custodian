@@ -5,8 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	"server/auth"
 	"server/data"
+	"server/object"
 
-	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -24,7 +24,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -34,14 +34,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove records with cascade relation", func() {
 
-		aMetaDescription := meta.Meta{
+		aMetaDescription := object.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -58,14 +58,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := meta.Meta{
+		bMetaDescription := object.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -73,10 +73,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
+					Type:     object.FieldTypeObject,
+					LinkType: object.LinkTypeInner,
 					LinkMeta: aMetaObj,
-					OnDelete: meta.OnDeleteCascade.ToVerbose(),
+					OnDelete: object.OnDeleteCascade.ToVerbose(),
 				},
 			},
 		}
@@ -110,14 +110,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove record and update child records with 'setNull' relation", func() {
 
-		aMetaDescription := meta.Meta{
+		aMetaDescription := object.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -134,14 +134,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := meta.Meta{
+		bMetaDescription := object.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -149,11 +149,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
+					Type:     object.FieldTypeObject,
+					LinkType: object.LinkTypeInner,
 					LinkMeta: aMetaObj,
 					Optional: true,
-					OnDelete: meta.OnDeleteSetNull.ToVerbose(),
+					OnDelete: object.OnDeleteSetNull.ToVerbose(),
 				},
 			},
 		}
@@ -187,14 +187,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Cannot remove record with 'restrict' relation", func() {
 
-		aMetaDescription := meta.Meta{
+		aMetaDescription := object.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -211,14 +211,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := meta.Meta{
+		bMetaDescription := object.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -226,11 +226,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
+					Type:     object.FieldTypeObject,
+					LinkType: object.LinkTypeInner,
 					LinkMeta: aMetaObj,
 					Optional: true,
-					OnDelete: meta.OnDeleteRestrict.ToVerbose(),
+					OnDelete: object.OnDeleteRestrict.ToVerbose(),
 				},
 			},
 		}
@@ -250,14 +250,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	It("Can remove record and update child records with generic relation and 'setNull' strategy", func() {
 
-		aMetaDescription := meta.Meta{
+		aMetaDescription := object.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -274,14 +274,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := meta.Meta{
+		bMetaDescription := object.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -289,11 +289,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:         "target_object",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []*meta.Meta{aMetaObj},
+					Type:         object.FieldTypeGeneric,
+					LinkType:     object.LinkTypeInner,
+					LinkMetaList: []*object.Meta{aMetaObj},
 					Optional:     true,
-					OnDelete:     meta.OnDeleteSetNull.ToVerbose(),
+					OnDelete:     object.OnDeleteSetNull.ToVerbose(),
 				},
 			},
 		}
@@ -331,14 +331,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 	})
 
 	It("Can remove record and update child records with generic relation and 'cascade' strategy", func() {
-		aMetaDescription := meta.Meta{
+		aMetaDescription := object.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -355,14 +355,14 @@ var _ = Describe("RecordSetOperations removal", func() {
 		Expect(err).To(BeNil())
 
 		//
-		bMetaDescription := meta.Meta{
+		bMetaDescription := object.Meta{
 			Name: "b",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name:     "id",
-					Type:     meta.FieldTypeNumber,
+					Type:     object.FieldTypeNumber,
 					Optional: true,
 					Def: map[string]interface{}{
 						"func": "nextval",
@@ -370,11 +370,11 @@ var _ = Describe("RecordSetOperations removal", func() {
 				},
 				{
 					Name:         "target_object",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []*meta.Meta{aMetaObj},
+					Type:         object.FieldTypeGeneric,
+					LinkType:     object.LinkTypeInner,
+					LinkMetaList: []*object.Meta{aMetaObj},
 					Optional:     true,
-					OnDelete:     meta.OnDeleteCascade.ToVerbose(),
+					OnDelete:     object.OnDeleteCascade.ToVerbose(),
 				},
 			},
 		}

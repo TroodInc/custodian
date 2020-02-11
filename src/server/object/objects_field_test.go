@@ -5,7 +5,6 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -23,7 +22,7 @@ var _ = Describe("Objects field", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -44,7 +43,7 @@ var _ = Describe("Objects field", func() {
 			"cas": false,
 		}
 		//marshal data into string
-		var metaDescription meta.Meta
+		var metaDescription Meta
 		buffer, err := json.Marshal(data)
 		Expect(err).To(BeNil())
 
@@ -53,8 +52,8 @@ var _ = Describe("Objects field", func() {
 		Expect(err).To(BeNil())
 		Expect(metaDescription.Fields).To(HaveLen(1))
 		Expect(metaDescription.Fields[0].Name).To(Equal("b_list"))
-		Expect(metaDescription.Fields[0].Type).To(Equal(meta.FieldTypeObjects))
-		Expect(metaDescription.Fields[0].LinkType).To(Equal(meta.LinkTypeInner))
+		Expect(metaDescription.Fields[0].Type).To(Equal(FieldTypeObjects))
+		Expect(metaDescription.Fields[0].LinkType).To(Equal(LinkTypeInner))
 	})
 
 	It("can build meta with 'objects' field and filled 'throughLink'", func() {
@@ -71,11 +70,11 @@ var _ = Describe("Objects field", func() {
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
 			Name:     "b",
-			Type:     meta.FieldTypeObjects,
+			Type:     FieldTypeObjects,
 			LinkMeta: bMetaDescription,
-			LinkType: meta.LinkTypeInner,
+			LinkType: LinkTypeInner,
 		})
 
 		//check field's properties
@@ -83,8 +82,8 @@ var _ = Describe("Objects field", func() {
 		Expect(err).To(BeNil())
 		Expect(updatedAMetaObj.Fields).To(HaveLen(2))
 		Expect(updatedAMetaObj.Fields[1].LinkMeta.Name).To(Equal(bMetaDescription.Name))
-		Expect(updatedAMetaObj.Fields[1].Type).To(Equal(meta.FieldTypeObjects))
-		Expect(updatedAMetaObj.Fields[1].LinkType).To(Equal(meta.LinkTypeInner))
+		Expect(updatedAMetaObj.Fields[1].Type).To(Equal(FieldTypeObjects))
+		Expect(updatedAMetaObj.Fields[1].LinkType).To(Equal(LinkTypeInner))
 
 		//create meta and check through meta was created
 		_, err = metaStore.Update(updatedAMetaObj.Name, updatedAMetaObj, true)
@@ -97,9 +96,9 @@ var _ = Describe("Objects field", func() {
 		Expect(throughMeta.Fields).To(HaveLen(3))
 
 		Expect(throughMeta.Fields[1].Name).To(Equal(aMetaDescription.Name))
-		Expect(throughMeta.Fields[1].Type).To(Equal(meta.FieldTypeObject))
+		Expect(throughMeta.Fields[1].Type).To(Equal(FieldTypeObject))
 
 		Expect(throughMeta.Fields[2].Name).To(Equal(bMetaDescription.Name))
-		Expect(throughMeta.Fields[2].Type).To(Equal(meta.FieldTypeObject))
+		Expect(throughMeta.Fields[2].Type).To(Equal(FieldTypeObject))
 	})
 })

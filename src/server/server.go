@@ -24,7 +24,7 @@ import (
 	"server/migrations"
 	"server/migrations/constructor"
 	migrations_description "server/migrations/description"
-	"server/object/meta"
+	"server/object"
 	"server/pg"
 	"server/pg/migrations/managers"
 	pg_transactions "server/pg/transactions"
@@ -155,7 +155,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager,
@@ -199,25 +199,15 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(); err != nil {
+		metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
+		if err != nil {
 			js.pushError(err)
+			return
+		}
+		if e := metaStore.Create(metaObj); e == nil {
+			js.pushObj(metaObj.ForExport())
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction))
-
-			metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
-			if err != nil {
-				js.pushError(err)
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				return
-			}
-			if e := metaStore.Create(metaObj); e == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushObj(metaObj.ForExport())
-			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(e)
-			}
+			js.pushError(e)
 		}
 	}))
 
@@ -563,14 +553,14 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			migrationConstructor := constructor.NewMigrationConstructor(migrationManager)
 
-			var currentMetaDescription *meta.Meta
+			var currentMetaDescription *object.Meta
 			if len(migrationMetaDescription.PreviousName) != 0 {
 				currentMetaMap, _, err := metaDescriptionSyncer.Get(migrationMetaDescription.PreviousName)
 				if err != nil {
 					js.pushError(err)
 					return
 				}
-				currentMetaDescription = meta.NewMetaFromMap(currentMetaMap)
+				currentMetaDescription = object.NewMetaFromMap(currentMetaMap)
 			}
 			//migration constructor expects migrationMetaDescription to be nil if object is being deleted
 			//in its turn, object is supposed to be deleted if migrationMetaDescription.name is an empty string

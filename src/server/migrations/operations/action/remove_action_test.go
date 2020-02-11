@@ -5,8 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	"server/data/notifications"
 	"server/noti"
+	"server/object"
 
-	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -23,9 +23,9 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	var metaDescription *meta.Meta
+	var metaDescription *object.Meta
 
 	//setup transaction
 	AfterEach(func() {
@@ -35,14 +35,14 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		metaDescription = &meta.Meta{
+		metaDescription = &object.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
@@ -71,7 +71,8 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 		Expect(objectMeta).NotTo(BeNil())
 
 		//ensure action has been removed from file
-		metaDescription, _, err := metaDescriptionSyncer.Get(objectMeta.Name)
+		metaMap, _, err := metaDescriptionSyncer.Get(objectMeta.Name)
+		metaDescription = object.NewMetaFromMap(metaMap)
 		Expect(metaDescription).NotTo(BeNil())
 		Expect(metaDescription.Actions).To(HaveLen(0))
 

@@ -7,7 +7,7 @@ import (
 	"server/errors"
 	"server/migrations"
 	"server/migrations/operations/field"
-	"server/object/meta"
+	"server/object"
 	"server/pg"
 	"server/pg/migrations/operations/statement_factories"
 	"server/transactions"
@@ -17,7 +17,7 @@ type UpdateFieldOperation struct {
 	field.UpdateFieldOperation
 }
 
-func (o *UpdateFieldOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *UpdateFieldOperation) SyncDbDescription(metaDescription *object.Meta, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	newColumns, newIfk, _, newSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.NewField, metaDescription.Name, metaDescription.Key)
@@ -85,7 +85,7 @@ func (o *UpdateFieldOperation) factorySequenceStatements(statementSet *pg.DdlSta
 }
 
 // column
-func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStatementSet, currentColumns []pg.Column, newColumns []pg.Column, metaDescription *meta.Meta) error {
+func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStatementSet, currentColumns []pg.Column, newColumns []pg.Column, metaDescription *object.Meta) error {
 	statementFactory := new(statement_factories.ColumnStatementFactory)
 	constraintFactory := new(statement_factories.ConstraintStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
@@ -147,7 +147,7 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 	return nil
 }
 
-func (o *UpdateFieldOperation) factoryConstraintStatement(statementSet *pg.DdlStatementSet, currentIfk *pg.IFK, newIfk *pg.IFK, metaDescription *meta.Meta) error {
+func (o *UpdateFieldOperation) factoryConstraintStatement(statementSet *pg.DdlStatementSet, currentIfk *pg.IFK, newIfk *pg.IFK, metaDescription *object.Meta) error {
 	statementFactory := new(statement_factories.ConstraintStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
 	if currentIfk != nil {
@@ -167,6 +167,6 @@ func (o *UpdateFieldOperation) factoryConstraintStatement(statementSet *pg.DdlSt
 	return nil
 }
 
-func NewUpdateFieldOperation(currentField *meta.Field, newField *meta.Field) *UpdateFieldOperation {
+func NewUpdateFieldOperation(currentField *object.Field, newField *object.Field) *UpdateFieldOperation {
 	return &UpdateFieldOperation{field.UpdateFieldOperation{CurrentField: currentField, NewField: newField}}
 }

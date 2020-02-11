@@ -3,7 +3,6 @@ package object
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -20,7 +19,7 @@ var _ = Describe("Inner generic field", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -34,10 +33,10 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &Field{
 			Name:     "a",
-			Type:     meta.FieldTypeObject,
-			LinkType: meta.LinkTypeInner,
+			Type:     FieldTypeObject,
+			LinkType: LinkTypeInner,
 			LinkMeta: aMetaObj,
 		})
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
@@ -50,8 +49,8 @@ var _ = Describe("Inner generic field", func() {
 
 		reverseField := aMetaObj.FindField(bMetaObj.Name + "_set")
 		Expect(reverseField).NotTo(BeNil())
-		Expect(reverseField.Type).To(Equal(meta.FieldTypeArray))
-		Expect(reverseField.LinkType).To(Equal(meta.LinkTypeOuter))
+		Expect(reverseField.Type).To(Equal(FieldTypeArray))
+		Expect(reverseField.LinkType).To(Equal(LinkTypeOuter))
 		Expect(reverseField.LinkMeta.Name).To(Equal(bMetaObj.Name))
 	})
 })

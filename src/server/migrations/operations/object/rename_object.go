@@ -4,15 +4,15 @@ import (
 	"fmt"
 	"server/errors"
 	"server/migrations"
-	"server/object/meta"
+	"server/object"
 	"server/transactions"
 )
 
 type RenameObjectOperation struct {
-	MetaDescription *meta.Meta
+	MetaDescription *object.Meta
 }
 
-func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
+func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *object.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer object.MetaDescriptionSyncer) (*object.Meta, error) {
 	if err := o.validate(metaDescriptionToApply, metaDescriptionSyncer); err != nil {
 		return nil, err
 	}
@@ -25,7 +25,7 @@ func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *meta
 	return o.MetaDescription, nil
 }
 
-func (o *RenameObjectOperation) validate(metaObj *meta.Meta, metaDescriptionSyncer meta.MetaDescriptionSyncer) error {
+func (o *RenameObjectOperation) validate(metaObj *object.Meta, metaDescriptionSyncer object.MetaDescriptionSyncer) error {
 	metaDescription, _, _ := metaDescriptionSyncer.Get(o.MetaDescription.Name)
 	if metaDescription != nil {
 		return errors.NewValidationError(

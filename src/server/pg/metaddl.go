@@ -6,7 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
-	"server/object/meta"
+	"server/object"
 	"strconv"
 	"strings"
 	"text/template"
@@ -32,20 +32,20 @@ func (ds *DdlStatementSet) Add(s *DDLStmt) {
 	*ds = append(*ds, s)
 }
 
-func dbTypeToFieldType(dt string) (meta.FieldType, bool) {
+func dbTypeToFieldType(dt string) (object.FieldType, bool) {
 	switch dt {
 	case "text":
-		return meta.FieldTypeString, true
+		return object.FieldTypeString, true
 	case "numeric":
-		return meta.FieldTypeNumber, true
+		return object.FieldTypeNumber, true
 	case "boolean":
-		return meta.FieldTypeBool, true
+		return object.FieldTypeBool, true
 	case "timestamp with time zone":
-		return meta.FieldTypeDateTime, true
+		return object.FieldTypeDateTime, true
 	case "date":
-		return meta.FieldTypeDate, true
+		return object.FieldTypeDate, true
 	case "time with time zone":
-		return meta.FieldTypeTime, true
+		return object.FieldTypeTime, true
 	default:
 		return 0, false
 	}
@@ -65,7 +65,7 @@ type MetaDDL struct {
 // DDL column meta
 type Column struct {
 	Name     string
-	Typ      meta.FieldType
+	Typ      object.FieldType
 	Optional bool
 	Unique   bool
 	Defval   string
@@ -144,7 +144,7 @@ func (c *ColDefValSeq) ddlVal() (string, error) {
 }
 
 type ColDefValFunc struct {
-	*meta.DefExpr
+	*object.DefExpr
 }
 
 func (dFunc *ColDefValFunc) ddlVal() (string, error) {
@@ -188,7 +188,7 @@ func valToDdl(v interface{}) (string, error) {
 	}
 }
 
-func newFieldSeq(metaName string, f *meta.Field, args []interface{}) (*Seq, error) {
+func newFieldSeq(metaName string, f *object.Field, args []interface{}) (*Seq, error) {
 	if len(args) > 0 {
 		if name, err := valToDdl(args[0]); err == nil {
 			return &Seq{Name: name}, nil
@@ -200,7 +200,7 @@ func newFieldSeq(metaName string, f *meta.Field, args []interface{}) (*Seq, erro
 	}
 }
 
-func defaultNextval(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error) {
+func defaultNextval(metaName string, f *object.Field, args []interface{}) (ColDefVal, error) {
 	if s, err := newFieldSeq(metaName, f, args); err == nil {
 		return &ColDefValSeq{s}, nil
 	} else {
@@ -208,37 +208,37 @@ func defaultNextval(metaName string, f *meta.Field, args []interface{}) (ColDefV
 	}
 }
 
-func defaultCurrentDate(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error) {
+func defaultCurrentDate(metaName string, f *object.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefDate{}, nil
 }
 
-func defaultCurrentTimestamp(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error) {
+func defaultCurrentTimestamp(metaName string, f *object.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefTimestamp{}, nil
 }
 
-func defaultNow(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error) {
+func defaultNow(metaName string, f *object.Field, args []interface{}) (ColDefVal, error) {
 	return &ColDefNow{}, nil
 }
 
-var defaultFuncs = map[string]func(metaName string, f *meta.Field, args []interface{}) (ColDefVal, error){
+var defaultFuncs = map[string]func(metaName string, f *object.Field, args []interface{}) (ColDefVal, error){
 	"nextval":           defaultNextval,
 	"current_date":      defaultCurrentDate,
 	"current_timestamp": defaultCurrentTimestamp,
 	"now":               defaultNow,
 }
 
-func newColDefVal(metaName string, f *meta.Field) (ColDefVal, error) {
+func newColDefVal(metaName string, f *object.Field) (ColDefVal, error) {
 	if def := f.Default(); def != nil {
 		switch v := def.(type) {
-		case meta.DefConstStr:
+		case object.DefConstStr:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstFloat:
+		case object.DefConstFloat:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstInt:
+		case object.DefConstInt:
 			return newColDefValSimple(v.Value)
-		case meta.DefConstBool:
+		case object.DefConstBool:
 			return newColDefValSimple(v.Value)
-		case meta.DefExpr:
+		case object.DefExpr:
 			if fn, ok := defaultFuncs[strings.ToLower(v.Func)]; ok {
 				return fn(metaName, f, v.Args)
 			} else {

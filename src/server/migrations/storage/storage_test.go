@@ -4,8 +4,8 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	migrations_description "server/migrations/description"
+	"server/object"
 
-	"server/object/meta"
 	"utils"
 )
 
@@ -17,21 +17,21 @@ var _ = Describe("Migration Storage", func() {
 	AfterEach(func() { migrationStorage.Flush() })
 
 	It("stores MigrationMetaDescription to file", func() {
-		metaDescription := &meta.Meta{
+		metaDescription := &object.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*object.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: object.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:     "date",
-					Type:     meta.FieldTypeDate,
+					Type:     object.FieldTypeDate,
 					Optional: false,
 				},
 			},

@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"logger"
 	"server/migrations/operations/field"
-	"server/object/meta"
+	"server/object"
 	"server/pg"
 	"server/pg/migrations/operations/statement_factories"
 	"server/transactions"
@@ -15,7 +15,7 @@ type AddFieldOperation struct {
 	field.AddFieldOperation
 }
 
-func (o *AddFieldOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *AddFieldOperation) SyncDbDescription(metaDescriptionToApply *object.Meta, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	columns, ifk, _, seq, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescriptionToApply.Name, metaDescriptionToApply.Key)
@@ -58,7 +58,7 @@ func (o *AddFieldOperation) addSequenceStatement(statementSet *pg.DdlStatementSe
 	}
 }
 
-func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescriptionToApply *meta.Meta) error {
+func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescriptionToApply *object.Meta) error {
 	statementFactory := new(statement_factories.ColumnStatementFactory)
 	tableName := pg.GetTableName(metaDescriptionToApply.Name)
 	for _, column := range columns {
@@ -71,7 +71,7 @@ func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet
 	return nil
 }
 
-func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaDescriptionToApply *meta.Meta) error {
+func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaDescriptionToApply *object.Meta) error {
 	if ifk == nil {
 		return nil
 	}
@@ -86,6 +86,6 @@ func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatement
 	return nil
 }
 
-func NewAddFieldOperation(targetField *meta.Field) *AddFieldOperation {
+func NewAddFieldOperation(targetField *object.Field) *AddFieldOperation {
 	return &AddFieldOperation{field.AddFieldOperation{Field: targetField}}
 }

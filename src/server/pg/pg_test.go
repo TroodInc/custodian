@@ -6,11 +6,10 @@ import (
 	"regexp"
 	"server/auth"
 	"server/data"
+	object2 "server/object"
 	"server/pg"
 	"utils"
 
-
-	"server/object/meta"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
 )
@@ -25,7 +24,7 @@ var _ = Describe("PG MetaStore test", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -35,21 +34,21 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object with fields containing reserved words", func() {
 		Context("Once create method is called with an object containing fields with reserved words", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object2.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "select",
-						Type:     meta.FieldTypeString,
+						Type:     object2.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -66,21 +65,21 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can remove object with fields containing reserved words", func() {
 		Context("once create method is called with an object containing fields with reserved words", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object2.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
 						Optional: true,
 					}, {
 						Name:     "select",
-						Type:     meta.FieldTypeString,
+						Type:     object2.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -100,14 +99,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can add field containing reserved words", func() {
 		Context("once 'create' method is called with an object", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object2.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -118,21 +117,21 @@ var _ = Describe("PG MetaStore test", func() {
 			metaObj, _ := metaStore.NewMeta(&metaDescription)
 			metaStore.Create(metaObj)
 			Context("and 'update' method is called with an object containing fields with reserved words", func() {
-				updatedMetaDescription := meta.Meta{
+				updatedMetaDescription := object2.Meta{
 					Name: "order",
 					Key:  "id",
 					Cas:  false,
-					Fields: []*meta.Field{
+					Fields: []*object2.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: object2.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
 							Optional: true,
 						}, {
 							Name:     "select",
-							Type:     meta.FieldTypeString,
+							Type:     object2.FieldTypeString,
 							Optional: false,
 						},
 					},
@@ -150,14 +149,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can remove field containing reserved words", func() {
 		Context("once 'create' method is called with an object containing fields with reserved words", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object2.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -165,7 +164,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "select",
-						Type:     meta.FieldTypeString,
+						Type:     object2.FieldTypeString,
 						Optional: false,
 					},
 				},
@@ -175,14 +174,14 @@ var _ = Describe("PG MetaStore test", func() {
 			err = metaStore.Create(metaObj)
 			Expect(err).To(BeNil())
 			Context("and 'remove' method is called", func() {
-				updatedMetaDescription := meta.Meta{
+				updatedMetaDescription := object2.Meta{
 					Name: "order",
 					Key:  "id",
 					Cas:  false,
-					Fields: []*meta.Field{
+					Fields: []*object2.Field{
 						{
 							Name: "id",
-							Type: meta.FieldTypeNumber,
+							Type: object2.FieldTypeNumber,
 							Def: map[string]interface{}{
 								"func": "nextval",
 							},
@@ -203,14 +202,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing date field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'date' type", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object2.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -218,7 +217,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:        "date",
-						Type:        meta.FieldTypeDate,
+						Type:        object2.FieldTypeDate,
 						Optional:    true,
 						NowOnCreate: true,
 					},
@@ -239,14 +238,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing time field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'time' type", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "someobject",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object2.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -254,7 +253,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "time",
-						Type:     meta.FieldTypeTime,
+						Type:     object2.FieldTypeTime,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "now",
@@ -277,14 +276,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object2.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -292,7 +291,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:        "created",
-						Type:        meta.FieldTypeDateTime,
+						Type:        object2.FieldTypeDateTime,
 						Optional:    true,
 						NowOnCreate: true,
 					},
@@ -313,14 +312,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object2.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",
@@ -336,14 +335,14 @@ var _ = Describe("PG MetaStore test", func() {
 				_, recordCreateError := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{}, auth.User{})
 				Expect(recordCreateError).To(BeNil())
 				Context("Mandatory field added", func() {
-					updatedMetaDescription := meta.Meta{
+					updatedMetaDescription := object2.Meta{
 						Name: "order",
 						Key:  "id",
 						Cas:  false,
-						Fields: []*meta.Field{
+						Fields: []*object2.Field{
 							{
 								Name:     "id",
-								Type:     meta.FieldTypeNumber,
+								Type:     object2.FieldTypeNumber,
 								Optional: true,
 								Def: map[string]interface{}{
 									"func": "nextval",
@@ -351,7 +350,7 @@ var _ = Describe("PG MetaStore test", func() {
 							},
 							{
 								Name:        "created",
-								Type:        meta.FieldTypeDateTime,
+								Type:        object2.FieldTypeDateTime,
 								Optional:    true,
 								NowOnCreate: true,
 							},
@@ -369,14 +368,14 @@ var _ = Describe("PG MetaStore test", func() {
 
 	It("can query object containing reserved words", func() {
 		Context("once 'create' method is called with an object containing fields with reserved words", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object2.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object2.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object2.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -384,7 +383,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 					{
 						Name:     "order",
-						Type:     meta.FieldTypeString,
+						Type:     object2.FieldTypeString,
 						Optional: false,
 					},
 				},

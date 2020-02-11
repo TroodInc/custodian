@@ -3,7 +3,7 @@ package data
 import (
 	"server/data/record"
 	"server/data/types"
-	"server/object/meta"
+	"server/object"
 )
 
 type ResultNode struct {
@@ -24,7 +24,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 		if childNode.plural && childNode.IsOfRegularType() {
 			if !ctx.omitOuters {
 				keyValue := resultNode.values.Data[childNode.Meta.Key]
-				if childNode.LinkField.Type != meta.FieldTypeObjects {
+				if childNode.LinkField.Type != object.FieldTypeObjects {
 					if arr, e := childNode.ResolveRegularPlural(ctx, keyValue); e != nil {
 						return nil, e
 					} else if arr != nil {
@@ -70,7 +70,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 					delete(resultNode.values.Data, childNode.LinkField.Name)
 				}
 			}
-		} else if childNode.LinkField.LinkType == meta.LinkTypeInner && !childNode.IsOfGenericType() {
+		} else if childNode.LinkField.LinkType == object.LinkTypeInner && !childNode.IsOfGenericType() {
 			k := resultNode.values.Data[childNode.LinkField.Name]
 			if i, e := childNode.Resolve(ctx, k); e != nil {
 				return nil, e
@@ -103,7 +103,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			childNode.ChildNodes = *NewChildNodes()
 			childNode.RetrievePolicy = retrievePolicyForThisMeta
 
-			var childNodeLinkMeta *meta.Meta
+			var childNodeLinkMeta *object.Meta
 			switch k.(type) {
 			case *types.GenericInnerLink:
 				childNodeLinkMeta = childNode.LinkField.GetLinkMetaByName(k.(*types.GenericInnerLink).ObjectName)
@@ -114,7 +114,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.GetKey(), childNodeLinkMeta.TableFields())
 			childNode.Meta = childNodeLinkMeta
 			childNode.KeyField = childNodeLinkMeta.GetKey()
-			childNode.RecursivelyFillChildNodes(ctx.depthLimit, meta.FieldModeRetrieve)
+			childNode.RecursivelyFillChildNodes(ctx.depthLimit, object.FieldModeRetrieve)
 
 			if resolvedValue, e := childNode.Resolve(ctx, k); e != nil {
 				childNode.OnlyLink = defaultOnlyLink

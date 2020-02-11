@@ -3,7 +3,6 @@ package object
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -20,7 +19,7 @@ var _ = Describe("Outer generic field", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -43,11 +42,11 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object C, containing generic inner field")
 		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, &meta.Field{
+		cMetaDescription.Fields = append(cMetaDescription.Fields, &Field{
 			Name:         "target",
-			Type:         meta.FieldTypeGeneric,
-			LinkType:     meta.LinkTypeInner,
-			LinkMetaList: []*meta.Meta{aMetaObj, bMetaObj},
+			Type:         FieldTypeGeneric,
+			LinkType:     LinkTypeInner,
+			LinkMetaList: []*Meta{aMetaObj, bMetaObj},
 			Optional:     false,
 		})
 		cMetaObj, err := metaStore.NewMeta(cMetaDescription)
@@ -56,15 +55,15 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
 			Name:           "c_set",
-			Type:           meta.FieldTypeGeneric,
-			LinkType:       meta.LinkTypeOuter,
-			LinkMeta:      cMetaObj,
+			Type:           FieldTypeGeneric,
+			LinkType:       LinkTypeOuter,
+			LinkMeta:       cMetaObj,
 			OuterLinkField: cMetaObj.FindField("target"),
 		})
 
-		(&meta.NormalizationService{}).Normalize(aMetaDescription)
+		(&NormalizationService{}).Normalize(aMetaDescription)
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
@@ -85,10 +84,10 @@ var _ = Describe("Outer generic field", func() {
 		By("having an object A, referencing non-existing object B")
 		bMeta := GetBaseMetaData(utils.RandomString(8))
 		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, &meta.Field{
+		cMetaDescription.Fields = append(cMetaDescription.Fields, &Field{
 			Name:           "target",
-			Type:           meta.FieldTypeGeneric,
-			LinkType:       meta.LinkTypeOuter,
+			Type:           FieldTypeGeneric,
+			LinkType:       LinkTypeOuter,
 			LinkMeta:       bMeta,
 			OuterLinkField: bMeta.FindField("some_field"),
 		})
@@ -107,11 +106,11 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &Field{
 			Name:         "target",
-			Type:         meta.FieldTypeGeneric,
-			LinkType:     meta.LinkTypeInner,
-			LinkMetaList: []*meta.Meta{aMetaObj},
+			Type:         FieldTypeGeneric,
+			LinkType:     LinkTypeInner,
+			LinkMetaList: []*Meta{aMetaObj},
 			Optional:     false,
 		})
 		metaObj, err := metaStore.NewMeta(bMetaDescription)
@@ -121,10 +120,10 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and outer generic field added to object A")
 		aMetaDescription = GetBaseMetaData(utils.RandomString(8))
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
 			Name:     "b_set",
-			Type:     meta.FieldTypeGeneric,
-			LinkType: meta.LinkTypeOuter,
+			Type:     FieldTypeGeneric,
+			LinkType: LinkTypeOuter,
 			LinkMeta: metaObj,
 		})
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
@@ -142,11 +141,11 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &Field{
 			Name:         "target",
-			Type:         meta.FieldTypeGeneric,
-			LinkType:     meta.LinkTypeInner,
-			LinkMetaList: []*meta.Meta{aMetaObj},
+			Type:         FieldTypeGeneric,
+			LinkType:     LinkTypeInner,
+			LinkMetaList: []*Meta{aMetaObj},
 			Optional:     false,
 		})
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
@@ -155,10 +154,10 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
 			Name:           "b_set",
-			Type:           meta.FieldTypeGeneric,
-			LinkType:       meta.LinkTypeOuter,
+			Type:           FieldTypeGeneric,
+			LinkType:       LinkTypeOuter,
 			LinkMeta:       bMetaObj,
 			OuterLinkField: bMetaObj.FindField("target"),
 		})
@@ -185,11 +184,11 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &Field{
 			Name:         "target",
-			Type:         meta.FieldTypeGeneric,
-			LinkType:     meta.LinkTypeInner,
-			LinkMetaList: []*meta.Meta{aMetaObj},
+			Type:         FieldTypeGeneric,
+			LinkType:     LinkTypeInner,
+			LinkMetaList: []*Meta{aMetaObj},
 			Optional:     false,
 		})
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
@@ -198,10 +197,10 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
 			Name:           "b_set",
-			Type:           meta.FieldTypeGeneric,
-			LinkType:       meta.LinkTypeOuter,
+			Type:           FieldTypeGeneric,
+			LinkType:       LinkTypeOuter,
 			LinkMeta:       bMetaObj,
 			OuterLinkField: bMetaObj.FindField("target"),
 		})
@@ -238,11 +237,11 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &Field{
 			Name:         "target",
-			Type:         meta.FieldTypeGeneric,
-			LinkType:     meta.LinkTypeInner,
-			LinkMetaList: []*meta.Meta{aMetaObj},
+			Type:         FieldTypeGeneric,
+			LinkType:     LinkTypeInner,
+			LinkMetaList: []*Meta{aMetaObj},
 			Optional:     false,
 		})
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
@@ -251,10 +250,10 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.Fields = append(aMetaDescription.Fields, &Field{
 			Name:           "b_set",
-			Type:           meta.FieldTypeGeneric,
-			LinkType:       meta.LinkTypeOuter,
+			Type:           FieldTypeGeneric,
+			LinkType:       LinkTypeOuter,
 			LinkMeta:       bMetaObj,
 			OuterLinkField: bMetaObj.FindField("target"),
 		})
@@ -287,11 +286,11 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.Fields = append(bMetaDescription.Fields, &Field{
 			Name:         "target",
-			Type:         meta.FieldTypeGeneric,
-			LinkType:     meta.LinkTypeInner,
-			LinkMetaList: []*meta.Meta{aMetaObj},
+			Type:         FieldTypeGeneric,
+			LinkType:     LinkTypeInner,
+			LinkMetaList: []*Meta{aMetaObj},
 			Optional:     false,
 		})
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)

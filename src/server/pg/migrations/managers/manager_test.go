@@ -6,7 +6,7 @@ import (
 	. "github.com/onsi/gomega"
 	"server/migrations/description"
 	"server/migrations/migrations"
-	"server/object/meta"
+	"server/object"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -23,7 +23,7 @@ var _ = Describe("MigrationManager", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(nil, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	It("Creates migration history table if it does not exists", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()

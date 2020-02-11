@@ -2,11 +2,11 @@ package pg
 
 import (
 	"database/sql"
-	"server/object/meta"
+	"server/object"
 )
 
-func ReverseMeta(name string, tx *sql.Tx) (*meta.Meta, error) {
-	resultMeta := &meta.Meta{}
+func ReverseMeta(name string, tx *sql.Tx) (*object.Meta, error) {
+	resultMeta := &object.Meta{}
 
 	var tableOID int64
 	if err := tx.QueryRow(SQL_GET_OBJ_ID, TableNamePrefix + name).Scan(&tableOID); err != nil {

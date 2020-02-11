@@ -1,4 +1,4 @@
-package meta
+package object
 
 type MetaList struct {
 	Metas []*Meta

@@ -5,8 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	migrations_description "server/migrations/description"
 	. "server/migrations/migrations"
+	obj "server/object"
 
-	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/managers"
 	"server/pg/migrations/operations/field"
@@ -26,13 +26,13 @@ var _ = Describe("Migration Factory", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := obj.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, "./", globalTransactionManager,
 	)
 
-	var metaDescription *meta.Meta
+	var metaDescription *obj.Meta
 
 	flushDb := func() {
 		//Flush meta/database
@@ -44,21 +44,21 @@ var _ = Describe("Migration Factory", func() {
 
 	//setup MetaDescription
 	JustBeforeEach(func() {
-		metaDescription = &meta.Meta{
+		metaDescription = &obj.Meta{
 			Name: "a",
 			Key:  "id",
 			Cas:  false,
-			Fields: []*meta.Field{
+			Fields: []*obj.Field{
 				{
 					Name: "id",
-					Type: meta.FieldTypeNumber,
+					Type: obj.FieldTypeNumber,
 					Def: map[string]interface{}{
 						"func": "nextval",
 					},
 				},
 				{
 					Name:     "date",
-					Type:     meta.FieldTypeDate,
+					Type:     obj.FieldTypeDate,
 					Optional: false,
 				},
 			},
@@ -175,7 +175,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.AddFieldOperation,
-					Field: &migrations_description.MigrationFieldDescription{Field: meta.Field{Name: "new-field", Type: meta.FieldTypeString, Optional: true}},
+					Field: &migrations_description.MigrationFieldDescription{Field: obj.Field{Name: "new-field", Type: obj.FieldTypeString, Optional: true}},
 				},
 			},
 		}
@@ -202,7 +202,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.RemoveFieldOperation,
-					Field: &migrations_description.MigrationFieldDescription{Field: meta.Field{Name: "date"}},
+					Field: &migrations_description.MigrationFieldDescription{Field: obj.Field{Name: "date"}},
 				},
 			},
 		}
@@ -229,7 +229,7 @@ var _ = Describe("Migration Factory", func() {
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.RemoveFieldOperation,
-					Field: &migrations_description.MigrationFieldDescription{Field: meta.Field{Name: "date"}},
+					Field: &migrations_description.MigrationFieldDescription{Field: obj.Field{Name: "date"}},
 				},
 			},
 		}
@@ -250,28 +250,14 @@ var _ = Describe("Migration Factory", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
-			bMetaDescription := description.NewMetaDescription(
-				"b",
-				"id",
-				[]*meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name:         "target_object",
-						Type:         meta.FieldTypeGeneric,
-						LinkType:     meta.LinkTypeInner,
-						LinkMetaList: []string{"a"},
-						Optional:     false,
-					},
-				},
-				nil,
-				false,
-			)
+			bMetaDescription := obj.GetBaseMetaData(utils.RandomString(8))
+			bMetaDescription.Fields = append(bMetaDescription.Fields, &obj.Field{
+				Name:         "target_object",
+				Type:         obj.FieldTypeGeneric,
+				LinkType:     obj.LinkTypeInner,
+				LinkMetaList: []*obj.Meta{metaDescription},
+				Optional:     false,
+			})
 
 			migrationDescription := &migrations_description.MigrationDescription{
 				Id:        "some-unique-id",
@@ -290,30 +276,16 @@ var _ = Describe("Migration Factory", func() {
 			Expect(err).To(BeNil())
 			Expect(migration.RunAfter).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
-			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(obj.ReverseInnerLinkName("b")))
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		Context("having object B", func() {
-			var bMetaDescription *meta.Meta
+			var bMetaDescription *obj.Meta
 			BeforeEach(func() {
-				bMetaDescription = description.NewMetaDescription(
-					"b",
-					"id",
-					[]*meta.Field{
-						{
-							Name: "id",
-							Type: meta.FieldTypeNumber,
-							Def: map[string]interface{}{
-								"func": "nextval",
-							},
-						},
-					},
-					nil,
-					false,
-				)
-				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaDescription = obj.GetBaseMetaData(utils.RandomString(8))
+				bMetaObj, err := obj.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)
@@ -324,11 +296,11 @@ var _ = Describe("Migration Factory", func() {
 				globalTransaction, err := globalTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
-				field := meta.Field{
+				field := obj.Field{
 					Name:         "target_object",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					Type:         obj.FieldTypeGeneric,
+					LinkType:     obj.LinkTypeInner,
+					LinkMetaList: []*obj.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -349,7 +321,7 @@ var _ = Describe("Migration Factory", func() {
 				Expect(err).To(BeNil())
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(obj.ReverseInnerLinkName("b")))
 
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
@@ -357,11 +329,11 @@ var _ = Describe("Migration Factory", func() {
 			})
 
 			It("removes and adds reverse generic outer links while inner generic field`s LinkMetaList is being updated", func() {
-				field := meta.Field{
+				field := obj.Field{
 					Name:         "target_object",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					Type:         obj.FieldTypeGeneric,
+					LinkType:     obj.LinkTypeInner,
+					LinkMetaList: []*obj.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -380,33 +352,19 @@ var _ = Describe("Migration Factory", func() {
 				_, err := migrationManager.Apply(migrationDescription,false, false)
 				Expect(err).To(BeNil())
 
-				cMetaDescription := description.NewMetaDescription(
-					"c",
-					"id",
-					[]*meta.Field{
-						{
-							Name: "id",
-							Type: meta.FieldTypeNumber,
-							Def: map[string]interface{}{
-								"func": "nextval",
-							},
-						},
-					},
-					nil,
-					false,
-				)
-				cMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
+				cMetaDescription := obj.GetBaseMetaData(utils.RandomString(8))
+				cMetaObj, err := obj.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(cMetaObj)
 				Expect(err).To(BeNil())
 
 				//LinkMetaList is being changed
-				field = meta.Field{
+				field = obj.Field{
 					Name:         "target_object",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"c"},
+					Type:         obj.FieldTypeGeneric,
+					LinkType:     obj.LinkTypeInner,
+					LinkMetaList: []*obj.Meta{cMetaObj},
 					Optional:     false,
 				}
 
@@ -428,20 +386,20 @@ var _ = Describe("Migration Factory", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(obj.ReverseInnerLinkName("b")))
 
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Type).To(Equal(migrations_description.AddFieldOperation))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(obj.ReverseInnerLinkName("b")))
 			})
 
 			It("renames reverse generic outer links if object which owns inner generic link is being renamed", func() {
-				field := meta.Field{
+				field := obj.Field{
 					Name:         "target_object",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					Type:         obj.FieldTypeGeneric,
+					LinkType:     obj.LinkTypeInner,
+					LinkMetaList: []*obj.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -481,15 +439,15 @@ var _ = Describe("Migration Factory", func() {
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Type).To(Equal(migrations_description.UpdateFieldOperation))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("bb")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(obj.ReverseInnerLinkName("bb")))
 			})
 
 			It("removes generic outer links if object which owns inner generic link is being deleted", func() {
-				field := meta.Field{
+				field := obj.Field{
 					Name:         "target_object",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					Type:         obj.FieldTypeGeneric,
+					LinkType:     obj.LinkTypeInner,
+					LinkMetaList: []*obj.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -526,15 +484,15 @@ var _ = Describe("Migration Factory", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(obj.ReverseInnerLinkName("b")))
 			})
 
 			It("removes generic outer links if inner generic link is being removed", func() {
-				field := meta.Field{
+				field := obj.Field{
 					Name:         "target_object",
-					Type:         meta.FieldTypeGeneric,
-					LinkType:     meta.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					Type:         obj.FieldTypeGeneric,
+					LinkType:     obj.LinkTypeInner,
+					LinkMetaList: []*obj.Meta{metaDescription},
 					Optional:     false,
 				}
 
@@ -571,7 +529,7 @@ var _ = Describe("Migration Factory", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("b")))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(obj.ReverseInnerLinkName("b")))
 			})
 		})
 	})

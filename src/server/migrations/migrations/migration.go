@@ -3,7 +3,7 @@ package migrations
 import (
 	"server/migrations/description"
 	"server/migrations/operations"
-	"server/object/meta"
+	"server/object"
 )
 
 const (
@@ -13,7 +13,7 @@ const (
 
 type Migration struct {
 	description.MigrationDescription
-	ApplyTo    *meta.Meta
+	ApplyTo    *object.Meta
 	Operations []operations.MigrationOperation
 	RunBefore  []*description.MigrationDescription //Migrations which are spawned by the owner, used to store \
 	RunAfter   []*description.MigrationDescription //automatically generated migrations(eg outer links handling)

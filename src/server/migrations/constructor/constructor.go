@@ -5,7 +5,7 @@ import (
 	"server/errors"
 	"server/migrations"
 	. "server/migrations/description"
-	"server/object/meta"
+	"server/object"
 	"server/pg/migrations/managers"
 	"server/transactions"
 	"utils"
@@ -15,7 +15,7 @@ type MigrationConstructor struct {
 	migrationManager *managers.MigrationManager
 }
 
-func (mc *MigrationConstructor) Construct(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription, transaction transactions.DbTransaction) (*MigrationDescription, error) {
+func (mc *MigrationConstructor) Construct(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription, transaction transactions.DbTransaction) (*MigrationDescription, error) {
 	operationDescriptions := make([]MigrationOperationDescription, 0)
 
 	if operationDescription := mc.processObjectCreation(currentMetaDescription, newMigrationMetaDescription); operationDescription != nil {
@@ -74,14 +74,14 @@ func (mc *MigrationConstructor) Construct(currentMetaDescription *meta.Meta, new
 	return &migrationDescription, nil
 }
 
-func (mc *MigrationConstructor) processObjectCreation(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription {
+func (mc *MigrationConstructor) processObjectCreation(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription {
 	if currentMetaDescription == nil && newMigrationMetaDescription != nil {
 		return NewMigrationOperationDescription(CreateObjectOperation, nil, newMigrationMetaDescription.MetaDescription(), nil)
 	}
 	return nil
 }
 
-func (mc *MigrationConstructor) processObjectRenaming(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription {
+func (mc *MigrationConstructor) processObjectRenaming(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription {
 	if currentMetaDescription != nil && newMigrationMetaDescription != nil {
 		if currentMetaDescription.Name != newMigrationMetaDescription.Name {
 			return NewMigrationOperationDescription(RenameObjectOperation, nil, newMigrationMetaDescription.MetaDescription(), nil)
@@ -90,14 +90,14 @@ func (mc *MigrationConstructor) processObjectRenaming(currentMetaDescription *me
 	return nil
 }
 
-func (mc *MigrationConstructor) processObjectDeletion(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription {
+func (mc *MigrationConstructor) processObjectDeletion(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) *MigrationOperationDescription {
 	if currentMetaDescription != nil && newMigrationMetaDescription == nil {
 		return NewMigrationOperationDescription(DeleteObjectOperation, nil, currentMetaDescription, nil)
 	}
 	return nil
 }
 
-func (mc *MigrationConstructor) processFieldsAddition(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
+func (mc *MigrationConstructor) processFieldsAddition(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
 	operationDescriptions := make([]MigrationOperationDescription, 0)
 	if currentMetaDescription != nil && newMigrationMetaDescription != nil {
 		for i, migrationField := range newMigrationMetaDescription.Fields {
@@ -110,7 +110,7 @@ func (mc *MigrationConstructor) processFieldsAddition(currentMetaDescription *me
 	return operationDescriptions
 }
 
-func (mc *MigrationConstructor) processFieldsRemoval(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
+func (mc *MigrationConstructor) processFieldsRemoval(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
 	operationDescriptions := make([]MigrationOperationDescription, 0)
 	if currentMetaDescription != nil && newMigrationMetaDescription != nil {
 		for i, currentMetaField := range currentMetaDescription.Fields {
@@ -125,7 +125,7 @@ func (mc *MigrationConstructor) processFieldsRemoval(currentMetaDescription *met
 	return operationDescriptions
 }
 
-func (mc *MigrationConstructor) processFieldsUpdate(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
+func (mc *MigrationConstructor) processFieldsUpdate(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
 	operationDescriptions := make([]MigrationOperationDescription, 0)
 	if currentMetaDescription != nil && newMigrationMetaDescription != nil {
 		for i, newFieldDescription := range newMigrationMetaDescription.Fields {
@@ -153,7 +153,7 @@ func (mc *MigrationConstructor) processFieldsUpdate(currentMetaDescription *meta
 	return operationDescriptions
 }
 
-func (mc *MigrationConstructor) processActionsAddition(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
+func (mc *MigrationConstructor) processActionsAddition(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
 	operationDescriptions := make([]MigrationOperationDescription, 0)
 	if currentMetaDescription != nil && newMigrationMetaDescription != nil {
 		for i, migrationAction := range newMigrationMetaDescription.Actions {
@@ -166,7 +166,7 @@ func (mc *MigrationConstructor) processActionsAddition(currentMetaDescription *m
 	return operationDescriptions
 }
 
-func (mc *MigrationConstructor) processActionsRemoval(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
+func (mc *MigrationConstructor) processActionsRemoval(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
 	operationDescriptions := make([]MigrationOperationDescription, 0)
 	if currentMetaDescription != nil && newMigrationMetaDescription != nil {
 		for i, currentAction := range currentMetaDescription.Actions {
@@ -181,7 +181,7 @@ func (mc *MigrationConstructor) processActionsRemoval(currentMetaDescription *me
 	return operationDescriptions
 }
 
-func (mc *MigrationConstructor) processActionsUpdate(currentMetaDescription *meta.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
+func (mc *MigrationConstructor) processActionsUpdate(currentMetaDescription *object.Meta, newMigrationMetaDescription *MigrationMetaDescription) []MigrationOperationDescription {
 	operationDescriptions := make([]MigrationOperationDescription, 0)
 	if currentMetaDescription != nil && newMigrationMetaDescription != nil {
 		for i, newActionDescription := range newMigrationMetaDescription.Actions {

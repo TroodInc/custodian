@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"logger"
 	"server/migrations/operations/field"
-	"server/object/meta"
+	"server/object"
 	"server/pg"
 	"server/pg/migrations/operations/statement_factories"
 	"server/transactions"
@@ -15,7 +15,7 @@ type RemoveFieldOperation struct {
 	field.RemoveFieldOperation
 }
 
-func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *object.Meta, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	columns, ifk, _, seq, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescription.Name, metaDescription.Key)
@@ -57,7 +57,7 @@ func (o *RemoveFieldOperation) addSequenceStatement(statementSet *pg.DdlStatemen
 	}
 }
 
-func (o *RemoveFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescription *meta.Meta) error {
+func (o *RemoveFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescription *object.Meta) error {
 	statementFactory := new(statement_factories.ColumnStatementFactory)
 	tableName := pg.GetTableName(metaDescription.Name)
 	for _, column := range columns {
@@ -70,7 +70,7 @@ func (o *RemoveFieldOperation) addColumnStatements(statementSet *pg.DdlStatement
 	return nil
 }
 
-func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaDescription *meta.Meta) error {
+func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatementSet, ifk *pg.IFK, metaDescription *object.Meta) error {
 	if ifk == nil {
 		return nil
 	}
@@ -85,6 +85,6 @@ func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatem
 	return nil
 }
 
-func NewRemoveFieldOperation(targetField *meta.Field) *RemoveFieldOperation {
+func NewRemoveFieldOperation(targetField *object.Field) *RemoveFieldOperation {
 	return &RemoveFieldOperation{field.RemoveFieldOperation{Field: targetField}}
 }

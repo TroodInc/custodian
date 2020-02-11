@@ -2,19 +2,19 @@ package data
 
 import (
 	"server/data/record"
-	"server/object/meta"
+	"server/object"
 )
 
 //Represents record and its dependent children
 type RecordRemovalNode struct {
 	Children         map[string][]*RecordRemovalNode
 	Parent           *RecordRemovalNode
-	LinkField        *meta.Field
+	LinkField        *object.Field
 	Record           *record.Record
-	OnDeleteStrategy *meta.OnDeleteStrategy
+	OnDeleteStrategy *object.OnDeleteStrategy
 }
 
-func NewRecordRemovalNode(record *record.Record, onDeleteStrategy *meta.OnDeleteStrategy, parent *RecordRemovalNode, linkField *meta.Field) *RecordRemovalNode {
+func NewRecordRemovalNode(record *record.Record, onDeleteStrategy *object.OnDeleteStrategy, parent *RecordRemovalNode, linkField *object.Field) *RecordRemovalNode {
 	return &RecordRemovalNode{
 		Record:           record,
 		Children:         make(map[string][]*RecordRemovalNode),
@@ -31,18 +31,18 @@ func (r *RecordRemovalNode) Data() map[string]interface{} {
 
 func (r *RecordRemovalNode) appendChildNodes(data map[string]interface{}, children map[string][]*RecordRemovalNode) interface{} {
 	for childName, childNodes := range children {
-		var onDeleteStrategy meta.OnDeleteStrategy
+		var onDeleteStrategy object.OnDeleteStrategy
 		if len(childNodes) > 0 {
 			onDeleteStrategy = *childNodes[0].OnDeleteStrategy
 		}
 		switch onDeleteStrategy {
-		case meta.OnDeleteCascade:
+		case object.OnDeleteCascade:
 			childrenData := make([]interface{}, 0)
 			for _, childNode := range childNodes {
 				childrenData = append(childrenData, r.appendChildNodes(childNode.Record.Data, childNode.Children))
 				data[childName] = childrenData
 			}
-		case meta.OnDeleteSetNull:
+		case object.OnDeleteSetNull:
 			delete(data, childName)
 		}
 	}

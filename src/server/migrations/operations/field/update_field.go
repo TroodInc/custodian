@@ -1,16 +1,16 @@
 package field
 
 import (
-	"server/object/meta"
+	"server/object"
 	"server/transactions"
 )
 
 type UpdateFieldOperation struct {
-	NewField     *meta.Field
-	CurrentField *meta.Field
+	NewField     *object.Field
+	CurrentField *object.Field
 }
 
-func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
+func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *object.Meta, transaction transactions.MetaDescriptionTransaction, syncer object.MetaDescriptionSyncer) (*object.Meta, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 
 	//replace field
@@ -28,6 +28,6 @@ func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.
 	}
 }
 
-func NewUpdateFieldOperation(currentField *meta.Field, newField *meta.Field) *UpdateFieldOperation {
+func NewUpdateFieldOperation(currentField *object.Field, newField *object.Field) *UpdateFieldOperation {
 	return &UpdateFieldOperation{CurrentField: currentField, NewField: newField}
 }

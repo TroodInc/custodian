@@ -5,11 +5,11 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"net/http"
+	"server/object"
 	"server/pg"
 
 	"bytes"
 	"encoding/json"
-	"server/object/meta"
 	"utils"
 
 	"net/http/httptest"
@@ -35,7 +35,7 @@ var _ = Describe("Server", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -116,14 +116,14 @@ var _ = Describe("Server", func() {
 
 	It("can remove record with given id", func() {
 		Context("having two records of given object", func() {
-			metaDescription := meta.Meta{
+			metaDescription := object.Meta{
 				Name: "order",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object.Field{
 					{
 						Name:     "id",
-						Type:     meta.FieldTypeNumber,
+						Type:     object.FieldTypeNumber,
 						Optional: true,
 						Def: map[string]interface{}{
 							"func": "nextval",

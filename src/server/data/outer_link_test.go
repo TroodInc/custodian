@@ -5,8 +5,8 @@ import (
 	. "github.com/onsi/gomega"
 	"server/auth"
 	"server/data"
+	"server/object"
 
-	"server/object/meta"
 	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
@@ -24,7 +24,7 @@ var _ = Describe("Data", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -33,15 +33,15 @@ var _ = Describe("Data", func() {
 	})
 
 	Describe("Data retrieve depending on outer link modes values", func() {
-		havingObjectA := func() *meta.Meta {
-			aMetaDescription := meta.Meta{
+		havingObjectA := func() *object.Meta {
+			aMetaDescription := object.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -56,15 +56,15 @@ var _ = Describe("Data", func() {
 			return aMetaObj
 		}
 
-		havingObjectBLinkedToA := func(A *meta.Meta) *meta.Meta {
-			bMetaDescription := meta.Meta{
+		havingObjectBLinkedToA := func(A *object.Meta) *object.Meta {
+			bMetaDescription := object.Meta{
 				Name: "b",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -72,8 +72,8 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:     "a",
-						Type:     meta.FieldTypeObject,
-						LinkType: meta.LinkTypeInner,
+						Type:     object.FieldTypeObject,
+						LinkType: object.LinkTypeInner,
 						LinkMeta: A,
 						Optional: false,
 					},
@@ -86,15 +86,15 @@ var _ = Describe("Data", func() {
 			return bMetaObj
 		}
 
-		havingObjectAWithManuallySpecifiedOuterLinkToB := func(B *meta.Meta) *meta.Meta {
-			aMetaDescription := meta.Meta{
+		havingObjectAWithManuallySpecifiedOuterLinkToB := func(B *object.Meta) *object.Meta {
+			aMetaDescription := object.Meta{
 				Name: "a",
 				Key:  "id",
 				Cas:  false,
-				Fields: []*meta.Field{
+				Fields: []*object.Field{
 					{
 						Name: "id",
-						Type: meta.FieldTypeNumber,
+						Type: object.FieldTypeNumber,
 						Def: map[string]interface{}{
 							"func": "nextval",
 						},
@@ -102,15 +102,15 @@ var _ = Describe("Data", func() {
 					},
 					{
 						Name:           "b_set",
-						Type:           meta.FieldTypeArray,
-						LinkType:       meta.LinkTypeOuter,
+						Type:           object.FieldTypeArray,
+						LinkType:       object.LinkTypeOuter,
 						LinkMeta:       B,
 						OuterLinkField: B.FindField("a"),
 						Optional:       true,
 					},
 				},
 			}
-			(&meta.NormalizationService{}).Normalize(&aMetaDescription)
+			(&object.NormalizationService{}).Normalize(&aMetaDescription)
 			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 			Expect(err).To(BeNil())
 			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
