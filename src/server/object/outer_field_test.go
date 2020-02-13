@@ -38,7 +38,7 @@ var _ = Describe("Outer field", func() {
 
 	havingBMeta := func(A *meta.Meta) *meta.Meta {
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.AddField(&meta.Field{
 			Name:     "a",
 			Type:     meta.FieldTypeObject,
 			LinkType: meta.LinkTypeInner,
@@ -54,7 +54,7 @@ var _ = Describe("Outer field", func() {
 
 	havingAMetaWithManuallySetBSetLink := func(A, B *meta.Meta) *meta.Meta {
 		aMetaDescription := GetBaseMetaData(A.Name)
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.AddField(&meta.Field{
 			Name:           "b_set",
 			Type:           meta.FieldTypeArray,
 			LinkType:       meta.LinkTypeOuter,
@@ -79,14 +79,13 @@ var _ = Describe("Outer field", func() {
 		aMetaObj = havingAMetaWithManuallySetBSetLink(aMetaObj, bMetaObj)
 
 		// check meta fields
-		fieldName := "b_set"
 		aMeta, _, err := metaStore.Get(aMetaObj.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
-		Expect(aMeta.Fields[1].Name).To(Equal(fieldName))
-		Expect(aMeta.Fields[1].LinkMeta.Name).To(Equal(bMetaObj.Name))
-		Expect(aMeta.FindField(fieldName).QueryMode).To(BeTrue())
-		Expect(aMeta.FindField(fieldName).RetrieveMode).To(BeTrue())
+		Expect(aMeta.Fields).To(HaveKey("b_set"))
+		Expect(aMeta.Fields["b_set"].LinkMeta.Name).To(Equal(bMetaObj.Name))
+		Expect(aMeta.Fields["b_set"].QueryMode).To(BeTrue())
+		Expect(aMeta.Fields["b_set"].RetrieveMode).To(BeTrue())
 	})
 
 	It("can create object with automatically added outer field, this field can be used for querying only", func() {
@@ -133,7 +132,7 @@ var _ = Describe("Outer field", func() {
 
 		//A meta updated with outer link to b
 		aMetaDescription := GetBaseMetaData(aMetaObj.Name)
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.AddField(&meta.Field{
 			Name:           "custom_b_set",
 			Type:           meta.FieldTypeArray,
 			LinkType:       meta.LinkTypeOuter,

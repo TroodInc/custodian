@@ -1,8 +1,10 @@
 package meta
 
 import (
+	"fmt"
 	"github.com/getlantern/deepcopy"
 	"server/data/notifications"
+	"server/errors"
 	"server/transactions"
 )
 
@@ -88,14 +90,15 @@ func (m *Meta) FindField(name string) *Field {
 }
 // <---
 
-func (m *Meta) AddField(field *Field) error {
-	if item, exist := m.Fields[field.Name]; exist {
-		//TODO: Add code
-		return errors.NewValidationError("", fmt.Sprintf("Field %s already exists", field.Name), item)
+func (m *Meta) AddField(fields... *Field) error {
+	for _, field := range fields {
+		if item, exist := m.Fields[field.Name]; exist {
+			//TODO: Add code
+			return errors.NewValidationError("", fmt.Sprintf("Field %s already exists", field.Name), item)
+		}
+
+		m.Fields[field.Name] = field
 	}
-
-	m.Fields[field.Name] = field
-
 	return nil
 }
 

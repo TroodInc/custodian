@@ -27,27 +27,25 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 		}
 	}
 
-	for i := 0; i < len(record.Meta.Fields); i++ {
-		fieldName := record.Meta.Fields[i].Name
-		fieldDescription := record.Meta.Fields[i]
-		if fieldDescription.LinkType == meta.LinkTypeOuter && !fieldDescription.RetrieveMode {
+	for _, field := range record.Meta.Fields {
+		if field.LinkType == meta.LinkTypeOuter && !field.RetrieveMode {
 			continue
 		}
 
-		value, valueIsSet := record.Data[fieldName]
-		if !valueIsSet && !fieldDescription.Optional && record.IsPhantom() {
-			return nil, nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", fieldName)
+		value, valueIsSet := record.Data[field.Name]
+		if !valueIsSet && !field.Optional && record.IsPhantom() {
+			return nil, nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", field.Name)
 		}
 		//skip validation if field is optional and value is null
 		//perform validation otherwise
 		if valueIsSet {
 			switch {
-			case !(value == nil && fieldDescription.Optional) && fieldDescription.Type == meta.FieldTypeString && meta.FieldTypeNumber.AssertType(value):
+			case !(value == nil && field.Optional) && field.Type == meta.FieldTypeString && meta.FieldTypeNumber.AssertType(value):
 				break
-			case value != nil && fieldDescription.Type.AssertType(value):
-				if fieldDescription.Type == meta.FieldTypeArray {
+			case value != nil && field.Type.AssertType(value):
+				if field.Type == meta.FieldTypeArray {
 					//validate outer links
-					if childRecordsToProcess, childRecordsToRemove, err := vs.validateArray(dbTransaction, value, fieldDescription, record); err != nil {
+					if childRecordsToProcess, childRecordsToRemove, err := vs.validateArray(dbTransaction, value, field, record); err != nil {
 						return nil, nil, nil, nil, err
 					} else {
 						for _, childRecord := range childRecordsToProcess {
@@ -58,15 +56,15 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 						}
 
 					}
-					delete(record.Data, fieldName)
-				} else if fieldDescription.Type == meta.FieldTypeObject {
+					delete(record.Data, field.Name)
+				} else if field.Type == meta.FieldTypeObject {
 					//TODO: move to separate method
 					var of = value.(map[string]interface{})
-					record.Data[fieldDescription.Name] = LazyLink{Field: fieldDescription.LinkMeta.GetKey(), IsOuter: false, Obj: of}
-					nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(NewRecord(fieldDescription.LinkMeta, of)))
-				} else if fieldDescription.Type == meta.FieldTypeObjects {
+					record.Data[field.Name] = LazyLink{Field: field.LinkMeta.GetKey(), IsOuter: false, Obj: of}
+					nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(NewRecord(field.LinkMeta, of)))
+				} else if field.Type == meta.FieldTypeObjects {
 					//validate outer links
-					if childRecordsToProcess, childRecordsToRemove, childRecordsToRetrieve, err := vs.validateObjectsFieldArray(value, fieldDescription, record); err != nil {
+					if childRecordsToProcess, childRecordsToRemove, childRecordsToRetrieve, err := vs.validateObjectsFieldArray(value, field, record); err != nil {
 						return nil, nil, nil, nil, err
 					} else {
 						for _, childRecord := range childRecordsToProcess {
@@ -79,23 +77,23 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 							nodesToRemoveBefore = append(nodesToRemoveBefore, NewRecordProcessingNode(childRecord))
 						}
 					}
-					delete(record.Data, fieldName)
-				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == meta.LinkTypeInner {
-					record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.GetKey(), IsOuter: false, Id: value}
+					delete(record.Data, field.Name)
+				} else if field.IsSimple() && field.LinkType == meta.LinkTypeInner {
+					record.Data[field.Name] = DLink{Field: field.LinkMeta.GetKey(), IsOuter: false, Id: value}
 				}
-			case fieldDescription.Type == meta.FieldTypeObject && fieldDescription.LinkType == meta.LinkTypeInner && (fieldDescription.LinkMeta.GetKey().Type.AssertType(value) || fieldDescription.Optional && value == nil ):
-				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.GetKey(), IsOuter: false, Id: value}
-			case fieldDescription.Type == meta.FieldTypeGeneric && fieldDescription.LinkType == meta.LinkTypeInner:
-				if recordToProcess, err := vs.validateInnerGenericLink(dbTransaction, value, fieldDescription, record); err != nil {
+			case field.Type == meta.FieldTypeObject && field.LinkType == meta.LinkTypeInner && (field.LinkMeta.GetKey().Type.AssertType(value) || field.Optional && value == nil ):
+				record.Data[field.Name] = DLink{Field: field.LinkMeta.GetKey(), IsOuter: false, Id: value}
+			case field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeInner:
+				if recordToProcess, err := vs.validateInnerGenericLink(dbTransaction, value, field, record); err != nil {
 					return nil, nil, nil, nil, err
 				} else {
 					if recordToProcess != nil {
 						nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(recordToProcess))
 					}
 				}
-			case fieldDescription.Type == meta.FieldTypeGeneric && fieldDescription.LinkType == meta.LinkTypeOuter:
+			case field.Type == meta.FieldTypeGeneric && field.LinkType == meta.LinkTypeOuter:
 				//validate outer generic links
-				if childRecordsToProcess, childRecordsToRemove, err := vs.validateGenericArray(value, fieldDescription, record); err != nil {
+				if childRecordsToProcess, childRecordsToRemove, err := vs.validateGenericArray(value, field, record); err != nil {
 					return nil, nil, nil, nil, err
 				} else {
 					for _, childRecord := range childRecordsToProcess {
@@ -105,12 +103,12 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 						nodesToRemoveBefore = append(nodesToRemoveBefore, NewRecordProcessingNode(childRecord))
 					}
 				}
-				delete(record.Data, fieldName)
+				delete(record.Data, field.Name)
 			default:
 				if _, ok := value.(LazyLink); ok {
 					break
 				} else if value != nil {
-					return nil, nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldName)
+					return nil, nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", field.Name)
 				}
 			}
 		}

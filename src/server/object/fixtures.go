@@ -7,8 +7,8 @@ func GetBaseMetaData(name string) *meta.Meta {
 		Name: name,
 		Key:  "id",
 		Cas:  false,
-		Fields: []*meta.Field{
-			{
+		Fields: map[string]*meta.Field{
+			"id": {
 				Name: "id",
 				Type: meta.FieldTypeNumber,
 				Def: map[string]interface{}{

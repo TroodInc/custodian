@@ -1,5 +1,7 @@
 package meta
 
+
+//TODO: Looks redudand, may be moved to Meta.AddField method
 type NormalizationService struct {
 }
 
@@ -11,7 +13,7 @@ func (normalizationService *NormalizationService) Normalize(metaDescription *Met
 }
 
 //set default ON_DELETE strategy value
-func (normalizationService *NormalizationService) NormalizeInnerFields(fields []*Field) {
+func (normalizationService *NormalizationService) NormalizeInnerFields(fields map[string]*Field) {
 	for i, field := range fields {
 		if field.Type == FieldTypeObject ||
 			(field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner) {
@@ -23,7 +25,7 @@ func (normalizationService *NormalizationService) NormalizeInnerFields(fields []
 }
 
 //set correct modes for outer field
-func (normalizationService *NormalizationService) NormalizeOuterFields(fields []*Field) {
+func (normalizationService *NormalizationService) NormalizeOuterFields(fields map[string]*Field) {
 	for i, field := range fields {
 		if field.LinkType == LinkTypeOuter {
 			fields[i].QueryMode = true

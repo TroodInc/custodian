@@ -12,6 +12,7 @@ import (
 	"utils"
 )
 
+// Deprecated: Use JsonDriver
 type FileMetaDescriptionSyncer struct {
 	dir string
 }
@@ -20,6 +21,7 @@ func NewFileMetaDescriptionSyncer(d string) *FileMetaDescriptionSyncer {
 	return &FileMetaDescriptionSyncer{d}
 }
 
+// Deprecated: use // Deprecated: use JsonDriver.cereateMetafile
 func createMetaFile(metaFile string, m interface{}) error {
 	f, err := os.Create(metaFile)
 	if err != nil {
@@ -44,6 +46,7 @@ func createMetaFile(metaFile string, m interface{}) error {
 	return nil
 }
 
+// Deprecated: use JsonDriver.getMetaList
 func getMetaList(directory string, extension string) []string {
 	fpath := path.Join(directory, fmt.Sprintf("*.%s", extension))
 	files, _ := filepath.Glob(fpath)
@@ -54,6 +57,7 @@ func getMetaList(directory string, extension string) []string {
 	return metaList
 }
 
+// Deprecated: use JsonDriver.List
 func (fm *FileMetaDescriptionSyncer) List() ([]map[string]interface{}, bool, error) {
 	var metaList []map[string]interface{}
 	for _, metaFileName := range getMetaList(fm.dir, "json") {
@@ -63,6 +67,7 @@ func (fm *FileMetaDescriptionSyncer) List() ([]map[string]interface{}, bool, err
 	return metaList, true, nil
 }
 
+// Deprecated: Use JsonDriver.getMeta
 func (fm *FileMetaDescriptionSyncer) Get(name string) (map[string]interface{}, bool, error) {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
@@ -94,6 +99,7 @@ func (fm *FileMetaDescriptionSyncer) Get(name string) (map[string]interface{}, b
 	return metaObj, true, nil
 }
 
+// Deprecated: use JsonDriver.Create
 func (fm *FileMetaDescriptionSyncer) Create(transaction MetaDescriptionTransaction, name string, m map[string]interface{}) error {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err == nil {
@@ -117,7 +123,7 @@ func (fm *FileMetaDescriptionSyncer) Create(transaction MetaDescriptionTransacti
 	return nil
 }
 
-
+// Deprecated: use JsonDriver.Remove
 func (fm *FileMetaDescriptionSyncer) Remove(name string) (bool, error) {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
@@ -139,6 +145,7 @@ func (fm *FileMetaDescriptionSyncer) Remove(name string) (bool, error) {
 	return true, nil
 }
 
+// Deprecated: Use JsonDrive.Update
 func (fm *FileMetaDescriptionSyncer) Update(name string, m map[string]interface{}) (bool, error) {
 	var metaFile = fm.getMetaFileName(name)
 	if _, err := os.Stat(metaFile); err != nil {
@@ -172,6 +179,7 @@ func (fm *FileMetaDescriptionSyncer) Update(name string, m map[string]interface{
 	return true, nil
 }
 
+// Deprecated: Use JsonDrive.getMetaFileName
 func (fm *FileMetaDescriptionSyncer) getMetaFileName(metaName string) string {
 	return path.Join(fm.dir, metaName+".json")
 }

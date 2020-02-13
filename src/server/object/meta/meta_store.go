@@ -238,7 +238,7 @@ func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFi
 			relatedObjectField.LinkMeta.Name == targetMeta.Name &&
 			relatedObjectField.OuterLinkField.Name == innerLinkFieldDescription.Name {
 			//omit outer field and update related object
-			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
+			delete(relatedObjectMeta.Fields, i)
 			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, true)
 		}
 	}
@@ -262,7 +262,7 @@ func (metaStore *MetaStore) removeRelatedToInnerGenericOuterLinks(targetMeta *Me
 				relatedObjectField.LinkMeta.Name == targetMeta.Name &&
 				relatedObjectField.OuterLinkField.Name == genericInnerLinkFieldDescription.Name {
 				//omit outer field and update related object
-				relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
+				delete(relatedObjectMeta.Fields, i)
 				metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
 			}
 		}
@@ -277,8 +277,6 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
 			if objectMeta != nil {
-
-				objectMetaFields := make([]*Field, 0)
 				objectNeedsUpdate := false
 
 				for i, fieldDescription := range objectMeta.Fields {
@@ -286,15 +284,14 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 					fieldIsTargetInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObject && fieldDescription.LinkMeta.Name == targetMeta.Name
 					fieldIsTargetOuterLink := fieldDescription.LinkType == LinkTypeOuter && fieldDescription.Type == FieldTypeArray && fieldDescription.LinkMeta.Name == targetMeta.Name
 
-					if !(fieldIsTargetInnerLink || fieldIsTargetOuterLink) {
-						objectMetaFields = append(objectMetaFields, objectMeta.Fields[i])
+					if fieldIsTargetInnerLink || fieldIsTargetOuterLink {
+						delete(objectMeta.Fields, i)
 					} else {
 						objectNeedsUpdate = true
 					}
 				}
 				// it means that related object should be updated
 				if objectNeedsUpdate {
-					objectMeta.Fields = objectMetaFields
 					metaStore.Update(objectMeta.Name, objectMeta, true)
 				}
 			}
@@ -310,15 +307,15 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
 			if objectMeta != nil {
-				objectMetaFields := make([]*Field, 0)
+				//objectMetaFields := make([]*Field, 0)
 				objectNeedsUpdate := false
 
 				for i, fieldDescription := range objectMeta.Fields {
 					//omit orphan fields
 					fieldIsTargetGenericInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeGeneric && utils.Contains(fieldDescription.GetLinkMetaListNames(), targetMeta.Name)
 
-					if !fieldIsTargetGenericInnerLink {
-						objectMetaFields = append(objectMetaFields, objectMeta.Fields[i])
+					if fieldIsTargetGenericInnerLink {
+						delete(objectMeta.Fields, i)
 					} else {
 						objectNeedsUpdate = true
 						indexOfTargetMeta := utils.IndexOf(fieldDescription.GetLinkMetaListNames(), targetMeta.Name)
@@ -326,12 +323,10 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
 						//alter field
 						field := objectMeta.Fields[i]
 						field.LinkMetaList = append(field.LinkMetaList[:indexOfTargetMeta], field.LinkMetaList[indexOfTargetMeta+1:]...)
-						objectMetaFields = append(objectMetaFields, field)
 					}
 				}
 				// it means that related object should be updated
 				if objectNeedsUpdate {
-					objectMeta.Fields = objectMetaFields
 					metaStore.Update(objectMeta.Name, objectMeta, true)
 				}
 			}
@@ -347,15 +342,14 @@ func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(keepMeta boo
 		if targetMeta.Name != objectMetaDescription.Name {
 			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
 			if objectMeta != nil {
-				objectMetaFields := make([]*Field, 0)
 				objectNeedsUpdate := false
 
 				for i, fieldDescription := range objectMeta.Fields {
 					//omit orphan fields
 					fieldIsObjectsLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObjects
 
-					if !fieldIsObjectsLink {
-						objectMetaFields = append(objectMetaFields, objectMeta.Fields[i])
+					if fieldIsObjectsLink {
+						delete(objectMeta.Fields, i)
 					} else {
 						objectNeedsUpdate = true
 						if !keepMeta {
@@ -368,7 +362,6 @@ func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(keepMeta boo
 
 				// means that related object should be updated
 				if objectNeedsUpdate {
-					objectMeta.Fields = objectMetaFields
 					if _, err := metaStore.Update(objectMeta.Name, objectMeta, true); err != nil {
 						return err
 					}
@@ -507,10 +500,7 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(previousMeta *Meta, cu
 						QueryMode:      true,
 						RetrieveMode:   false,
 					}
-					linkMeta.Fields = append(
-						linkMeta.Fields,
-						outerField,
-					)
+					linkMeta.AddField(outerField)
 					metaStore.Update(linkMeta.Name, linkMeta, true)
 				}
 
@@ -519,7 +509,7 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(previousMeta *Meta, cu
 					for i, excludedField := range excludedMeta.Fields {
 						if excludedField.Type == FieldTypeGeneric && excludedField.LinkType == LinkTypeOuter {
 							if excludedField.OuterLinkField.Name == field.Name && excludedField.LinkMeta.Name == field.Meta.Name {
-								excludedMeta.Fields = append(excludedMeta.Fields[:i], excludedMeta.Fields[i+1:]...)
+								delete(excludedMeta.Fields, i)
 								metaStore.Update(excludedMeta.Name, excludedMeta, true)
 							}
 						}
@@ -571,10 +561,7 @@ func (metaStore *MetaStore) addReversedOuterFields(previousMeta *Meta, currentMe
 					QueryMode:      true,
 					RetrieveMode:   false,
 				}
-				referencedMeta.Fields = append(
-					referencedMeta.Fields,
-					outerField,
-				)
+				referencedMeta.AddField(outerField)
 				metaStore.Update(referencedMeta.Name, referencedMeta, true)
 			}
 		}

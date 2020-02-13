@@ -28,7 +28,7 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (map[string]interface{}, boo
 	metaObj := meta.Meta{Name: name, Key: ddl.Pk}
 
 	for _, col := range ddl.Columns {
-		metaObj.Fields = append(metaObj.Fields, &meta.Field{
+		metaObj.AddField(&meta.Field{
 			Name: col.Name,
 			Type: col.Typ,
 			Optional: col.Optional,

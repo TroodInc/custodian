@@ -1,6 +1,8 @@
 package utils
 
 import (
+	"encoding/json"
+	"fmt"
 	"os"
 	"logger"
 	"path/filepath"
@@ -51,4 +53,15 @@ func Intersection(a, b []string) []string {
 		}
 	}
 	return intersection
+}
+
+func PPrint(msg string, x interface{})  {
+	fmt.Println(">>>>", msg)
+	b, err := json.MarshalIndent(x, "", "  ")
+	if err != nil {
+		fmt.Println("error:", err)
+	} else {
+		fmt.Println(string(b))
+	}
+	fmt.Println("<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<<")
 }

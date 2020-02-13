@@ -56,8 +56,11 @@ func (f *Field) ForExport() map[string]interface{} {
 		"optional": f.Optional,
 		"unique": f.Unique,
 		"onDelete": f.OnDelete,
-		"outerLinkField": f.Name,
 		"linkMetaList": f.GetLinkMetaListNames(),
+	}
+
+	if 	f.OuterLinkField != nil {
+		result["outerLinkField"] = f.OuterLinkField.Name
 	}
 
 	if f.LinkMeta != nil {

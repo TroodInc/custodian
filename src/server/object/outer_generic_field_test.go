@@ -43,7 +43,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object C, containing generic inner field")
 		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, &meta.Field{
+		cMetaDescription.AddField(&meta.Field{
 			Name:         "target",
 			Type:         meta.FieldTypeGeneric,
 			LinkType:     meta.LinkTypeInner,
@@ -56,7 +56,7 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.AddField(&meta.Field{
 			Name:           "c_set",
 			Type:           meta.FieldTypeGeneric,
 			LinkType:       meta.LinkTypeOuter,
@@ -71,21 +71,20 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		// check meta fields
-		fieldName := "c_set"
 		aMeta, _, err := metaStore.Get(aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
-		Expect(aMeta.Fields[1].Name).To(Equal(fieldName))
-		Expect(aMeta.Fields[1].LinkMeta.Name).To(Equal(cMetaObj.Name))
-		Expect(aMeta.FindField(fieldName).QueryMode).To(BeTrue())
-		Expect(aMeta.FindField(fieldName).RetrieveMode).To(BeTrue())
+		Expect(aMeta.Fields).To(HaveKey("c_set"))
+		Expect(aMeta.Fields["c_set"].LinkMeta.Name).To(Equal(cMetaObj.Name))
+		Expect(aMeta.Fields["c_set"].QueryMode).To(BeTrue())
+		Expect(aMeta.Fields["c_set"].RetrieveMode).To(BeTrue())
 	})
 
 	It("Detects non-existing linked meta", func() {
 		By("having an object A, referencing non-existing object B")
 		bMeta := GetBaseMetaData(utils.RandomString(8))
 		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		cMetaDescription.Fields = append(cMetaDescription.Fields, &meta.Field{
+		cMetaDescription.AddField(&meta.Field{
 			Name:           "target",
 			Type:           meta.FieldTypeGeneric,
 			LinkType:       meta.LinkTypeOuter,
@@ -107,7 +106,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.AddField(&meta.Field{
 			Name:         "target",
 			Type:         meta.FieldTypeGeneric,
 			LinkType:     meta.LinkTypeInner,
@@ -121,7 +120,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and outer generic field added to object A")
 		aMetaDescription = GetBaseMetaData(utils.RandomString(8))
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.AddField(&meta.Field{
 			Name:     "b_set",
 			Type:     meta.FieldTypeGeneric,
 			LinkType: meta.LinkTypeOuter,
@@ -142,7 +141,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.AddField(&meta.Field{
 			Name:         "target",
 			Type:         meta.FieldTypeGeneric,
 			LinkType:     meta.LinkTypeInner,
@@ -155,7 +154,7 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.AddField(&meta.Field{
 			Name:           "b_set",
 			Type:           meta.FieldTypeGeneric,
 			LinkType:       meta.LinkTypeOuter,
@@ -185,7 +184,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.AddField(&meta.Field{
 			Name:         "target",
 			Type:         meta.FieldTypeGeneric,
 			LinkType:     meta.LinkTypeInner,
@@ -198,7 +197,7 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.AddField(&meta.Field{
 			Name:           "b_set",
 			Type:           meta.FieldTypeGeneric,
 			LinkType:       meta.LinkTypeOuter,
@@ -224,7 +223,7 @@ var _ = Describe("Outer generic field", func() {
 		aMetaObj, _, err = metaStore.Get(aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMetaObj.Fields).To(HaveLen(1))
-		Expect(aMetaObj.Fields[0].Name).To(Equal("id"))
+		Expect(aMetaObj.Fields).To(HaveKey("id"))
 
 	})
 
@@ -238,7 +237,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.AddField(&meta.Field{
 			Name:         "target",
 			Type:         meta.FieldTypeGeneric,
 			LinkType:     meta.LinkTypeInner,
@@ -251,7 +250,7 @@ var _ = Describe("Outer generic field", func() {
 		Expect(err).To(BeNil())
 
 		By("and outer generic field added to object A")
-		aMetaDescription.Fields = append(aMetaDescription.Fields, &meta.Field{
+		aMetaDescription.AddField(&meta.Field{
 			Name:           "b_set",
 			Type:           meta.FieldTypeGeneric,
 			LinkType:       meta.LinkTypeOuter,
@@ -273,7 +272,7 @@ var _ = Describe("Outer generic field", func() {
 		aMetaObj, _, err = metaStore.Get(aMetaDescription.Name, true)
 		Expect(err).To(BeNil())
 		Expect(aMetaObj.Fields).To(HaveLen(1))
-		Expect(aMetaObj.Fields[0].Name).To(Equal("id"))
+		Expect(aMetaObj.Fields).To(HaveKey("id"))
 
 	})
 
@@ -287,7 +286,7 @@ var _ = Describe("Outer generic field", func() {
 
 		By("and object B, containing generic inner field")
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription.Fields = append(bMetaDescription.Fields, &meta.Field{
+		bMetaDescription.AddField(&meta.Field{
 			Name:         "target",
 			Type:         meta.FieldTypeGeneric,
 			LinkType:     meta.LinkTypeInner,
