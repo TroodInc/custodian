@@ -126,11 +126,11 @@ type MetaDescriptionSyncer interface {
 }
 
 type MetaDbSyncer interface {
-	CreateObj(transactions.DbTransaction, *Meta, MetaDescriptionSyncer) error
+	CreateObj(transactions.DbTransaction, *Meta) error
 	RemoveObj(transactions.DbTransaction, string, bool) error
-	UpdateObj(transactions.DbTransaction, *Meta, *Meta, MetaDescriptionSyncer) error
-	UpdateObjTo(transactions.DbTransaction, *Meta, MetaDescriptionSyncer) error
-	ValidateObj(transactions.DbTransaction, *Meta, MetaDescriptionSyncer) (bool, error)
+	UpdateObj(transactions.DbTransaction, *Meta, *Meta) error
+	UpdateObjTo(transactions.DbTransaction, *Meta) error
+	ValidateObj(transactions.DbTransaction, *Meta) (bool, error)
 	BeginTransaction() (transactions.DbTransaction, error)
 	CommitTransaction(transactions.DbTransaction) error
 	RollbackTransaction(transactions.DbTransaction) error

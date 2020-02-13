@@ -102,7 +102,7 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 	transaction, _ := metaStore.globalTransactionManager.BeginTransaction()
 
-	if e := metaStore.Syncer.CreateObj(transaction.DbTransaction, objectMeta, metaStore.MetaDescriptionSyncer); e == nil {
+	if e := metaStore.Syncer.CreateObj(transaction.DbTransaction, objectMeta); e == nil {
 		if e := metaStore.MetaDescriptionSyncer.Create(transaction.MetaDescriptionTransaction, objectMeta.Name, objectMeta.ForExport()); e == nil {
 
 			//add corresponding outer generic fields
@@ -149,7 +149,7 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 		}
 
 		globalTransaction, _ := metaStore.globalTransactionManager.BeginTransaction()
-		if updateError := metaStore.Syncer.UpdateObj(globalTransaction.DbTransaction, currentMetaObj, newMetaObj, metaStore.MetaDescriptionSyncer); updateError == nil {
+		if updateError := metaStore.Syncer.UpdateObj(globalTransaction.DbTransaction, currentMetaObj, newMetaObj); updateError == nil {
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(currentMetaObj, newMetaObj)
 
@@ -168,7 +168,7 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 			return true, nil
 		} else {
 			//rollback to the previous version
-			rollbackError := metaStore.Syncer.UpdateObjTo(globalTransaction.DbTransaction, currentMetaObj, metaStore.MetaDescriptionSyncer)
+			rollbackError := metaStore.Syncer.UpdateObjTo(globalTransaction.DbTransaction, currentMetaObj)
 			if rollbackError != nil {
 				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
 				metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)

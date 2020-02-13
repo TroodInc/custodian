@@ -55,11 +55,11 @@ func (syncer *Syncer) NewDataManager() (*DataManager, error) {
 	return NewDataManager(syncer.db)
 }
 
-func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) error {
+func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDescription *meta.Meta) error {
 	tx := transaction.Transaction().(*sql.Tx)
 	var md *MetaDDL
 	var e error
-	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
+	metaDdlFactory := NewMetaDdlFactory()
 	if md, e = metaDdlFactory.Factory(metaDescription); e != nil {
 		return e
 	}
@@ -101,12 +101,12 @@ func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name str
 }
 
 //UpdateRecord an existing business object
-func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentMetaDescription *meta.Meta, newMetaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) error {
+func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentMetaDescription *meta.Meta, newMetaDescription *meta.Meta) error {
 	tx := transaction.(*PgTransaction)
 	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
 	var err error
 
-	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
+	metaDdlFactory := NewMetaDdlFactory()
 	if currentBusinessObjMeta, err = metaDdlFactory.Factory(currentMetaDescription); err != nil {
 		return err
 	}
@@ -132,9 +132,9 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentM
 }
 
 //Calculates the difference between the given and the existing business object in the database
-func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) (DdlStatementSet, error) {
+func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaDescription *meta.Meta) (DdlStatementSet, error) {
 	tx := transaction.(*PgTransaction)
-	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
+	metaDdlFactory := NewMetaDdlFactory()
 	newMetaDdl, e := metaDdlFactory.Factory(metaDescription)
 	if e != nil {
 		return nil, e
@@ -154,9 +154,9 @@ func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaDe
 
 }
 
-func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) error {
+func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDescription *meta.Meta) error {
 	tx := transaction.(*PgTransaction)
-	ddlStatements, e := syncer.diffScripts(tx, metaDescription, descriptionSyncer)
+	ddlStatements, e := syncer.diffScripts(tx, metaDescription)
 	if e != nil {
 		return e
 	}
@@ -171,8 +171,8 @@ func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDe
 
 //Check if the given business object equals to the corresponding one stored in the database.
 //The validation fails if the given business object is different
-func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, metaDescription *meta.Meta, descriptionSyncer meta.MetaDescriptionSyncer) (bool, error) {
-	ddlStatements, e := syncer.diffScripts(transaction, metaDescription, descriptionSyncer)
+func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, metaDescription *meta.Meta) (bool, error) {
+	ddlStatements, e := syncer.diffScripts(transaction, metaDescription)
 	if e != nil {
 		return false, e
 	} else {

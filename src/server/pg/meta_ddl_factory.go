@@ -6,7 +6,6 @@ import (
 )
 
 type MetaDdlFactory struct {
-	metaDescriptionSyncer meta.MetaDescriptionSyncer
 }
 
 func (mdf *MetaDdlFactory) Factory(metaDescription *meta.Meta) (*MetaDDL, error) {
@@ -69,18 +68,12 @@ func (mdf *MetaDdlFactory) processInnerLinkField(field *meta.Field, metaName str
 		return nil, nil, nil, nil, err
 	}
 
-	linkMetaMap, _, err := mdf.metaDescriptionSyncer.Get(field.LinkMeta.Name)
-	if err != nil {
-		return nil, nil, nil, nil, err
-	}
-
-	linkMetaDescription := meta.NewMetaFromMap(linkMetaMap)
-	column.Typ = linkMetaDescription.FindField(linkMetaDescription.Key).Type
+	column.Typ = field.LinkMeta.FindField(field.LinkMeta.Key).Type
 
 	ifk := IFK{
 		FromColumn: field.Name,
-		ToTable:    GetTableName(linkMetaDescription.Name),
-		ToColumn:   linkMetaDescription.Key,
+		ToTable:    GetTableName(field.LinkMeta.Name),
+		ToColumn:   field.LinkMeta.Key,
 		OnDelete:   field.OnDeleteStrategy().ToDbValue(),
 		Default:    column.Defval,
 	}
@@ -153,6 +146,6 @@ func (mdf *MetaDdlFactory) getDefaultValue(metaName string, field *meta.Field) (
 	return colDef.ddlVal()
 }
 
-func NewMetaDdlFactory(metaDescriptionSyncer meta.MetaDescriptionSyncer) *MetaDdlFactory {
-	return &MetaDdlFactory{metaDescriptionSyncer: metaDescriptionSyncer}
+func NewMetaDdlFactory() *MetaDdlFactory {
+	return &MetaDdlFactory{}
 }
