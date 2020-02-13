@@ -36,10 +36,10 @@ func NewFieldFromMap(object map[string]interface{}) *Field {
 		Optional:    object["optional"].(bool),
 		Unique:      object["unique"].(bool),
 		OnDelete:    object["onDelete"].(string),
-		Def:         nil,
+		Def:         object["def"],
 		NowOnUpdate: false,
 		NowOnCreate: false,
-		LinkMeta:    &Meta{},
+		LinkMeta:    nil,
 	}
 
 	if object["linkType"] != nil {
@@ -55,6 +55,7 @@ func (f *Field) ForExport() map[string]interface{} {
 		"type": f.Type.String(),
 		"optional": f.Optional,
 		"unique": f.Unique,
+		"def": f.Def,
 		"onDelete": f.OnDelete,
 		"linkMetaList": f.GetLinkMetaListNames(),
 	}
