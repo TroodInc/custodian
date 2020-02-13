@@ -9,7 +9,7 @@ import (
 )
 
 type GenericInnerFieldValidator struct {
-	metaGetCallback   func(name string, useCache bool) (*meta.Meta, bool, error)
+	metaGetCallback   func(name string) *meta.Meta
 	recordGetCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)
 	dbTransaction     transactions.DbTransaction
 }
@@ -47,7 +47,7 @@ func (validator *GenericInnerFieldValidator) validateObjectName(objectName inter
 }
 
 func (validator *GenericInnerFieldValidator) validateObject(objectName string, fieldDescription *meta.Field) (*meta.Meta, error) {
-	if objectMeta, _, err := validator.metaGetCallback(objectName, true); err != nil {
+	if objectMeta := validator.metaGetCallback(objectName); objectMeta == nil {
 		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Object '%s' referenced in '%s'`s value does not exist", fieldDescription.Name)
 	} else {
 		return objectMeta, nil
@@ -86,6 +86,6 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 	}
 }
 
-func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(name string, useCache bool) (*meta.Meta, bool, error), recordGetCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *GenericInnerFieldValidator {
+func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(name string) *meta.Meta, recordGetCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *GenericInnerFieldValidator {
 	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback, dbTransaction: dbTransaction}
 }

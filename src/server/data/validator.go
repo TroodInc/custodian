@@ -6,12 +6,13 @@ import (
 	. "server/data/record"
 	. "server/data/types"
 	"server/data/validators"
+	"server/object"
 	"server/object/meta"
 	"server/transactions"
 )
 
 type ValidationService struct {
-	metaStore *meta.MetaStore
+	metaStore *object.Store
 	processor *Processor
 }
 
@@ -363,6 +364,6 @@ func (vs *ValidationService) validateInnerGenericLink(dbTransaction transactions
 	return recordToProcess, nil
 }
 
-func NewValidationService(metaStore *meta.MetaStore, processor *Processor) *ValidationService {
+func NewValidationService(metaStore *object.Store, processor *Processor) *ValidationService {
 	return &ValidationService{metaStore: metaStore, processor: processor}
 }

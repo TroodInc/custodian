@@ -1,6 +1,7 @@
 package object
 
 import (
+	"server/data/notifications"
 	"server/object/meta"
 )
 
@@ -21,6 +22,14 @@ func (s *Store) NewMeta(metaObj *meta.Meta) (*meta.Meta, error) {
 }
 
 
+func (s *Store) GetActions() map[string][]*notifications.Action {
+	actions := map[string][]*notifications.Action{}
+	for _, meta := range s.List() {
+		actions[meta.Name] = meta.Actions
+	}
+
+	return actions
+}
 
 //List return full list of Meta objects from underlying storage
 func (s *Store) List() []*meta.Meta {

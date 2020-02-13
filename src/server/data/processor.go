@@ -6,6 +6,7 @@ import (
 	"server/data/errors"
 	"server/data/notifications"
 	. "server/data/record"
+	"server/object"
 	"server/object/meta"
 	"server/transactions"
 	"strings"
@@ -30,14 +31,14 @@ type DataManager interface {
 }
 
 type Processor struct {
-	metaStore                 *meta.MetaStore
+	metaStore                 *object.Store
 	dataManager               DataManager
 	transactionManager        transactions.DbTransactionManager
 	vCache                    map[string]objectClassValidator
 	RecordSetNotificationPool *notifications.RecordSetNotificationPool
 }
 
-func NewProcessor(m *meta.MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
+func NewProcessor(m *object.Store, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool(m.GetActions())
 	return &Processor{
 		m,
@@ -109,9 +110,7 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 }
 
 func (processor *Processor) GetBulk(objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (int, []*Record, error) {
-	if businessObject, ok, e := processor.metaStore.Get(objectName, true); e != nil {
-		return 0, nil, e
-	} else if !ok {
+	if businessObject := processor.metaStore.Get(objectName); businessObject == nil {
 		return 0, nil, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	} else {
 		transaction, _ := processor.transactionManager.BeginTransaction()
@@ -218,11 +217,8 @@ func (dn *DNode) recursivelyFillOuterChildNodes() {
 }
 
 func (processor *Processor) GetMeta(objectName string) (*meta.Meta, error) {
-	objectMeta, ok, err := processor.metaStore.Get(objectName, true)
-	if err != nil {
-		return nil, err
-	}
-	if !ok {
+	objectMeta := processor.metaStore.Get(objectName)
+	if objectMeta == nil {
 		return nil, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
 	}
 	return objectMeta, nil
