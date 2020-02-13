@@ -15,12 +15,7 @@ type MetaFactory struct {
 // factory MetaDescription by provided MetaDescription
 func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *Meta) (*Meta, error) {
 	metaFactory.reset()
-
-	// pre-validate description
-	if ok, err := CheckFieldsDoesNotContainDuplicates(objectMetaDescription.Fields); !ok {
-		return nil, err
-	}
-
+	
 	//create object meta
 	//objectMeta := &Meta{}
 	//root object is built manually, thus it should be placed to builtMetas manually too
