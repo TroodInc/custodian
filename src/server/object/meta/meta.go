@@ -113,6 +113,11 @@ func (m *Meta) TableFields() []*Field {
 	return fields
 }
 
+func (m *Meta) IsDirty() bool {
+	// TODO: implement
+	return true
+}
+
 /*
    MetaDescription driver interface.
 */

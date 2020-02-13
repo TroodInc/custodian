@@ -222,6 +222,7 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 }
 
 //Remove all outer fields linking to given MetaDescription
+//Deprecated: use Store.removeRelatedOuterLinks
 func (metaStore *MetaStore) removeRelatedOuterLinks(targetMeta *Meta) {
 	for _, field := range targetMeta.Fields {
 		if field.Type == FieldTypeObject && field.LinkType == LinkTypeInner {
@@ -231,6 +232,7 @@ func (metaStore *MetaStore) removeRelatedOuterLinks(targetMeta *Meta) {
 }
 
 //Remove outer field from related object if it links to the given field
+//Deprecated: use Store.removeRelatedOuterLink
 func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFieldDescription *Field) {
 	relatedObjectMeta := innerLinkFieldDescription.LinkMeta
 	for i, relatedObjectField := range relatedObjectMeta.Fields {
@@ -270,6 +272,7 @@ func (metaStore *MetaStore) removeRelatedToInnerGenericOuterLinks(targetMeta *Me
 }
 
 //Remove inner fields linking to given MetaDescription
+//Deprecated: Use Store.removeRelatedInnerLinks()
 func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 	metaDescriptionList := metaStore.List()
 	for _, objectMetaDescription := range metaDescriptionList {
@@ -454,6 +457,7 @@ func (metaStore *MetaStore) processGenericOuterLinkKeeping(previousMeta *Meta, c
 }
 
 //add corresponding reverse outer generic field if field is added
+//Deprecated:
 func (metaStore *MetaStore) addReversedOuterGenericFields(previousMeta *Meta, currentMeta *Meta) {
 	for _, field := range currentMeta.Fields {
 		if field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner {
@@ -521,6 +525,7 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(previousMeta *Meta, cu
 }
 
 //add corresponding reverse outer generic field if field is added
+//Deprecated
 func (metaStore *MetaStore) addReversedOuterFields(previousMeta *Meta, currentMeta *Meta) {
 	for _, field := range currentMeta.Fields {
 		if field.Type == FieldTypeObject && field.LinkType == LinkTypeInner {

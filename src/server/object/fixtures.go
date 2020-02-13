@@ -1,6 +1,9 @@
 package object
 
-import "server/object/meta"
+import (
+	"server/object/meta"
+	"utils"
+)
 
 func GetBaseMetaData(name string) *meta.Meta {
 	return &meta.Meta{
@@ -17,4 +20,24 @@ func GetBaseMetaData(name string) *meta.Meta {
 			},
 		},
 	}
+}
+
+//GetTwoBaseLinkedObjects creates B object with A inner link.
+//
+// A { id: int }  <--- B { id: int, a: innerObject }
+func GetTwoBaseLinkedObjects(store *Store) (a, b *meta.Meta) {
+	aMetaObj, _ := store.NewMeta(GetBaseMetaData(utils.RandomString(8)))
+	a = store.Create(aMetaObj)
+
+	bMetaObj := GetBaseMetaData(utils.RandomString(8))
+	bMetaObj.AddField(&meta.Field{
+		Name:     "a",
+		Type:     meta.FieldTypeObject,
+		LinkType: meta.LinkTypeInner,
+		LinkMeta: aMetaObj,
+	})
+	bMetaObj, _ = store.NewMeta(bMetaObj)
+	b = store.Create(bMetaObj)
+
+	return a, b
 }
