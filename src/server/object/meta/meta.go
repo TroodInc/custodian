@@ -10,21 +10,25 @@ import (
 type Meta struct {
 	Name    string                  `json:"name"`
 	Key     string                  `json:"key"`
-	Fields  []*Field                `json:"fields"`
+	Fields  map[string]*Field                `json:"fields"`
 	Actions []*notifications.Action `json:"actions,omitempty"`
 	Cas     bool                    `json:"cas"`
 }
 
 
 func NewMeta(name string, key string, fields []*Field, actions []*notifications.Action, cas bool) *Meta {
-	return &Meta{Name: name, Key: key, Fields: fields, Actions: actions, Cas: cas}
+	result := &Meta{Name: name, Key: key, Fields: make(map[string]*Field, 0), Actions: actions, Cas: cas}
+	for _, field := range fields {
+		result.AddField(field)
+	}
+	return result
 }
 
 func NewMetaFromMap(object map[string]interface{}) *Meta {
 	result := &Meta{
 		Name:    object["name"].(string),
 		Key:     object["key"].(string),
-		Fields:  nil,
+		Fields:  make(map[string]*Field, 0),
 		Actions: nil,
 		Cas:     object["cas"].(bool),
 	}
@@ -32,15 +36,13 @@ func NewMetaFromMap(object map[string]interface{}) *Meta {
 	switch object["fields"].(type) {
 		case []map[string]interface{}:
 			for _, field := range object["fields"].([]map[string]interface{}) {
-				result.Fields = append(result.Fields, NewFieldFromMap(field))
+				result.AddField(NewFieldFromMap(field))
 			}
 		case []interface{}:
 			for _, field := range object["fields"].([]interface{}) {
-				result.Fields = append(result.Fields, NewFieldFromMap(field.(map[string]interface{})))
+				result.AddField(NewFieldFromMap(field.(map[string]interface{})))
 			}
 	}
-
-
 
 	return result
 }
@@ -78,21 +80,23 @@ func (m *Meta) ForExport() map[string]interface{} {
 
 // TODO: Refactor fields storage to Map ...
 func (m *Meta) GetKey() *Field {
-	return m.FindField(m.Key)
+	return m.Fields[m.Key]
 }
 
 func (m *Meta) FindField(name string) *Field {
-	for _, field := range m.Fields {
-		if field.Name == name {
-			return field
-		}
-	}
-	return nil
+	return m.Fields[name]
 }
 // <---
 
-func (m *Meta) AddField(field *Field) {
-	m.Fields = append(m.Fields, field)
+func (m *Meta) AddField(field *Field) error {
+	if item, exist := m.Fields[field.Name]; exist {
+		//TODO: Add code
+		return errors.NewValidationError("", fmt.Sprintf("Field %s already exists", field.Name), item)
+	}
+
+	m.Fields[field.Name] = field
+
+	return nil
 }
 
 //Returns a list of fields which are presented in the DB
