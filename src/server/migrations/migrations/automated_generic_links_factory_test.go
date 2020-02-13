@@ -26,7 +26,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
 
 	var metaDescription *meta.Meta

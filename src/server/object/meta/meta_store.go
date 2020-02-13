@@ -607,6 +607,6 @@ func (metaStore *MetaStore) Flush() error {
 	return nil
 }
 
-func NewStore(md MetaDescriptionSyncer, mds MetaDbSyncer, gtm *transactions.GlobalTransactionManager) *MetaStore {
+func NewMetaStore(md MetaDescriptionSyncer, mds MetaDbSyncer, gtm *transactions.GlobalTransactionManager) *MetaStore {
 	return &MetaStore{MetaDescriptionSyncer: md, Syncer: mds, cache: NewCache(), globalTransactionManager: gtm}
 }

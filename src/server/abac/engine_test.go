@@ -222,7 +222,7 @@ var _ = Describe("Abac Engine", func() {
 		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 		globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-		metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+		metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 		abacTree := jsonToObject(`{

@@ -446,7 +446,7 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 
 func NewMigrationManager(metaStore *meta.MetaStore, manager *pg.DataManager,syncer meta.MetaDescriptionSyncer, migrationStoragePath string,  gtm *transactions.GlobalTransactionManager) *MigrationManager {
 	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(gtm.DbTransactionManager)
-	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, metaStore.Syncer, gtm)
+	migrationStore := meta.NewMetaStore(migrationDBDescriptionSyncer, metaStore.Syncer, gtm)
 	processor, _ := data.NewProcessor(migrationStore, manager, gtm.DbTransactionManager)
 
 	return &MigrationManager{metaStore, migrationStore, manager, processor, gtm}

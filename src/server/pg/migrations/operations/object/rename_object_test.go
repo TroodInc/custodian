@@ -22,7 +22,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *meta.Meta
 	//setup transaction

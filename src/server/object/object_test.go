@@ -20,7 +20,7 @@ var _ = Describe("File MetaDescription driver", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(fileMetaDriver)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(fileMetaDriver, syncer, globalTransactionManager)
+	metaStore := meta.NewMetaStore(fileMetaDriver, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

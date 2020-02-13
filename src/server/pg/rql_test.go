@@ -18,7 +18,7 @@ import (
 var _ = Describe("RQL test", func(){
 	appConfig := utils.GetConfig()
 	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-	metaStore := meta2.NewStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer,transactions.NewGlobalTransactionManager(nil, nil) )
+	metaStore := meta2.NewMetaStore(transactions.NewFileMetaDescriptionSyncer("./"), syncer,transactions.NewGlobalTransactionManager(nil, nil) )
 
 	metaDescription := meta2.Meta{
 		Name: "test",

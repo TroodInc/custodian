@@ -29,7 +29,7 @@ var _ = Describe("Migration Constructor", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath, globalTransactionManager))
 

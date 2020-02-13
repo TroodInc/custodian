@@ -35,7 +35,7 @@ var _ = XDescribe("Migration`s construction", func() {
 	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	BeforeEach(func() {
 		//setup server
