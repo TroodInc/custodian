@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"server/errors"
 	"server/migrations"
+	"server/object"
 	"server/object/meta"
 	"server/transactions"
 )
@@ -12,7 +13,7 @@ type AddFieldOperation struct {
 	Field *meta.Field
 }
 
-func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
+func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer *object.Store) (*meta.Meta, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 	if err := o.validate(metaDescriptionToApply); err != nil {
 		//TODO:This is a workaround to avoid duplicated outer field (<meta-name>_set) to be created.
@@ -24,13 +25,13 @@ func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Met
 		}
 	}
 	fieldToAdd := o.Field.Clone()
-	metaDescriptionToApply.Fields = append(metaDescriptionToApply.Fields, fieldToAdd)
+	metaDescriptionToApply.AddField(fieldToAdd)
 
 	//sync its MetaDescription
-	if _, err := metaDescriptionSyncer.Update(metaDescriptionToApply.Name, metaDescriptionToApply.ForExport()); err != nil {
-		return nil, err
+	if meta := metaDescriptionSyncer.Update(metaDescriptionToApply); meta == nil {
+		return nil, errors.NewValidationError("", "Cant add field via migration", o.Field)
 	} else {
-		return metaDescriptionToApply, nil
+		return meta, nil
 	}
 }
 

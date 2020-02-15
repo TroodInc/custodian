@@ -17,14 +17,14 @@ type UpdateFieldOperation struct {
 	field.UpdateFieldOperation
 }
 
-func (o *UpdateFieldOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *UpdateFieldOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
-	newColumns, newIfk, _, newSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.NewField, metaDescription.Name, metaDescription.Key)
+	newColumns, newIfk, _, newSequence, err := pg.NewMetaDdlFactory().FactoryFieldProperties(o.NewField, metaDescription.Name, metaDescription.Key)
 	if err != nil {
 		return err
 	}
-	currentColumns, currentIfk, _, currentSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.CurrentField, metaDescription.Name, metaDescription.Key)
+	currentColumns, currentIfk, _, currentSequence, err := pg.NewMetaDdlFactory().FactoryFieldProperties(o.CurrentField, metaDescription.Name, metaDescription.Key)
 	if err != nil {
 		return err
 	}

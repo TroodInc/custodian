@@ -7,12 +7,11 @@ import (
 )
 
 type MigrationFactory struct {
-	metaDescriptionSyncer          meta.MetaDescriptionSyncer
 	normalizationMigrationsFactory *description.NormalizationMigrationsFactory
 }
 
-func (mf *MigrationFactory) FactoryForward(migrationDescription *description.MigrationDescription) (*Migration, error) {
-	if migration, err := mf.factory(migrationDescription); err != nil {
+func (mf *MigrationFactory) FactoryForward(md *description.MigrationDescription, metaObj *meta.Meta) (*Migration, error) {
+	if migration, err := mf.factory(md, metaObj); err != nil {
 		return nil, err
 	} else {
 		migration.Direction = MigrationDirectionForward
@@ -20,8 +19,8 @@ func (mf *MigrationFactory) FactoryForward(migrationDescription *description.Mig
 	}
 }
 
-func (mf *MigrationFactory) FactoryBackward(migrationDescription *description.MigrationDescription) (*Migration, error) {
-	if migration, err := mf.factory(migrationDescription); err != nil {
+func (mf *MigrationFactory) FactoryBackward(md *description.MigrationDescription, metaObj *meta.Meta) (*Migration, error) {
+	if migration, err := mf.factory(md, metaObj); err != nil {
 		return nil, err
 	} else {
 		migration.Direction = MigrationDirectionBackward
@@ -29,16 +28,8 @@ func (mf *MigrationFactory) FactoryBackward(migrationDescription *description.Mi
 	}
 }
 
-func (mf *MigrationFactory) factory(migrationDescription *description.MigrationDescription) (*Migration, error) {
-	migration := &Migration{MigrationDescription: *migrationDescription}
-
-	if migration.MigrationDescription.ApplyTo != "" {
-		if applyTo, _, err := mf.metaDescriptionSyncer.Get(migration.MigrationDescription.ApplyTo); err != nil {
-			return nil, err
-		} else {
-			migration.ApplyTo = meta.NewMetaFromMap(applyTo)
-		}
-	}
+func (mf *MigrationFactory) factory(migrationDescription *description.MigrationDescription, metaObj *meta.Meta) (*Migration, error) {
+	migration := &Migration{MigrationDescription: *migrationDescription, ApplyTo: metaObj}
 
 	operationFactory := pg_operations.NewOperationFactory()
 
@@ -64,6 +55,9 @@ func (mf *MigrationFactory) factory(migrationDescription *description.MigrationD
 	return migration, nil
 }
 
-func NewMigrationFactory(metaDescriptionSyncer meta.MetaDescriptionSyncer) *MigrationFactory {
-	return &MigrationFactory{metaDescriptionSyncer: metaDescriptionSyncer, normalizationMigrationsFactory: description.NewNormalizationMigrationsFactory(metaDescriptionSyncer)}
+func NewMigrationFactory() *MigrationFactory {
+	return &MigrationFactory{
+
+		//normalizationMigrationsFactory: description.NewNormalizationMigrationsFactory(metaDescriptionSyncer)
+	}
 }

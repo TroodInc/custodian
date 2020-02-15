@@ -15,7 +15,7 @@ type RenameObjectOperation struct {
 	object.RenameObjectOperation
 }
 
-func (o *RenameObjectOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *RenameObjectOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	//rename table
@@ -30,11 +30,11 @@ func (o *RenameObjectOperation) SyncDbDescription(metaDescription *meta.Meta, tr
 		currentField := metaDescription.Fields[i]
 		newField := o.MetaDescription.FindField(currentField.Name)
 
-		_, _, _, newSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(newField, o.MetaDescription.Name, o.MetaDescription.Key)
+		_, _, _, newSequence, err := pg.NewMetaDdlFactory().FactoryFieldProperties(newField, o.MetaDescription.Name, o.MetaDescription.Key)
 		if err != nil {
 			return err
 		}
-		_, _, _, currentSequence, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(currentField, metaDescription.Name, metaDescription.Key)
+		_, _, _, currentSequence, err := pg.NewMetaDdlFactory().FactoryFieldProperties(currentField, metaDescription.Name, metaDescription.Key)
 		if err != nil {
 			return err
 		}

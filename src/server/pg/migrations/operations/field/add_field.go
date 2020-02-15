@@ -15,10 +15,10 @@ type AddFieldOperation struct {
 	field.AddFieldOperation
 }
 
-func (o *AddFieldOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *AddFieldOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
-	columns, ifk, _, seq, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescriptionToApply.Name, metaDescriptionToApply.Key)
+	columns, ifk, _, seq, err := pg.NewMetaDdlFactory().FactoryFieldProperties(o.Field, metaDescriptionToApply.Name, metaDescriptionToApply.Key)
 	if err != nil {
 		return err
 	}

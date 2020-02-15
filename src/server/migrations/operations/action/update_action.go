@@ -2,6 +2,8 @@ package action
 
 import (
 	"server/data/notifications"
+	"server/errors"
+	"server/object"
 	"server/object/meta"
 	"server/transactions"
 )
@@ -11,7 +13,7 @@ type UpdateActionOperation struct {
 	CurrentAction *notifications.Action
 }
 
-func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
+func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, syncer *object.Store) (*meta.Meta, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 
 	//replace action
@@ -22,14 +24,14 @@ func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta
 	}
 
 	//sync its MetaDescription
-	if _, err := syncer.Update(metaDescriptionToApply.Name, metaDescriptionToApply.ForExport()); err != nil {
-		return nil, err
+	if meta := syncer.Update(metaDescriptionToApply); meta == nil {
+		return nil, errors.NewValidationError("", "Can't update action from migration", o.NewAction)
 	} else {
-		return metaDescriptionToApply, nil
+		return meta, nil
 	}
 }
 
-func (o *UpdateActionOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *UpdateActionOperation) SyncDbDescription(metaDescriptionToApply *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	return nil
 }
 

@@ -15,10 +15,10 @@ type RemoveFieldOperation struct {
 	field.RemoveFieldOperation
 }
 
-func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
-	columns, ifk, _, seq, err := pg.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescription.Name, metaDescription.Key)
+	columns, ifk, _, seq, err := pg.NewMetaDdlFactory().FactoryFieldProperties(o.Field, metaDescription.Name, metaDescription.Key)
 	if err != nil {
 		return err
 	}

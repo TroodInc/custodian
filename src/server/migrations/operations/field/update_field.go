@@ -1,6 +1,8 @@
 package field
 
 import (
+	"server/errors"
+	"server/object"
 	"server/object/meta"
 	"server/transactions"
 )
@@ -10,7 +12,7 @@ type UpdateFieldOperation struct {
 	CurrentField *meta.Field
 }
 
-func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
+func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.Meta, transaction transactions.MetaDescriptionTransaction, syncer *object.Store) (*meta.Meta, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 
 	//replace field
@@ -21,8 +23,8 @@ func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta.
 	}
 
 	//sync its MetaDescription
-	if _, err := syncer.Update(metaDescriptionToApply.Name, metaDescriptionToApply.ForExport()); err != nil {
-		return nil, err
+	if meta := syncer.Update(metaDescriptionToApply); meta == nil {
+		return nil, errors.NewValidationError("", "Cant update field with migration", o.NewField)
 	} else {
 		return metaDescriptionToApply, nil
 	}

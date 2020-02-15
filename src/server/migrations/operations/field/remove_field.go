@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"server/errors"
 	"server/migrations"
+	"server/object"
 	"server/object/meta"
 	"server/transactions"
 )
@@ -12,23 +13,23 @@ type RemoveFieldOperation struct {
 	Field *meta.Field
 }
 
-func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta.Meta, error) {
+func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *meta.Meta, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer *object.Store) (*meta.Meta, error) {
 	updatedMetaDescription := metaDescription.Clone()
 	if err := o.validate(updatedMetaDescription); err != nil {
 		return nil, err
 	}
 
-	updatedMetaDescription.Fields = make([]*meta.Field, 0)
+	updatedMetaDescription.Fields = make(map[string]*meta.Field, 0)
 
 	//remove field from meta description
-	for i, currentField := range metaDescription.Fields {
+	for _, currentField := range metaDescription.Fields {
 		if currentField.Name != o.Field.Name {
-			updatedMetaDescription.Fields = append(updatedMetaDescription.Fields, metaDescription.Fields[i])
+			updatedMetaDescription.AddField(currentField)
 		}
 	}
 	//sync its MetaDescription
-	if _, err := metaDescriptionSyncer.Update(updatedMetaDescription.Name, updatedMetaDescription.ForExport()); err != nil {
-		return nil, err
+	if meta := metaDescriptionSyncer.Update(updatedMetaDescription); meta == nil {
+		return nil, errors.NewValidationError("", "Cant remove field from migration", o.Field)
 	} else {
 		return updatedMetaDescription, nil
 	}

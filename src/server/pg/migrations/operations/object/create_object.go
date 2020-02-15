@@ -16,10 +16,10 @@ type CreateObjectOperation struct {
 	object.CreateObjectOperation
 }
 
-func (o *CreateObjectOperation) SyncDbDescription(_ *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *CreateObjectOperation) SyncDbDescription(_ *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
-	if metaDdl, err = pg.NewMetaDdlFactory(syncer).Factory(o.MetaDescription); err != nil {
+	if metaDdl, err = pg.NewMetaDdlFactory().Factory(o.MetaDescription); err != nil {
 		return err
 	}
 

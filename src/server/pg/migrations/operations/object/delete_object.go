@@ -15,10 +15,10 @@ type DeleteObjectOperation struct {
 	object.DeleteObjectOperation
 }
 
-func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *meta.Meta, transaction transactions.DbTransaction) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
-	if metaDdl, err = pg.NewMetaDdlFactory(syncer).Factory(metaDescription); err != nil {
+	if metaDdl, err = pg.NewMetaDdlFactory().Factory(metaDescription); err != nil {
 		return err
 	}
 

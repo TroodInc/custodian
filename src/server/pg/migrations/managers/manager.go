@@ -12,6 +12,7 @@ import (
 	_migrations "server/migrations"
 	migrations_description "server/migrations/description"
 	"server/migrations/migrations"
+	object2 "server/object"
 	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/operations/object"
@@ -23,8 +24,8 @@ import (
 const historyMetaName = "__custodian_objects_migration_history__"
 
 type MigrationManager struct {
-	metaStore             *meta.MetaStore
-	migrationStore        *meta.MetaStore
+	metaStore             *object2.Store
+	migrationStore        *object2.Store
 	dataManager           *pg.DataManager
 	processor			  *data.Processor
 	globalTransactionManager *transactions.GlobalTransactionManager
@@ -43,7 +44,8 @@ func (mm *MigrationManager) List(filter string) ([]*record.Record, error) {
 }
 
 func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool, fake bool) (updatedMetaDescription *meta.Meta, err error) {
-	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryForward(migrationDescription)
+	metaObj := mm.metaStore.Get(migrationDescription.ApplyTo)
+	migration, err := migrations.NewMigrationFactory().FactoryForward(migrationDescription, metaObj)
 
 	if err := mm.canApplyMigration(migration); err != nil {
 		return nil, err
@@ -76,7 +78,8 @@ func (mm *MigrationManager) RollBackTo(migrationId string, shouldRecord bool, fa
 				return nil, err
 			}
 		} else {
-			migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryBackward(subsequentMigration)
+			metaObj := mm.metaStore.Get(subsequentMigration.ApplyTo)
+			migration, err := migrations.NewMigrationFactory().FactoryBackward(subsequentMigration, metaObj)
 			if err != nil {
 				return nil, err
 			}
@@ -109,7 +112,8 @@ func (mm *MigrationManager) rollback(migrationDescription *migrations_descriptio
 	}
 
 	//and run it
-	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryBackward(migrationDescription)
+	metaObj := mm.metaStore.Get(migrationDescription.ApplyTo)
+	migration, err := migrations.NewMigrationFactory().FactoryBackward(migrationDescription, metaObj)
 	if err != nil {
 		return nil, err
 	}
@@ -123,33 +127,38 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 		}
 	}
 
+	//TODO: fix
 	var metaDescriptionToApply *meta.Meta
 
 	//metaDescription should be retrieved again because it may mutate during runBefore migrations(eg automatically added outer link was removed)
 	if migration.ApplyTo != nil {
-		metaMap, _, err := mm.metaStore.MetaDescriptionSyncer.Get(migration.ApplyTo.Name)
+		metaDescriptionToApply = mm.metaStore.Get(migration.ApplyTo.Name)
 		if err != nil {
 			return nil, err
 		}
-		metaDescriptionToApply = meta.NewMetaFromMap(metaMap)
 	}
 
 	globalTransaction, _ := mm.globalTransactionManager.BeginTransaction()
 	for _, operation := range migration.Operations {
 		//metaToApply should mutate only within iterations, not inside iteration
 		if !fake {
-			updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, globalTransaction.MetaDescriptionTransaction, mm.metaStore.MetaDescriptionSyncer)
+			//_ := operation
+			//TODO: Migrations must be applied by calling appropriate methods on Meta object or MetaStore.
+			//	operation.Apply(metaDescriptionToApply, mm.meataStore)
+			//  operation inside its code must not change any DB/File state, only Meta object itself
+			updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, globalTransaction.MetaDescriptionTransaction, mm.metaStore)
 			if err != nil {
 				mm.globalTransactionManager.RollbackTransaction(globalTransaction)
 				return nil, err
 			} else {
-				err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction.DbTransaction, mm.metaStore.MetaDescriptionSyncer)
+				//TODO: Migrations must be applied by calling appropriate methods on Meta object or MetaStore.
+				//err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction.DbTransaction, mm.metaStore)
 				if err != nil {
 					mm.globalTransactionManager.RollbackTransaction(globalTransaction)
 					return nil, err
 				}
 			}
-			metaDescriptionToApply = updatedMetaDescription
+			//metaDescriptionToApply = updatedMetaDescription
 		}
 		//mutate metaToApply
 	}
@@ -181,7 +190,7 @@ func (mm *MigrationManager) DropHistory() error {
 	}
 
 	transaction, err := mm.globalTransactionManager.DbTransactionManager.BeginTransaction()
-	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta, transaction, mm.migrationStore.MetaDescriptionSyncer)
+	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta, transaction)
 	if err != nil {
 		mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 		return err
@@ -341,7 +350,7 @@ func (mm *MigrationManager) ensureHistoryTableExists() (*meta.Meta, error) {
 	}
 
 	if doesNotExist {
-		if err = object.NewCreateObjectOperation(historyMeta).SyncDbDescription(nil, transaction, mm.migrationStore.MetaDescriptionSyncer); err != nil {
+		if err = object.NewCreateObjectOperation(historyMeta).SyncDbDescription(nil, transaction); err != nil {
 			mm.globalTransactionManager.DbTransactionManager.RollbackTransaction(transaction)
 			return nil, err
 		}
@@ -404,50 +413,46 @@ func (mm *MigrationManager) migrationParentIsValid(migration *migrations.Migrati
 }
 
 func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
-	historyMetaDescription := &meta.Meta{
-		Name: historyMetaName,
-		Key:  "migration_id",
-		Fields: []*meta.Field{
-			{
-				Name:     "object",
-				Type:     meta.FieldTypeString,
-				Optional: false,
-			}, {
-				Name:     "migration_id",
-				Type:     meta.FieldTypeString,
-				Optional: false,
-			}, {
-				Name:     "predecessor_id",
-				Type:     meta.FieldTypeString,
-				Optional: false,
-			}, {
-				Name:        "created",
-				Type:        meta.FieldTypeDateTime,
-				NowOnCreate: true,
-			}, {
-				Name: "order",
-				Type: meta.FieldTypeNumber,
-				Def: map[string]interface{}{
-					"func": "nextval",
-				},
-			}, {
-				Name:     "operations",
-				Type:     meta.FieldTypeString,
-				Optional: false,
-			}, {
-				Name:     "meta_state",
-				Type:     meta.FieldTypeString,
-				Optional: false,
+	historyMetaDescription := &meta.Meta{Name: historyMetaName, Key:  "migration_id"}
+	historyMetaDescription.AddField([]*meta.Field{
+		{
+			Name:     "object",
+			Type:     meta.FieldTypeString,
+			Optional: false,
+		}, {
+			Name:     "migration_id",
+			Type:     meta.FieldTypeString,
+			Optional: false,
+		}, {
+			Name:     "predecessor_id",
+			Type:     meta.FieldTypeString,
+			Optional: false,
+		}, {
+			Name:        "created",
+			Type:        meta.FieldTypeDateTime,
+			NowOnCreate: true,
+		}, {
+			Name: "order",
+			Type: meta.FieldTypeNumber,
+			Def: map[string]interface{}{
+				"func": "nextval",
 			},
+		}, {
+			Name:     "operations",
+			Type:     meta.FieldTypeString,
+			Optional: false,
+		}, {
+			Name:     "meta_state",
+			Type:     meta.FieldTypeString,
+			Optional: false,
 		},
-	}
+	}...)
 	return meta.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func NewMigrationManager(metaStore *meta.MetaStore, manager *pg.DataManager,syncer meta.MetaDescriptionSyncer, migrationStoragePath string,  gtm *transactions.GlobalTransactionManager) *MigrationManager {
-	migrationDBDescriptionSyncer := pg.NewDbMetaDescriptionSyncer(gtm.DbTransactionManager)
-	migrationStore := meta.NewMetaStore(migrationDBDescriptionSyncer, metaStore.Syncer, gtm)
-	processor, _ := data.NewProcessor(migrationStore, manager, gtm.DbTransactionManager)
+func NewMigrationManager(metaStore *object2.Store, migrationStore *object2.Store, manager *pg.DataManager, gtm *transactions.GlobalTransactionManager) *MigrationManager {
+
+	processor, _ := data.NewProcessor(metaStore, manager, gtm.DbTransactionManager)
 
 	return &MigrationManager{metaStore, migrationStore, manager, processor, gtm}
 }
