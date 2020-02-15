@@ -1,5 +1,6 @@
 package meta
 
+//Deprecated:
 type MetaDescriptionManager struct {
 }
 

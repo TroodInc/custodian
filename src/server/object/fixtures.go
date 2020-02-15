@@ -17,6 +17,7 @@ func GetBaseMetaData(name string) *meta.Meta {
 				Def: map[string]interface{}{
 					"func": "nextval",
 				},
+				Optional: true,
 			},
 		},
 	}

@@ -1,31 +1,21 @@
 package object
 
 import (
-	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/object/driver"
 	"server/object/meta"
-	"server/pg"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
 	"utils"
 )
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	//transaction managers
-	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
-	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	driver := driver.NewJsonDriver(appConfig.DbConnectionUrl, "./")
+	metaStore  := NewStore(driver)
 
 	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
+		metaStore.Flush()
 	})
 
 
@@ -33,13 +23,11 @@ var _ = Describe("Inner generic field", func() {
 		By("having two objects: A and B")
 		aMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(aMetaObj)
 
 		bMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 		Expect(err).To(BeNil())
-		err = metaStore.Create(bMetaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(bMetaObj)
 
 		By("and object C, containing generic inner field")
 
@@ -54,24 +42,10 @@ var _ = Describe("Inner generic field", func() {
 
 		metaObj, err := metaStore.NewMeta(cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(metaObj)
 
-		//check database columns
-		globalTransaction, err := globalTransactionManager.BeginTransaction()
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-		Expect(err).To(BeNil())
-
-		tableName := pg.GetTableName(metaObj.Name)
-
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
-		pk := ""
-		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-		Expect(columns).To(HaveLen(3))
 		// check meta fields
-		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
+		cMeta := metaStore.Get(cMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(cMeta.Fields).To(HaveLen(2))
 		Expect(cMeta.Fields["target"].LinkMetaList).To(HaveLen(2))
@@ -107,33 +81,16 @@ var _ = Describe("Inner generic field", func() {
 		})
 		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(metaObj)
 		By("when generic field is removed from object and object has been updated")
 
 		metaDescription = GetBaseMetaData(utils.RandomString(8))
 		metaObj, err = metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true)
-		Expect(err).To(BeNil())
+		metaStore.Update(metaObj)
 
-		//check database columns
-		globalTransaction, err := globalTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-
-		tableName := pg.GetTableName(metaObj.Name)
-
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
-		pk := ""
-		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
-		Expect(columns).To(HaveLen(1))
-		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
-		cMeta, _, err := metaStore.Get(metaDescription.Name, true)
-		Expect(err).To(BeNil())
+		cMeta := metaStore.Get(metaDescription.Name)
 		Expect(cMeta.Fields).To(HaveKey("id"))
 	})
 
@@ -142,14 +99,12 @@ var _ = Describe("Inner generic field", func() {
 		aMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(aMetaObj)
 
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(bMetaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(bMetaObj)
 
 		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		cMetaDescription.AddField(&meta.Field{
@@ -161,15 +116,13 @@ var _ = Describe("Inner generic field", func() {
 		})
 		metaObj, err := metaStore.NewMeta(cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(metaObj)
 
 		By("since object A is deleted, it should be removed from LinkMetaList")
 
-		_, err = metaStore.Remove(aMetaObj.Name, false)
-		Expect(err).To(BeNil())
+		metaStore.Remove(aMetaObj.Name)
 
-		cMetaObj, _, err := metaStore.Get(cMetaDescription.Name, true)
+		cMetaObj := metaStore.Get(cMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(cMetaObj.Fields["target"].LinkMetaList).To(HaveLen(1))
 	})
@@ -179,8 +132,7 @@ var _ = Describe("Inner generic field", func() {
 		aMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(aMetaObj)
 
 		By("and object C, containing generic inner field")
 
@@ -194,11 +146,10 @@ var _ = Describe("Inner generic field", func() {
 		})
 		metaObj, err := metaStore.NewMeta(cMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(metaObj)
 
 		// check meta fields
-		aMeta, _, err := metaStore.Get(aMetaDescription.Name, true)
+		aMeta := metaStore.Get(aMetaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
 		Expect(aMeta.Fields).To(HaveKey(cMetaDescription.Name + "_set"))

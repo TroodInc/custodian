@@ -12,7 +12,7 @@ import (
 type Meta struct {
 	Name    string                  `json:"name"`
 	Key     string                  `json:"key"`
-	Fields  map[string]*Field                `json:"fields"`
+	Fields  map[string]*Field       `json:"fields"`
 	Actions []*notifications.Action `json:"actions,omitempty"`
 	Cas     bool                    `json:"cas"`
 }

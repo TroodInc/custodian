@@ -1,44 +1,32 @@
 package object
 
 import (
-	"database/sql"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/errors"
+	"server/object/driver"
 	"server/object/meta"
-	"server/pg"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
 	"utils"
 )
 
 var _ = Describe("The PG MetaStore", func() {
-	fileMetaDriver := transactions.NewFileMetaDescriptionSyncer("./")
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	//transaction managers
-	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(fileMetaDriver)
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewMetaStore(fileMetaDriver, syncer, globalTransactionManager)
+	driver := driver.NewJsonDriver(appConfig.DbConnectionUrl, "./")
+	metaStore  := NewStore(driver)
 
 	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
+		metaStore.Flush()
 	})
 
 	It("can flush all objects", func() {
 		Context("once object is created", func() {
 			meta, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 			Expect(err).To(BeNil())
-			err = metaStore.Create(meta)
-			Expect(err).To(BeNil())
+			metaStore.Create(meta)
 
 			Context("and 'flush' method is called", func() {
-				err := metaStore.Flush()
-				Expect(err).To(BeNil())
+				metaStore.Flush()
 
 				metaList := metaStore.List()
 				Expect(metaList).To(HaveLen(0))
@@ -51,8 +39,7 @@ var _ = Describe("The PG MetaStore", func() {
 			aMetaDescription := GetBaseMetaData(utils.RandomString(8))
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(aMeta)
 
 			bMetaDescription := GetBaseMetaData(utils.RandomString(8))
 			bMetaDescription.AddField(&meta.Field{
@@ -64,8 +51,7 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(bMeta)
 
 			aMetaDescription.AddField(&meta.Field{
 				Name:           "b_set",
@@ -77,12 +63,12 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err = metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(aMeta.Name, aMeta, true)
+			metaStore.Update(aMeta)
 
 			Context("and 'remove' method is called for B meta", func() {
-				metaStore.Remove(bMeta.Name, true)
+				metaStore.Remove(bMeta.Name)
 				Context("meta A should not contain outer link field which references B meta", func() {
-					aMeta, _, _ = metaStore.Get(aMeta.Name, true)
+					aMeta = metaStore.Get(aMeta.Name)
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields).To(HaveKey("id"))
 				})
@@ -112,10 +98,10 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			Context("and 'remove' method is called for meta A", func() {
-				metaStore.Remove(aMeta.Name, true)
+				metaStore.Remove(aMeta.Name)
 
 				Context("meta B should not contain inner link field which references A meta", func() {
-					bMeta, _, _ = metaStore.Get(bMeta.Name, true)
+					bMeta = metaStore.Get(bMeta.Name)
 					Expect(bMeta.Fields).To(HaveLen(1))
 					Expect(bMeta.Fields).To(HaveKey("id"))
 				})
@@ -152,17 +138,17 @@ var _ = Describe("The PG MetaStore", func() {
 				OuterLinkField: bMeta.FindField("a_fk"),
 			})
 			aMeta, err = metaStore.NewMeta(aMetaDescription)
-			metaStore.Update(aMeta.Name, aMeta, true)
+			metaStore.Update(aMeta)
 			Expect(err).To(BeNil())
 
 			Context("and inner link field was removed from object B", func() {
 				bMetaDescription := GetBaseMetaData(bMetaDescription.Name)
 				bMeta, err := metaStore.NewMeta(bMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(bMeta.Name, bMeta, true)
+				metaStore.Update(bMeta)
 
 				Context("outer link field should be removed from object A", func() {
-					aMeta, _, err = metaStore.Get(aMeta.Name, true)
+					aMeta = metaStore.Get(aMeta.Name)
 					Expect(err).To(BeNil())
 					Expect(aMeta.Fields).To(HaveLen(1))
 					Expect(aMeta.Fields).To(HaveKey("id"))
@@ -205,33 +191,7 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
-
-		Context("when object is updated with modified field`s type", func() {
-			metaDescription = GetBaseMetaData(metaDescription.Name)
-			metaDescription.AddField(&meta.Field{
-				Name:     "name",
-				Type:     meta.FieldTypeString,
-				Optional: false,
-			})
-			metaObj, err := metaStore.NewMeta(metaDescription)
-			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
-			Expect(err).To(BeNil())
-
-			globalTransaction, err := globalTransactionManager.BeginTransaction()
-			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
-
-			actualMeta, err := pg.MetaDDLFromDB(tx, metaObj.Name)
-			Expect(err).To(BeNil())
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
-
-			Expect(err).To(BeNil())
-			Expect(actualMeta.Columns[1].Typ).To(Equal(meta.FieldTypeString))
-		})
+		metaStore.Create(metaObj)
 	})
 
 	It("creates inner link with 'on_delete' behavior defined as 'CASCADE' by default", func() {
@@ -249,29 +209,14 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(aMeta)
 
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMeta)
-			Expect(err).To(BeNil())
-
-			globalTransaction, err := globalTransactionManager.BeginTransaction()
-			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
-
-			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
-
-			Expect(actualMeta.IFKs).To(HaveLen(1))
-			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("CASCADE"))
+			metaStore.Create(bMeta)
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(bMeta.Name, true)
+			bMeta = metaStore.Get(bMeta.Name)
 			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
@@ -293,30 +238,14 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(aMeta)
 
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMeta)
-			Expect(err).To(BeNil())
-
-			globalTransaction, err := globalTransactionManager.BeginTransaction()
-			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-
-			Expect(err).To(BeNil())
-
-			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
-
-			Expect(actualMeta.IFKs).To(HaveLen(1))
-			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("CASCADE"))
+			metaStore.Create(bMeta)
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(bMeta.Name, true)
+			bMeta = metaStore.Get(bMeta.Name)
 			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteCascade))
 			Expect(err).To(BeNil())
 		})
@@ -338,29 +267,13 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(aMeta)
 
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMeta)
-			Expect(err).To(BeNil())
-
-			globalTransaction, err := globalTransactionManager.BeginTransaction()
-			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
-
-			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
-
-			Expect(actualMeta.IFKs).To(HaveLen(1))
-			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("SET NULL"))
-
+			metaStore.Create(bMeta)
 			//assert meta
-			bMeta, _, err = metaStore.Get(bMeta.Name, true)
+			bMeta = metaStore.Get(bMeta.Name)
 			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteSetNull))
 			Expect(err).To(BeNil())
 		})
@@ -382,29 +295,14 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(aMeta)
 
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMeta)
-			Expect(err).To(BeNil())
-
-			globalTransaction, err := globalTransactionManager.BeginTransaction()
-			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
-
-			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
-
-			Expect(actualMeta.IFKs).To(HaveLen(1))
-			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("RESTRICT"))
+			metaStore.Create(bMeta)
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(bMeta.Name, true)
+			bMeta = metaStore.Get(bMeta.Name)
 			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteRestrict))
 			Expect(err).To(BeNil())
 		})
@@ -426,29 +324,14 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(aMeta)
 
 			bMeta, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMeta)
-			Expect(err).To(BeNil())
-
-			globalTransaction, err := globalTransactionManager.BeginTransaction()
-			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
-
-			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
-			err = globalTransactionManager.CommitTransaction(globalTransaction)
-			Expect(err).To(BeNil())
-
-			Expect(actualMeta.IFKs).To(HaveLen(1))
-			Expect(actualMeta.IFKs[0].OnDelete).To(Equal("SET DEFAULT"))
+			metaStore.Create(bMeta)
 
 			//assert meta
-			bMeta, _, err = metaStore.Get(bMeta.Name, true)
+			bMeta = metaStore.Get(bMeta.Name)
 			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(meta.OnDeleteSetDefault))
 			Expect(err).To(BeNil())
 		})

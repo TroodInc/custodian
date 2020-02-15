@@ -1,11 +1,13 @@
 package meta
 
 
-//TODO: Looks redudand, may be moved to Meta.AddField method
+//TODO: Looks redundant, may be moved to Meta.AddField method
+//Deprecated:
 type NormalizationService struct {
 }
 
 //Set not specified default values
+//Deprecated:
 func (normalizationService *NormalizationService) Normalize(metaDescription *Meta) *Meta {
 	normalizationService.NormalizeInnerFields(metaDescription.Fields)
 	normalizationService.NormalizeOuterFields(metaDescription.Fields)

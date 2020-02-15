@@ -1,7 +1,10 @@
 package object
 
 import (
+	"encoding/json"
+	"io"
 	"server/data/notifications"
+	"server/errors"
 	"server/object/meta"
 )
 
@@ -19,6 +22,19 @@ func NewStore(driver MetaDriver) *Store {
 //TODO: implement
 func (s *Store) NewMeta(metaObj *meta.Meta) (*meta.Meta, error) {
 	return metaObj, nil
+}
+
+func (s *Store) UnmarshalIncomingJSON(r io.Reader) (*meta.Meta, error) {
+	var metaMap map[string]interface{}
+	if e := json.NewDecoder(r).Decode(&metaMap); e != nil {
+		//TODO: Add code
+		return nil, errors.NewValidationError("", e.Error(), nil)
+	}
+	// normalize description
+
+	return meta.NewMetaFromMap(metaMap), nil
+
+	//return s.NewMeta((&meta.NormalizationService{}).Normalize(metaObj))
 }
 
 
@@ -100,7 +116,7 @@ func (s *Store) Update(m *meta.Meta) *meta.Meta {
 }
 
 //Remove Meta object from underlying storage resolving all related updates
-func (s *Store) Remove(name string) {
+func (s *Store) Remove(name string) error {
 	metaToRemove := s.Get(name)
 
 	s.removeRelatedOuterLinks(metaToRemove)
@@ -113,7 +129,11 @@ func (s *Store) Remove(name string) {
 				s.driver.Update(object)
 			}
 		}
+	} else {
+		return err
 	}
+
+	return nil
 }
 
 //Flush removes all Meta objects fromunderlying storage

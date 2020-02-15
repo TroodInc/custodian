@@ -5,29 +5,19 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"server/object/driver"
 	"server/object/meta"
-	"server/pg"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
 	"utils"
 )
 
 var _ = Describe("Objects field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
 
-	dataManager, _ := syncer.NewDataManager()
-	//transaction managers
-
-	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	driver := driver.NewJsonDriver(appConfig.DbConnectionUrl, "./")
+	metaStore  := NewStore(driver)
 
 	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
+		metaStore.Flush()
 	})
 
 	It("can unmarshal meta with 'objects' field", func() {
@@ -63,13 +53,11 @@ var _ = Describe("Objects field", func() {
 
 		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(aMetaObj)
 
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(bMetaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(bMetaObj)
 
 		aMetaDescription.AddField(&meta.Field{
 			Name:     "b",
@@ -87,20 +75,19 @@ var _ = Describe("Objects field", func() {
 		Expect(updatedAMetaObj.Fields["b"].LinkType).To(Equal(meta.LinkTypeInner))
 
 		//create meta and check through meta was created
-		_, err = metaStore.Update(updatedAMetaObj.Name, updatedAMetaObj, true)
-		Expect(err).To(BeNil())
+		metaStore.Update(updatedAMetaObj)
 
-		throughMeta, _, err := metaStore.Get(updatedAMetaObj.Fields["b"].LinkThrough.Name, false)
+		throughMeta := metaStore.Get(updatedAMetaObj.Fields["b"].LinkThrough.Name)
 		Expect(err).To(BeNil())
 
 		Expect(throughMeta.Name).To(Equal(fmt.Sprintf("%s__%s", aMetaDescription.Name, bMetaDescription.Name)))
 		Expect(throughMeta.Fields).To(HaveLen(3))
 
 		// TODO: Figure out to fix after Meta.Fields became Map
-		//Expect(throughMeta.Fields[1].Name).To(Equal(aMetaDescription.Name))
-		//Expect(throughMeta.Fields[1].Type).To(Equal(meta.FieldTypeObject))
-		//
-		//Expect(throughMeta.Fields[2].Name).To(Equal(bMetaDescription.Name))
-		//Expect(throughMeta.Fields[2].Type).To(Equal(meta.FieldTypeObject))
+		Expect(throughMeta.Fields["b"].Name).To(Equal(aMetaDescription.Name))
+		Expect(throughMeta.Fields["b"].Type).To(Equal(meta.FieldTypeObject))
+
+		Expect(throughMeta.Fields["?"].Name).To(Equal(bMetaDescription.Name))
+		Expect(throughMeta.Fields["?"].Type).To(Equal(meta.FieldTypeObject))
 	})
 })

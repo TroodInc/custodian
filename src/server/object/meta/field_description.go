@@ -35,12 +35,16 @@ func NewFieldFromMap(object map[string]interface{}) *Field {
 		Type:        AsFieldType(object["type"].(string)),
 		Optional:    object["optional"].(bool),
 		Unique:      object["unique"].(bool),
-		OnDelete:    object["onDelete"].(string),
 		Def:         object["def"],
 		NowOnUpdate: false,
 		NowOnCreate: false,
 		LinkMeta:    nil,
 	}
+
+	if object["onDelete"] != nil {
+		result.OnDelete = object["onDelete"].(string)
+	}
+
 
 	if object["linkType"] != nil {
 		result.LinkType = AsLinkType(object["linkType"].(string))
