@@ -6,6 +6,8 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/record"
+	"server/object"
+	"server/object/driver"
 	"server/object/meta"
 
 	"server/pg"
@@ -26,40 +28,25 @@ var _ = Describe("Data", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	driver := driver.NewJsonDriver(appConfig.DbConnectionUrl, "./")
+	metaStore  := object.NewStore(driver)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
+		metaStore.Flush()
 	})
 
 	It("Can update records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
 
-			metaDescription := meta.Meta{
-				Name: "order",
-				Key:  "order",
-				Cas:  false,
-				Fields: []*meta.Field{
-					{
-						Name:     "order",
-						Type:     meta.FieldTypeNumber,
-						Optional: true,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-					{
-						Name: "select",
-						Type: meta.FieldTypeString,
-					},
-				},
-			}
-			metaObj, err := metaStore.NewMeta(&metaDescription)
+			metaDescription := object.GetBaseMetaData(utils.RandomString(8))
+			metaDescription.AddField(&meta.Field{
+				Name: "select",
+				Type: meta.FieldTypeString,
+			})
+			metaObj, err := metaStore.NewMeta(metaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(metaObj)
-			Expect(err).To(BeNil())
+			metaStore.Create(metaObj)
 
 			Context("and record of this object", func() {
 				record, err := dataProcessor.CreateRecord(metaObj.Name, map[string]interface{}{"select": "some value"}, auth.User{})
@@ -79,61 +66,25 @@ var _ = Describe("Data", func() {
 	It("Can perform bulk update", func() {
 		By("Having Position object")
 
-		positionMetaDescription := meta.Meta{
-			Name: "position",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name:     "id",
-					Type:     meta.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name: "name",
-					Type: meta.FieldTypeString,
-				},
-			},
-		}
-		metaObj, err := metaStore.NewMeta(&positionMetaDescription)
+		positionMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		positionMetaDescription.AddField(&meta.Field{
+			Name: "name",
+			Type: meta.FieldTypeString,
+		})
+		metaObj, err := metaStore.NewMeta(positionMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(metaObj)
 
 		By("and Person object")
 
-		metaDescription := meta.Meta{
-			Name: "person",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name:     "id",
-					Type:     meta.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "position",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
-					LinkMeta: metaObj,
-				},
-				{
-					Name: "name",
-					Type: meta.FieldTypeString,
-				},
-			},
-		}
-		metaObj, err = metaStore.NewMeta(&metaDescription)
+		metaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		metaDescription.AddField(
+			&meta.Field{Name: "position", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner, LinkMeta: metaObj},
+			&meta.Field{Name: "name", Type: meta.FieldTypeString},
+		)
+		metaObj, err = metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(metaObj)
 
 		By("and having one record of Position object")
 		positionRecord, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": "manager"}, auth.User{})
@@ -184,29 +135,14 @@ var _ = Describe("Data", func() {
 	It("Can perform update", func() {
 		By("Having Position object")
 
-		positionMetaDescription := meta.Meta{
-			Name: "position",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name:     "id",
-					Type:     meta.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name: "name",
-					Type: meta.FieldTypeString,
-				},
-			},
-		}
-		metaObj, err := metaStore.NewMeta(&positionMetaDescription)
+		positionMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		positionMetaDescription.AddField(&meta.Field{
+			Name: "name",
+			Type: meta.FieldTypeString,
+		})
+		metaObj, err := metaStore.NewMeta(positionMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(metaObj)
 
 		By("and having one record of Position object")
 		record, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": "manager"}, auth.User{})
@@ -227,30 +163,14 @@ var _ = Describe("Data", func() {
 	It("Can update record with null value", func() {
 		By("Having A object")
 
-		positionMetaDescription := meta.Meta{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name:     "id",
-					Type:     meta.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: true,
-				},
-			},
-		}
-		metaObj, err := metaStore.NewMeta(&positionMetaDescription)
+		positionMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		positionMetaDescription.AddField(&meta.Field{
+			Name: "name",
+			Type: meta.FieldTypeString,
+		})
+		metaObj, err := metaStore.NewMeta(positionMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(metaObj)
 
 		By("and having one record of A object")
 		record, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": ""}, auth.User{}, )
@@ -268,254 +188,112 @@ var _ = Describe("Data", func() {
 	})
 
 	havingObjectA := func() *meta.Meta {
-		aMetaDescription := meta.Meta{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name: "id",
-					Type: meta.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: true,
-				},
-			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
+		aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		aMetaDescription.AddField(&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: true})
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
-		Expect(err).To(BeNil())
+		metaStore.Create(aMetaObj)
 		return aMetaObj
 	}
 
 	havingObjectAWithObjectsLinkToD := func(D *meta.Meta) *meta.Meta {
-		aMetaDescription := meta.Meta{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name: "id",
-					Type: meta.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: true,
-				},
-				{
-					Name:     "ds",
-					Type:     meta.FieldTypeObjects,
-					LinkType: meta.LinkTypeInner,
-					LinkMeta: D,
-				},
-			},
-		}
-		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		aMetaDescription.AddField(
+			&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: true},
+			&meta.Field{Name: "ds", Type: meta.FieldTypeObjects, LinkType: meta.LinkTypeInner, LinkMeta: D},
+		)
+		(&meta.NormalizationService{}).Normalize(aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
-		Expect(err).To(BeNil())
-		return aMetaObj
+		return metaStore.Update(aMetaObj)
 	}
 
 	havingObjectB := func(A *meta.Meta, onDelete string) *meta.Meta {
-		bMetaDescription := meta.Meta{
-			Name: "b",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name: "id",
-					Type: meta.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					Optional: true,
-					LinkType: meta.LinkTypeInner,
-					LinkMeta: A,
-					OnDelete: onDelete,
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: true,
-				},
+		bMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		bMetaDescription.AddField(
+			&meta.Field{
+				Name: "a",
+				Type: meta.FieldTypeObject,
+				Optional: true,
+				LinkType: meta.LinkTypeInner,
+				LinkMeta: A,
+				OnDelete: onDelete,
 			},
-		}
-		metaObj, err := metaStore.NewMeta(&bMetaDescription)
-		(&meta.NormalizationService{}).Normalize(&bMetaDescription)
+			&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: true},
+		)
+		metaObj, err := metaStore.NewMeta(bMetaDescription)
+		(&meta.NormalizationService{}).Normalize(bMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
-		return metaObj
+		return metaStore.Create(metaObj)
 	}
 
 	havingObjectC := func(B, D *meta.Meta) *meta.Meta {
-		metaDescription := meta.Meta{
-			Name: "c",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name:     "id",
-					Type:     meta.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: true,
-				},
-				{
-					Name:     "b",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
-					LinkMeta: B,
-					Optional: true,
-				},
-				{
-					Name:     "d",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
-					LinkMeta: D,
-					Optional: true,
-				},
-			},
-		}
-		metaObj, err := metaStore.NewMeta(&metaDescription)
+		metaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		metaDescription.AddField(
+			&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: true},
+			&meta.Field{Name: "b", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner, LinkMeta: B, Optional: true},
+			&meta.Field{Name: "d", Type: meta.FieldTypeObject, LinkType: meta.LinkTypeInner, LinkMeta: D, Optional: true},
+		)
+		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
-		return metaObj
+		return metaStore.Create(metaObj)
 	}
 
 	havingObjectD := func() *meta.Meta {
-		metaDescription := meta.Meta{
-			Name: "d",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name:     "id",
-					Type:     meta.FieldTypeString,
-					Optional: false,
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: true,
-				},
-			},
-		}
-		metaObj, err := metaStore.NewMeta(&metaDescription)
+		metaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		metaDescription.AddField(&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: true})
+		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
-		return metaObj
+		return metaStore.Create(metaObj)
 	}
 
 	factoryObjectBWithManuallySetOuterLinkToC := func(A, C *meta.Meta) *meta.Meta {
-		metaDescription := meta.Meta{
-			Name: "b",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name:     "id",
-					Type:     meta.FieldTypeNumber,
-					Optional: true,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: true,
-				},
-				{
-					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					Optional: true,
-					LinkType: meta.LinkTypeInner,
-					LinkMeta: A,
-					OnDelete: meta.OnDeleteCascade.ToVerbose(),
-				},
-				{
-					Name:           "c_set",
-					Type:           meta.FieldTypeArray,
-					LinkType:       meta.LinkTypeOuter,
-					LinkMeta:       C,
-					OuterLinkField: C.FindField("b"),
-					Optional:       true,
-				},
+		metaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		metaDescription.AddField(
+			&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: true},
+			&meta.Field{
+				Name:     "a",
+				Type:     meta.FieldTypeObject,
+				Optional: true,
+				LinkType: meta.LinkTypeInner,
+				LinkMeta: A,
+				OnDelete: meta.OnDeleteCascade.ToVerbose(),
 			},
-		}
-		(&meta.NormalizationService{}).Normalize(&metaDescription)
-		metaObj, err := metaStore.NewMeta(&metaDescription)
+			&meta.Field{
+				Name:           "c_set",
+				Type:           meta.FieldTypeArray,
+				LinkType:       meta.LinkTypeOuter,
+				LinkMeta:       C,
+				OuterLinkField: C.FindField("b"),
+				Optional:       true,
+			},
+		)
+		(&meta.NormalizationService{}).Normalize(metaDescription)
+		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true)
-		Expect(err).To(BeNil())
-		return metaObj
+
+		return metaStore.Update(metaObj)
 	}
 
 	havingObjectAWithManuallySetOuterLink := func(B *meta.Meta) *meta.Meta {
 
-		aMetaDescription := meta.Meta{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name: "id",
-					Type: meta.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: true,
-				},
-				{
-					Name:           "b_set",
-					Type:           meta.FieldTypeArray,
-					LinkType:       meta.LinkTypeOuter,
-					LinkMeta:       B,
-					OuterLinkField: B.FindField("a"),
-					Optional:       true,
-				},
+		aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		aMetaDescription.AddField(
+			&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: true},
+			&meta.Field{
+				Name:           "b_set",
+				Type:           meta.FieldTypeArray,
+				LinkType:       meta.LinkTypeOuter,
+				LinkMeta:       B,
+				OuterLinkField: B.FindField("a"),
+				Optional:       true,
 			},
-		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		(&meta.NormalizationService{}).Normalize(&aMetaDescription)
+		)
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
+		(&meta.NormalizationService{}).Normalize(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
-		Expect(err).To(BeNil())
-		return aMetaObj
+		return metaStore.Update(aMetaObj)
 	}
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()

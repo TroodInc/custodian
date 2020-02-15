@@ -4,122 +4,69 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/data"
+	"server/object"
+	"server/object/driver"
 	"server/object/meta"
 
-	"server/pg"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
 	"utils"
 )
 
 var _ = Describe("Node", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	//transaction managers
-	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
-	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
-	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	driver := driver.NewJsonDriver(appConfig.DbConnectionUrl, "./")
+	metaStore  := object.NewStore(driver)
 
 	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
+		metaStore.Flush()
 	})
 
 	It("can fill child nodes with circular dependency", func() {
 
 		Describe("Having three objects with mediated circular dependency", func() {
-			objectA := meta.Meta{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []*meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeString,
-					},
-				},
-			}
-			objectAMeta, err := metaStore.NewMeta(&objectA)
+			objectA := object.GetBaseMetaData(utils.RandomString(8))
+			objectAMeta, err := metaStore.NewMeta(objectA)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(objectAMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(objectAMeta)
 
-			objectB := meta.Meta{
-				Name: "b",
-				Key:  "id",
-				Cas:  false,
-				Fields: []*meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeString,
-					},
-					{
-						Name:     "a",
-						Type:     meta.FieldTypeObject,
-						Optional: true,
-						LinkType: meta.LinkTypeInner,
-						LinkMeta: objectAMeta,
-					},
-				},
-			}
-			objectBMeta, err := metaStore.NewMeta(&objectB)
+			objectB := object.GetBaseMetaData(utils.RandomString(8))
+			objectB.AddField(&meta.Field{
+				Name:     "a",
+				Type:     meta.FieldTypeObject,
+				Optional: true,
+				LinkType: meta.LinkTypeInner,
+				LinkMeta: objectAMeta,
+			})
+			objectBMeta, err := metaStore.NewMeta(objectB)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(objectBMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(objectBMeta)
 
-			objectC := meta.Meta{
-				Name: "c",
-				Key:  "id",
-				Cas:  false,
-				Fields: []*meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeString,
-					},
-					{
-						Name:     "b",
-						Type:     meta.FieldTypeObject,
-						Optional: true,
-						LinkType: meta.LinkTypeInner,
-						LinkMeta: objectBMeta,
-					},
-				},
-			}
-			objectCMeta, err := metaStore.NewMeta(&objectC)
+			objectC := object.GetBaseMetaData(utils.RandomString(8))
+			objectC.AddField(&meta.Field{
+				Name:     "b",
+				Type:     meta.FieldTypeObject,
+				Optional: true,
+				LinkType: meta.LinkTypeInner,
+				LinkMeta: objectBMeta,
+			})
+			objectCMeta, err := metaStore.NewMeta(objectC)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(objectCMeta)
-			Expect(err).To(BeNil())
+			metaStore.Create(objectCMeta)
 
-			objectA = meta.Meta{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []*meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeString,
-					},
-					{
-						Name:     "c",
-						Type:     meta.FieldTypeObject,
-						Optional: true,
-						LinkType: meta.LinkTypeInner,
-						LinkMeta: objectCMeta,
-					},
-				},
-			}
-			objectAMeta, err = metaStore.NewMeta(&objectA)
+			objectA = object.GetBaseMetaData(utils.RandomString(8))
+			objectA.AddField(&meta.Field{
+				Name:     "c",
+				Type:     meta.FieldTypeObject,
+				Optional: true,
+				LinkType: meta.LinkTypeInner,
+				LinkMeta: objectCMeta,
+			})
+			objectAMeta, err = metaStore.NewMeta(objectA)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(objectA.Name, objectAMeta, true)
+			metaStore.Update(objectAMeta)
 			Expect(err).To(BeNil())
 
 			Describe("", func() {
-
 				node := &data.Node{
 					KeyField:   objectAMeta.GetKey(),
 					Meta:       objectAMeta,

@@ -8,11 +8,12 @@ import (
 	"server/data"
 	"server/data/record"
 	"server/data/types"
+	"server/object"
+	"server/object/driver"
 	"server/object/meta"
 
 	"server/pg"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
+	"server/pg/transactions"
 	"strconv"
 	"utils"
 )
@@ -22,18 +23,14 @@ var _ = Describe("Data", func() {
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	//transaction managers
-	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
-	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := transactions.NewPgDbTransactionManager(dataManager)
 
-	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	driver := driver.NewJsonDriver(appConfig.DbConnectionUrl, "./")
+	metaStore  := object.NewStore(driver)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
+		metaStore.Flush()
 	})
 
 	Describe("Querying records with generic fields` values", func() {
@@ -43,104 +40,48 @@ var _ = Describe("Data", func() {
 		var err error
 
 		havingObjectA := func() *meta.Meta {
-			aMetaDescription := meta.Meta{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []*meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:     "name",
-						Type:     meta.FieldTypeString,
-						Optional: false,
-					},
-				},
-			}
-			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+			aMetaDescription.AddField(&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: false})
+			aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(aMetaObj)
-			Expect(err).To(BeNil())
-
-			return aMetaObj
+			return metaStore.Create(aMetaObj)
 		}
 
 		havingObjectBWithGenericLinkToA := func(A *meta.Meta) *meta.Meta {
-			bMetaDescription := meta.Meta{
-				Name: "b",
-				Key:  "id",
-				Cas:  false,
-				Fields: []*meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:     "name",
-						Type:     meta.FieldTypeString,
-						Optional: true,
-					},
-					{
-						Name:         "target",
-						Type:         meta.FieldTypeGeneric,
-						LinkType:     meta.LinkTypeInner,
-						LinkMetaList: []*meta.Meta{A},
-						Optional:     true,
-					},
+			bMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+			bMetaDescription.AddField(
+				&meta.Field{Name: "name",Type: meta.FieldTypeString, Optional: true},
+				&meta.Field{
+					Name:         "target",
+					Type:         meta.FieldTypeGeneric,
+					LinkType:     meta.LinkTypeInner,
+					LinkMetaList: []*meta.Meta{A},
+					Optional:     true,
 				},
-			}
-			(&meta.NormalizationService{}).Normalize(&bMetaDescription)
-			bMetaObj, err := metaStore.NewMeta(&bMetaDescription)
+			)
+			(&meta.NormalizationService{}).Normalize(bMetaDescription)
+			bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 			Expect(err).To(BeNil())
-			err = metaStore.Create(bMetaObj)
-			Expect(err).To(BeNil())
-
-			return bMetaObj
+			return metaStore.Create(bMetaObj)
 		}
 
 		havingObjectAWithGenericOuterLinkToB := func(B *meta.Meta) {
-			aMetaDescription := meta.Meta{
-				Name: "a",
-				Key:  "id",
-				Cas:  false,
-				Fields: []*meta.Field{
-					{
-						Name: "id",
-						Type: meta.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:     "name",
-						Type:     meta.FieldTypeString,
-						Optional: false,
-					},
-					{
-						Name:           "b_set",
-						Type:           meta.FieldTypeGeneric,
-						LinkType:       meta.LinkTypeOuter,
-						LinkMeta:       B,
-						OuterLinkField: B.FindField("target"),
-						Optional:       true,
-					},
+			aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+			aMetaDescription.AddField(
+				&meta.Field{Name: "name", Type: meta.FieldTypeString, Optional: false},
+				&meta.Field{
+					Name:           "b_set",
+					Type:           meta.FieldTypeGeneric,
+					LinkType:       meta.LinkTypeOuter,
+					LinkMeta:       B,
+					OuterLinkField: B.FindField("target"),
+					Optional:       true,
 				},
-			}
-			(&meta.NormalizationService{}).Normalize(&aMetaDescription)
-			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			)
+			(&meta.NormalizationService{}).Normalize(aMetaDescription)
+			aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+			metaStore.Update(aMetaObj)
 			Expect(err).To(BeNil())
 		}
 

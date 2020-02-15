@@ -6,6 +6,8 @@ import (
 	"server/auth"
 	"server/data"
 	"server/data/errors"
+	"server/object"
+	"server/object/driver"
 	"server/object/meta"
 
 	"server/pg"
@@ -25,102 +27,57 @@ var _ = Describe("Record tree extractor", func() {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	driver := driver.NewJsonDriver(appConfig.DbConnectionUrl, "./")
+	metaStore  := object.NewStore(driver)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
+		metaStore.Flush()
 	})
 
 	havingAMetaDescription := func() *meta.Meta {
 		By("Having A meta")
-		aMetaDescription := meta.Meta{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name: "id",
-					Type: meta.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-			},
-		}
-		return &aMetaDescription
+		return object.GetBaseMetaData(utils.RandomString(8))
 	}
 
 	havingBMetaDescription := func(A *meta.Meta) *meta.Meta {
 		By("Having B referencing A with 'setNull' strategy")
-		bMetaDescription := meta.Meta{
-			Name: "b",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name: "id",
-					Type: meta.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "a",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
-					LinkMeta: A,
-					OnDelete: "setNull",
-					Optional: false,
-				},
-			},
-		}
-		return &bMetaDescription
+		bMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		bMetaDescription.AddField(&meta.Field{
+			Name:     "a",
+			Type:     meta.FieldTypeObject,
+			LinkType: meta.LinkTypeInner,
+			LinkMeta: A,
+			OnDelete: "setNull",
+			Optional: false,
+		})
+		return bMetaDescription
 	}
 
 	havingCMetaDescription := func(B *meta.Meta) *meta.Meta {
 		By("Having C meta referencing B meta with 'cascade' strategy")
-		cMetaDescription := meta.Meta{
-			Name: "c",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name: "id",
-					Type: meta.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "b",
-					Type:     meta.FieldTypeObject,
-					LinkType: meta.LinkTypeInner,
-					LinkMeta: B,
-					OnDelete: "cascade",
-				},
-			},
-		}
-		return &cMetaDescription
+		cMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		cMetaDescription.AddField(&meta.Field{
+			Name:     "b",
+			Type:     meta.FieldTypeObject,
+			LinkType: meta.LinkTypeInner,
+			LinkMeta: B,
+			OnDelete: "cascade",
+		})
+		return cMetaDescription
 	}
 
 	createMeta := func(metaDescription *meta.Meta) *meta.Meta {
 		metaObj, err := metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
-		Expect(err).To(BeNil())
-		return metaObj
+		return metaStore.Create(metaObj)
 	}
 
 	It("builds record tree with 'SetNull' strategy", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription(aMeta)
-		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteSetNull.ToVerbose()
+		bMetaDescription.Fields["b"].OnDelete = meta.OnDeleteSetNull.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription(bMeta))
 
@@ -133,7 +90,7 @@ var _ = Describe("Record tree extractor", func() {
 		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(aMeta.Name, true)
+		aMeta = metaStore.Get(aMeta.Name)
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")
@@ -155,7 +112,7 @@ var _ = Describe("Record tree extractor", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription(aMeta)
-		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteRestrict.ToVerbose()
+		bMetaDescription.Fields["b"].OnDelete = meta.OnDeleteRestrict.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription(bMeta))
 
@@ -168,7 +125,7 @@ var _ = Describe("Record tree extractor", func() {
 		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(aMeta.Name, true)
+		aMeta = metaStore.Get(aMeta.Name)
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")
@@ -185,7 +142,7 @@ var _ = Describe("Record tree extractor", func() {
 
 		aMeta := createMeta(havingAMetaDescription())
 		bMetaDescription := havingBMetaDescription(aMeta)
-		bMetaDescription.Fields[1].OnDelete = meta.OnDeleteCascade.ToVerbose()
+		bMetaDescription.Fields["b"].OnDelete = meta.OnDeleteCascade.ToVerbose()
 		bMeta := createMeta(bMetaDescription)
 		cMeta := createMeta(havingCMetaDescription(bMeta))
 
@@ -198,7 +155,7 @@ var _ = Describe("Record tree extractor", func() {
 		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		aMeta, _, err = metaStore.Get(aMeta.Name, true)
+		aMeta = metaStore.Get(aMeta.Name)
 		Expect(err).To(BeNil())
 
 		By("Building removal node for A record")

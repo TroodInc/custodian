@@ -214,7 +214,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 }
 
 func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]interface{}, error) {
-	logger.Debug("Resolving plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
+	logger.Debug("Resolving plural: node [meta=%s, depth=%d, plural=%v], sc=%v, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
 	var fields []*meta.Field = nil
 	if node.OnlyLink {
 		fields = []*meta.Field{node.Meta.GetKey()}
@@ -244,7 +244,7 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 
 //Resolve records referenced by generic outer field
 func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, objectMeta *meta.Meta) ([]interface{}, error) {
-	logger.Debug("Resolving generic plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
+	logger.Debug("Resolving generic plural: node [meta=%s, depth=%d, plural=%v], sc=%v, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
 	var fields []*meta.Field = nil
 	if node.OnlyLink {
 		fields = []*meta.Field{node.Meta.GetKey()}

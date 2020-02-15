@@ -694,7 +694,7 @@ func (processor *Processor) consumeRecords(nextCallback func() (map[string]inter
 		if strictPkCheck {
 			keyValue, ok := recordData[objectMeta.Key]
 			if !ok || !objectMeta.GetKey().Type.TypeAsserter()(keyValue) {
-				return nil, errors.NewDataError(objectMeta.Name, errors.ErrKeyValueNotFound, "Key value not found or has a wrong type", objectMeta.Name)
+				return nil, errors.NewDataError(objectMeta.Name, errors.ErrKeyValueNotFound, "Key value not found or has a wrong type: %v", objectMeta.Name)
 			}
 		}
 

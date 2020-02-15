@@ -7,82 +7,59 @@ import (
 	"server/data"
 	. "server/data/notifications"
 	"server/noti"
+	"server/object"
+	"server/object/driver"
 	"server/object/meta"
 	"server/pg"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
+	"server/pg/transactions"
 	"time"
 	"utils"
 )
 
-var _ = Describe("Data", func() {
+var _ = XDescribe("Data", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	//transaction managers
-	metaDescriptionSyncer := transactions.NewFileMetaDescriptionSyncer("./")
-	fileMetaTransactionManager := transactions.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer)
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := transactions.NewPgDbTransactionManager(dataManager)
 
-	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	driver := driver.NewJsonDriver(appConfig.DbConnectionUrl, "./")
+	metaStore  := object.NewStore(driver)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
-		err := metaStore.Flush()
-		Expect(err).To(BeNil())
+		metaStore.Flush()
 	})
 
 	GetMetaA := func() *meta.Meta {
-		aMetaDescription := meta.Meta{
-			Name: "a",
-			Key:  "id",
-			Cas:  false,
-			Fields: []*meta.Field{
-				{
-					Name: "id",
-					Type: meta.FieldTypeNumber,
-					Def: map[string]interface{}{
-						"func": "nextval",
-					},
-					Optional: true,
-				},
-				{
-					Name:     "name",
-					Type:     meta.FieldTypeString,
-					Optional: false,
-				},
+		aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
+		aMetaDescription.AddField(&meta.Field{Name:"name", Type: meta.FieldTypeString, Optional: false})
+		aMetaDescription.Actions = []*Action{
+			{
+				Method:          MethodCreate,
+				Protocol:        noti.TEST,
+				Args:            []string{"http://example.com"},
+				ActiveIfNotRoot: true,
+				IncludeValues:   map[string]interface{}{},
 			},
-			Actions: []*Action{
-				{
-					Method:          MethodCreate,
-					Protocol:        noti.TEST,
-					Args:            []string{"http://example.com"},
-					ActiveIfNotRoot: true,
-					IncludeValues:   map[string]interface{}{},
-				},
-				{
-					Method:          MethodUpdate,
-					Protocol:        noti.TEST,
-					Args:            []string{"http://example.com"},
-					ActiveIfNotRoot: true,
-					IncludeValues:   map[string]interface{}{},
-				},
-				{
-					Method:          MethodRemove,
-					Protocol:        noti.TEST,
-					Args:            []string{"http://example.com"},
-					ActiveIfNotRoot: true,
-					IncludeValues:   map[string]interface{}{},
-				},
+			{
+				Method:          MethodUpdate,
+				Protocol:        noti.TEST,
+				Args:            []string{"http://example.com"},
+				ActiveIfNotRoot: true,
+				IncludeValues:   map[string]interface{}{},
+			},
+			{
+				Method:          MethodRemove,
+				Protocol:        noti.TEST,
+				Args:            []string{"http://example.com"},
+				ActiveIfNotRoot: true,
+				IncludeValues:   map[string]interface{}{},
 			},
 		}
-		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		err = metaStore.Create(aMetaObj)
-		Expect(err).To(BeNil())
-		return aMetaObj
+		return metaStore.Create(aMetaObj)
 	}
 
 	var TNotifier noti.Notifier
