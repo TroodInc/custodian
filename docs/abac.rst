@@ -76,8 +76,8 @@ Object Meta actions:
     ``data_*``, ``meta_*``, ``*``
 
 
-Global Mata actions:
-~~~~~~~~~~~~~~~~~~~~~
+Global Mata typo actions:
+~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 For resource ``meta`` your can create next actions
 
