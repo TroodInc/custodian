@@ -27,7 +27,7 @@ func GetBaseMetaData(name string) *meta.Meta {
 //
 // A { id: int }  <--- B { id: int, a: innerObject }
 func GetTwoBaseLinkedObjects(store *Store) (a, b *meta.Meta) {
-	aMetaObj, _ := store.NewMeta(GetBaseMetaData(utils.RandomString(8)))
+	aMetaObj := GetBaseMetaData(utils.RandomString(8))
 	a = store.Create(aMetaObj)
 
 	bMetaObj := GetBaseMetaData(utils.RandomString(8))
@@ -37,7 +37,6 @@ func GetTwoBaseLinkedObjects(store *Store) (a, b *meta.Meta) {
 		LinkType: meta.LinkTypeInner,
 		LinkMeta: aMetaObj,
 	})
-	bMetaObj, _ = store.NewMeta(bMetaObj)
 	b = store.Create(bMetaObj)
 
 	return a, b

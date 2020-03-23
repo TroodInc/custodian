@@ -38,16 +38,16 @@ func NewJsonDriver(dbConnectionUrl, metaFilesPath string) *JsonDriver {
 
 
 
-func (j *JsonDriver) Get(name string) *meta.Meta {
+func (j *JsonDriver) Get(name string) map[string]interface{} {
 	objMap, _, _ := j.getMeta(j.getMetaFileName(name))
-	return meta.NewMetaFromMap(objMap)
+	return objMap
 }
 
-func (j *JsonDriver) List() ([]*meta.Meta, error) {
-	result := make([]*meta.Meta, 0)
+func (j *JsonDriver) List() ([]map[string]interface{}, error) {
+	result := make([]map[string]interface{}, 0)
 	for _, metaFileName := range j.getMetaList() {
 		obj, _, _ := j.getMeta(metaFileName)
-		result = append(result, meta.NewMetaFromMap(obj))
+		result = append(result, obj)
 	}
 
 	return result, nil

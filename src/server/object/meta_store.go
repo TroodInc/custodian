@@ -20,8 +20,10 @@ func NewStore(driver MetaDriver) *Store {
 }
 
 //TODO: implement
-func (s *Store) NewMeta(metaObj *meta.Meta) (*meta.Meta, error) {
-	return metaObj, nil
+func (s *Store) NewMeta(metaObj map[string]interface{}) (*meta.Meta, error) {
+	result := meta.NewMetaFromMap(metaObj)
+
+	return result, nil
 }
 
 func (s *Store) UnmarshalIncomingJSON(r io.Reader) (*meta.Meta, error) {
@@ -49,7 +51,11 @@ func (s *Store) GetActions() map[string][]*notifications.Action {
 
 //List return full list of Meta objects from underlying storage
 func (s *Store) List() []*meta.Meta {
-	results, _ := s.driver.List()
+	results := make([]*meta.Meta, 0)
+	metamaps, _ := s.driver.List()
+	for _, m := range metamaps {
+		results = append(results, meta.NewMetaFromMap(m))
+	}
 	return results
 }
 
@@ -60,7 +66,8 @@ func (s *Store) Get(name string) *meta.Meta {
 		return metaObj
 	}
 
-	metaObj := s.driver.Get(name)
+	//TODO: Handle error
+	metaObj, _ := s.NewMeta(s.driver.Get(name))
 
 	s.cache.Set(metaObj)
 

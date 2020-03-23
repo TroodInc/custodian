@@ -24,6 +24,8 @@ import (
 	"server/migrations"
 	"server/migrations/constructor"
 	migrations_description "server/migrations/description"
+	"server/object"
+	"server/object/driver"
 	"server/object/meta"
 	"server/pg"
 	"server/pg/migrations/managers"
@@ -155,12 +157,17 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewMetaStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	//metaDriver := driver.NewJsonDriver(config.DbConnectionUrl, "./")
+	metaDriver := driver.NewPostgresDriver(config.DbConnectionUrl)
+	metaStore  := object.NewStore(metaDriver)
+
+	migrationsDriver := driver.NewPostgresDriver(config.DbConnectionUrl)
+	migrationStore := object.NewStore(migrationsDriver)
 
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager,
-		metaDescriptionSyncer,
-		config.MigrationStoragePath,
+		metaStore,
+		migrationStore,
+		dataManager,
 		globalTransactionManager,
 	)
 
@@ -184,17 +191,17 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	app.router.GET(cs.root+"/meta", CreateJsonAction(func(src *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
 		var result []interface{}
 		for _, val := range metaStore.List() {
-			result = append(result, *val)
+			result = append(result, val)
 		}
 		js.pushList(result, len(result))
 	}))
 
 	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		//set transaction to the context
-		if metaObj, _, e := metaStore.Get(p.ByName("name"), true); e == nil {
+		if metaObj := metaStore.Get(p.ByName("name")); metaObj != nil {
 			js.pushObj(metaObj.ForExport())
 		} else {
-			js.pushError(e)
+			js.pushError(NewValidationError("", "Meta not found", p.ByName("name")))
 		}
 	}))
 
@@ -204,24 +211,18 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			js.pushError(err)
 			return
 		}
-		if e := metaStore.Create(metaObj); e == nil {
+		if metaObj := metaStore.Create(metaObj); metaObj != nil {
 			js.pushObj(metaObj.ForExport())
 		} else {
-			js.pushError(e)
+			js.pushError(NewValidationError("", "Can't create meta:", metaObj))
 		}
 	}))
 
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		if ok, e := metaStore.Remove(p.ByName("name"), false); ok {
+		if e := metaStore.Remove(p.ByName("name")); e == nil {
 			js.pushObj(nil)
 		} else {
-			if e != nil {
-
-				js.pushError(e)
-			} else {
-
-				js.pushError(&ServerError{Status: http.StatusNotFound, Code: ErrNotFound})
-			}
+			js.pushError(e)
 		}
 	}))
 
@@ -231,10 +232,10 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			js.pushError(err)
 			return
 		}
-		if _, err := metaStore.Update(p.ByName("name"), metaObj, true); err == nil {
+		if metaObj := metaStore.Update(metaObj); metaObj != nil {
 			js.pushObj(metaObj.ForExport())
 		} else {
-			js.pushError(err)
+			js.pushError(NewValidationError("", "Can't update meta:", metaObj))
 		}
 
 	}))
@@ -596,7 +597,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 		updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
 
-		metaStore.Cache().Invalidate()
+		//TODO: Cache must be rebuilt automaticaly
+		//metaStore.Cache().Invalidate()
 
 		if err != nil {
 			js.pushError(err)

@@ -29,10 +29,16 @@ func NewMeta(name string, key string, fields []*Field, actions []*notifications.
 func NewMetaFromMap(object map[string]interface{}) *Meta {
 	result := &Meta{
 		Name:    object["name"].(string),
-		Key:     object["key"].(string),
 		Fields:  make(map[string]*Field, 0),
 		Actions: nil,
-		Cas:     object["cas"].(bool),
+	}
+
+	if cas, ok := object["cas"]; ok {
+		result.Cas = cas.(bool)
+	}
+
+	if key, ok := object["key"]; ok {
+		result.Key = key.(string)
 	}
 
 	switch object["fields"].(type) {

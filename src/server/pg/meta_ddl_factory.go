@@ -82,7 +82,12 @@ func (mdf *MetaDdlFactory) processInnerLinkField(field *meta.Field, metaName str
 }
 
 func (mdf *MetaDdlFactory) processObjectsInnerLinkField(field *meta.Field, metaName string, metaKey string) ([]Column, *IFK, *OFK, *Seq, error) {
-	outerForeignKey := OFK{FromTable: GetTableName(field.LinkThrough.Name), FromColumn: field.OuterLinkField.Name, ToTable: GetTableName(metaName), ToColumn: metaKey}
+	outerForeignKey := OFK{
+		FromTable: GetTableName(field.LinkThrough.Name),
+		FromColumn: field.OuterLinkField.Name,
+		ToTable: GetTableName(metaName),
+		ToColumn: metaKey,
+	}
 	return nil, nil, &outerForeignKey, nil, nil
 }
 

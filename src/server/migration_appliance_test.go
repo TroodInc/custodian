@@ -171,11 +171,8 @@ var _ = Describe("Server", func() {
 
 	It("Can rename object by application of migration", func() {
 		//Create A object
-		aMetaDescription := object.GetBaseMetaData(utils.RandomString(8))
-
-		metaObj, err := metaStore.NewMeta(aMetaDescription)
-		Expect(err).To(BeNil())
-		err = metaStore.Create(metaObj)
+		metaObj := object.GetBaseMetaData(utils.RandomString(8))
+		err := metaStore.Create(metaObj)
 		Expect(err).To(BeNil())
 		//apply migration
 

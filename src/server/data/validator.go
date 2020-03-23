@@ -6,13 +6,11 @@ import (
 	. "server/data/record"
 	. "server/data/types"
 	"server/data/validators"
-	"server/object"
 	"server/object/meta"
 	"server/transactions"
 )
 
 type ValidationService struct {
-	metaStore *object.Store
 	processor *Processor
 }
 
@@ -340,7 +338,7 @@ func (vs *ValidationService) validateInnerGenericLink(dbTransaction transactions
 		if _, ok := value.(*AGenericInnerLink); ok {
 			return nil, nil
 		}
-		if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(dbTransaction, vs.metaStore.Get, vs.processor.Get).Validate(fieldDescription, value); err != nil {
+		if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(dbTransaction, vs.processor.Get).Validate(fieldDescription, value); err != nil {
 			if _, ok := err.(errors.GenericFieldPkIsNullError); ok {
 				recordValuesAsMap := value.(map[string]interface{})
 				objMeta := fieldDescription.GetLinkMetaByName(recordValuesAsMap[GenericInnerLinkObjectKey].(string))
@@ -364,6 +362,6 @@ func (vs *ValidationService) validateInnerGenericLink(dbTransaction transactions
 	return recordToProcess, nil
 }
 
-func NewValidationService(metaStore *object.Store, processor *Processor) *ValidationService {
-	return &ValidationService{metaStore: metaStore, processor: processor}
+func NewValidationService(processor *Processor) *ValidationService {
+	return &ValidationService{processor: processor}
 }

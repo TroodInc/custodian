@@ -76,7 +76,7 @@ func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDesc
 	return nil
 }
 
-
+//Deprecated: Use object/driver/postgres.Remove()
 func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name string, force bool) error {
 	tx := transaction.(*PgTransaction)
 	var metaDdlFromDb *MetaDDL

@@ -32,6 +32,7 @@ func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.D
 	if tm.transaction.Counter == 0 {
 		tx := dbTransaction.Transaction().(*sql.Tx)
 		if err := tx.Commit(); err != nil {
+			tm.transaction = nil
 			return NewTransactionError(ErrCommitFailed, err.Error())
 		}
 
