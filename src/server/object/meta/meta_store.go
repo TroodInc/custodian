@@ -360,7 +360,8 @@ func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(keepMeta boo
 					if !fieldIsObjectsLink {
 						objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
 						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
-					} else {
+					// TODO: Need to be refactored after additional investigation
+					} else if fieldDescription.LinkMeta.Name == targetMeta.Name {
 						objectNeedsUpdate = true
 						if !keepMeta {
 							if _, err := metaStore.Remove(fieldDescription.LinkThrough.Name, true); err != nil {
