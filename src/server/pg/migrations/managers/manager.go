@@ -44,18 +44,20 @@ func (mm *MigrationManager) List(filter string) ([]*record.Record, error) {
 }
 
 func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool, fake bool) (updatedMetaDescription *description.MetaDescription, err error) {
-	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryForward(migrationDescription)
+	if migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryForward(migrationDescription); err == nil {
+		if err := mm.canApplyMigration(migration); err != nil {
+			return nil, err
+		}
 
-	if err := mm.canApplyMigration(migration); err != nil {
-		return nil, err
+		result, err := mm.runMigration(migration, shouldRecord, fake)
+		if err != nil {
+			return nil, err
+		}
+		return result, err
 	}
 
-	result, err := mm.runMigration(migration, shouldRecord, fake)
-	if err != nil {
-		return nil, err
-	}
+	return nil, err
 
-	return result, err
 }
 
 //Rollback object to the given migration`s state
