@@ -185,7 +185,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		if metaList, _, err := metaStore.List(); err == nil {
 			var result []interface{}
 			for _, val := range(metaList) {
-				result = append(result, *val)
+				result = append(result, val.ForExport())
 			}
 			js.pushList(result, len(result))
 		} else {

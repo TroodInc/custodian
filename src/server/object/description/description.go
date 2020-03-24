@@ -7,7 +7,7 @@ type MetaDescription struct {
 	Name    string   `json:"name"`
 	Key     string   `json:"key"`
 	Fields  []Field  `json:"fields"`
-	Actions []Action `json:"actions,omitempty"`
+	Actions []Action `json:"actions"`
 	Cas     bool     `json:"cas"`
 }
 
@@ -49,6 +49,9 @@ func (md *MetaDescription) ForExport() MetaDescription {
 			metaCopy.Fields[i].RetrieveMode = false
 			metaCopy.Fields[i].QueryMode = false
 		}
+	}
+	if metaCopy.Actions == nil {
+		metaCopy.Actions = make([]Action, 0)
 	}
 	return metaCopy
 }
