@@ -1,6 +1,9 @@
 package description
 
-import "github.com/getlantern/deepcopy"
+import (
+	"fmt"
+	"github.com/getlantern/deepcopy"
+)
 
 //The shadow struct of the MetaDescription struct.
 type MetaDescription struct {
@@ -9,6 +12,8 @@ type MetaDescription struct {
 	Fields  []Field  `json:"fields"`
 	Actions []Action `json:"actions"`
 	Cas     bool     `json:"cas"`
+	Views 	map[string]string `json:"views"`
+	Comment string `json:"comment"`
 }
 
 func (md *MetaDescription) Clone() *MetaDescription {
@@ -52,6 +57,12 @@ func (md *MetaDescription) ForExport() MetaDescription {
 	}
 	if metaCopy.Actions == nil {
 		metaCopy.Actions = make([]Action, 0)
+	}
+
+	if metaCopy.Views == nil {
+		metaCopy.Views = map[string]string{
+			"default": fmt.Sprintf("%s #{%s}", metaCopy.Name, metaCopy.Key),
+		}
 	}
 	return metaCopy
 }
