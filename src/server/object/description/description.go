@@ -44,6 +44,12 @@ func (md *MetaDescription) ForExport() MetaDescription {
 	metaCopy := MetaDescription{}
 	deepcopy.Copy(&metaCopy, *md)
 	for i := len(metaCopy.Fields) - 1; i >= 0; i-- {
+		if (metaCopy.Fields[i].Type == FieldTypeObject ||
+			(metaCopy.Fields[i].Type == FieldTypeGeneric && metaCopy.Fields[i].LinkType == LinkTypeInner)) &&
+			metaCopy.Fields[i].OnDelete == "" {
+			metaCopy.Fields[i].OnDelete = OnDeleteCascadeVerbose
+		}
+		
 		if metaCopy.Fields[i].LinkType == LinkTypeOuter {
 			// exclude field supporting only query mode
 			if !metaCopy.Fields[i].RetrieveMode {
