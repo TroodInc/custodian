@@ -63,7 +63,7 @@ func (md *MetaDescription) ForExport() MetaDescription {
 		}
 	}
 	if metaCopy.Actions == nil {
-		metaCopy.Actions = make([]Action, 0)
+		metaCopy.Actions = make([]notifications.Action, 0)
 	}
 
 	if metaCopy.Views == nil {
