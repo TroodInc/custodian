@@ -115,7 +115,7 @@ var _ = Describe("Migrations` listing", func() {
 
 		It("Can detail applied migrations", func() {
 
-			url := fmt.Sprintf("%s/migrations/description/"+migrationDescription.Id, appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/migrations/"+migrationDescription.Id, appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)

@@ -65,7 +65,7 @@ class CustodianMigrator:
 
     def _apply_migration(self, migration_data):
         response = requests.post(
-            "http://127.0.0.1:8000/custodian/migrations/apply",
+            "http://127.0.0.1:8000/custodian/migrations/",
             json=migration_data,
             headers={'Authorization': get_service_token()}
         )
