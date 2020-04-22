@@ -1,16 +1,16 @@
 package object
 
 import (
-	"server/transactions"
-	"text/template"
-	"errors"
 	"database/sql"
+	"errors"
+	"fmt"
 	"logger"
 	"server/migrations/operations/object"
-	"server/pg"
-	"fmt"
 	"server/object/description"
 	"server/object/meta"
+	"server/pg"
+	"server/transactions"
+	"text/template"
 )
 
 type CreateObjectOperation struct {
@@ -72,6 +72,8 @@ const (
 		{{template "column" .}},{{"\n"}}
 	{{end}}
 
+	owner_id integer,
+
 	{{$mtable:=.Table}}
 
 	{{range .IFKs}}
@@ -92,8 +94,7 @@ const (
 
 var parsedTemplate = template.Must(
 	template.Must(
-		template.Must(template.New("create_table").Funcs(ddlFuncs).Parse(createTableTemplate),
-		).Parse(columnsSubTemplate)).Parse(InnerFKSubTemplate),
+		template.Must(template.New("create_table").Funcs(ddlFuncs).Parse(createTableTemplate)).Parse(columnsSubTemplate)).Parse(InnerFKSubTemplate),
 )
 
 func NewCreateObjectOperation(metaDescription *description.MetaDescription) *CreateObjectOperation {
