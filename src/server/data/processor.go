@@ -341,7 +341,7 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 	return NewRecord(objectMeta, recordData), nil
 }
 
-func (processor *Processor) BulkCreateRecords(objectName string, next func() (map[string]interface{}, error), user auth.User) ([]*Record, error) {
+func (processor *Processor) BulkCreateRecords(objectName string, recordData []map[string]interface{}, user auth.User) ([]*Record, error) {
 
 	// get MetaDescription
 	objectMeta, err := processor.GetMeta(objectName)
@@ -353,19 +353,15 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
-	// collect records` data to update
-	records, err := processor.consumeRecords(next, objectMeta, false)
-	if err != nil {
-		return nil, err
-	}
-
 	//assemble RecordSetOperations
 	var recordProcessingNode *RecordProcessingNode
 	rootRecordSets := make([]interface{}, 0)
 	dbTransaction, err := processor.transactionManager.BeginTransaction()
-	for _, record := range records {
+	for _, record := range recordData {
 		// extract processing node
-		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(record, processor, dbTransaction)
+		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(
+			&Record{Meta: objectMeta, Data: record}, processor, dbTransaction,
+		)
 		if err != nil {
 			processor.transactionManager.RollbackTransaction(dbTransaction)
 			return nil, err
@@ -374,8 +370,9 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 
 		for _, recordSetOperation := range recordSetOperations {
 			isRoot := recordSetOperation.RecordSet == rootRecordSet
-			if recordSetOperation.Type == RecordOperationTypeUpdate {
-				if _, err := processor.updateRecordSet(
+			// TODO: investigate this shit
+			if recordSetOperation.Type == RecordOperationTypeCreate || isRoot {
+				if _, err := processor.createRecordSet(
 					dbTransaction,
 					recordSetOperation.RecordSet,
 					isRoot,
@@ -384,8 +381,8 @@ func (processor *Processor) BulkCreateRecords(objectName string, next func() (ma
 					processor.transactionManager.RollbackTransaction(dbTransaction)
 					return nil, err
 				}
-			} else if recordSetOperation.Type == RecordOperationTypeCreate {
-				if _, err := processor.createRecordSet(
+			} else if recordSetOperation.Type == RecordOperationTypeUpdate {
+				if _, err := processor.updateRecordSet(
 					dbTransaction,
 					recordSetOperation.RecordSet,
 					isRoot,
