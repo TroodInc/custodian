@@ -72,7 +72,7 @@ const (
 		{{template "column" .}},{{"\n"}}
 	{{end}}
 
-	owner_id integer,
+	owner integer,
 
 	{{$mtable:=.Table}}
 

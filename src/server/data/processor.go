@@ -11,10 +11,7 @@ import (
 	"server/data/notifications"
 	. "server/data/record"
 	"server/object/description"
-	"server/object/meta"
 	"server/transactions"
-	"strings"
-	"github.com/Q-CIS-DEV/go-rql-parser"
 )
 
 type objectClassValidator func(*Record) ([]*Record, error)
