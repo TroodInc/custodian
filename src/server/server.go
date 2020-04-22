@@ -296,16 +296,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 		} else if src.list != nil {
 
-			var i = 0
-			records, e := dataProcessor.BulkCreateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
-				if i < len(src.list) {
-					i += 1
-					return src.list[i-1], nil
-				} else {
-					return nil, nil
-				}
-
-			}, user)
+			records, e := dataProcessor.BulkCreateRecords(p.ByName("name"), src.list, user)
 
 			if e != nil {
 				sink.pushError(e)
