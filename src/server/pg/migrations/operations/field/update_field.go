@@ -47,7 +47,11 @@ func (o *UpdateFieldOperation) SyncDbDescription(metaDescription *description.Me
 	for _, statement := range statementSet {
 		logger.Debug("Updating field in DB: %s\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
-			return pg.NewDdlError(metaDescription.Name, pg.ErrExecutingDDL, fmt.Sprintf("Error while executing statement '%statement': %statement", statement.Name, err.Error()))
+			return errors.NewValidationError(
+				pg.ErrExecutingDDL,
+				fmt.Sprintf("Can't update field: %s", err.Error()),
+				map[string]string{"fields": o.CurrentField.Name},
+			)
 		}
 	}
 

@@ -52,3 +52,7 @@ func NewFatalError(code string, msg string, data interface{}) *ServerError {
 func NewValidationError(code string, msg string, data interface{}) *ServerError {
 	return &ServerError{http.StatusBadRequest, code, msg, data}
 }
+
+func NewNotFoundError(code string, msg string, data interface{}) *ServerError {
+	return &ServerError{http.StatusNotFound, code, msg, data}
+}
