@@ -668,6 +668,22 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	app.router.GET(cs.root+"/probe", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+		now := int(time.Now().Unix())
+		probeData := map[string]interface{}{}
+		probeData["status"] = "healthy"
+		probeData["uptime"] = now - config.StartTime
+
+		if data, err := ioutil.ReadFile(config.WorkDir + "/VERSION"); err != nil {
+			sink.pushError(err)
+		} else {
+			version := strings.TrimSpace(string(data))
+			probeData["version"] = version
+			sink.pushObj(probeData)
+		}
+	}))
+
+
 	if config.EnableProfiler {
 		app.router.Handler(http.MethodGet, "/debug/pprof/:item", http.DefaultServeMux)
 	}
