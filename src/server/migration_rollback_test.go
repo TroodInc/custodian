@@ -165,12 +165,9 @@ var _ = Describe("Rollback migrations", func() {
 				})
 
 				It("It can rollback object`s state up to the first migration state", func() {
-					url := fmt.Sprintf("%s/migrations/rollback", appConfig.UrlPrefix)
+					url := fmt.Sprintf("%s/migrations/%s/rollback", appConfig.UrlPrefix, firstAppliedMigrationDescription.Id)
 
-					data := map[string]interface{}{
-						"migrationId": firstAppliedMigrationDescription.Id,
-					}
-					encodedData, _ := json.Marshal(data)
+					encodedData, _ := json.Marshal(nil)
 
 					var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedData))
 					request.Header.Set("Content-Type", "application/json")

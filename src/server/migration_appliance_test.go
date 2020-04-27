@@ -93,7 +93,7 @@ var _ = Describe("Server", func() {
 
 		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
 
-		url := fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")
@@ -147,7 +147,7 @@ var _ = Describe("Server", func() {
 
 		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
 
-		url := fmt.Sprintf("%s/migrations/apply?fake=true", appConfig.UrlPrefix)
+		url := fmt.Sprintf("%s/migrations?fake=true", appConfig.UrlPrefix)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")
@@ -230,7 +230,7 @@ var _ = Describe("Server", func() {
 
 		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
 
-		url := fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")
@@ -305,7 +305,7 @@ var _ = Describe("Server", func() {
 
 		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
 
-		url := fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")
@@ -371,7 +371,7 @@ var _ = Describe("Server", func() {
 
 		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
 
-		url := fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")
@@ -444,7 +444,7 @@ var _ = Describe("Server", func() {
 
 		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
 
-		url := fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")
@@ -517,7 +517,7 @@ var _ = Describe("Server", func() {
 
 		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
 
-		url := fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")
@@ -573,7 +573,7 @@ var _ = Describe("Server", func() {
 
 		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
 
-		url := fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
 		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")

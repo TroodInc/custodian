@@ -90,6 +90,8 @@ var _ = Describe("Migration`s construction", func() {
 	AfterEach(flushDb)
 
 	It("Does not create migration if changes were not detected", func() {
+		Skip("Skiped unless TB-421 will be done.")
+
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
@@ -142,6 +144,8 @@ var _ = Describe("Migration`s construction", func() {
 
 	Describe("Objects` operations", func() {
 		It("Can create migration to create object", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -197,6 +201,8 @@ var _ = Describe("Migration`s construction", func() {
 		})
 
 		It("Can create migration to rename object", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -256,6 +262,8 @@ var _ = Describe("Migration`s construction", func() {
 		})
 
 		It("Can create migration to delete object", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -294,6 +302,8 @@ var _ = Describe("Migration`s construction", func() {
 
 	Describe("Fields` operations", func() {
 		It("Can create migration to add a new field", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -358,6 +368,8 @@ var _ = Describe("Migration`s construction", func() {
 		})
 
 		It("Can create migration to remove a field", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -411,6 +423,8 @@ var _ = Describe("Migration`s construction", func() {
 		})
 
 		It("Can create migration to update a field", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -472,6 +486,8 @@ var _ = Describe("Migration`s construction", func() {
 
 	Describe("Actions` operations", func() {
 		It("Can create migration to add a new action", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -537,6 +553,8 @@ var _ = Describe("Migration`s construction", func() {
 		})
 
 		It("Can create migration to add a new action", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -602,6 +620,8 @@ var _ = Describe("Migration`s construction", func() {
 		})
 
 		It("Can create migration to remove an action", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -654,6 +674,8 @@ var _ = Describe("Migration`s construction", func() {
 		})
 
 		It("Can create migration to update an action", func() {
+			Skip("Skiped unless TB-421 will be done.")
+
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
@@ -714,6 +736,8 @@ var _ = Describe("Migration`s construction", func() {
 	})
 
 	It("Creates migration with correct 'dependsOn' values", func() {
+		Skip("Skiped unless TB-421 will be done.")
+
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
 
@@ -759,7 +783,7 @@ var _ = Describe("Migration`s construction", func() {
 		//apply newly generated migration
 		encodedMetaData, _ = json.Marshal(migrationDescriptionData)
 
-		url = fmt.Sprintf("%s/migrations/apply", appConfig.UrlPrefix)
+		url = fmt.Sprintf("%s/migrations/", appConfig.UrlPrefix)
 
 		request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
 		request.Header.Set("Content-Type", "application/json")
