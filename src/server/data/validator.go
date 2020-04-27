@@ -1,6 +1,7 @@
 package data
 
 import (
+	errors2 "server/errors"
 	"server/object/meta"
 	"server/data/errors"
 	"server/data/validators"
@@ -37,7 +38,8 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 
 		value, valueIsSet := record.Data[fieldName]
 		if !valueIsSet && !fieldDescription.Optional && record.IsPhantom() {
-			return nil, nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrMandatoryFiledAbsent, "Not optional field '%s' is absent", fieldName)
+			return nil, nil, nil, nil, errors2.NewValidationError(
+				errors.ErrMandatoryFiledAbsent, fmt.Sprintf("Not optional field '%s' is absent", fieldName), map[string]string{"field": fieldName})
 		}
 		//skip validation if field is optional and value is null
 		//perform validation otherwise
@@ -111,7 +113,9 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 				if _, ok := value.(LazyLink); ok {
 					break
 				} else if value != nil {
-					return nil, nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Field '%s' has a wrong type", fieldName)
+					return nil, nil, nil, nil, errors2.NewValidationError(
+						errors.ErrWrongFiledType, fmt.Sprintf("Field '%s' has a wrong type", fieldName), map[string]string{"field": fieldName},
+					)
 				}
 			}
 		}
@@ -134,7 +138,11 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 				fieldDescription.LinkMeta.Key.Name:   pkValue,
 			})
 		} else {
-			return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON object", fieldDescription.Name)
+			return nil, nil, errors2.NewValidationError(
+				errors.ErrWrongFiledType,
+				fmt.Sprintf("Array in field '%s' must contain only JSON object", fieldDescription.Name),
+				map[string]string{"field": fieldDescription.Name},
+			)
 		}
 	}
 
@@ -164,7 +172,11 @@ func (vs *ValidationService) validateArray(dbTransaction transactions.DbTransact
 		}
 		if len(recordsToRemove) > 0 {
 			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
-				return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrRestrictConstraintViolation, "Array in field '%s'contains records, which could not be removed due to `Restrict` strategy set", fieldDescription.Name)
+				return nil, nil, errors2.NewValidationError(
+					errors.ErrRestrictConstraintViolation,
+					fmt.Sprintf("Array in field '%s'contains records, which could not be removed due to `Restrict` strategy set", fieldDescription.Name),
+					map[string]string{"field": fieldDescription.Name},
+				)
 			}
 		}
 	}
@@ -245,7 +257,11 @@ func (vs *ValidationService) validateObjectsFieldArray(dbTransaction transaction
 			recordsToRetrieve = append(recordsToRetrieve, referencedRecord)
 
 		} else {
-			return nil, nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Array in field '%s' must contain only JSON objects", fieldDescription.Name)
+			return nil, nil, nil, errors2.NewValidationError(
+				errors.ErrWrongFiledType,
+				fmt.Sprintf("Array in field '%s' must contain only JSON objects", fieldDescription.Name),
+				map[string]string{"field": fieldDescription.Name},
+			)
 		}
 	}
 
@@ -327,7 +343,10 @@ func (vs *ValidationService) validateGenericArray(dbTransaction transactions.DbT
 				},
 			}, fieldDescription.LinkMeta.Key.Name: pkValue})
 		} else {
-			return nil, nil, errors.NewDataError(record.Meta.Name, errors.ErrWrongFiledType, "Value in field '%s' has invalid value", fieldDescription.Name)
+			return nil, nil, errors2.NewValidationError(
+				errors.ErrWrongFiledType, fmt.Sprintf("Value in field '%s' has invalid value", fieldDescription.Name),
+				map[string]string{"field": fieldDescription.Name},
+			)
 		}
 	}
 

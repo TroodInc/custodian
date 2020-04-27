@@ -18,7 +18,6 @@ import (
 	"server/abac"
 	"server/auth"
 	"server/data"
-	"server/data/errors"
 	"server/data/record"
 	. "server/errors"
 	migrations_description "server/migrations/description"
@@ -482,11 +481,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		//also "FillRecordValues" also should be moved from Node struct
 
 		if updatedRecord, e := dataProcessor.UpdateRecord(objectName, recordPkValue, src.single, user); e != nil {
-			if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
-				sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg, nil})
-			} else {
-				sink.pushError(e)
-			}
+			sink.pushError(e)
 		} else {
 			if updatedRecord != nil {
 				var depth = 1
@@ -527,13 +522,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				}
 			}, func(obj map[string]interface{}) error { result = append(result, obj); return nil  }, user)
 			if e != nil {
-				if dt, ok := e.(*errors.DataError); ok && dt.Code == errors.ErrCasFailed {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(&ServerError{http.StatusPreconditionFailed, dt.Code, dt.Msg, nil})
-				} else {
-					dbTransactionManager.RollbackTransaction(dbTransaction)
-					sink.pushError(e)
-				}
+				dbTransactionManager.RollbackTransaction(dbTransaction)
+				sink.pushError(e)
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
 				defer sink.pushList(result, len(result))

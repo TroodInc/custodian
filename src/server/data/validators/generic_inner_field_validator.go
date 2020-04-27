@@ -1,6 +1,8 @@
 package validators
 
 import (
+	"fmt"
+	errors2 "server/errors"
 	"server/object/meta"
 	"server/data/types"
 	"server/data/errors"
@@ -16,7 +18,10 @@ type GenericInnerFieldValidator struct {
 
 func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.FieldDescription, value interface{}) (*types.GenericInnerLink, error) {
 	if castValue, ok := value.(map[string]interface{}); !ok {
-		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "NewField '%s' has a wrong type", fieldDescription.Name)
+		return nil, errors2.NewValidationError(
+			errors.ErrWrongFiledType, fmt.Sprintf("NewField '%s' has a wrong type", fieldDescription.Name),
+			map[string]string{"field": fieldDescription.Name},
+		)
 	} else {
 		if objectName, err := validator.validateObjectName(castValue[types.GenericInnerLinkObjectKey], fieldDescription); err != nil {
 			return nil, err
@@ -41,14 +46,21 @@ func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Fie
 func (validator *GenericInnerFieldValidator) validateObjectName(objectName interface{}, fieldDescription *meta.FieldDescription) (string, error) {
 	castObjectName, ok := objectName.(string)
 	if !ok {
-		return "", errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Generic field '%s' contains a wrong object name in its value", fieldDescription.Name)
+		return "", errors2.NewValidationError(
+			errors.ErrWrongFiledType,
+			fmt.Sprintf("Generic field '%s' contains a wrong object name in its value", fieldDescription.Name),
+			map[string]string{"field": fieldDescription.Name},
+		)
 	}
 	return castObjectName, nil
 }
 
 func (validator *GenericInnerFieldValidator) validateObject(objectName string, fieldDescription *meta.FieldDescription) (*meta.Meta, error) {
 	if objectMeta, _, err := validator.metaGetCallback(objectName, true); err != nil {
-		return nil, errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Object '%s' referenced in '%s'`s value does not exist", fieldDescription.Name)
+		return nil, errors2.NewValidationError(
+			errors.ErrWrongFiledType, fmt.Sprintf("Object '%s' referenced in '%s'`s value does not exist", fieldDescription.Name),
+			map[string]string{"field": fieldDescription.Name},
+		)
 	} else {
 		return objectMeta, nil
 	}
@@ -65,7 +77,11 @@ func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{
 	case int:
 		validatedPkValue = float64(castPkValue)
 	default:
-		return "", errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "PK value referenced in '%s'`s has wrong type", fieldDescription.Name)
+		return "", errors2.NewValidationError(
+			errors.ErrWrongFiledType,
+			fmt.Sprintf("PK value referenced in '%s'`s has wrong type", fieldDescription.Name),
+			map[string]string{"field": fieldDescription.Name},
+		)
 	}
 	return validatedPkValue, nil
 }
@@ -76,9 +92,16 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 	} else {
 		if recordData, err := validator.recordGetCallback(objectMeta.Name, pkValueAsString, nil, nil, 1, true); err != nil || recordData == nil {
 			if err != nil {
-				return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Failed to validate generic value of object '%s' with PK '%s' referenced in '%s'. Original error is: '%s'", objectMeta.Name, pkValue, fieldDescription.Name, err.Error())
+				return errors2.NewValidationError(
+					errors.ErrWrongFiledType,
+					fmt.Sprintf("Failed to validate generic value of object '%s' with PK '%s' referenced in '%s'. Original error is: '%s'", objectMeta.Name, pkValue, fieldDescription.Name, err.Error()),
+					map[string]string{"field": fieldDescription.Name},
+				)
 			} else {
-				return errors.NewDataError(fieldDescription.Meta.Name, errors.ErrWrongFiledType, "Record of object '%s' with PK '%s' referenced in '%s'`s value does not exist", objectMeta.Name, pkValue, fieldDescription.Name)
+				return errors2.NewValidationError(
+					errors.ErrWrongFiledType, fmt.Sprintf("Record of object '%s' with PK '%s' referenced in '%s'`s value does not exist", objectMeta.Name, pkValue, fieldDescription.Name),
+					map[string]string{"field": fieldDescription.Name},
+				)
 			}
 		} else {
 			return nil

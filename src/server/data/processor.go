@@ -1,6 +1,8 @@
 package data
 
 import (
+	"fmt"
+	errors2 "server/errors"
 	"server/object/meta"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strings"
@@ -135,7 +137,9 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 	if businessObject, ok, e := processor.metaStore.Get(objectName, true); e != nil {
 		return 0, nil, e
 	} else if !ok {
-		return 0, nil, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
+		return 0, nil, errors2.NewNotFoundError(
+			errors.ErrObjectClassNotFound, fmt.Sprint("Object class '%s' not found", objectName), nil,
+		)
 	} else {
 		transaction, _ := processor.transactionManager.BeginTransaction()
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
@@ -162,7 +166,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 		rqlNode, err := parser.Parse(strings.NewReader(filter))
 		if err != nil {
 			processor.transactionManager.RollbackTransaction(transaction)
-			return 0, nil, errors.NewDataError(objectName, errors.ErrWrongRQL, err.Error())
+			return 0, nil, errors2.NewValidationError(errors.ErrWrongRQL, err.Error(), nil)
 		}
 
 		records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
@@ -174,40 +178,6 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 		processor.transactionManager.CommitTransaction(transaction)
 		return recordsCount, records, nil
 	}
-}
-
-//Todo: this method is a shadow of GetBulk, the only difference is that it gets Meta object, not meta`s name
-//perhaps it should become public and replace current GetBulk
-func (processor *Processor) ShadowGetBulk(transaction transactions.DbTransaction, metaObj *meta.Meta, filter string, depth int, omitOuters bool, sink func(record *Record) error) (int, error) {
-	searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
-	root := &Node{
-		KeyField:     metaObj.Key,
-		Meta:         metaObj,
-		ChildNodes:   *NewChildNodes(),
-		Depth:        1,
-		OnlyLink:     false,
-		plural:       false,
-		Parent:       nil,
-		Type:         NodeTypeRegular,
-		SelectFields: *NewSelectFields(metaObj.Key, metaObj.TableFields()),
-	}
-	root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
-
-	parser := rqlParser.NewParser()
-	rqlNode, err := parser.Parse(strings.NewReader(filter))
-	if err != nil {
-		return 0, errors.NewDataError(metaObj.Name, errors.ErrWrongRQL, err.Error())
-	}
-
-	records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
-
-	if e != nil {
-		return recordsCount, e
-	}
-	for _, record := range records {
-		sink(record)
-	}
-	return recordsCount, nil
 }
 
 type DNode struct {
@@ -246,7 +216,9 @@ func (processor *Processor) GetMeta(objectName string) (*meta.Meta, error) {
 		return nil, err
 	}
 	if !ok {
-		return nil, errors.NewDataError(objectName, errors.ErrObjectClassNotFound, "Object class '%s' not found", objectName)
+		return nil, errors2.NewNotFoundError(
+			errors.ErrObjectClassNotFound, fmt.Sprintf("Object class '%s' not found", objectName), nil,
+		)
 	}
 	return objectMeta, nil
 }
@@ -638,7 +610,7 @@ func (processor *Processor) RemoveRecord(objectName string, key string, user aut
 		return nil, err
 	}
 	if recordToRemove == nil {
-		return nil, &errors.DataError{"RecordNotFound", "Record not found", objectName}
+		return nil, errors2.NewNotFoundError("RecordNotFound", "Record not found", nil)
 	}
 
 	// create notification pool
@@ -694,7 +666,7 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 			return err
 		}
 		if recordToRemove == nil {
-			return &errors.DataError{"RecordNotFound", "Record not found", objectName}
+			return errors2.NewNotFoundError("RecordNotFound", "Record not found", nil)
 		}
 
 		//fill node
@@ -741,7 +713,9 @@ func (processor *Processor) consumeRecords(nextCallback func() (map[string]inter
 		if strictPkCheck {
 			keyValue, ok := recordData[objectMeta.Key.Name]
 			if !ok || !objectMeta.Key.Type.TypeAsserter()(keyValue) {
-				return nil, errors.NewDataError(objectMeta.Name, errors.ErrKeyValueNotFound, "Key value not found or has a wrong type", objectMeta.Name)
+				return nil, errors2.NewValidationError(
+					errors.ErrKeyValueNotFound, "Key value not found or has a wrong type", nil,
+				)
 			}
 		}
 
