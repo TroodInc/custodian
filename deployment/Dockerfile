@@ -15,7 +15,9 @@ COPY ./src/server /go/src/server
 COPY ./src/utils /go/src/utils
 COPY ./main.go /go/src/app
 COPY ./docs/_static /home/static
+COPY ./VERSION /home/custodian/
 
+RUN echo $TAG > /home/custodian/VERSION
 RUN go get -d -v
 RUN go install -v
 RUN go get github.com/fatih/structs

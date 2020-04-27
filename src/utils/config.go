@@ -4,6 +4,7 @@ import (
 	"os"
 	"path"
 	"strings"
+	"time"
 )
 
 type AppConfig struct {
@@ -13,6 +14,8 @@ type AppConfig struct {
 	EnableProfiler          bool
 	DisableSafePanicHandler bool
 	MigrationStoragePath    string
+	StartTime               int
+	WorkDir                 string
 }
 
 func getRealWorkingDirectory() string {
@@ -80,6 +83,9 @@ func GetConfig() *AppConfig {
 			appConfig.MigrationStoragePath = path.Join(getRealWorkingDirectory(), migrationStoragePath)
 		}
 	}
+
+	appConfig.StartTime = int(time.Now().Unix())
+	appConfig.WorkDir = getRealWorkingDirectory()
 
 	return &appConfig
 }
