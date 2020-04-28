@@ -112,7 +112,7 @@ class CustodianMigrator:
 
 def main():
     migrator = CustodianMigrator()
-    if migrator.verbose:
+    if migrator.migrations_path:
         migrator.migrate_all()
     else:
         print("Migration path not found, set it as first argument: $> migrate.py /path/to/migrations/")
