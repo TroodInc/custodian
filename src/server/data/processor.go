@@ -226,7 +226,7 @@ func (processor *Processor) GetMeta(objectName string) (*meta.Meta, error) {
 // CreateRecord create object record in database
 func (processor *Processor) CreateRecord(objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
 	// set record owner
-	recordData["owner_id"] = user.Id
+	recordData["owner"] = user.Id
 	// get MetaDescription
 	objectMeta, err := processor.GetMeta(objectName)
 	if err != nil {
@@ -334,7 +334,7 @@ func (processor *Processor) BulkCreateRecords(objectName string, recordData []ma
 	dbTransaction, err := processor.transactionManager.BeginTransaction()
 	for _, record := range recordData {
 		// set record owner
-		record["owner_id"] = user.Id
+		record["owner"] = user.Id
 		// extract processing node
 		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(
 			&Record{Meta: objectMeta, Data: record}, processor, dbTransaction,
