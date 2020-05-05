@@ -8,8 +8,8 @@ import (
 	"strings"
 	"server/auth"
 	"server/data/errors"
-	. "server/data/record"
 	"server/data/notifications"
+	. "server/data/record"
 	"server/object/description"
 	"server/transactions"
 )
@@ -23,20 +23,20 @@ type ExecuteContext interface {
 }
 
 type DataManager interface {
-	Db() (interface{})
+	Db() interface{}
 	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
 	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
 	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
-	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *Processor) (error)
+	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *Processor) error
 	PrepareCreateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
 	PrepareUpdateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
 }
 
 type Processor struct {
-	metaStore   *meta.MetaStore
-	dataManager DataManager
+	metaStore          *meta.MetaStore
+	dataManager        DataManager
 	transactionManager transactions.DbTransactionManager
-	vCache      map[string]objectClassValidator
+	vCache             map[string]objectClassValidator
 }
 
 func NewProcessor(m *meta.MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
@@ -191,9 +191,9 @@ func (dn *DNode) fillOuterChildNodes() {
 	for _, f := range dn.Meta.Fields {
 		if f.LinkType == description.LinkTypeOuter {
 			dn.ChildNodes[f.Name] = &DNode{KeyField: f.OuterLinkField,
-				Meta: f.LinkMeta,
+				Meta:       f.LinkMeta,
 				ChildNodes: make(map[string]*DNode),
-				Plural: true}
+				Plural:     true}
 		}
 	}
 }
@@ -223,7 +223,10 @@ func (processor *Processor) GetMeta(objectName string) (*meta.Meta, error) {
 	return objectMeta, nil
 }
 
+// CreateRecord create object record in database
 func (processor *Processor) CreateRecord(objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
+	// set record owner
+	recordData["owner"] = user.Id
 	// get MetaDescription
 	objectMeta, err := processor.GetMeta(objectName)
 	if err != nil {
@@ -330,6 +333,8 @@ func (processor *Processor) BulkCreateRecords(objectName string, recordData []ma
 	rootRecordSets := make([]interface{}, 0)
 	dbTransaction, err := processor.transactionManager.BeginTransaction()
 	for _, record := range recordData {
+		// set record owner
+		record["owner"] = user.Id
 		// extract processing node
 		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(
 			&Record{Meta: objectMeta, Data: record}, processor, dbTransaction,
@@ -528,7 +533,7 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 
 	//assemble RecordSetOperations
 	var recordProcessingNode *RecordProcessingNode
-	rootRecordSets := make([] *RecordSet, 0)
+	rootRecordSets := make([]*RecordSet, 0)
 	for _, record := range records {
 		// extract processing node
 		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(record, processor, dbTransaction)
