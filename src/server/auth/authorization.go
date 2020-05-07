@@ -164,7 +164,7 @@ func (tauth *TroodAuthenticator)  getUserFromAuthService(token string) (*User, e
 
 	body := []byte(`{"type":"`+token_type+`", "token":"`+user_token[1]+`"}`)
 
-	auth_request, _ := http.NewRequest("POST", tauth.AuthUrl + "/api/v1.0/verify-token", bytes.NewBuffer(body))
+	auth_request, _ := http.NewRequest("POST", tauth.AuthUrl + "/api/v1.0/verify-token/", bytes.NewBuffer(body))
 	auth_request.Header.Add("Authorization", "Service " + service_token)
 	auth_request.Header.Add("Content-Type", "application/json")
 
