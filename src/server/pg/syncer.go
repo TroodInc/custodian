@@ -3,9 +3,12 @@ package pg
 import (
 	"database/sql"
 	"fmt"
+	"github.com/lib/pq"
 	"github.com/xo/dburl"
 	"log"
 	"logger"
+	"regexp"
+	"server/errors"
 	"server/object/description"
 	"server/object/meta"
 	"server/transactions"
@@ -70,7 +73,7 @@ func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDesc
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
-			return &DDLError{table: metaDescription.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
+			return errors.NewValidationError(ErrExecutingDDL, e.Error(), nil)
 		}
 	}
 	return nil
@@ -122,9 +125,16 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentM
 		return err
 	}
 	for _, ddlStatement := range ddlStatements {
-		logger.Debug("Updating object in DB: %syncer\n", ddlStatement.Code)
+		logger.Debug("Updating object in DB: %s\n", ddlStatement.Code)
 		if _, e := tx.Exec(ddlStatement.Code); e != nil {
-			return &DDLError{table: currentMetaDescription.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", ddlStatement.Name, e.Error())}
+			// TODO: Postgres error must return column field
+			// TOFIX: https://github.com/postgres/postgres/blob/14751c340754af9f906a893eb87a894dea3adbc9/src/backend/commands/tablecmds.c#L10539
+			var data map[string]interface{}
+			if e.(*pq.Error).Code == "42804" {
+				matched := regexp.MustCompile(`column "(.*)"`).FindAllStringSubmatch(e.(*pq.Error).Message, -1)
+				if len(matched) > 0 { data = map[string]interface{}{"column": matched[0][1]}}
+			}
+			return errors.NewValidationError(ErrExecutingDDL, e.Error(), data)
 		}
 	}
 	return nil
@@ -160,9 +170,9 @@ func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDe
 		return e
 	}
 	for _, st := range ddlStatements {
-		logger.Debug("Updating object in DB: %syncer\n", st.Code)
+		logger.Debug("Updating object in DB: %s\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
-			return &DDLError{table: metaDescription.Name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%syncer': %syncer", st.Name, e.Error())}
+			return errors.NewValidationError(ErrExecutingDDL, e.Error(), nil)
 		}
 	}
 	return nil
