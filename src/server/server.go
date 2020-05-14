@@ -611,16 +611,16 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		} else {
 			result := make([]interface{}, 0)
 			for _, obj := range migrationList {
-				data := obj.GetData()
+				migrationData := obj.GetData()
 				// TODO: incapsulate json rendering
 				var meta_state map[string]interface{}
 				var operations []migrations_description.MigrationOperationDescription
-				json.Unmarshal([]byte(fmt.Sprintf("%v", data["meta_state"])), &meta_state)
-				json.Unmarshal([]byte(fmt.Sprintf("%v", data["operations"])), &operations)
-				data["meta_state"] = meta_state
-				data["operations"] = operations
+				json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["meta_state"])), &meta_state)
+				json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["operations"])), &operations)
+				migrationData["meta_state"] = meta_state
+				migrationData["operations"] = operations
 
-				result = append(result, data)
+				result = append(result, migrationData)
 			}
 			sink.pushList(result, len(result))
 		}
@@ -634,7 +634,14 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		} else if migration == nil {
 			sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 		} else {
-			sink.pushObj(migration.GetData())
+			migrationData := migration.GetData()
+			var metaState map[string]interface{}
+			var operations []migrations_description.MigrationOperationDescription
+			json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["meta_state"])), &metaState)
+			json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["operations"])), &operations)
+			migrationData["meta_state"] = metaState
+			migrationData["operations"] = operations
+			sink.pushObj(migrationData)
 		}
 	}))
 
