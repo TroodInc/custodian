@@ -61,7 +61,7 @@ var _ = Describe("RQL test", func(){
 			query, err := translator.query("test", dataNode)
 
 			Expect(err).To(BeNil())
-			Expect(query.Where).To(BeEquivalentTo("test.test_field IS NULL"))
+			Expect(query.Where).To(BeEquivalentTo("test.\"test_field\" IS NULL"))
 		})
 
 		Context("set to False", func() {
@@ -72,7 +72,7 @@ var _ = Describe("RQL test", func(){
 			query, err := translator.query("test", dataNode)
 
 			Expect(err).To(BeNil())
-			Expect(query.Where).To(BeEquivalentTo("test.test_field IS NOT NULL"))
+			Expect(query.Where).To(BeEquivalentTo("test.\"test_field\" IS NOT NULL"))
 		})
 
 		Context("other non Boolean string", func() {
@@ -93,7 +93,7 @@ var _ = Describe("RQL test", func(){
 			query, err := translator.query("test", dataNode)
 
 			Expect(err).To(BeNil())
-			Expect(query.Where).To(BeEquivalentTo("(test.id =$1 AND test.test_field IS NULL AND test.id IS NOT NULL)"))
+			Expect(query.Where).To(BeEquivalentTo("(test.\"id\" =$1 AND test.\"test_field\" IS NULL AND test.\"id\" IS NOT NULL)"))
 		})
 	})
 
@@ -105,7 +105,7 @@ var _ = Describe("RQL test", func(){
 		query, err := translator.query("test", dataNode)
 
 		Expect(err).To(BeNil())
-		Expect(query.Where).To(BeEquivalentTo("test.id =$1"))
+		Expect(query.Where).To(BeEquivalentTo("test.\"id\" =$1"))
 	})
 
 	It("handle ne() operator", func() {
@@ -116,6 +116,6 @@ var _ = Describe("RQL test", func(){
 		query, err := translator.query("test", dataNode)
 
 		Expect(err).To(BeNil())
-		Expect(query.Where).To(BeEquivalentTo("test.id !=$1"))
+		Expect(query.Where).To(BeEquivalentTo("test.\"id\" !=$1"))
 	})
 })

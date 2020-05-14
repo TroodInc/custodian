@@ -519,11 +519,11 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 
 func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 	columns := getFieldsColumnsNames(fields)
-	if alias != "" {
-		alias = alias + "."
-	}
 	for i, column := range columns {
-		columns[i] = alias + column
+		if alias != "" {
+			column = fmt.Sprintf("%s.\"%s\"", alias, column)
+		}
+		columns[i] = column
 	}
 	return columns
 }

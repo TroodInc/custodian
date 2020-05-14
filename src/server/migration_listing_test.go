@@ -96,7 +96,7 @@ var _ = Describe("Migrations` listing", func() {
 
 			url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
-			filter := "eq(object," + metaDescription.Name + ")"
+			filter := "eq(applyTo," + metaDescription.Name + ")"
 
 			var request, _ = http.NewRequest("GET", url+"?q="+filter, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)

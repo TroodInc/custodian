@@ -227,7 +227,7 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string) (*rec
 		return nil, err
 	}
 
-	rqlFilter := "eq(object," + objectName + "),sort(-order),limit(0,1)"
+	rqlFilter := "eq(applyTo," + objectName + "),sort(-order),limit(0,1)"
 
 	_, lastMigrationData, err := mm.processor.GetBulk(historyMeta.Name, rqlFilter, nil, nil, 1, true)
 	if err != nil {
