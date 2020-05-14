@@ -169,7 +169,7 @@ var _ = Describe("Server", func() {
 		appliedMigrations, err := migrationManager.GetPrecedingMigrationsForObject("a")
 		Expect(err).To(BeNil())
 		Expect(appliedMigrations).To(HaveLen(1))
-		Expect(appliedMigrations[0].Data["migration_id"]).To(Equal(migrationDescriptionData["id"]))
+		Expect(appliedMigrations[0].Data["id"]).To(Equal(migrationDescriptionData["id"]))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})

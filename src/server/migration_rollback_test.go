@@ -185,7 +185,7 @@ var _ = Describe("Rollback migrations", func() {
 					Expect(err).To(BeNil())
 
 					Expect(records).To(HaveLen(1))
-					Expect(records[0].Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
+					Expect(records[0].Data["id"]).To(Equal(firstAppliedMigrationDescription.Id))
 				})
 			})
 		})

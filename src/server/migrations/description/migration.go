@@ -21,9 +21,9 @@ type MigrationDescription struct {
 func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescription){
 	metaDescription, _ := MigrationMetaDescriptionFromJson(strings.NewReader(record.Data["meta_state"].(string)))
 	migrationDescription := MigrationDescription{
-		record.Data["migration_id"].(string),
-		record.Data["object"].(string),
-		[]string{record.Data["predecessor_id"].(string)},
+		record.Data["id"].(string),
+		record.Data["applyTo"].(string),
+		[]string{record.Data["dependsOn"].(string)},
 		[]MigrationOperationDescription{},
 		metaDescription.MetaDescription(),
 	}

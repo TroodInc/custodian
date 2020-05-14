@@ -62,7 +62,7 @@ func (mc *MigrationConstructor) Construct(currentMetaDescription *description.Me
 	}
 	dependsOn := make([]string, 0)
 	for _, precedingMigration := range precedingMigrations {
-		dependsOn = append(dependsOn, precedingMigration.Data["migration_id"].(string))
+		dependsOn = append(dependsOn, precedingMigration.Data["id"].(string))
 	}
 
 	migrationDescription := MigrationDescription{

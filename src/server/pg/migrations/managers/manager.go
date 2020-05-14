@@ -210,9 +210,9 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string) (
 		return nil, nil
 	}
 
-	rqlFilter := "eq(object," + objectName + ")"
-	if latestMigration.Data["predecessor_id"] != "" {
-		rqlFilter = rqlFilter + ",eq(predecessor_id," + latestMigration.Data["predecessor_id"].(string) + ")"
+	rqlFilter := "eq(applyTo," + objectName + ")"
+	if latestMigration.Data["dependsOn"] != "" {
+		rqlFilter = rqlFilter + ",eq(dependsOn," + latestMigration.Data["dependsOn"].(string) + ")"
 	}
 
 	_, latestMigrations, err := mm.processor.GetBulk(historyMeta.Name, rqlFilter, nil, nil, 1, true)

@@ -626,8 +626,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.GET(cs.root+"/migrations/:migration_id", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		migration, err := migrationManager.Get(p.ByName("migration_id"))
+	app.router.GET(cs.root+"/migrations/:id", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+		migration, err := migrationManager.Get(p.ByName("id"))
 		if err != nil {
 			sink.pushError(err)
 			return
@@ -645,10 +645,10 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.POST(cs.root+"/migrations/:migration_id/rollback", CreateJsonAction(func(requestData *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+	app.router.POST(cs.root+"/migrations/:id/rollback", CreateJsonAction(func(requestData *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		fake := len(q.Get("fake")) > 0
 
-		migrationId := p.ByName("migration_id")
+		migrationId := p.ByName("id")
 		
 		metaDescription, err := migrationManager.RollBackTo(migrationId, true, fake)
 
