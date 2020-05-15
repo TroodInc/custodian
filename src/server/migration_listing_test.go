@@ -96,7 +96,7 @@ var _ = Describe("Migrations` listing", func() {
 
 			url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
 
-			filter := "eq(object," + metaDescription.Name + ")"
+			filter := "eq(applyTo," + metaDescription.Name + ")"
 
 			var request, _ = http.NewRequest("GET", url+"?q="+filter, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -110,7 +110,7 @@ var _ = Describe("Migrations` listing", func() {
 			//ensure applied migration was returned
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			first := body["data"].([]interface{})[0].(map[string]interface{})
-			Expect(first["migration_id"]).To(Equal(migrationDescription.Id))
+			Expect(first["id"]).To(Equal(migrationDescription.Id))
 		})
 
 		It("Can detail applied migrations", func() {
@@ -128,7 +128,7 @@ var _ = Describe("Migrations` listing", func() {
 			Expect(body["status"]).To(Equal("OK"))
 			//ensure applied migration was returned
 			Expect(body["data"]).NotTo(BeNil())
-			Expect(body["data"].(map[string]interface{})["migration_id"]).To(Equal(migrationDescription.Id))
+			Expect(body["data"].(map[string]interface{})["id"]).To(Equal(migrationDescription.Id))
 		})
 	})
 

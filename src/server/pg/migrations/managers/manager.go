@@ -210,9 +210,9 @@ func (mm *MigrationManager) GetPrecedingMigrationsForObject(objectName string) (
 		return nil, nil
 	}
 
-	rqlFilter := "eq(object," + objectName + ")"
-	if latestMigration.Data["predecessor_id"] != "" {
-		rqlFilter = rqlFilter + ",eq(predecessor_id," + latestMigration.Data["predecessor_id"].(string) + ")"
+	rqlFilter := "eq(applyTo," + objectName + ")"
+	if latestMigration.Data["dependsOn"] != "" {
+		rqlFilter = rqlFilter + ",eq(dependsOn," + latestMigration.Data["dependsOn"].(string) + ")"
 	}
 
 	_, latestMigrations, err := mm.processor.GetBulk(historyMeta.Name, rqlFilter, nil, nil, 1, true)
@@ -227,7 +227,7 @@ func (mm *MigrationManager) getLatestMigrationForObject(objectName string) (*rec
 		return nil, err
 	}
 
-	rqlFilter := "eq(object," + objectName + "),sort(-order),limit(0,1)"
+	rqlFilter := "eq(applyTo," + objectName + "),sort(-order),limit(0,1)"
 
 	_, lastMigrationData, err := mm.processor.GetBulk(historyMeta.Name, rqlFilter, nil, nil, 1, true)
 	if err != nil {
@@ -287,9 +287,9 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 
 	migrationData := map[string]interface{}{
 		"created": time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00"),
-		"migration_id":   migration.Id,
-		"predecessor_id": predecessorId,
-		"object":         metaName,
+		"id":   migration.Id,
+		"dependsOn": predecessorId,
+		"applyTo":         metaName,
 		"operations":  string(operations),
 		"meta_state": string(meta_state),
 	}
@@ -408,18 +408,18 @@ func (mm *MigrationManager) migrationParentIsValid(migration *migrations.Migrati
 func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 	historyMetaDescription := &description.MetaDescription{
 		Name: historyMetaName,
-		Key:  "migration_id",
+		Key:  "id",
 		Fields: []description.Field{
 			{
-				Name:     "object",
+				Name:     "applyTo",
 				Type:     description.FieldTypeString,
 				Optional: false,
 			}, {
-				Name:     "migration_id",
+				Name:     "id",
 				Type:     description.FieldTypeString,
 				Optional: false,
 			}, {
-				Name:     "predecessor_id",
+				Name:     "dependsOn",
 				Type:     description.FieldTypeString,
 				Optional: false,
 			}, {

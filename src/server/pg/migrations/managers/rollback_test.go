@@ -121,7 +121,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				//ensure migration record was deleted
 				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 				Expect(err).To(BeNil())
-				Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
+				Expect(migrationRecord.Data["id"]).To(Equal(firstAppliedMigrationDescription.Id))
 
 				// ensure operation was rolled back
 				aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
@@ -158,7 +158,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 				//ensure migration record was deleted
 				migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 				Expect(err).To(BeNil())
-				Expect(migrationRecord.Data["migration_id"]).To(Equal(secondAppliedMigrationDescription.Id))
+				Expect(migrationRecord.Data["id"]).To(Equal(secondAppliedMigrationDescription.Id))
 
 				// ensure operation was rolled back
 				aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
@@ -201,7 +201,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 					//ensure migration record was deleted
 					migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 					Expect(err).To(BeNil())
-					Expect(migrationRecord.Data["migration_id"]).To(Equal(secondAppliedMigrationDescription.Id))
+					Expect(migrationRecord.Data["id"]).To(Equal(secondAppliedMigrationDescription.Id))
 
 					// ensure operation was rolled back
 					aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
@@ -239,7 +239,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			//ensure migration record was deleted
 			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 			Expect(err).To(BeNil())
-			Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
+			Expect(migrationRecord.Data["id"]).To(Equal(firstAppliedMigrationDescription.Id))
 
 			// ensure operation was rolled back
 			aMeta, _, err := metaStore.Get("updated_a", false)
@@ -277,7 +277,7 @@ var _ = Describe("MigrationManager`s rollback functionality", func() {
 			//ensure migration record was deleted
 			migrationRecord, err := migrationManager.getLatestMigrationForObject(aMetaDescription.Name)
 			Expect(err).To(BeNil())
-			Expect(migrationRecord.Data["migration_id"]).To(Equal(firstAppliedMigrationDescription.Id))
+			Expect(migrationRecord.Data["id"]).To(Equal(firstAppliedMigrationDescription.Id))
 
 			// ensure operation was rolled back
 			aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)

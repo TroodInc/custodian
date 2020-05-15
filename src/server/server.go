@@ -611,37 +611,44 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		} else {
 			result := make([]interface{}, 0)
 			for _, obj := range migrationList {
-				data := obj.GetData()
+				migrationData := obj.GetData()
 				// TODO: incapsulate json rendering
 				var meta_state map[string]interface{}
 				var operations []migrations_description.MigrationOperationDescription
-				json.Unmarshal([]byte(fmt.Sprintf("%v", data["meta_state"])), &meta_state)
-				json.Unmarshal([]byte(fmt.Sprintf("%v", data["operations"])), &operations)
-				data["meta_state"] = meta_state
-				data["operations"] = operations
+				json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["meta_state"])), &meta_state)
+				json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["operations"])), &operations)
+				migrationData["meta_state"] = meta_state
+				migrationData["operations"] = operations
 
-				result = append(result, data)
+				result = append(result, migrationData)
 			}
 			sink.pushList(result, len(result))
 		}
 	}))
 
-	app.router.GET(cs.root+"/migrations/:migration_id", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		migration, err := migrationManager.Get(p.ByName("migration_id"))
+	app.router.GET(cs.root+"/migrations/:id", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+		migration, err := migrationManager.Get(p.ByName("id"))
 		if err != nil {
 			sink.pushError(err)
 			return
 		} else if migration == nil {
 			sink.pushError(&ServerError{http.StatusNotFound, ErrNotFound, "record not found", nil})
 		} else {
-			sink.pushObj(migration.GetData())
+			migrationData := migration.GetData()
+			var metaState map[string]interface{}
+			var operations []migrations_description.MigrationOperationDescription
+			json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["meta_state"])), &metaState)
+			json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["operations"])), &operations)
+			migrationData["meta_state"] = metaState
+			migrationData["operations"] = operations
+			sink.pushObj(migrationData)
 		}
 	}))
 
-	app.router.POST(cs.root+"/migrations/:migration_id/rollback", CreateJsonAction(func(requestData *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
+	app.router.POST(cs.root+"/migrations/:id/rollback", CreateJsonAction(func(requestData *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		fake := len(q.Get("fake")) > 0
 
-		migrationId := p.ByName("migration_id")
+		migrationId := p.ByName("id")
 		
 		metaDescription, err := migrationManager.RollBackTo(migrationId, true, fake)
 

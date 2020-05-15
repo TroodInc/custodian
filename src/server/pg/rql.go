@@ -356,15 +356,12 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 				fieldName = field.Name
 			}
 
-			expression.WriteString(alias)
-			expression.WriteRune('.')
-			expression.WriteString(fieldName)
-			expression.WriteRune(' ')
 			op, err := sqlOperator(field, args[1:])
 			if err != nil {
 				return nil, err
 			}
-			expression.WriteString(op)
+
+			expression.WriteString(fmt.Sprintf("%s.\"%s\" %s", alias, fieldName, op))
 		}
 	}
 
