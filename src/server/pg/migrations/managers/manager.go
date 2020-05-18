@@ -38,7 +38,9 @@ func (mm *MigrationManager) Get(name string) (*record.Record, error) {
 
 func (mm *MigrationManager) List(filter string) ([]*record.Record, error) {
 	historyMeta, err := mm.ensureHistoryTableExists()
-
+	if err != nil {
+		return nil, err
+	}
 	_, appliedMigrations, err := mm.processor.GetBulk(historyMeta.Name, filter, nil, nil, 1, true)
 	return appliedMigrations, err
 }
