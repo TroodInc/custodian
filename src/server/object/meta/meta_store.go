@@ -443,22 +443,24 @@ func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, m
 //do nothing if field is being renamed
 func (metaStore *MetaStore) processGenericOuterLinkKeeping(previousMeta *Meta, currentMeta *Meta) {
 	for _, previousMetaField := range previousMeta.Fields {
-		if previousMetaField.Type == FieldTypeGeneric && previousMetaField.LinkType == LinkTypeOuter {
-			if currentMeta.FindField(previousMetaField.Name) == nil {
-				if _, _, err := metaStore.Get(previousMetaField.LinkMeta.Name, false); err == nil {
-					fieldIsBeingRenamed := false
-					for _, currentMetaField := range currentMeta.Fields {
-						if currentMetaField.Type == FieldTypeGeneric && currentMetaField.LinkType == LinkTypeOuter {
-							if currentMetaField.LinkMeta.Name == previousMetaField.LinkMeta.Name {
-								fieldIsBeingRenamed = true
-							}
+		if (previousMetaField.Type == FieldTypeGeneric || previousMetaField.Type == FieldTypeArray) &&
+			previousMetaField.LinkType == LinkTypeOuter &&
+			currentMeta.FindField(previousMetaField.Name) == nil {
+
+			if _, _, err := metaStore.Get(previousMetaField.LinkMeta.Name, false); err == nil {
+				fieldIsBeingRenamed := false
+				for _, currentMetaField := range currentMeta.Fields {
+					if (currentMetaField.Type == FieldTypeGeneric || currentMetaField.Type == FieldTypeArray) &&
+						currentMetaField.LinkType == LinkTypeOuter &&
+						currentMetaField.LinkMeta.Name == previousMetaField.LinkMeta.Name {
+							fieldIsBeingRenamed = true
 						}
 					}
-					if !fieldIsBeingRenamed {
-						previousMetaField.RetrieveMode = false
-						previousMetaField.QueryMode = true
-						currentMeta.AddField(previousMetaField)
-					}
+
+				if !fieldIsBeingRenamed {
+					previousMetaField.RetrieveMode = false
+					previousMetaField.QueryMode = true
+					currentMeta.AddField(previousMetaField)
 				}
 			}
 		}
