@@ -228,7 +228,7 @@ func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFi
 			//omit outer field and update related object
 			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
 			relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
-			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, true)
+			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
 		}
 	}
 }
@@ -288,7 +288,7 @@ func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
 				if objectNeedsUpdate {
 					objectMeta.Fields = objectMetaFieldDescriptions
 					objectMeta.MetaDescription.Fields = objectMetaFields
-					metaStore.Update(objectMeta.Name, objectMeta, true)
+					metaStore.Update(objectMeta.Name, objectMeta, false)
 				}
 			}
 		}
@@ -334,7 +334,7 @@ func (metaStore *MetaStore) removeRelatedGenericInnerLinks(targetMeta *Meta) {
 				if objectNeedsUpdate {
 					objectMeta.Fields = objectMetaFieldDescriptions
 					objectMeta.MetaDescription.Fields = objectMetaFields
-					metaStore.Update(objectMeta.Name, objectMeta, true)
+					metaStore.Update(objectMeta.Name, objectMeta, false)
 				}
 			}
 		}
@@ -375,7 +375,7 @@ func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(keepMeta boo
 				if objectNeedsUpdate {
 					objectMeta.Fields = objectMetaFieldDescriptions
 					objectMeta.MetaDescription.Fields = objectMetaFields
-					if _, err := metaStore.Update(objectMeta.Name, objectMeta, true); err != nil {
+					if _, err := metaStore.Update(objectMeta.Name, objectMeta, false); err != nil {
 						return err
 					}
 				}
