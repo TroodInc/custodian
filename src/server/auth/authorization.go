@@ -138,7 +138,7 @@ func (tauth *TroodAuthenticator) getUserFromCache(token string) (*User, error) {
 	if tauth.cache != nil {
 		token_parts := strings.Split(token, " ");
 
-		data, err := tauth.cache.Get("AUTH:"+token_parts[1]).Result()
+		data, err := tauth.cache.Get(tauth.cache.Context(), "AUTH:"+token_parts[1]).Result()
 		if err == nil {
 			var user User
 			err := json.Unmarshal([]byte(data), &user)

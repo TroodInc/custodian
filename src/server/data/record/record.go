@@ -37,6 +37,12 @@ func (record *Record) GetData() map[string]interface{} {
 					}
 				}
 				data[key] = list
+			case []*Record:
+				list := make([]interface{}, 0)
+				for _, item := range val.([]*Record) {
+					list = append(list, item.GetData())
+				}
+				data[key] = list
 
 			default:
 				data[key] = val
