@@ -604,7 +604,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.GET(cs.root+"/migrations", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		migrationList, err := migrationManager.List(q.Get("q"))
+		total, migrationList, err := migrationManager.List(q.Get("q"))
 		if err != nil {
 			sink.pushError(err)
 			return
@@ -622,7 +622,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 				result = append(result, migrationData)
 			}
-			sink.pushList(result, len(result))
+			sink.pushList(result, total)
 		}
 	}))
 

@@ -36,13 +36,12 @@ func (mm *MigrationManager) Get(name string) (*record.Record, error) {
 	return mm.processor.Get(historyMeta.Name, name, nil, nil, 1, true)
 }
 
-func (mm *MigrationManager) List(filter string) ([]*record.Record, error) {
+func (mm *MigrationManager) List(filter string) (int, []*record.Record, error) {
 	historyMeta, err := mm.ensureHistoryTableExists()
 	if err != nil {
-		return nil, err
+		return 0, nil, err
 	}
-	_, appliedMigrations, err := mm.processor.GetBulk(historyMeta.Name, filter, nil, nil, 1, true)
-	return appliedMigrations, err
+	return  mm.processor.GetBulk(historyMeta.Name, filter, nil, nil, 1, true)
 }
 
 func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool, fake bool) (updatedMetaDescription *description.MetaDescription, err error) {
