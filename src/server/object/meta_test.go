@@ -1,6 +1,7 @@
 package object
 
 import (
+	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"server/pg"
@@ -450,5 +451,32 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(*bMeta.FindField("a").OnDeleteStrategy()).To(Equal(description.OnDeleteSetDefault))
 			Expect(err).To(BeNil())
 		})
+	})
+
+	It("Keeps m2m outer fields on meta update", func() {
+		childMetaDescription := GetBaseMetaData(utils.RandomString(8))
+		childMeta, _ := metaStore.NewMeta(childMetaDescription)
+		err := metaStore.Create(childMeta)
+		Expect(err).To(BeNil())
+
+		parentMetaDescription := GetBaseMetaData(utils.RandomString(8))
+		parentMetaDescription.Fields = append(parentMetaDescription.Fields, description.Field{
+			Name:     "child",
+			LinkMeta: childMeta.Name,
+			Type:     description.FieldTypeObjects,
+			LinkType: description.LinkTypeInner,
+			Optional: false,
+		})
+		parentMeta, err := metaStore.NewMeta(parentMetaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(parentMeta)
+		Expect(err).To(BeNil())
+
+		updatedMetaDescription := GetBaseMetaData(childMeta.Name)
+		updatedMeta, _ := metaStore.NewMeta(updatedMetaDescription)
+		metaStore.Update(childMeta.Name, updatedMeta, true)
+
+		testMeta, _, _ := metaStore.Get(childMeta.Name, false)
+		Expect(testMeta.FindField(fmt.Sprintf("%s__%s_set", parentMeta.Name, childMeta.Name))).NotTo(BeNil())
 	})
 })
