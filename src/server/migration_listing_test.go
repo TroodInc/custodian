@@ -5,6 +5,7 @@ import (
 	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
+	"server/object"
 	"server/pg"
 	"server/transactions/file_transaction"
 	"utils"
@@ -60,21 +61,7 @@ var _ = Describe("Migrations` listing", func() {
 		var metaDescription *description.MetaDescription
 		var migrationDescription *migrations_description.MigrationDescription
 		BeforeEach(func() {
-			metaDescription = description.NewMetaDescription(
-				"b",
-				"id",
-				[]description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-					},
-				},
-				nil,
-				false,
-			)
+			metaDescription = object.GetBaseMetaData(utils.RandomString(8))
 
 			migrationDescription = &migrations_description.MigrationDescription{
 				Id:        "some-unique-id",
@@ -89,6 +76,29 @@ var _ = Describe("Migrations` listing", func() {
 			}
 
 			_, err := migrationManager.Apply(migrationDescription,true, false)
+
+			migrationDescription2 := &migrations_description.MigrationDescription{
+				Id:        "with-depends",
+				ApplyTo:   metaDescription.Name,
+				DependsOn: []string{"some-unique-id"},
+				Operations: [] migrations_description.MigrationOperationDescription{
+					{
+						Type:   migrations_description.AddActionOperation,
+						Action: &migrations_description.MigrationActionDescription{
+							Action: description.Action{
+								Method:          description.MethodUpdate,
+								Protocol:        description.REST,
+								Args:            []string{"http://localhost"},
+								ActiveIfNotRoot: false,
+								IncludeValues:   nil,
+								Name:            "Testaction",
+							},
+						},
+					},
+				},
+			}
+
+			_, err = migrationManager.Apply(migrationDescription2,true, false)
 			Expect(err).To(BeNil())
 		})
 
@@ -107,15 +117,17 @@ var _ = Describe("Migrations` listing", func() {
 
 			//check response status
 			Expect(body["status"]).To(Equal("OK"))
+
 			//ensure applied migration was returned
-			Expect(body["data"].([]interface{})).To(HaveLen(1))
-			first := body["data"].([]interface{})[0].(map[string]interface{})
+			data := body["data"].([]interface{})
+			Expect(data).To(HaveLen(2))
+			first := data[0].(map[string]interface{})
 			Expect(first["id"]).To(Equal(migrationDescription.Id))
 		})
 
 		It("Can detail applied migrations", func() {
 
-			url := fmt.Sprintf("%s/migrations/"+migrationDescription.Id, appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/migrations/with-depends", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -127,8 +139,11 @@ var _ = Describe("Migrations` listing", func() {
 			//check response status
 			Expect(body["status"]).To(Equal("OK"))
 			//ensure applied migration was returned
-			Expect(body["data"]).NotTo(BeNil())
-			Expect(body["data"].(map[string]interface{})["id"]).To(Equal(migrationDescription.Id))
+			data := body["data"].(map[string]interface{})
+			Expect(data).NotTo(BeNil())
+			Expect(data["id"]).To(Equal("with-depends"))
+			Expect(data["dependsOn"]).To(HaveLen(1))
+			Expect(data["dependsOn"]).To(ContainElement("some-unique-id"))
 		})
 	})
 
