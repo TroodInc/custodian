@@ -615,6 +615,13 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				// TODO: incapsulate json rendering
 				var meta_state map[string]interface{}
 				var operations []migrations_description.MigrationOperationDescription
+
+				// TODO: Replace base types with related objects to enable filtering
+				if migrationData["dependsOn"].(string) != "" {
+					migrationData["dependsOn"] = []string{migrationData["dependsOn"].(string)}
+				} else {
+					migrationData["dependsOn"] = make([]string, 0)
+				}
 				json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["meta_state"])), &meta_state)
 				json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["operations"])), &operations)
 				migrationData["meta_state"] = meta_state
@@ -637,6 +644,13 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			migrationData := migration.GetData()
 			var metaState map[string]interface{}
 			var operations []migrations_description.MigrationOperationDescription
+
+			// TODO: Replace base types with related objects to enable filtering
+			if migrationData["dependsOn"].(string) != "" {
+				migrationData["dependsOn"] = []string{migrationData["dependsOn"].(string)}
+			} else {
+				migrationData["dependsOn"] = make([]string, 0)
+			}
 			json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["meta_state"])), &metaState)
 			json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["operations"])), &operations)
 			migrationData["meta_state"] = metaState
