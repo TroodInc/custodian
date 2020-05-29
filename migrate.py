@@ -10,6 +10,9 @@ import sys
 
 
 def get_service_token():
+    """
+    Returns the service token
+    """
     domain = os.environ.get('SERVICE_DOMAIN')
     secret = os.environ.get('SERVICE_AUTH_SECRET')
 
@@ -38,6 +41,9 @@ class CustodianMigrator:
         self.migration_files = self._get_migration_files()
 
     def migrate_all(self):
+        """
+        Apply all migrations
+        """
         for f in self.migration_files:
             migration_name = os.path.basename(f)
             migration_data = json.load(open(f))
@@ -50,11 +56,17 @@ class CustodianMigrator:
                 print("Failed to apply migration {} .".format(migration_name))
 
     def _get_migration_files(self):
+        """
+        Helper to return the migration files
+        """
         migration_files = glob.glob("{}*.json".format(self.migrations_path))
         migration_files = sorted(migration_files, key=lambda x: int(list(reversed(x.split('/')))[0].split('_')[0]))
         return migration_files
 
     def _migrate(self, migration_data):
+        """
+         Helper to return a specific migration file
+        """
         operations = migration_data['operations']
         if operations[0]['type'] == 'createRecords':
             application_status = self._upload_records(migration_data)
@@ -64,6 +76,9 @@ class CustodianMigrator:
         return application_status
 
     def _apply_migration(self, migration_data):
+        """
+        Helper to apply a specific migration
+        """
         response = requests.post(
             "http://127.0.0.1:8000/custodian/migrations/",
             json=migration_data,

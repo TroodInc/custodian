@@ -176,7 +176,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		http.ServeFile(w, req, "/home/static/swagger_ui.html")
 	})
 
-	//object operations
+	//Get operation to get the meta
 	app.router.GET(cs.root+"/meta", CreateJsonAction(func(src *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
 		if metaList, _, err := metaStore.List(); err == nil {
 			var result []interface{}
@@ -189,6 +189,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	//Get operation to get meta with the name
 	app.router.GET(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		//set transaction to the context
 		if metaObj, _, e := metaStore.Get(p.ByName("name"), true); e == nil {
@@ -198,6 +199,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	//POST operation to create meta
 	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
 		metaDescriptionList, _, _ := metaStore.List()
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
@@ -222,6 +224,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	//DELETE operation to delete meta
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		if ok, e := metaStore.Remove(p.ByName("name"), false); ok {
 			js.pushObj(nil)
@@ -236,6 +239,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	//PATCH operation to update meta
 	app.router.PATCH(cs.root+"/meta/:name", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
 		if err != nil {
@@ -250,7 +254,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	}))
 
-	//RecordSetOperations operations
+	//POST operation to create an object
 	app.router.POST(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
 		dataProcessor := getDataProcessor()
 		user := r.Context().Value("auth_user").(auth.User)
@@ -307,6 +311,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	}))
 
+	//GET operation to get the specific object
 	app.router.GET(cs.root+"/data/:name/:key", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
 
@@ -339,6 +344,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	}))
 
+	//GET operation to get fields
 	app.router.GET(cs.root+"/data/:name", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
 		abac_resolver := request.Context().Value("abac").(abac.TroodABAC)
@@ -387,6 +393,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	//DELETE operation to delete an object
 	app.router.DELETE(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, r *http.Request) {
 		dataProcessor := getDataProcessor()
 		user := r.Context().Value("auth_user").(auth.User)
@@ -420,6 +427,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	//DELETE operation to delete some objects
 	app.router.DELETE(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
 
@@ -443,6 +451,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	}))
 
+	//PATCH operation to update a object
 	app.router.PATCH(cs.root+"/data/:name/:key", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, u url.Values, r *http.Request) {
 		dataProcessor := getDataProcessor()
 		user := r.Context().Value("auth_user").(auth.User)
@@ -501,6 +510,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	}))
 
+	//DELETE operation to delete some objects
 	app.router.PATCH(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
@@ -579,6 +589,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	// 	}
 	// }))
 
+	//POST operation to create migrations
 	app.router.POST(cs.root+"/migrations", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		migrationDescription, err := migrations_description.MigrationDescriptionFromJson(bytes.NewReader(r.body))
 		if err != nil {
@@ -603,6 +614,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	//GET operation to get migrations
 	app.router.GET(cs.root+"/migrations", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		total, migrationList, err := migrationManager.List(q.Get("q"))
 		if err != nil {
@@ -633,6 +645,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
+	//GET operation to get a specific migrations
 	app.router.GET(cs.root+"/migrations/:id", CreateJsonAction(func(r *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		migration, err := migrationManager.Get(p.ByName("id"))
 		if err != nil {
@@ -729,6 +742,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	return cs.s
 }
 
+// Helper to create json action
 func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Values, *http.Request)) func(http.ResponseWriter, *http.Request, httprouter.Params) {
 	return func(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		sink, _ := asJsonSink(w)

@@ -44,15 +44,17 @@ func (e *ServerError) Json() []byte {
 	return encodedData
 }
 
-
+// returns internal server error
 func NewFatalError(code string, msg string, data interface{}) *ServerError {
 	return &ServerError{http.StatusInternalServerError, code, msg, data}
 }
 
+// returns bad request error
 func NewValidationError(code string, msg string, data interface{}) *ServerError {
 	return &ServerError{http.StatusBadRequest, code, msg, data}
 }
 
+// returns not found error
 func NewNotFoundError(code string, msg string, data interface{}) *ServerError {
 	return &ServerError{http.StatusNotFound, code, msg, data}
 }

@@ -15,11 +15,13 @@ import (
 	"github.com/go-redis/redis"
 )
 
+// Type of response for authorization
 type AuthResponse struct {
 	Status string   `json:"status"`
 	User User       `json:"data"`
 }
 
+// All attributes, which exists for users
 type User struct {
 	Id 		int 	`json:"id"`
 	Login 	string	`json:"login"`
@@ -50,6 +52,7 @@ func (this *AuthError) Serialize () map[string]string {
 	}
 }
 
+// Retunrs the trood authenticator or and empty authenticator
 func GetAuthenticator() Authenticator {
 	auth_type := os.Getenv("AUTHENTICATION_TYPE")
 
@@ -87,6 +90,7 @@ type TroodAuthenticator struct {
 	cache *redis.Client
 }
 
+// Retunrs the service token
 func GetServiceToken() (string, error) {
 	secret := os.Getenv("SERVICE_AUTH_SECRET")
 	domain := os.Getenv("SERVICE_DOMAIN")
@@ -107,6 +111,7 @@ func GetServiceToken() (string, error) {
 	return "", errors.New("SERVICE_AUTH_SECRET or SERVICE_DOMAIN not found")
 }
 
+// Perform the authentication and returns the use and ABAC
 func (tauth *TroodAuthenticator) Authenticate(req *http.Request) (*User, map[string]interface{}, error){
 	var auth_header = req.Header.Get("Authorization")
 
@@ -153,6 +158,7 @@ func (tauth *TroodAuthenticator) getUserFromCache(token string) (*User, error) {
 	return nil, NewError("Cache is not enabled")
 }
 
+// Returns the user from authorization service
 func (tauth *TroodAuthenticator)  getUserFromAuthService(token string) (*User, error){
 	user_token := strings.Split(token, " ");
 	service_token, err := GetServiceToken()
@@ -183,7 +189,7 @@ func (tauth *TroodAuthenticator)  getUserFromAuthService(token string) (*User, e
 	return nil, NewError("Cant achieve user object")
 }
 
-
+// Helper for fetching the user
 func (tauth *TroodAuthenticator) FetchUser(buff io.ReadCloser) (*User, error)  {
 	response := AuthResponse{}
 	body, err := ioutil.ReadAll(buff)

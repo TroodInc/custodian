@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// Matches the filter expretssion and retunrs the record value
 func matchFilterExpression(filterExpression *FilterExpression, recordValues map[string]interface{}) (bool, error) {
 	if filterExpression.Operator == andOperator {
 		result := true
@@ -78,6 +79,7 @@ func matchFilterExpression(filterExpression *FilterExpression, recordValues map[
 	panic(fmt.Sprintln("Unknown type of filter specified: ", filterExpression.Operator))
 }
 
+// Returns record`s attributes referenced in filter
 func getReferencedAttributes(filterExpression *FilterExpression) []string {
 	attributes := make([]string, 0)
 	if filterExpression.Operator == andOperator || filterExpression.Operator == orOperator {

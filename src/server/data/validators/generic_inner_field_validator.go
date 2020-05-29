@@ -16,6 +16,7 @@ type GenericInnerFieldValidator struct {
 	dbTransaction     transactions.DbTransaction
 }
 
+// Validates the generic inner field
 func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.FieldDescription, value interface{}) (*types.GenericInnerLink, error) {
 	if castValue, ok := value.(map[string]interface{}); !ok {
 		return nil, errors2.NewValidationError(
@@ -43,6 +44,7 @@ func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.Fie
 	}
 }
 
+// Validates the object name generic inner field
 func (validator *GenericInnerFieldValidator) validateObjectName(objectName interface{}, fieldDescription *meta.FieldDescription) (string, error) {
 	castObjectName, ok := objectName.(string)
 	if !ok {
@@ -55,6 +57,7 @@ func (validator *GenericInnerFieldValidator) validateObjectName(objectName inter
 	return castObjectName, nil
 }
 
+// Validates the object generic inner field
 func (validator *GenericInnerFieldValidator) validateObject(objectName string, fieldDescription *meta.FieldDescription) (*meta.Meta, error) {
 	if objectMeta, _, err := validator.metaGetCallback(objectName, true); err != nil {
 		return nil, errors2.NewValidationError(
@@ -66,6 +69,7 @@ func (validator *GenericInnerFieldValidator) validateObject(objectName string, f
 	}
 }
 
+// Validates the record primary key of generic inner field
 func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{}, fieldDescription *meta.FieldDescription) (interface{}, error) {
 	if pkValue == nil {
 		return nil, errors.GenericFieldPkIsNullError{}
@@ -86,6 +90,7 @@ func (validator *GenericInnerFieldValidator) validateRecordPk(pkValue interface{
 	return validatedPkValue, nil
 }
 
+// Validates the record of generic inner field record
 func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Meta, pkValue interface{}, fieldDescription *meta.FieldDescription) (error) {
 	if pkValueAsString, err := objectMeta.Key.ValueAsString(pkValue); err != nil {
 		return err

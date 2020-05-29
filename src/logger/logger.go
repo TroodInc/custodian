@@ -1,3 +1,6 @@
+/*
+Custome logger with the 4 level of logging(Debug, Error, Warn, Info)
+*/
 package logger
 
 import (

@@ -95,6 +95,7 @@ func (abac *TroodABAC) EvaluateRule(rule map[string]interface{}) (bool, *RuleABA
 	return passed, &result
 }
 
+//
 func (abac *TroodABAC) evaluateCondition(condition map[string]interface{}) (bool, []*FilterExpression) {
 	var filters []*FilterExpression
 
@@ -141,6 +142,7 @@ func (abac *TroodABAC) evaluateCondition(condition map[string]interface{}) (bool
 	return totalResult, filters
 }
 
+// make filter expresstion
 func makeFilter(operator string, operand string, value interface{}) *FilterExpression {
 	switch value.(type) {
 	case map[string]interface{}:
