@@ -120,4 +120,30 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		metaDescriptionSyncer.Remove(bMetaDescription.Name)
 		metaDescriptionSyncer.Remove(metaDescription.Name)
 	})
+	It("renames metaDescription if only new name provided", func() {
+		bMetaDescription := &description.MetaDescription{
+			Name:   "b",
+			Key:    "id",
+			Cas:    false,
+			Fields: []description.Field{},
+		}
+
+		operation := RenameObjectOperation{MetaDescription: bMetaDescription}
+		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
+		bMetaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		globalTransactionManager.CommitTransaction(globalTransaction)
+		Expect(bMetaDescription).NotTo(BeNil())
+
+		//ensure MetaDescription has been save to file
+		bMetaDescription, _, err = metaDescriptionSyncer.Get(bMetaDescription.Name)
+		Expect(metaDescription).NotTo(BeNil())
+		//ensure previous MetaDescription does not exist
+		metaDescription, _, err = metaDescriptionSyncer.Get(metaDescription.Name)
+		Expect(metaDescription).To(BeNil())
+
+		//clean up
+		_, err = metaDescriptionSyncer.Remove(bMetaDescription.Name)
+		Expect(err).To(BeNil())
+	})
 })

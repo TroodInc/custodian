@@ -20,6 +20,12 @@ func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *desc
 
 	//remove old description
 	metaDescriptionSyncer.Remove(metaDescriptionToApply.Name)
+
+	//avoid empty fields
+	newMetaDescription := metaDescriptionToApply.Clone()
+	newMetaDescription.Name = o.MetaDescription.Name
+	o.MetaDescription = newMetaDescription
+	
 	//create new one
 	metaDescriptionSyncer.Create(transaction, *o.MetaDescription)
 
