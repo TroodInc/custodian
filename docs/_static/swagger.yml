@@ -7,9 +7,15 @@ tags:
     description: "Object schema management endpoints"
   - name: Record
     description: "Data endpoints"
+  - name: Migration
+    description: "Migration endpoints"
 paths:
   /meta/:
     get:
+      description: Metadata is a json file that describes which objects should be created,
+                   which attributes describe them, and what relationships exist between the objects.
+                   Each object corresponds to a table in the database.
+      summary: 'Get a list of all objects'
       tags:
         - Meta
       operationId: listMeta
@@ -24,6 +30,7 @@ paths:
                   $ref: '#/components/schemas/Meta'
           description: ''
     post:
+      summary: 'Add object'
       tags:
         - Meta
       operationId: createMeta
@@ -42,6 +49,7 @@ paths:
           description: ''
   /meta/{name}/:
     get:
+      summary: 'Get an object with this name'
       tags:
         - Meta
       operationId: retrieveMeta
@@ -60,6 +68,7 @@ paths:
                 $ref: '#/components/schemas/Meta'
           description: ''
     patch:
+      summary: 'Change the fields in object with this name'
       tags:
         - Meta
       operationId: updateMeta
@@ -103,6 +112,7 @@ paths:
                 $ref: '#/components/schemas/Meta'
           description: ''
     delete:
+      summary: 'Delete object with this name'
       tags:
         - Meta
       operationId: destroyMeta
@@ -118,6 +128,8 @@ paths:
           description: ''
   /data/{name}/:
     get:
+      summary: 'Get a list of data for an object with this name'
+      description: Record is a json file that contains a set of values for various object properties
       tags:
         - Record
       operationId: listRecords
@@ -136,6 +148,7 @@ paths:
                 $ref: "#/components/schemas/Record"
           description: ''
     post:
+      summary: 'Add a data for an object with this name'
       tags:
         - Record
       operationId: createRecord
@@ -180,8 +193,55 @@ paths:
               schema:
                 $ref: '#/components/schemas/Meta'
           description: ''
+    delete:
+      summary: 'Delete the list of data for an object with this name'
+      tags:
+        - Record
+      operationId: destroyAccountRoles
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: An object name.
+          schema:
+            type: string
+      responses:
+        '204':
+          description: ''
+    patch:
+      tags:
+        - Record
+      operationId: updateRecord
+      parameters:
+        - name: name
+          in: path
+          required: true
+          description: An object name.
+          schema:
+            type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              properties:
+                name:
+                  type: string
+                  maxLength: 128
+                status:
+                  enum:
+                    - active
+                    - disabled
+                    - deleted
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Record"
+          description: ''
   /data/{name}/{pk}:
     get:
+      summary: 'Get specific data for an object with this name'
       tags:
         - Record
       operationId: getRecord
@@ -206,6 +266,7 @@ paths:
                 $ref: "#/components/schemas/Record"
           description: ''
     patch:
+      summary: 'Change specific data for an object with this name'
       tags:
         - Record
       operationId: updateRecord
@@ -243,6 +304,7 @@ paths:
                 $ref: "#/components/schemas/Record"
           description: ''
     delete:
+      summary: 'Delete specific data for an object with this name'
       tags:
         - Record
       operationId: destroyAccountRole
@@ -261,6 +323,59 @@ paths:
             type: string
       responses:
         '204':
+          description: ''
+  /migrations/:
+    get:
+      description: Migration is a sequence of operations that leads an object from one configuration to another.
+      summary: 'Get a list of all migrations'
+      tags:
+        - Migration
+      operationId: listMigrations
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Migration'
+          description: ''
+    post:
+      summary: 'Add a migration'
+      tags:
+        - Migration
+      operationId: createMigration
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Migration"
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Migration'
+          description: ''
+  /migrations/{pk}:
+    get:
+      summary: 'Get a specific migration'
+      tags:
+        - Migration
+      operationId: listMigrations
+      parameters:
+        - name: pk
+          in: path
+          required: true
+          description: A migration primary key value.
+          schema:
+            type: string
+      responses:
+        '200':
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Migration"
           description: ''
 
 components:
@@ -327,6 +442,62 @@ components:
           type: boolean
         includeValues:
           type: object
+
+    MigrationField:
+      type: object
+      properties:
+        name:
+          type: string
+        previousName:
+          type: string
+        type:
+          type: string
+        optional:
+          type: boolean
+
+    MigrationAction:
+      type: object
+      properties:
+        name:
+          type: string
+        previousName:
+          type: string
+        method:
+          type: string
+          enum:
+            - update
+        protocol:
+          type: string
+          enum:
+            - REST
+        args:
+          type: array
+          items:
+            type: string
+        activeIfNotRoot:
+          type: boolean
+        includeValues:
+          type: object
+
+    Migration:
+      type: object
+      properties:
+        name:
+          type: string
+        previousName:
+          type: string
+        key:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: '#/components/schemas/MigrationField'
+        actions:
+          type: array
+          items:
+            $ref: "#/components/schemas/MigrationAction"
+        cas:
+          type: boolean
 
 
     Record:
