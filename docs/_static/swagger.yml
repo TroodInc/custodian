@@ -197,7 +197,7 @@ paths:
       summary: 'Delete the list of data for an object with this name'
       tags:
         - Record
-      operationId: destroyAccountRoles
+      operationId: destroyRecord
       parameters:
         - name: name
           in: path
@@ -209,6 +209,7 @@ paths:
         '204':
           description: ''
     patch:
+      summary: 'Change all data for an object with this name'
       tags:
         - Record
       operationId: updateRecord
@@ -307,7 +308,7 @@ paths:
       summary: 'Delete specific data for an object with this name'
       tags:
         - Record
-      operationId: destroyAccountRole
+      operationId: destroyRecord
       parameters:
         - name: name
           in: path
@@ -362,7 +363,7 @@ paths:
       summary: 'Get a specific migration'
       tags:
         - Migration
-      operationId: listMigrations
+      operationId: getMigration
       parameters:
         - name: pk
           in: path
