@@ -1,34 +1,35 @@
 package auth
 
 import (
-	"net/http"
-	"io"
-	"encoding/json"
-	"io/ioutil"
-	"strings"
-	"os"
 	"bytes"
-	"github.com/pkg/errors"
-	"encoding/base64"
 	"crypto/hmac"
 	"crypto/sha1"
-	"github.com/go-redis/redis"
+	"encoding/base64"
+	"encoding/json"
+	"io"
+	"io/ioutil"
+	"net/http"
+	"os"
+	"strings"
+
+	"github.com/go-redis/redis/v8"
+	"github.com/pkg/errors"
 )
 
 type AuthResponse struct {
-	Status string   `json:"status"`
-	User User       `json:"data"`
+	Status string `json:"status"`
+	User   User   `json:"data"`
 }
 
 type User struct {
-	Id 		int 	`json:"id"`
-	Login 	string	`json:"login"`
-	Status 	string	`json:"status"`
-	Role 	string	`json:"role"`
-	Type 	string	`json:"type"`
-	ABAC 	map[string]interface{}  `json:"abac"`
-	Authorized bool `json:"authorized"`
-	Profile map[string]interface{}  `json:"profile"`
+	Id         int                    `json:"id"`
+	Login      string                 `json:"login"`
+	Status     string                 `json:"status"`
+	Role       string                 `json:"role"`
+	Type       string                 `json:"type"`
+	ABAC       map[string]interface{} `json:"abac"`
+	Authorized bool                   `json:"authorized"`
+	Profile    map[string]interface{} `json:"profile"`
 }
 
 func NewError(text string) error {
@@ -39,11 +40,11 @@ type AuthError struct {
 	s string
 }
 
-func (this *AuthError) Error () string {
+func (this *AuthError) Error() string {
 	return this.s
 }
 
-func (this *AuthError) Serialize () map[string]string {
+func (this *AuthError) Serialize() map[string]string {
 	return map[string]string{
 		"code": "401",
 		"msg":  this.s,
@@ -63,10 +64,10 @@ func GetAuthenticator() Authenticator {
 			redis_options, _ := redis.ParseURL(redis_url)
 			cache_client := redis.NewClient(redis_options)
 
-			return &TroodAuthenticator{service_url, cache_client};
+			return &TroodAuthenticator{service_url, cache_client}
 		}
 
-		return &TroodAuthenticator{service_url, nil};
+		return &TroodAuthenticator{service_url, nil}
 	default:
 		return &EmptyAuthenticator{}
 	}
@@ -76,7 +77,7 @@ type Authenticator interface {
 	Authenticate(*http.Request) (*User, map[string]interface{}, error)
 }
 
-type EmptyAuthenticator struct {}
+type EmptyAuthenticator struct{}
 
 func (eauth *EmptyAuthenticator) Authenticate(req *http.Request) (*User, map[string]interface{}, error) {
 	return &User{Authorized: false}, nil, nil
@@ -84,7 +85,7 @@ func (eauth *EmptyAuthenticator) Authenticate(req *http.Request) (*User, map[str
 
 type TroodAuthenticator struct {
 	AuthUrl string
-	cache *redis.Client
+	cache   *redis.Client
 }
 
 func GetServiceToken() (string, error) {
@@ -107,7 +108,7 @@ func GetServiceToken() (string, error) {
 	return "", errors.New("SERVICE_AUTH_SECRET or SERVICE_DOMAIN not found")
 }
 
-func (tauth *TroodAuthenticator) Authenticate(req *http.Request) (*User, map[string]interface{}, error){
+func (tauth *TroodAuthenticator) Authenticate(req *http.Request) (*User, map[string]interface{}, error) {
 	var auth_header = req.Header.Get("Authorization")
 
 	if auth_header != "" {
@@ -136,7 +137,7 @@ func (tauth *TroodAuthenticator) Authenticate(req *http.Request) (*User, map[str
 
 func (tauth *TroodAuthenticator) getUserFromCache(token string) (*User, error) {
 	if tauth.cache != nil {
-		token_parts := strings.Split(token, " ");
+		token_parts := strings.Split(token, " ")
 
 		data, err := tauth.cache.Get(tauth.cache.Context(), "AUTH:"+token_parts[1]).Result()
 		if err == nil {
@@ -153,8 +154,8 @@ func (tauth *TroodAuthenticator) getUserFromCache(token string) (*User, error) {
 	return nil, NewError("Cache is not enabled")
 }
 
-func (tauth *TroodAuthenticator)  getUserFromAuthService(token string) (*User, error){
-	user_token := strings.Split(token, " ");
+func (tauth *TroodAuthenticator) getUserFromAuthService(token string) (*User, error) {
+	user_token := strings.Split(token, " ")
 	service_token, err := GetServiceToken()
 
 	token_type := "user"
@@ -162,14 +163,14 @@ func (tauth *TroodAuthenticator)  getUserFromAuthService(token string) (*User, e
 		token_type = "service"
 	}
 
-	body := []byte(`{"type":"`+token_type+`", "token":"`+user_token[1]+`"}`)
+	body := []byte(`{"type":"` + token_type + `", "token":"` + user_token[1] + `"}`)
 
-	auth_request, _ := http.NewRequest("POST", tauth.AuthUrl + "/api/v1.0/verify-token/", bytes.NewBuffer(body))
-	auth_request.Header.Add("Authorization", "Service " + service_token)
+	auth_request, _ := http.NewRequest("POST", tauth.AuthUrl+"/api/v1.0/verify-token/", bytes.NewBuffer(body))
+	auth_request.Header.Add("Authorization", "Service "+service_token)
 	auth_request.Header.Add("Content-Type", "application/json")
 
 	client := &http.Client{}
-	auth_response, err  := client.Do(auth_request)
+	auth_response, err := client.Do(auth_request)
 
 	if err == nil && auth_response.StatusCode == 200 {
 		user, err := tauth.FetchUser(auth_response.Body)
@@ -183,8 +184,7 @@ func (tauth *TroodAuthenticator)  getUserFromAuthService(token string) (*User, e
 	return nil, NewError("Cant achieve user object")
 }
 
-
-func (tauth *TroodAuthenticator) FetchUser(buff io.ReadCloser) (*User, error)  {
+func (tauth *TroodAuthenticator) FetchUser(buff io.ReadCloser) (*User, error) {
 	response := AuthResponse{}
 	body, err := ioutil.ReadAll(buff)
 	if err == nil {

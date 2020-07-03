@@ -21,10 +21,10 @@ cleanup:
 test-all:
 	@make cleanup
 	@echo Testing all ...
-	@docker-compose exec custodian bash -c  "cd /go/src/ && ginkgo -r -keepGoing $(P)"
+	@docker-compose exec custodian bash -c  "cd /go/src/app/ && ginkgo -r -keepGoing $(P)"
 
 test-fast:
 	@make cleanup
-	@docker-compose exec custodian bash -c  "cd /go/src/ && ginkgo --v --failFast --progress -r $(P)"
+	@docker-compose exec custodian bash -c  "cd /go/src/app/ && ginkgo --v --failFast --progress -r $(P)"
 
 .PHONY: default build run down test

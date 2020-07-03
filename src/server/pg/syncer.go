@@ -3,8 +3,6 @@ package pg
 import (
 	"database/sql"
 	"fmt"
-	"github.com/lib/pq"
-	"github.com/xo/dburl"
 	"log"
 	"logger"
 	"regexp"
@@ -13,6 +11,9 @@ import (
 	"server/object/meta"
 	"server/transactions"
 	"time"
+
+	"github.com/lib/pq"
+	"github.com/xo/dburl"
 )
 
 type Syncer struct {
@@ -22,7 +23,7 @@ type Syncer struct {
 func getDBConnection(dbInfo string) *sql.DB {
 	db, err := dburl.Open(dbInfo)
 	if err != nil {
-		logger.Error("%", err)
+		logger.Error("%s", err)
 		logger.Error("Could not connect to Postgres.")
 
 		return &sql.DB{}
@@ -32,6 +33,7 @@ func getDBConnection(dbInfo string) *sql.DB {
 }
 
 var activeDBConnection *sql.DB
+
 func NewSyncer(dbInfo string) (*Syncer, error) {
 	if activeDBConnection == nil {
 		activeDBConnection = getDBConnection(dbInfo)
@@ -132,7 +134,9 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentM
 			var data map[string]interface{}
 			if e.(*pq.Error).Code == "42804" {
 				matched := regexp.MustCompile(`column "(.*)"`).FindAllStringSubmatch(e.(*pq.Error).Message, -1)
-				if len(matched) > 0 { data = map[string]interface{}{"column": matched[0][1]}}
+				if len(matched) > 0 {
+					data = map[string]interface{}{"column": matched[0][1]}
+				}
 			}
 			return errors.NewValidationError(ErrExecutingDDL, e.Error(), data)
 		}
@@ -200,12 +204,12 @@ func (syncer *Syncer) BeginTransaction() (transactions.DbTransaction, error) {
 	return &PgTransaction{Tx: tx}, err
 }
 
-func (syncer *Syncer) CommitTransaction(transaction transactions.DbTransaction) (error) {
+func (syncer *Syncer) CommitTransaction(transaction transactions.DbTransaction) error {
 	tx := transaction.(*PgTransaction)
 	return tx.Commit()
 }
 
-func (syncer *Syncer) RollbackTransaction(transaction transactions.DbTransaction) (error) {
+func (syncer *Syncer) RollbackTransaction(transaction transactions.DbTransaction) error {
 	tx := transaction.(*PgTransaction)
 	err := tx.Rollback()
 	return err

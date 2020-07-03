@@ -2,8 +2,6 @@ package server_test
 
 import (
 	"fmt"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
 	"server/auth"
@@ -12,6 +10,9 @@ import (
 	"server/pg"
 	"server/transactions/file_transaction"
 	"utils"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"encoding/json"
 	"server"
@@ -78,10 +79,10 @@ var _ = Describe("Server", func() {
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
-		return  aMetaObj
+		return aMetaObj
 	}
 
-	makeObjectD := func() *meta.Meta{
+	makeObjectD := func() *meta.Meta {
 		dMetaDescription := description.MetaDescription{
 			Name: "d_5frz7",
 			Key:  "id",
@@ -233,7 +234,7 @@ var _ = Describe("Server", func() {
 	})
 
 	Context("Having records of objects A,B,C,D", func() {
-		var aRecord, bRecord, cRecord, dRecord *record.Record
+		var aRecord, bRecord, cRecord *record.Record
 		BeforeEach(func() {
 			aMetaObj := makeObjectA()
 			bMetaDescription := description.MetaDescription{
@@ -306,7 +307,7 @@ var _ = Describe("Server", func() {
 
 			aMetaObj = updateObjctAWithDSet()
 
-			aRecord, err = dataProcessor.CreateRecord( aMetaObj.Name, map[string]interface{}{"name": "a record"}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "a record"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			bRecord, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "b record"}, auth.User{})
@@ -315,8 +316,9 @@ var _ = Describe("Server", func() {
 			cRecord, err = dataProcessor.CreateRecord(cMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"], "b": bRecord.Data["id"], "name": "c record"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			dRecord, err = dataProcessor.CreateRecord(dMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"], "name": "d record"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(dMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"], "name": "d record"}, auth.User{})
 			Expect(err).To(BeNil())
+
 		})
 
 		It("Can exclude inner link`s subtree", func() {

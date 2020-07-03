@@ -2,16 +2,17 @@ package data
 
 import (
 	"fmt"
-	errors2 "server/errors"
-	"server/object/meta"
-	"github.com/Q-CIS-DEV/go-rql-parser"
-	"strings"
 	"server/auth"
 	"server/data/errors"
 	"server/data/notifications"
 	. "server/data/record"
+	errors2 "server/errors"
 	"server/object/description"
+	"server/object/meta"
 	"server/transactions"
+	"strings"
+
+	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 )
 
 type objectClassValidator func(*Record) ([]*Record, error)
@@ -138,7 +139,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 		return 0, nil, e
 	} else if !ok {
 		return 0, nil, errors2.NewNotFoundError(
-			errors.ErrObjectClassNotFound, fmt.Sprint("Object class '%s' not found", objectName), nil,
+			errors.ErrObjectClassNotFound, fmt.Sprintf("Object class '%s' not found", objectName), nil,
 		)
 	} else {
 		transaction, _ := processor.transactionManager.BeginTransaction()
