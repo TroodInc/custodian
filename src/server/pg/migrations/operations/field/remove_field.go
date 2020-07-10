@@ -1,15 +1,15 @@
 package field
 
 import (
-	"server/transactions"
 	"database/sql"
-	"server/migrations/operations/field"
-	"server/pg"
 	"fmt"
 	"logger"
-	"server/pg/migrations/operations/statement_factories"
+	"server/migrations/operations/field"
 	"server/object/description"
 	"server/object/meta"
+	"server/pg"
+	"server/pg/migrations/operations/statement_factories"
+	"server/transactions"
 )
 
 type RemoveFieldOperation struct {
@@ -33,6 +33,9 @@ func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *description.Me
 		return err
 	}
 	if err := o.addColumnStatements(&statementSet, columns, metaDescription); err != nil {
+		return err
+	}
+	if err := o.addEnumStatements(&statementSet, columns, metaDescription); err != nil {
 		return err
 	}
 
@@ -83,6 +86,20 @@ func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatem
 		return err
 	}
 	statementSet.Add(statement)
+	return nil
+}
+
+func (o *RemoveFieldOperation) addEnumStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescription *description.MetaDescription) error {
+	tableName := pg.GetTableName(metaDescription.Name)
+	for _, column := range columns {
+		if len(column.Enum) > 0 {
+			statement, err := pg.DropEnumStatement(tableName, column.Name)
+			if err != nil {
+				return err
+			}
+			statementSet.Add(statement)
+		}
+	}
 	return nil
 }
 

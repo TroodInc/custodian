@@ -1,15 +1,15 @@
 package object
 
 import (
-	"server/transactions"
-	"server/migrations/operations/object"
 	"database/sql"
-	"server/pg"
-	"logger"
 	"fmt"
-	"text/template"
+	"logger"
+	"server/migrations/operations/object"
 	"server/object/description"
 	"server/object/meta"
+	"server/pg"
+	"server/transactions"
+	"text/template"
 )
 
 type DeleteObjectOperation struct {
@@ -37,6 +37,16 @@ func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *description.M
 		if statement, err := metaDdl.Seqs[i].DropDdlStatement(); err != nil {
 			return err
 		} else {
+			statementSet.Add(statement)
+		}
+	}
+	for _, column := range metaDdl.Columns {
+		if len(column.Enum) > 0 {
+			statement, err := pg.DropEnumStatement(metaDdl.Table, column.Name)
+			if err != nil {
+				return err
+			}
+
 			statementSet.Add(statement)
 		}
 	}

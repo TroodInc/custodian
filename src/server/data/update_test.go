@@ -1,19 +1,21 @@
 package data_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"server/pg"
-	"server/data"
+	"database/sql"
 	"server/auth"
-	"strconv"
-	"utils"
-	"server/transactions/file_transaction"
+	"server/data"
+	"server/data/record"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/meta"
-	"server/object/description"
-	"server/data/record"
+	"server/transactions/file_transaction"
+	"strconv"
+	"utils"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Data", func() {
@@ -253,7 +255,7 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("and having one record of A object")
-		record, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": ""}, auth.User{}, )
+		record, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": ""}, auth.User{})
 		Expect(err).To(BeNil())
 
 		keyValue, _ := record.Data["id"].(float64)
@@ -435,6 +437,41 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
+	havingObjectEnum := func() *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "obj_with_enum",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeString,
+					Optional: false,
+				},
+				{
+					Name:     "enumField",
+					Type:     description.FieldTypeEnum,
+					Optional: true,
+					Enum:     description.EnumChoices{"1", "2"},
+				},
+			},
+		}
+		// create enum statement
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		stmt, err := pg.CreateEnumStatement("o_obj_with_enum", "enumField", description.EnumChoices{"1", "2"})
+		Expect(err).To(BeNil())
+
+		tx.Exec(stmt.Code)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
 	factoryObjectBWithManuallySetOuterLinkToC := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b",
@@ -516,6 +553,18 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
+	It("Can create record with enum values", func() {
+		enumObj := havingObjectEnum()
+
+		// can create enum record
+		_, err := dataProcessor.CreateRecord(enumObj.Name, map[string]interface{}{"id": "enumRecord", "enumField": "1"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		// can't create records with values not in enum choices
+		_, err = dataProcessor.CreateRecord(enumObj.Name, map[string]interface{}{"id": "invalid enumRecord", "enumField": "4"}, auth.User{})
+		Expect(err).NotTo(BeNil())
+	})
+
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
 		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
@@ -575,8 +624,8 @@ var _ = Describe("Data", func() {
 			"name": "Updated A name",
 			"b_set": []interface{}{
 				map[string]interface{}{"id": bRecord.Data["id"], "name": "Updated B name"}, //existing record with new data
-				anotherBRecord.Data["id"],                                                  //existing record`s PK
-				map[string]interface{}{"name": "New B Record"},                             //new record`s data
+				anotherBRecord.Data["id"],                      //existing record`s PK
+				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
 
@@ -609,7 +658,7 @@ var _ = Describe("Data", func() {
 			"id":   aRecord.PkAsString(),
 			"name": "Updated A name",
 			"b_set": []interface{}{
-				bRecord.Pk(),                                   //existing record with new data
+				bRecord.Pk(), //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
@@ -663,7 +712,7 @@ var _ = Describe("Data", func() {
 			"id":   aRecord.Pk(),
 			"name": "Updated A name",
 			"b_set": []interface{}{
-				bRecord.Data["id"],                             //existing record with new data
+				bRecord.Data["id"], //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
@@ -711,7 +760,7 @@ var _ = Describe("Data", func() {
 			"id":   aRecord.Pk(),
 			"name": "Updated A name",
 			"b_set": []interface{}{
-				bRecord.Pk(),                                   //existing record with new data
+				bRecord.Pk(), //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}

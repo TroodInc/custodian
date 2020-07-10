@@ -20,11 +20,22 @@ type CreateObjectOperation struct {
 func (o *CreateObjectOperation) SyncDbDescription(_ *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *pg.MetaDDL
+	var statementSet = pg.DdlStatementSet{}
+
 	if metaDdl, err = pg.NewMetaDdlFactory(syncer).Factory(o.MetaDescription); err != nil {
 		return err
 	}
 
-	var statementSet = pg.DdlStatementSet{}
+	for _, c := range metaDdl.Columns {
+		if len(c.Enum) > 0 {
+			if enumStatement, err := c.GetEnumStatement(metaDdl.Table); err != nil {
+				return err
+			} else {
+				statementSet.Add(enumStatement)
+			}
+		}
+	}
+
 	for i, _ := range metaDdl.Seqs {
 		if statement, err := metaDdl.Seqs[i].CreateDdlStatement(); err != nil {
 			return err
