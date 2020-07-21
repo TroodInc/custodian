@@ -4,9 +4,6 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"github.com/Q-CIS-DEV/go-rql-parser"
-	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"logger"
 	"regexp"
 	"server/data"
@@ -22,6 +19,10 @@ import (
 	"strings"
 	"text/template"
 	"utils"
+
+	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
+	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
 type DataManager struct {
@@ -41,7 +42,7 @@ const (
 	ErrTemplateFailed     = "template_failed"
 	ErrInvalidArgument    = "invalid_argument"
 	ErrDMLFailed          = "dml_failed"
-	ErrValidation 		  = "validation_error"
+	ErrValidation         = "validation_error"
 	ErrValueDuplication   = "duplicated_value_error"
 	ErrConvertationFailed = "convertation_failed"
 	ErrCommitFailed       = "commit_failed"
@@ -50,11 +51,11 @@ const (
 
 //{{ if isLast $key .Cols}}{{else}},{{end}}
 const (
-	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
+	templInsert      = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
 	templFixSequence = `SELECT setval('{{.Table}}_{{.Field}}_seq',(SELECT CAST(MAX("{{.Field}}") AS INT) FROM {{.Table}}), true);`
-	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
-	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
-	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
+	templSelect      = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
+	templDelete      = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
+	templUpdate      = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
 )
 
 var funcs = template.FuncMap{"join": strings.Join}
@@ -105,7 +106,7 @@ func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
 
 func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, error) {
 	switch f.Type {
-	case description.FieldTypeString, description.FieldTypeDate, description.FieldTypeDateTime, description.FieldTypeTime:
+	case description.FieldTypeString, description.FieldTypeDate, description.FieldTypeDateTime, description.FieldTypeTime, description.FieldTypeEnum:
 		if isOptional {
 			return new(sql.NullString), nil
 		} else {
@@ -194,19 +195,19 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	if err != nil {
 		logger.Error("Execution statement error: %s\nBinds: %s", err.Error(), binds)
 		if err, ok := err.(*pq.Error); ok {
-			switch err.Code{
-				case "23502",
-				     "23503":
-					return nil, errors.NewValidationError(ErrValidation, err.Error(), nil) // Return data here
-				case "23505":
-					re := regexp.MustCompile(`\(([^)]+)\)=\(([^)]+)\)`)
-					parts := re.FindStringSubmatch(err.Detail)[1:]
-					data := make(map[string]interface{})
-					data[parts[0]] = parts[1]
+			switch err.Code {
+			case "23502",
+				"23503":
+				return nil, errors.NewValidationError(ErrValidation, err.Error(), nil) // Return data here
+			case "23505":
+				re := regexp.MustCompile(`\(([^)]+)\)=\(([^)]+)\)`)
+				parts := re.FindStringSubmatch(err.Detail)[1:]
+				data := make(map[string]interface{})
+				data[parts[0]] = parts[1]
 
-					return nil, errors.NewValidationError(ErrValueDuplication, err.Error(), data) // Return data here
-				default:
-					return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
+				return nil, errors.NewValidationError(ErrValueDuplication, err.Error(), data) // Return data here
+			default:
+				return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 			}
 		} else {
 			return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
@@ -216,7 +217,7 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	return &Rows{rows}, nil
 }
 
-func (s *Stmt) Scalar(receiver interface{}, binds []interface{}) (error) {
+func (s *Stmt) Scalar(receiver interface{}, binds []interface{}) error {
 	if rows, err := s.Query(binds); err != nil {
 		return err
 	} else {
@@ -501,7 +502,9 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 				dupTransaction, _ := dbTransaction.(*PgTransaction).Manager.BeginTransaction()
 				duplicates, dup_error := dm.GetAll(m, m.TableFields(), err.Data.(map[string]interface{}), dupTransaction)
 				dupTransaction.Close()
-				if dup_error != nil { logger.Error(dup_error.Error()) }
+				if dup_error != nil {
+					logger.Error(dup_error.Error())
+				}
 				err.Data = duplicates
 			}
 			return err
@@ -567,7 +570,7 @@ func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, fil
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
+func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) error {
 	var operation transactions.Operation
 	var err error
 	var onDeleteStrategy description.OnDeleteStrategy

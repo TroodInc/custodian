@@ -5,11 +5,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"logger"
 	"regexp"
+	"server/object/description"
 	"strconv"
 	"strings"
 	"text/template"
-	"server/object/description"
 )
 
 //DDL statament description
@@ -33,6 +34,9 @@ func (ds *DdlStatementSet) Add(s *DDLStmt) {
 }
 
 func dbTypeToFieldType(dt string) (description.FieldType, bool) {
+	if strings.HasPrefix(dt, "o_") {
+		return description.FieldTypeEnum, true
+	}
 	switch dt {
 	case "text":
 		return description.FieldTypeString, true
@@ -69,6 +73,7 @@ type Column struct {
 	Optional bool
 	Unique   bool
 	Defval   string
+	Enum     description.EnumChoices
 }
 
 type IFK struct {
@@ -270,11 +275,11 @@ func dictionary(values ...interface{}) (map[string]interface{}, error) {
 //DDL create table templates
 const (
 	templCreateTable = `CREATE TABLE "{{.Table}}" (
-	{{range .Columns}}
-		{{template "column" .}},{{"\n"}}
-	{{end}}
-
 	{{$mtable:=.Table}}
+
+	{{range .Columns}}
+		{{template "column" dict "Mtable" $mtable "dot" .}},{{"\n"}}
+	{{end}}
 
 	{{range .IFKs}}
 		{{template "ifk" dict "Mtable" $mtable "dot" .}},{{"\n"}}
@@ -282,7 +287,13 @@ const (
 	
 	PRIMARY KEY ("{{.Pk}}")
     );`
-	templCreateTableColumns = `{{define "column"}}"{{.Name}}" {{.Typ.DdlType}}{{if not .Optional}} NOT NULL{{end}}{{if .Unique}} UNIQUE{{end}}{{if .Defval}} DEFAULT {{.Defval}}{{end}}{{end}}`
+	templCreateTableColumns = `{{define "column"}}
+		{{ $enum := len .dot.Enum}}
+		
+		"{{.dot.Name}}" 
+		{{ if gt $enum 0 }} {{ .Mtable }}_{{ .dot.Name }} {{ else }} {{ .dot.Typ.DdlType }}{{ end }}
+		{{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}
+		{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}}{{end}}`
 	templCreateTableInnerFK = `{{define "ifk"}}
 		CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} 
 		FOREIGN KEY ("{{.dot.FromColumn}}") 
@@ -300,6 +311,8 @@ func (md *MetaDDL) CreateTableDdlStatement() (*DDLStmt, error) {
 	if e := parsedTemplCreateTable.Execute(&buffer, md); e != nil {
 		return nil, &DDLError{table: md.Table, code: ErrInternal, msg: e.Error()}
 	}
+
+	logger.Debug("CreateTableStatement: %s", buffer.String())
 	return &DDLStmt{Name: "create_table#" + md.Table, Code: buffer.String()}, nil
 }
 
@@ -486,6 +499,16 @@ func (md *MetaDDL) CreateScript() (DdlStatementSet, error) {
 		stmts.Add(s)
 	}
 	return stmts, nil
+}
+
+func (c *Column) GetEnumStatement(table string) (*DDLStmt, error) {
+	statement, err := CreateEnumStatement(table, c.Name, c.Enum)
+	if err != nil {
+		return nil, err
+	} else {
+		return statement, nil
+	}
+	return nil, nil
 }
 
 //Creates a full DDL to remove a table and foreign getColumnsToInsert refer to it

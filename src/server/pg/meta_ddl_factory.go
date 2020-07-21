@@ -1,9 +1,9 @@
 package pg
 
 import (
-	"server/object/meta"
-	"server/object/description"
 	"fmt"
+	"server/object/description"
+	"server/object/meta"
 )
 
 type MetaDdlFactory struct {
@@ -12,7 +12,7 @@ type MetaDdlFactory struct {
 
 func (mdf *MetaDdlFactory) Factory(metaDescription *description.MetaDescription) (*MetaDDL, error) {
 	var metaDdl = &MetaDDL{Table: GetTableName(metaDescription.Name), Pk: metaDescription.Key}
-	metaDdl.Columns = make([]Column, 0, )
+	metaDdl.Columns = make([]Column, 0)
 	metaDdl.IFKs = make([]IFK, 0)
 	metaDdl.OFKs = make([]OFK, 0)
 	metaDdl.Seqs = make([]Seq, 0)
@@ -126,7 +126,9 @@ func (mdf *MetaDdlFactory) factoryBlankColumn(metaName string, field *descriptio
 	if column.Defval, err = mdf.getDefaultValue(metaName, field); err != nil {
 		return nil, err
 	}
-
+	if len(field.Enum) > 0 {
+		column.Enum = field.Enum
+	}
 	return &column, nil
 }
 

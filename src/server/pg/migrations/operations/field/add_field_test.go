@@ -1,17 +1,18 @@
 package field
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
+	"database/sql"
+	"server/object/description"
 	"server/object/meta"
-	"server/transactions/file_transaction"
+	"server/pg"
+	"server/pg/migrations/operations/object"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
-	"server/object/description"
-	"server/pg/migrations/operations/object"
-	"database/sql"
+	"server/transactions/file_transaction"
+	"utils"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {
@@ -29,12 +30,12 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	var metaDescription *description.MetaDescription
 
 	flushDb := func() {
-		//Flush meta/database
+		// Flush meta/database
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	}
 
-	//setup transaction
+	// setup transaction
 	AfterEach(flushDb)
 
 	//setup MetaDescription
@@ -85,6 +86,42 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
 		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 		Expect(metaDdlFromDB.Columns[1].Name).To(Equal("new_field"))
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
+
+	It("creates enum", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		operation := object.NewCreateObjectOperation(metaDescription)
+
+		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+
+		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		//
+		enums := description.EnumChoices{"string", "ping", "wing"}
+		field := description.Field{Name: "myenum", Type: description.FieldTypeEnum, Optional: true, Enum: enums}
+
+		fieldOperation := NewAddFieldOperation(&field)
+
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+
+		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		//
+		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+		Expect(metaDescription.Name).To(Equal("a"))
+		Expect(err).To(BeNil())
+		Expect(metaDdlFromDB).NotTo(BeNil())
+		Expect(metaDdlFromDB.Columns).To(HaveLen(2))
+		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
+		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeEnum))
+		Expect(metaDdlFromDB.Columns[1].Enum).To(HaveLen(3))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})

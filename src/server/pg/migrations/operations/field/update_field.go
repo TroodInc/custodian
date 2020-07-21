@@ -1,17 +1,17 @@
 package field
 
 import (
-	"server/errors"
-	"server/transactions"
 	"database/sql"
-	"server/migrations/operations/field"
-	"server/migrations"
-	"server/pg"
 	"fmt"
 	"logger"
-	"server/pg/migrations/operations/statement_factories"
+	"server/errors"
+	"server/migrations"
+	"server/migrations/operations/field"
 	"server/object/description"
 	"server/object/meta"
+	"server/pg"
+	"server/pg/migrations/operations/statement_factories"
+	"server/transactions"
 )
 
 type UpdateFieldOperation struct {
@@ -131,10 +131,26 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 			}
 			if currentColumn.Typ != newColumn.Typ {
 				//process type change
+				if len(newColumn.Enum) > 0 {
+					statement, err := pg.CreateEnumStatement(tableName, newColumn.Name, newColumn.Enum)
+					if err != nil {
+						return err
+					}
+					statementSet.Add(statement)
+				}
+
 				statement, err := statementFactory.FactorySetTypeStatement(tableName, newColumn)
 				if err != nil {
 					return err
 				} else {
+					statementSet.Add(statement)
+				}
+				if len(currentColumn.Enum) > 0 {
+					statement, err := pg.DropEnumStatement(tableName, currentColumn.Name)
+					if err != nil {
+						return err
+					}
+
 					statementSet.Add(statement)
 				}
 			}

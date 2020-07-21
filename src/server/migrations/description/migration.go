@@ -18,7 +18,7 @@ type MigrationDescription struct {
 	MetaDescription *description.MetaDescription    `json:"metaState,omitempty"`
 }
 
-func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescription){
+func MigrationDescriptionFromRecord(record *record.Record) *MigrationDescription {
 	metaDescription, _ := MigrationMetaDescriptionFromJson(strings.NewReader(record.Data["meta_state"].(string)))
 	migrationDescription := MigrationDescription{
 		record.Data["id"].(string),
@@ -33,12 +33,20 @@ func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescriptio
 	return &migrationDescription
 }
 
-func MigrationDescriptionFromJson(inputReader io.Reader) (*MigrationDescription, error){
+func MigrationDescriptionFromJson(inputReader io.Reader) (*MigrationDescription, error) {
 	md := MigrationDescription{}
 	if e := json.NewDecoder(inputReader).Decode(&md); e != nil {
 		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
 	}
 	return &md, nil
+}
+
+func BulkMigrationDescriptionFromJson(b []byte) ([]*MigrationDescription, error) {
+	var md []*MigrationDescription
+	if e := json.Unmarshal(b, &md); e != nil {
+		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
+	}
+	return md, nil
 }
 
 func (md *MigrationDescription) Marshal() ([]byte, error) {
@@ -77,7 +85,7 @@ type MigrationMetaDescription struct {
 	Cas          bool                         `json:"cas"`
 }
 
-func MigrationMetaDescriptionFromJson(inputReader io.Reader)(*MigrationMetaDescription, error)  {
+func MigrationMetaDescriptionFromJson(inputReader io.Reader) (*MigrationMetaDescription, error) {
 	mmd := MigrationMetaDescription{}
 	if e := json.NewDecoder(inputReader).Decode(&mmd); e != nil {
 		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)

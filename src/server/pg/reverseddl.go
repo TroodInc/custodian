@@ -3,6 +3,7 @@ package pg
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"server/object/description"
 )
@@ -64,6 +65,12 @@ const (
 		FROM pg_catalog.pg_constraint c
 		WHERE c.conrelid = $1 AND c.contype = 'f';
 	`
+	SQL_ENUM_VALUES string = `
+	SELECT value from (
+		SELECT type.typname AS name, string_agg(enum.enumlabel, '|') AS value
+		FROM pg_enum AS enum JOIN pg_type AS type ON (type.oid = enum.enumtypid)
+		GROUP BY type.typname) AS enums WHERE name=$1;
+    `
 )
 
 //NewReverser create a new Reversers. Returns errors if some error has occurred.
@@ -110,10 +117,22 @@ func (r *Reverser) Columns(cols *[]Column, pk *string) error {
 		*cols = append(*cols, Column{Name: column, Typ: coltyp, Optional: !notnull, Defval: defval})
 		colsmap[column] = i
 	}
+	for i, col := range *cols {
+		if col.Typ == description.FieldTypeEnum {
+
+			var enumVal string
+			r.tx.QueryRow(SQL_ENUM_VALUES, r.table+"_"+column).Scan(&enumVal)
+
+			enumChoices := strings.Split(enumVal, "|")
+			if len(enumChoices) > 0 {
+				(*cols)[i].Enum = enumChoices
+			}
+		}
+	}
 
 	conrows, err := r.tx.Query(SQL_PU_CONSTRAINTS, r.oid)
 	if err != nil {
-		return &DDLError{table: r.table, code: ErrInternal, msg: "select PK and UK: " + err.Error()}
+		return &DDLError{table: r.table, code: ErrInternal, msg: fmt.Sprintf("select PK and UK 150")}
 	}
 	defer conrows.Close()
 
