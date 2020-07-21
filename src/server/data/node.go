@@ -1,15 +1,15 @@
 package data
 
 import (
-	"logger"
-	"server/object/meta"
-	"github.com/Q-CIS-DEV/go-rql-parser"
-	"server/data/types"
-	. "server/data/record"
-	"server/object/description"
-	"strings"
-	"fmt"
 	"errors"
+	"fmt"
+	. "server/data/record"
+	"server/data/types"
+	"server/object/description"
+	"server/object/meta"
+	"strings"
+
+	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 )
 
 type NodeType int
@@ -24,7 +24,7 @@ const (
 type SelectType int
 
 const (
-	SelectFieldsTypeFull    SelectType = iota + 1
+	SelectFieldsTypeFull SelectType = iota + 1
 	SelectFieldsTypeExclude
 	SelectFieldsTypeInclude
 )
@@ -151,7 +151,7 @@ func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode)
 	raw, count, err := sc.dm.GetRql(node, rqlNode, node.SelectFields.FieldList, sc.DbTransaction)
 
 	if err == nil {
-		for _, obj := range raw  {
+		for _, obj := range raw {
 			results = append(results, node.FillRecordValues(NewRecord(node.Meta, obj), sc))
 		}
 	}
@@ -215,7 +215,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 }
 
 func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]interface{}, error) {
-	logger.Debug("Resolving plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
+	// logger.Debug("Resolving plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
 	var fields []*meta.FieldDescription = nil
 	if node.OnlyLink {
 		fields = []*meta.FieldDescription{node.Meta.Key}
@@ -245,7 +245,7 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 
 //Resolve records referenced by generic outer field
 func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, objectMeta *meta.Meta) ([]interface{}, error) {
-	logger.Debug("Resolving generic plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
+	// logger.Debug("Resolving generic plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
 	var fields []*meta.FieldDescription = nil
 	if node.OnlyLink {
 		fields = []*meta.FieldDescription{node.Meta.Key}
@@ -468,7 +468,7 @@ func (node *Node) FillRecordValues(record *Record, searchContext SearchContext) 
 //traverse values and prepare them for output
 func transformValues(values map[string]interface{}) map[string]interface{} {
 	for key, value := range values {
-		switch  castValue := value.(type) {
+		switch castValue := value.(type) {
 		case map[string]interface{}:
 			values[key] = transformValues(castValue)
 		case []interface{}:

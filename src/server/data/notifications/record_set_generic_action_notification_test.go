@@ -1,20 +1,21 @@
 package notifications_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"server/pg"
-	"server/data"
-	"utils"
 	"server/auth"
-	"server/object/meta"
-	"server/object/description"
+	"server/data"
 	. "server/data/notifications"
-	"server/transactions/file_transaction"
+	"server/data/record"
+	"server/object/description"
+	"server/object/meta"
+	"server/pg"
 	pg_transactions "server/pg/transactions"
 	"server/transactions"
+	"server/transactions/file_transaction"
 	"strconv"
-	"server/data/record"
+	"utils"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Data", func() {
@@ -156,6 +157,7 @@ var _ = Describe("Data", func() {
 			By("Having a record of B object")
 			bRecord, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"first_name": "Feodor"}, auth.User{})
 			Expect(err).To(BeNil())
+			havingARecord(bMetaObj.Name, bRecord.Pk().(float64))
 		}
 
 		havingCRecord := func() {
