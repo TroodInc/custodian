@@ -44,7 +44,7 @@ func init() {
 //it should be unified somehow
 func main() {
 	//instantiate Server with default configuration
-	var srv = server.New("", "8080", "/custodian", "")
+	var srv = server.New("", "8000", "/custodian", "")
 
 	//apply command-line-specified options if there are some
 	var opts = map[string]OptsDesc{
