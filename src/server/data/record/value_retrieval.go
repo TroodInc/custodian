@@ -24,7 +24,7 @@ func getSimpleValue(targetRecord *Record, keyParts []string, getRecordCallback f
 		return targetRecord.Data[keyParts[0]]
 	} else {
 		keyPart := keyParts[0]
-		rawKeyValue := targetRecord.Data[keyPart]
+		rawKeyValue := targetRecord.GetData()[keyPart]
 		nestedObjectField := targetRecord.Meta.FindField(keyPart)
 
 		//case of retrieving value or PK of generic field
