@@ -225,11 +225,16 @@ func defaultNow(metaName string, f *description.Field, args []interface{}) (ColD
 	return &ColDefNow{}, nil
 }
 
+func defaultOwner(metaName string, f *description.Field, args []interface{}) (ColDefVal, error) {
+	return &ColDefValSimple{"0"}, nil
+}
+
 var defaultFuncs = map[string]func(metaName string, f *description.Field, args []interface{}) (ColDefVal, error){
 	"nextval":           defaultNextval,
 	"current_date":      defaultCurrentDate,
 	"current_timestamp": defaultCurrentTimestamp,
 	"now":               defaultNow,
+	"owner":             defaultOwner,
 }
 
 func newColDefVal(metaName string, f *description.Field) (ColDefVal, error) {

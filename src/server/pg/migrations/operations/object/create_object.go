@@ -77,37 +77,6 @@ func dictionary(values ...interface{}) (map[string]interface{}, error) {
 	return dict, nil
 }
 
-const (
-	createTableTemplate = `CREATE TABLE "{{.Table}}" (
-	{{range .Columns}}
-		{{template "column" .}},{{"\n"}}
-	{{end}}
-
-	owner integer,
-
-	{{$mtable:=.Table}}
-
-	{{range .IFKs}}
-		{{template "ifk" dict "Mtable" $mtable "dot" .}},{{"\n"}}
-	{{end}}
-	
-	PRIMARY KEY ("{{.Pk}}")
-    );`
-	columnsSubTemplate = `{{define "column"}}"{{.Name}}" {{.Typ.DdlType}}{{if not .Optional}} NOT NULL{{end}}{{if .Unique}} UNIQUE{{end}}{{if .Defval}} DEFAULT {{.Defval}}{{end}}{{end}}`
-	InnerFKSubTemplate = `{{define "ifk"}}
-		CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} 
-		FOREIGN KEY ("{{.dot.FromColumn}}") 
-		REFERENCES "{{.dot.ToTable}}" ("{{.dot.ToColumn}}") 
-		ON DELETE {{.dot.OnDelete}} 
-			{{if eq .dot.OnDelete "SET DEFAULT" }} {{ .dot.Default }} {{end}}
-		{{end}}`
-)
-
-var parsedTemplate = template.Must(
-	template.Must(
-		template.Must(template.New("create_table").Funcs(ddlFuncs).Parse(createTableTemplate)).Parse(columnsSubTemplate)).Parse(InnerFKSubTemplate),
-)
-
 func NewCreateObjectOperation(metaDescription *description.MetaDescription) *CreateObjectOperation {
 	return &CreateObjectOperation{object.CreateObjectOperation{MetaDescription: metaDescription}}
 }

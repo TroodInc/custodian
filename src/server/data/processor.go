@@ -224,12 +224,25 @@ func (processor *Processor) GetMeta(objectName string) (*meta.Meta, error) {
 	return objectMeta, nil
 }
 
+func setRecordOwner(objectMeta *meta.Meta, recordData map[string]interface{}, user auth.User) {
+	for i, field := range objectMeta.Fields {
+		if field.Def != nil {
+			switch f := field.Def.(type) {
+			case map[string]interface{}:
+				if f["func"] == "owner" {
+					recordData[objectMeta.Fields[i].Name] = user.Id
+				}
+			}
+		}
+	}
+}
+
 // CreateRecord create object record in database
 func (processor *Processor) CreateRecord(objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
-	// set record owner
-	recordData["owner"] = user.Id
 	// get MetaDescription
 	objectMeta, err := processor.GetMeta(objectName)
+	setRecordOwner(objectMeta, recordData, user)
+
 	if err != nil {
 		return nil, err
 	}
@@ -334,8 +347,7 @@ func (processor *Processor) BulkCreateRecords(objectName string, recordData []ma
 	rootRecordSets := make([]interface{}, 0)
 	dbTransaction, err := processor.transactionManager.BeginTransaction()
 	for _, record := range recordData {
-		// set record owner
-		record["owner"] = user.Id
+		setRecordOwner(objectMeta, record, user)
 		// extract processing node
 		recordProcessingNode, err = new(RecordProcessingTreeBuilder).Build(
 			&Record{Meta: objectMeta, Data: record}, processor, dbTransaction,

@@ -1,18 +1,19 @@
 package pg_test
 
 import (
+	"server/pg"
+	"server/transactions/file_transaction"
+	"utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
-	"server/transactions/file_transaction"
 
-	pg_transactions "server/pg/transactions"
-	"server/object/meta"
-	"server/transactions"
-	"server/object/description"
-	"server/data"
 	"server/auth"
+	"server/data"
+	"server/object/description"
+	"server/object/meta"
+	pg_transactions "server/pg/transactions"
+	"server/transactions"
 )
 
 var _ = Describe("Store", func() {
@@ -69,5 +70,47 @@ var _ = Describe("Store", func() {
 		}
 		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, auth.User{})
 		Expect(record.Data).To(HaveKey("gender"))
+	})
+
+	It("Can set owner of a record", func() {
+		//create meta
+		meta := description.MetaDescription{
+			Name: "test_obj",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				}, {
+					Name:     "profile",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "owner",
+					},
+				}, {
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: false,
+				},
+			},
+		}
+		metaDescription, _ := metaStore.NewMeta(&meta)
+
+		err := metaStore.Create(metaDescription)
+		Expect(err).To(BeNil())
+
+		//create record
+		recordData := map[string]interface{}{
+			"name": "Test",
+		}
+		var userId int = 100
+		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, auth.User{Id: userId})
+		Expect(record.Data["profile"]).To(Equal(float64(userId)))
 	})
 })
