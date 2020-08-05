@@ -1,18 +1,16 @@
 package pg
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
 	"custodian/utils"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"github.com/Q-CIS-DEV/go-rql-parser"
 
 	"custodian/server/data"
-
-	"strings"
 )
 
 var _ = Describe("RQL test", func(){
@@ -55,7 +53,7 @@ var _ = Describe("RQL test", func(){
 	It("handle is_null() operator", func() {
 		Context("set to True", func() {
 			parser := rqlParser.NewParser()
-			rqlNode, _ := parser.Parse(strings.NewReader("is_null(test_field,true)"))
+			rqlNode, _ := parser.Parse("is_null(test_field,true)")
 			translator := NewSqlTranslator(rqlNode)
 
 			query, err := translator.query("test", dataNode)
@@ -66,7 +64,7 @@ var _ = Describe("RQL test", func(){
 
 		Context("set to False", func() {
 			parser := rqlParser.NewParser()
-			rqlNode, _ := parser.Parse(strings.NewReader("is_null(test_field,false)"))
+			rqlNode, _ := parser.Parse("is_null(test_field,false)")
 			translator := NewSqlTranslator(rqlNode)
 
 			query, err := translator.query("test", dataNode)
@@ -77,7 +75,7 @@ var _ = Describe("RQL test", func(){
 
 		Context("other non Boolean string", func() {
 			parser := rqlParser.NewParser()
-			rqlNode, _ := parser.Parse(strings.NewReader("is_null(test_field,r4nd0m)"))
+			rqlNode, _ := parser.Parse("is_null(test_field,r4nd0m)")
 			translator := NewSqlTranslator(rqlNode)
 
 			_, err := translator.query("test", dataNode)
@@ -87,7 +85,7 @@ var _ = Describe("RQL test", func(){
 
 		Context("with additional rules", func() {
 			parser := rqlParser.NewParser()
-			rqlNode, _ := parser.Parse(strings.NewReader("eq(id,1),is_null(test_field,true),is_null(id,false)"))
+			rqlNode, _ := parser.Parse("eq(id,1),is_null(test_field,true),is_null(id,false)")
 			translator := NewSqlTranslator(rqlNode)
 
 			query, err := translator.query("test", dataNode)
@@ -99,7 +97,7 @@ var _ = Describe("RQL test", func(){
 
 	It("handle eq() operator", func() {
 		parser := rqlParser.NewParser()
-		rqlNode, _ := parser.Parse(strings.NewReader("eq(id,1)"))
+		rqlNode, _ := parser.Parse("eq(id,1)")
 		translator := NewSqlTranslator(rqlNode)
 
 		query, err := translator.query("test", dataNode)
@@ -110,7 +108,7 @@ var _ = Describe("RQL test", func(){
 
 	It("handle ne() operator", func() {
 		parser := rqlParser.NewParser()
-		rqlNode, _ := parser.Parse(strings.NewReader("ne(id,1)"))
+		rqlNode, _ := parser.Parse("ne(id,1)")
 		translator := NewSqlTranslator(rqlNode)
 
 		query, err := translator.query("test", dataNode)
