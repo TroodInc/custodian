@@ -205,12 +205,12 @@ var _ = Describe("Data", func() {
 			metaStore.Create(metaObj)
 
 			Context("and two records with 'created_time' values that differ by several hours", func() {
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "14:00:00 +05:00"}, auth.User{})
-				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "09:00:00 +05:00"}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "14:00:00"}, auth.User{})
+				dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"created_time": "09:00:00"}, auth.User{})
 				Expect(err).To(BeNil())
 				Context("query by 'created' field returns correct result", func() {
 					//query by value greater than 10:00:00 +05:00
-					_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "gt(created_time,10%3A00%3A00%20%2B05%3A00)", nil, nil, 1, false)
+					_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "gt(created_time,10:00:00)", nil, nil, 1, false)
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0].Data["id"]).To(Equal(record.Data["id"]))
 				})

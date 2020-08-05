@@ -808,7 +808,7 @@ var _ = Describe("Data", func() {
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 			Describe("and having a record of object B containing null generic field value ", havingARecordOfObjectBContainingRecordOfObjectC)
 
-			_, matchedRecords, err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", nil, nil, 1, false)
+			_, matchedRecords, err := dataProcessor.GetBulk("b", "eq(target.a.name,A record)", nil, nil, 1, false)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0].Data["target"].(*types.GenericInnerLink).AsMap()
@@ -826,7 +826,7 @@ var _ = Describe("Data", func() {
 
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			_, matchedRecords, err := dataProcessor.GetBulk("b", "eq(target.a.name,A%20record)", nil, nil, 2, false)
+			_, matchedRecords, err := dataProcessor.GetBulk("b", "eq(target.a.name,A record)", nil, nil, 2, false)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
 			targetValue := matchedRecords[0].Data["target"].(*record.Record)
