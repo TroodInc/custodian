@@ -889,7 +889,7 @@ var _ = Describe("Data", func() {
 		Context("query by date returns correct result", func() {
 			_, records, err := dataProcessor.GetBulk(
 				aMetaDescription.Name,
-				"sort(+name)", nil, nil,
+				"sort(name)", nil, nil,
 				1,
 				false,
 			)
