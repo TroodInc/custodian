@@ -3,16 +3,16 @@ package pg_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
-	"server/transactions/file_transaction"
+	"custodian/server/pg"
+	"custodian/utils"
+	"custodian/server/transactions/file_transaction"
 
-	pg_transactions "server/pg/transactions"
-	"server/object/meta"
-	"server/transactions"
-	"server/object/description"
-	"server/data"
-	"server/auth"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
+	"custodian/server/object/description"
+	"custodian/server/data"
+	"custodian/server/auth"
 )
 
 var _ = Describe("Store", func() {

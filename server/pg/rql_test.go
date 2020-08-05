@@ -3,14 +3,14 @@ package pg
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/description"
-	"server/object/meta"
-	"server/transactions"
-	"utils"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
+	"custodian/utils"
 
 	"github.com/Q-CIS-DEV/go-rql-parser"
 
-	"server/data"
+	"custodian/server/data"
 
 	"strings"
 )

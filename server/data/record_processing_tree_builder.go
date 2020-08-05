@@ -1,8 +1,8 @@
 package data
 
 import (
-	"server/data/record"
-	"server/transactions"
+	"custodian/server/data/record"
+	"custodian/server/transactions"
 )
 
 type RecordProcessingTreeBuilder struct {

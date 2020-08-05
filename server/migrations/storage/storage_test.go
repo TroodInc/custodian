@@ -1,11 +1,11 @@
 package storage
 
 import (
-	"utils"
+	"custodian/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	migrations_description "server/migrations/description"
-	"server/object/description"
+	migrations_description "custodian/server/migrations/description"
+	"custodian/server/object/description"
 )
 
 var _ = Describe("Migration Storage", func() {

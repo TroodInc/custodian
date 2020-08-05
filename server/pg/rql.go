@@ -4,15 +4,15 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"logger"
-	"server/data"
+	"custodian/logger"
+	"custodian/server/data"
 	"github.com/Q-CIS-DEV/go-rql-parser"
 	"strconv"
 	"strings"
 	"text/template"
-	"server/data/types"
-	"server/object/meta"
-	"server/object/description"
+	"custodian/server/data/types"
+	"custodian/server/object/meta"
+	"custodian/server/object/description"
 )
 
 //https://doc.apsstandard.org/2.1/spec/rql/

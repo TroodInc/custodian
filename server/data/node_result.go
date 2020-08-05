@@ -1,10 +1,10 @@
 package data
 
 import (
-	"server/data/record"
-	"server/data/types"
-	"server/object/description"
-	"server/object/meta"
+	"custodian/server/data/record"
+	"custodian/server/data/types"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 )
 
 type ResultNode struct {

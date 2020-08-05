@@ -2,15 +2,14 @@ package data
 
 import (
 	"fmt"
-	"server/auth"
-	"server/data/errors"
-	"server/data/notifications"
-	. "server/data/record"
-	errors2 "server/errors"
-	"server/object/description"
-	"server/object/meta"
-	"server/transactions"
-	"strings"
+	"custodian/server/auth"
+	"custodian/server/data/errors"
+	"custodian/server/data/notifications"
+	. "custodian/server/data/record"
+	errors2 "custodian/server/errors"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
 
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 )
@@ -164,7 +163,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 
 		parser := rqlParser.NewParser()
 
-		rqlNode, err := parser.Parse(strings.NewReader(filter))
+		rqlNode, err := parser.Parse(filter)
 		if err != nil {
 			processor.transactionManager.RollbackTransaction(transaction)
 			return 0, nil, errors2.NewValidationError(errors.ErrWrongRQL, err.Error(), nil)

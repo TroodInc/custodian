@@ -1,7 +1,7 @@
 package transactions
 
 import (
-	"server/object/description"
+	"custodian/server/object/description"
 )
 
 type State int

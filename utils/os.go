@@ -2,7 +2,7 @@ package utils
 
 import (
 	"os"
-	"logger"
+	"custodian/logger"
 	"path/filepath"
 )
 

@@ -1,15 +1,15 @@
 package field
 
 import (
-	meta_description "server/object/description"
-	"server/transactions"
+	meta_description "custodian/server/object/description"
+	"custodian/server/transactions"
 	"database/sql"
-	"server/migrations/operations/field"
-	"server/pg"
+	"custodian/server/migrations/operations/field"
+	"custodian/server/pg"
 	"fmt"
-	"logger"
-	"server/pg/migrations/operations/statement_factories"
-	"server/object/meta"
+	"custodian/logger"
+	"custodian/server/pg/migrations/operations/statement_factories"
+	"custodian/server/object/meta"
 )
 
 type AddFieldOperation struct {

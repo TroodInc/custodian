@@ -9,7 +9,6 @@ COPY ./main.go /go/src/app
 COPY ./docs/_static /home/static
 COPY ./VERSION /home/custodian/
 COPY ./go.mod /go/src/app
-COPY ./go.sum /go/src/app
 COPY ./logger /go/src/app/logger
 COPY ./server /go/src/app/server
 COPY ./utils /go/src/app/utils

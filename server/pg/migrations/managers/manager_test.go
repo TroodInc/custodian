@@ -2,15 +2,15 @@ package managers
 
 import (
 	. "github.com/onsi/ginkgo"
-	"server/pg"
-	"server/transactions"
-	"utils"
-	pg_transactions "server/pg/transactions"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/utils"
+	pg_transactions "custodian/server/pg/transactions"
 	. "github.com/onsi/gomega"
 	"database/sql"
-	"server/migrations/migrations"
-	"server/migrations/description"
-	"server/object/meta"
+	"custodian/server/migrations/migrations"
+	"custodian/server/migrations/description"
+	"custodian/server/object/meta"
 )
 
 var _ = Describe("MigrationManager", func() {

@@ -3,15 +3,15 @@ package managers
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	migrations_description "server/migrations/description"
-	"server/object"
-	"server/object/description"
-	"server/object/meta"
-	"server/pg"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
-	"server/transactions/file_transaction"
-	"utils"
+	migrations_description "custodian/server/migrations/description"
+	"custodian/server/object"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 )
 
 var _ = Describe("Outer links spawned migrations appliance", func() {

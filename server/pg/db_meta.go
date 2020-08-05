@@ -2,8 +2,8 @@ package pg
 
 import (
 	"database/sql"
-	"server/object/description"
-	"server/transactions"
+	"custodian/server/object/description"
+	"custodian/server/transactions"
 )
 
 type DbMetaDescriptionSyncer struct {

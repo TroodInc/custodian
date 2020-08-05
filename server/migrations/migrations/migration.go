@@ -1,9 +1,9 @@
 package migrations
 
 import (
-	meta_description "server/object/description"
-	"server/migrations/description"
-	"server/migrations/operations"
+	meta_description "custodian/server/object/description"
+	"custodian/server/migrations/description"
+	"custodian/server/migrations/operations"
 )
 
 const (

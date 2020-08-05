@@ -4,12 +4,12 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
-	"logger"
-	"server/migrations/operations/object"
-	"server/object/description"
-	"server/object/meta"
-	"server/pg"
-	"server/transactions"
+	"custodian/logger"
+	"custodian/server/migrations/operations/object"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
 	"text/template"
 )
 

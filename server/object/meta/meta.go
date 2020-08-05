@@ -2,10 +2,10 @@ package meta
 
 import (
 	"encoding/json"
-	"server/noti"
-	"utils"
-	. "server/object/description"
-	"server/transactions"
+	"custodian/server/noti"
+	"custodian/utils"
+	. "custodian/server/object/description"
+	"custodian/server/transactions"
 )
 
 var notifierFactories = map[Protocol]noti.Factory{

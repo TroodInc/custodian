@@ -1,9 +1,9 @@
 package description
 
 import (
-	"server/errors"
-	"server/object/description"
-	"server/migrations"
+	"custodian/server/errors"
+	"custodian/server/object/description"
+	"custodian/server/migrations"
 	"fmt"
 )
 

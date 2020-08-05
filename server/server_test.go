@@ -5,21 +5,21 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"net/http"
-	"server/pg"
+	"custodian/server/pg"
 
 	"bytes"
 	"encoding/json"
-	"server/object/meta"
-	"server/transactions/file_transaction"
-	"utils"
+	"custodian/server/object/meta"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 
 	"net/http/httptest"
-	"server"
-	"server/auth"
-	"server/data"
-	"server/object/description"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
+	"custodian/server"
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/object/description"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
 )
 
 var _ = Describe("Server", func() {

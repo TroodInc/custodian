@@ -3,18 +3,18 @@ package constructor
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/errors"
-	"server/pg"
-	"utils"
-	"server/object/meta"
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
-	"server/object/description"
-	"server/pg/migrations/managers"
-	migration_description "server/migrations/description"
+	"custodian/server/errors"
+	"custodian/server/pg"
+	"custodian/utils"
+	"custodian/server/object/meta"
+	"custodian/server/transactions/file_transaction"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
+	"custodian/server/object/description"
+	"custodian/server/pg/migrations/managers"
+	migration_description "custodian/server/migrations/description"
 
-	"server/migrations"
+	"custodian/server/migrations"
 )
 
 var _ = Describe("Migration Constructor", func() {

@@ -1,9 +1,9 @@
 package data
 
 import (
-	"server/object/meta"
-	"server/data/record"
-	"server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/data/record"
+	"custodian/server/object/description"
 )
 
 //Represents record and its dependent children

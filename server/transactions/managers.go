@@ -1,6 +1,6 @@
 package transactions
 
-import "server/object/description"
+import "custodian/server/object/description"
 
 type DbTransactionManager interface {
 	BeginTransaction() (DbTransaction, error)

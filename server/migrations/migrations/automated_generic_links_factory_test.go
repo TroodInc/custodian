@@ -3,16 +3,16 @@ package migrations_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	migrations_description "server/migrations/description"
-	. "server/migrations/migrations"
-	"server/object/description"
-	"server/object/meta"
-	"server/pg"
-	"server/pg/migrations/managers"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
-	"server/transactions/file_transaction"
-	"utils"
+	migrations_description "custodian/server/migrations/description"
+	. "custodian/server/migrations/migrations"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/pg/migrations/managers"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 )
 
 var _ = Describe("Automated generic links` migrations` spawning", func() {

@@ -1,9 +1,9 @@
 package migrations
 
 import (
-	"server/object/meta"
-	pg_operations "server/pg/migrations/operations"
-	"server/migrations/description"
+	"custodian/server/object/meta"
+	pg_operations "custodian/server/pg/migrations/operations"
+	"custodian/server/migrations/description"
 )
 
 type MigrationFactory struct {

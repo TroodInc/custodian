@@ -1,9 +1,9 @@
 package record
 
 import (
-	"server/data/types"
-	"server/object/description"
-	"server/object/meta"
+	"custodian/server/data/types"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 	"time"
 )
 

@@ -1,6 +1,6 @@
 package data
 
-import "server/data/record"
+import "custodian/server/data/record"
 
 //represents list of RecordSetOperations which are queued on the same level
 type RecordSetProcessingNodeLevel struct {

@@ -3,10 +3,10 @@ package description
 import (
 	"encoding/json"
 	"io"
-	"server/data/record"
-	"server/errors"
-	_migrations "server/migrations"
-	"server/object/description"
+	"custodian/server/data/record"
+	"custodian/server/errors"
+	_migrations "custodian/server/migrations"
+	"custodian/server/object/description"
 	"strings"
 )
 

@@ -2,12 +2,12 @@ package main
 
 import (
 	"fmt"
-	"logger"
-	"server"
+	"custodian/logger"
+	"custodian/server"
 	"log"
 	"os"
 	"github.com/getsentry/raven-go"
-	"utils"
+	"custodian/utils"
 )
 
 type OptsError struct {

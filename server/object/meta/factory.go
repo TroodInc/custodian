@@ -1,8 +1,8 @@
 package meta
 
 import (
-	"server/errors"
-	. "server/object/description"
+	"custodian/server/errors"
+	. "custodian/server/object/description"
 	"fmt"
 )
 

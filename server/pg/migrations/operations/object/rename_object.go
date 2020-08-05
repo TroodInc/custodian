@@ -1,15 +1,15 @@
 package object
 
 import (
-	"server/migrations/operations/object"
+	"custodian/server/migrations/operations/object"
 	"database/sql"
-	"server/pg"
-	"logger"
-	"server/transactions"
+	"custodian/server/pg"
+	"custodian/logger"
+	"custodian/server/transactions"
 	"fmt"
-	"server/pg/migrations/operations/statement_factories"
-	"server/object/description"
-	"server/object/meta"
+	"custodian/server/pg/migrations/operations/statement_factories"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 )
 
 type RenameObjectOperation struct {

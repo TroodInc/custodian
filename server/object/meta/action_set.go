@@ -1,8 +1,8 @@
 package meta
 
 import (
-	"server/noti"
-	. "server/object/description"
+	"custodian/server/noti"
+	. "custodian/server/object/description"
 )
 
 type ActionSet struct {

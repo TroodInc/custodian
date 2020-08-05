@@ -1,6 +1,6 @@
 package notifications
 
-import "server/auth"
+import "custodian/server/auth"
 
 type RecordSetNotificationPool struct {
 	notifications      []*RecordSetNotification

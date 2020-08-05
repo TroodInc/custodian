@@ -1,8 +1,8 @@
 package abac
 
 import (
-	"server/data/record"
-	"server/object/description"
+	"custodian/server/data/record"
+	"custodian/server/object/description"
 	"strings"
 )
 

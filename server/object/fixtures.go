@@ -1,6 +1,6 @@
 package object
 
-import "server/object/description"
+import "custodian/server/object/description"
 
 func GetBaseMetaData(name string) *description.MetaDescription {
 	return &description.MetaDescription{

@@ -2,12 +2,12 @@ package validators
 
 import (
 	"fmt"
-	errors2 "server/errors"
-	"server/object/meta"
-	"server/data/types"
-	"server/data/errors"
-	"server/transactions"
-	"server/data/record"
+	errors2 "custodian/server/errors"
+	"custodian/server/object/meta"
+	"custodian/server/data/types"
+	"custodian/server/data/errors"
+	"custodian/server/transactions"
+	"custodian/server/data/record"
 )
 
 type GenericInnerFieldValidator struct {

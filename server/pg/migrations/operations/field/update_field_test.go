@@ -5,14 +5,14 @@ import (
 	"github.com/getlantern/deepcopy"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/description"
-	"server/object/meta"
-	"server/pg"
-	"server/pg/migrations/operations/object"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
-	"server/transactions/file_transaction"
-	"utils"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/pg/migrations/operations/object"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {

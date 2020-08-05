@@ -3,15 +3,15 @@ package meta
 import (
 	"bufio"
 	"encoding/json"
-	"logger"
+	"custodian/logger"
 	"os"
 	"path"
 	"fmt"
 	"path/filepath"
-	"server/errors"
-	"server/transactions"
-	. "server/object/description"
-	"utils"
+	"custodian/server/errors"
+	"custodian/server/transactions"
+	. "custodian/server/object/description"
+	"custodian/utils"
 )
 
 type FileMetaDescriptionSyncer struct {

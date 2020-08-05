@@ -1,9 +1,9 @@
 package action
 
 import (
-	"server/object/meta"
-	meta_description "server/object/description"
-	"server/transactions"
+	"custodian/server/object/meta"
+	meta_description "custodian/server/object/description"
+	"custodian/server/transactions"
 )
 
 type UpdateActionOperation struct {

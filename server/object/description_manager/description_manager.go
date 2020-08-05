@@ -1,8 +1,8 @@
 package description_manager
 
 import (
-	"server/object/meta"
-	"server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/object/description"
 )
 
 type MetaDescriptionManager struct {

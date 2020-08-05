@@ -1,14 +1,12 @@
 package data
 
 import (
+	. "custodian/server/data/record"
+	"custodian/server/data/types"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 	"errors"
 	"fmt"
-	. "server/data/record"
-	"server/data/types"
-	"server/object/description"
-	"server/object/meta"
-	"strings"
-
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 )
 
@@ -312,7 +310,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 		root.RecursivelyFillChildNodes(searchContext.depthLimit, description.FieldModeRetrieve)
 
 		parser := rqlParser.NewParser()
-		rqlNode, err := parser.Parse(strings.NewReader(filter))
+		rqlNode, err := parser.Parse(filter)
 		if err != nil {
 			return nil, err
 		}

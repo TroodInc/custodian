@@ -1,9 +1,9 @@
 package object
 
 import (
-	"server/object/meta"
-	"server/transactions"
-	"server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
+	"custodian/server/object/description"
 )
 
 type CreateObjectOperation struct {

@@ -1,14 +1,14 @@
 package data
 
 import (
-	errors2 "server/errors"
-	"server/object/meta"
-	"server/data/errors"
-	"server/data/validators"
-	. "server/data/record"
-	. "server/data/types"
-	"server/object/description"
-	"server/transactions"
+	errors2 "custodian/server/errors"
+	"custodian/server/object/meta"
+	"custodian/server/data/errors"
+	"custodian/server/data/validators"
+	. "custodian/server/data/record"
+	. "custodian/server/data/types"
+	"custodian/server/object/description"
+	"custodian/server/transactions"
 	"fmt"
 )
 

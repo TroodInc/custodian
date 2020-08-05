@@ -9,7 +9,7 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
-	"server/object/description"
+	"custodian/server/object/description"
 )
 
 //DDL statament description

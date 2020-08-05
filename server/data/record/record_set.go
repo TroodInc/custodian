@@ -1,8 +1,8 @@
 package record
 
 import (
-	"server/object/meta"
-	"utils"
+	"custodian/server/object/meta"
+	"custodian/utils"
 )
 
 type RecordSet struct {

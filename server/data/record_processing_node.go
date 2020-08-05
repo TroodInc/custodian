@@ -1,8 +1,8 @@
 package data
 
 import (
-	. "server/data/record"
-	"server/object/meta"
+	. "custodian/server/data/record"
+	"custodian/server/object/meta"
 )
 
 //represents list of RecordSetOperations which are queued on the same level

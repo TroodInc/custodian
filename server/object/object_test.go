@@ -3,13 +3,13 @@ package object
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/meta"
-	"server/pg"
-	"server/transactions/file_transaction"
-	"utils"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
 )
 
 var _ = Describe("File MetaDescription driver", func() {

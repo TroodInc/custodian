@@ -1,17 +1,17 @@
 package field
 
 import (
-	"server/errors"
-	"server/transactions"
+	"custodian/server/errors"
+	"custodian/server/transactions"
 	"database/sql"
-	"server/migrations/operations/field"
-	"server/migrations"
-	"server/pg"
+	"custodian/server/migrations/operations/field"
+	"custodian/server/migrations"
+	"custodian/server/pg"
 	"fmt"
-	"logger"
-	"server/pg/migrations/operations/statement_factories"
-	"server/object/description"
-	"server/object/meta"
+	"custodian/logger"
+	"custodian/server/pg/migrations/operations/statement_factories"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 )
 
 type UpdateFieldOperation struct {

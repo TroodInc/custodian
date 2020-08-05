@@ -4,22 +4,22 @@ import (
 	"fmt"
 	"net/http"
 	"net/http/httptest"
-	"server/auth"
-	"server/data"
-	"server/data/record"
-	"server/pg"
-	"server/transactions/file_transaction"
-	"utils"
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/data/record"
+	"custodian/server/pg"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"encoding/json"
-	"server"
-	"server/object/description"
-	"server/object/meta"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
+	"custodian/server"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
 )
 
 var _ = Describe("Server", func() {

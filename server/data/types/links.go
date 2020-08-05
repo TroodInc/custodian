@@ -1,6 +1,6 @@
 package types
 
-import "server/object/meta"
+import "custodian/server/object/meta"
 
 //LazyLink links current record with related and is used to set a value of related record`s attribute.
 //Eg.: object A has a link to object B called "b" and B has outer link to A called "b_set". Thus B record may have a

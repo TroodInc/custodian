@@ -2,14 +2,14 @@ package operations
 
 import (
 	"fmt"
-	"server/errors"
-	"server/migrations"
-	"server/migrations/description"
-	"server/migrations/operations"
-	"server/migrations/operations/action"
-	meta_description "server/object/description"
-	"server/pg/migrations/operations/field"
-	"server/pg/migrations/operations/object"
+	"custodian/server/errors"
+	"custodian/server/migrations"
+	"custodian/server/migrations/description"
+	"custodian/server/migrations/operations"
+	"custodian/server/migrations/operations/action"
+	meta_description "custodian/server/object/description"
+	"custodian/server/pg/migrations/operations/field"
+	"custodian/server/pg/migrations/operations/object"
 )
 
 type OperationFactory struct{}

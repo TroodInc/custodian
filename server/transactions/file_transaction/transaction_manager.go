@@ -1,8 +1,8 @@
 package file_transaction
 
 import (
-	. "server/transactions"
-	"server/object/description"
+	. "custodian/server/transactions"
+	"custodian/server/object/description"
 )
 
 type FileMetaDescriptionTransactionManager struct {

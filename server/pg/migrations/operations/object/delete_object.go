@@ -1,15 +1,15 @@
 package object
 
 import (
-	"server/transactions"
-	"server/migrations/operations/object"
+	"custodian/server/transactions"
+	"custodian/server/migrations/operations/object"
 	"database/sql"
-	"server/pg"
-	"logger"
+	"custodian/server/pg"
+	"custodian/logger"
 	"fmt"
 	"text/template"
-	"server/object/description"
-	"server/object/meta"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 )
 
 type DeleteObjectOperation struct {

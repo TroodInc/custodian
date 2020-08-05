@@ -1,12 +1,12 @@
 package notifications
 
 import (
-	"server/auth"
-	"server/data/record"
-	"server/data/types"
-	"server/object/description"
+	"custodian/server/auth"
+	"custodian/server/data/record"
+	"custodian/server/data/types"
+	"custodian/server/object/description"
 	"strconv"
-	"utils"
+	"custodian/utils"
 )
 
 type RecordSetNotification struct {

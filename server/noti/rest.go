@@ -3,11 +3,11 @@ package noti
 import (
 	"bytes"
 	"encoding/json"
-	"logger"
+	"custodian/logger"
 	"io"
 	"net/http"
 	"net/url"
-	"server/auth"
+	"custodian/server/auth"
 	"time"
 )
 

@@ -1,12 +1,12 @@
 package data
 
 import (
-	"server/data/record"
-	"server/object/description"
-	"server/object/meta"
+	"custodian/server/data/record"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 	"fmt"
-	"server/transactions"
-	"server/data/errors"
+	"custodian/server/transactions"
+	"custodian/server/data/errors"
 )
 
 type RecordRemovalTreeBuilder struct {

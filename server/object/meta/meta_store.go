@@ -3,11 +3,11 @@ package meta
 import (
 	"encoding/json"
 	"io"
-	"logger"
-	"server/errors"
-	. "server/object/description"
-	"server/transactions"
-	"utils"
+	"custodian/logger"
+	"custodian/server/errors"
+	. "custodian/server/object/description"
+	"custodian/server/transactions"
+	"custodian/utils"
 )
 
 /*

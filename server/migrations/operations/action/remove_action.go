@@ -1,13 +1,13 @@
 package action
 
 import (
-	"server/errors"
-	"server/object/meta"
-	"server/transactions"
-	"server/migrations"
+	"custodian/server/errors"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
+	"custodian/server/migrations"
 	"fmt"
-	"server/object/description"
-	meta_description "server/object/description"
+	"custodian/server/object/description"
+	meta_description "custodian/server/object/description"
 )
 
 type RemoveActionOperation struct {

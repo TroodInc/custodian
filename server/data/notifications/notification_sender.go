@@ -1,10 +1,10 @@
 package notifications
 
 import (
-	"server/object/meta"
-	"server/noti"
-	"server/auth"
-	"server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/noti"
+	"custodian/server/auth"
+	"custodian/server/object/description"
 	"strconv"
 )
 

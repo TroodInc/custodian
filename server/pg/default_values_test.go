@@ -4,16 +4,16 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"server/pg"
-	"server/data"
-	"server/auth"
-	"utils"
+	"custodian/server/pg"
+	"custodian/server/data"
+	"custodian/server/auth"
+	"custodian/utils"
 
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
-	"server/object/meta"
-	"server/transactions"
-	"server/object/description"
+	"custodian/server/transactions/file_transaction"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
+	"custodian/server/object/description"
 )
 
 var _ = Describe("PG MetaStore test", func() {

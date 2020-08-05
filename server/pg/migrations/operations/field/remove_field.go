@@ -1,15 +1,15 @@
 package field
 
 import (
-	"server/transactions"
+	"custodian/server/transactions"
 	"database/sql"
-	"server/migrations/operations/field"
-	"server/pg"
+	"custodian/server/migrations/operations/field"
+	"custodian/server/pg"
 	"fmt"
-	"logger"
-	"server/pg/migrations/operations/statement_factories"
-	"server/object/description"
-	"server/object/meta"
+	"custodian/logger"
+	"custodian/server/pg/migrations/operations/statement_factories"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 )
 
 type RemoveFieldOperation struct {

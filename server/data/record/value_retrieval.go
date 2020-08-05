@@ -1,8 +1,8 @@
 package record
 
 import (
-	"server/data/types"
-	"server/object/description"
+	"custodian/server/data/types"
+	"custodian/server/object/description"
 	"strings"
 )
 

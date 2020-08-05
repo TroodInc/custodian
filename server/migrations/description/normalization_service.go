@@ -1,15 +1,15 @@
 package description
 
 import (
-	"server/errors"
-	"server/object/meta"
-	"server/object/description_manager"
+	"custodian/server/errors"
+	"custodian/server/object/meta"
+	"custodian/server/object/description_manager"
 
-	object_description "server/object/description"
-	"server/migrations/operations"
-	"server/pg/migrations/operations/object"
-	"server/pg/migrations/operations/field"
-	"server/migrations"
+	object_description "custodian/server/object/description"
+	"custodian/server/migrations/operations"
+	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/pg/migrations/operations/field"
+	"custodian/server/migrations"
 )
 
 type NormalizationMigrationsFactory struct {

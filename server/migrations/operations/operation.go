@@ -1,9 +1,9 @@
 package operations
 
 import (
-	"server/object/meta"
-	"server/transactions"
-	"server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
+	"custodian/server/object/description"
 )
 
 type MigrationOperation interface {

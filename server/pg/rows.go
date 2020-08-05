@@ -3,10 +3,10 @@ package pg
 import (
 	"database/sql"
 	"reflect"
-	"server/errors"
-	"server/object/meta"
-	"server/data/types"
-	"server/object/description"
+	"custodian/server/errors"
+	"custodian/server/object/meta"
+	"custodian/server/data/types"
+	"custodian/server/object/description"
 )
 
 type Rows struct {

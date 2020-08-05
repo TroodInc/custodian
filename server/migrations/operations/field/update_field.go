@@ -1,9 +1,9 @@
 package field
 
 import (
-	"server/object/meta"
-	"server/object/description"
-	"server/transactions"
+	"custodian/server/object/meta"
+	"custodian/server/object/description"
+	"custodian/server/transactions"
 )
 
 type UpdateFieldOperation struct {

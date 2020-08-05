@@ -1,12 +1,12 @@
 package storage
 
 import (
-	"server/migrations/description"
+	"custodian/server/migrations/description"
 	"os"
 	"bufio"
 	"encoding/json"
 	"path"
-	"utils"
+	"custodian/utils"
 )
 
 const fileExtension = "json"

@@ -3,16 +3,16 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/object/meta"
-	"server/pg"
-	"utils"
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
-	"server/object/description"
-	"server/auth"
-	"server/data"
-	"server/data/errors"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/utils"
+	"custodian/server/transactions/file_transaction"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
+	"custodian/server/object/description"
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/data/errors"
 )
 
 var _ = Describe("Record tree extractor", func() {

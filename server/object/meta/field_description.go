@@ -2,10 +2,10 @@ package meta
 
 import (
 	"fmt"
-	"server/errors"
+	"custodian/server/errors"
 	"strconv"
 	"reflect"
-	. "server/object/description"
+	. "custodian/server/object/description"
 )
 
 type FieldDescription struct {

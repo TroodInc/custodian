@@ -1,11 +1,11 @@
 package action
 
 import (
-	"server/errors"
-	"server/object/meta"
-	meta_description "server/object/description"
-	"server/transactions"
-	"server/migrations"
+	"custodian/server/errors"
+	"custodian/server/object/meta"
+	meta_description "custodian/server/object/description"
+	"custodian/server/transactions"
+	"custodian/server/migrations"
 	"fmt"
 )
 

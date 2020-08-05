@@ -4,14 +4,14 @@ import (
 	"fmt"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"server/pg"
-	"utils"
-	"server/object/meta"
-	"server/transactions/file_transaction"
-	pg_transactions "server/pg/transactions"
-	"server/transactions"
+	"custodian/server/pg"
+	"custodian/utils"
+	"custodian/server/object/meta"
+	"custodian/server/transactions/file_transaction"
+	pg_transactions "custodian/server/pg/transactions"
+	"custodian/server/transactions"
 	"encoding/json"
-	"server/object/description"
+	"custodian/server/object/description"
 )
 
 var _ = Describe("Objects field", func() {
