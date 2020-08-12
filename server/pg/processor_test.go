@@ -70,4 +70,46 @@ var _ = Describe("Store", func() {
 		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, auth.User{})
 		Expect(record.Data).To(HaveKey("gender"))
 	})
+
+	It("Can set owner of a record", func() {
+		//create meta
+		meta := description.MetaDescription{
+			Name: "test_obj",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				}, {
+					Name:     "profile",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{
+						"func": "owner",
+					},
+				}, {
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: false,
+				},
+			},
+		}
+		metaDescription, _ := metaStore.NewMeta(&meta)
+
+		err := metaStore.Create(metaDescription)
+		Expect(err).To(BeNil())
+
+		//create record
+		recordData := map[string]interface{}{
+			"name": "Test",
+		}
+		var userId int = 100
+		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, auth.User{Id: userId})
+		Expect(record.Data["profile"]).To(Equal(float64(userId)))
+	})
 })
