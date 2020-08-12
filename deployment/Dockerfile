@@ -5,17 +5,13 @@ WORKDIR /go/src/app
 COPY ./migrate.py /usr/bin
 COPY ./loaddata.py /usr/bin
 
-COPY ./src/logger /usr/local/go/src/logger
-COPY ./src/server /usr/local/go/src/server
-COPY ./src/utils /usr/local/go/src/utils
 COPY ./main.go /go/src/app
 COPY ./docs/_static /home/static
 COPY ./VERSION /home/custodian/
 COPY ./go.mod /go/src/app
-COPY ./go.sum /go/src/app
-COPY ./src/logger /go/src/app/logger
-COPY ./src/server /go/src/app/server
-COPY ./src/utils /go/src/app/utils
+COPY ./logger /go/src/app/logger
+COPY ./server /go/src/app/server
+COPY ./utils /go/src/app/utils
 
 RUN chmod +x /usr/bin/migrate.py \
     && chmod +x /usr/bin/loaddata.py \
@@ -24,7 +20,6 @@ RUN chmod +x /usr/bin/migrate.py \
     && pip install requests \
     && echo $TAG > /home/custodian/VERSION \
     && go build -o /go/app \
-    && go get github.com/fatih/structs \
     && go get github.com/onsi/ginkgo/ginkgo \
     && go get github.com/onsi/gomega/...
 
