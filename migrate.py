@@ -65,7 +65,7 @@ class CustodianMigrator:
 
     def _apply_migration(self, migration_data):
         response = requests.post(
-            "http://127.0.0.1:8000/custodian/migrations/apply",
+            "http://127.0.0.1:8000/custodian/migrations/",
             json=migration_data,
             headers={'Authorization': get_service_token()}
         )
@@ -112,7 +112,7 @@ class CustodianMigrator:
 
 def main():
     migrator = CustodianMigrator()
-    if migrator.verbose:
+    if migrator.migrations_path:
         migrator.migrate_all()
     else:
         print("Migration path not found, set it as first argument: $> migrate.py /path/to/migrations/")

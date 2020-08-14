@@ -12,7 +12,7 @@
 # add these directories to sys.path here. If the directory is relative to the
 # documentation root, use os.path.abspath to make it absolute, like shown here.
 #
-# import os
+import os
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
@@ -24,7 +24,7 @@ copyright = '2019, Trood Cis'
 author = 'Trood Cis'
 
 # The short X.Y version
-version = ''
+version = '1.6.1'
 # The full version, including alpha/beta/rc tags
 release = ''
 
@@ -88,6 +88,9 @@ language = None
 # directories to ignore when looking for source files.
 # This pattern also affects html_static_path and html_extra_path.
 exclude_patterns = ['_templates', '_build', 'Thumbs.db', '.DS_Store', '*_test.go']
+
+if os.environ.get('DOC_ENVIRONMENT', 'PUBLIC') == 'PUBLIC':
+    exclude_patterns += ['private_*', 'internal_*']
 
 # The name of the Pygments (syntax highlighting) style to use.
 pygments_style = None
