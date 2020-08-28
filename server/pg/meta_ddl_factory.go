@@ -126,6 +126,9 @@ func (mdf *MetaDdlFactory) factoryBlankColumn(metaName string, field *descriptio
 	if column.Defval, err = mdf.getDefaultValue(metaName, field); err != nil {
 		return nil, err
 	}
+	if len(field.Enum) > 0 {
+		column.Enum = field.Enum
+	}
 
 	return &column, nil
 }

@@ -19,6 +19,7 @@ const (
 	FieldTypeDate
 	FieldTypeTime
 	FieldTypeGeneric
+	FieldTypeEnum
 )
 
 type FieldMode int
@@ -50,6 +51,8 @@ func AsFieldType(s string) (FieldType, bool) {
 		return FieldTypeDate, true
 	case "time":
 		return FieldTypeTime, true
+	case "enum":
+		return FieldTypeEnum, true
 	default:
 		return 0, false
 	}
@@ -77,6 +80,8 @@ func (fieldType FieldType) String() (string, bool) {
 		return "time", true
 	case FieldTypeGeneric:
 		return "generic", true
+	case FieldTypeEnum:
+		return "enum", true
 	default:
 		return "", false
 	}
@@ -96,6 +101,8 @@ func (fieldType FieldType) DdlType() (string, error) {
 		return "timestamp with time zone", nil
 	case FieldTypeTime:
 		return "time with time zone", nil
+	case FieldTypeEnum:
+		return "enum_type", errors.New("Enum choices are not set!")
 	default:
 		return "", errors.New("Unsupported column type: " + string(fieldType))
 	}
@@ -103,7 +110,7 @@ func (fieldType FieldType) DdlType() (string, error) {
 
 func (fieldType FieldType) AssertType(i interface{}) bool {
 	switch fieldType {
-	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime:
+	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime, FieldTypeEnum:
 		_, ok := i.(string)
 		return ok
 	case FieldTypeNumber:
@@ -263,6 +270,8 @@ type DefExpr struct {
 	Args []interface{}
 }
 
+type EnumChoices []string
+
 //FieldDescription description.
 type Field struct {
 	Name           string       `json:"name"`
@@ -280,6 +289,7 @@ type Field struct {
 	QueryMode      bool         `json:"queryMode,omitempty"`    //only for outer links, true if field should be used for querying
 	RetrieveMode   bool         `json:"retrieveMode,omitempty"` //only for outer links, true if field should be used for data retrieving
 	LinkThrough    string       `json:"linkThrough,omitempty"`  //only for "objects" field
+	Enum           EnumChoices  `json:"choices,omitempty"`
 }
 
 func (f *Field) IsSimple() bool {
@@ -326,6 +336,7 @@ func (f *Field) Clone() *Field {
 		QueryMode:      f.QueryMode,
 		RetrieveMode:   f.RetrieveMode,
 		LinkThrough:    f.LinkThrough,
+		Enum:           f.Enum,
 	}
 }
 

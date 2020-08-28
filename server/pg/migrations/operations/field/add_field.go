@@ -63,11 +63,24 @@ func (o *AddFieldOperation) addColumnStatements(statementSet *pg.DdlStatementSet
 	statementFactory := new(statement_factories.ColumnStatementFactory)
 	tableName := pg.GetTableName(metaDescriptionToApply.Name)
 	for _, column := range columns {
-		statement, err := statementFactory.FactoryAddStatement(tableName, column)
-		if err != nil {
-			return err
+		if len(column.Enum) > 0 {
+			if err := o.addEnumStatement(statementSet, metaDescriptionToApply); err != nil {
+				return err
+			}
+
+			statement, err := statementFactory.FactoryAddEnumStatement(tableName, column)
+			if err != nil {
+				return err
+			}
+			statementSet.Add(statement)
+
+		} else {
+			statement, err := statementFactory.FactoryAddStatement(tableName, column)
+			if err != nil {
+				return err
+			}
+			statementSet.Add(statement)
 		}
-		statementSet.Add(statement)
 	}
 	return nil
 }
@@ -84,6 +97,17 @@ func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatement
 		return err
 	}
 	statementSet.Add(statement)
+	return nil
+}
+
+func (o *AddFieldOperation) addEnumStatement(statementSet *pg.DdlStatementSet, metaDescriptionToApply *meta_description.MetaDescription) error {
+	tableName := pg.GetTableName(metaDescriptionToApply.Name)
+	statement, err := pg.CreateEnumStatement(tableName, o.Field.Name, o.Field.Enum)
+	if err != nil {
+		return err
+	}
+	statementSet.Add(statement)
+
 	return nil
 }
 
