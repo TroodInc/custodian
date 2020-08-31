@@ -22,6 +22,7 @@ import (
 	. "custodian/server/errors"
 	migrations_description "custodian/server/migrations/description"
 	"custodian/server/object/meta"
+	"custodian/server/object/description"
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/managers"
 	pg_transactions "custodian/server/pg/transactions"
@@ -580,27 +581,52 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	// }))
 
 	app.router.POST(cs.root+"/migrations", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-		migrationDescription, err := migrations_description.MigrationDescriptionFromJson(bytes.NewReader(r.body))
-		if err != nil {
-			js.pushError(err)
-			return
-		}
-
 		fake := len(q.Get("fake")) > 0
+		if r.single != nil {
+			migrationDescription, err := migrations_description.MigrationDescriptionFromJson(bytes.NewReader(r.body))
 
-		updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
+			if err != nil {
+				js.pushError(err)
+				return
+			}
 
-		metaStore.Cache().Invalidate()
+			updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
 
-		if err != nil {
-			js.pushError(err)
-			return
+			metaStore.Cache().Invalidate()
+
+			if err != nil {
+				js.pushError(err)
+				return
+			}
+			if updatedMetaDescription != nil {
+				js.pushObj(updatedMetaDescription.ForExport())
+			} else {
+				js.pushObj(migrationDescription)
+			}
+
+		} else if r.list != nil {
+			bulkMigrationDescription, err := migrations_description.BulkMigrationDescriptionFromJson(r.body)
+
+			if err != nil {
+				js.pushError(err)
+				return
+			}
+			var appliedMigrations []description.MetaDescription
+			for _, migrationDescription := range bulkMigrationDescription {
+				updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
+				metaStore.Cache().Invalidate()
+				if err != nil {
+					js.pushError(err)
+					return
+				}
+				if updatedMetaDescription != nil {
+					appliedMigrations = append(appliedMigrations, updatedMetaDescription.ForExport())
+				}
+			}
+			js.pushObj(appliedMigrations)
+
 		}
-		if updatedMetaDescription != nil {
-			js.pushObj(updatedMetaDescription.ForExport())
-		} else {
-			js.pushObj(migrationDescription)
-		}
+
 	}))
 
 	app.router.GET(cs.root+"/migrations", CreateJsonAction(func(_ *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {

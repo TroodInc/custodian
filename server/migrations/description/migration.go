@@ -41,6 +41,14 @@ func MigrationDescriptionFromJson(inputReader io.Reader) (*MigrationDescription,
 	return &md, nil
 }
 
+func BulkMigrationDescriptionFromJson(b []byte) ([]*MigrationDescription, error) {
+	var md []*MigrationDescription
+	if e := json.Unmarshal(b, &md); e != nil {
+		return nil, errors.NewValidationError("cant_unmarshal_migration", e.Error(), nil)
+	}
+	return md, nil
+}
+
 func (md *MigrationDescription) Marshal() ([]byte, error) {
 	return json.Marshal(md)
 }
