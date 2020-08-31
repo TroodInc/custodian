@@ -88,6 +88,42 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
+	
+	It("creates enum", func() {
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		Expect(err).To(BeNil())
+
+		operation := object.NewCreateObjectOperation(metaDescription)
+
+		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+
+		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		//
+		enums := description.EnumChoices{"string", "ping", "wing"}
+		field := description.Field{Name: "myenum", Type: description.FieldTypeEnum, Optional: true, Enum: enums}
+
+		fieldOperation := NewAddFieldOperation(&field)
+
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+		_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		Expect(err).To(BeNil())
+
+		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		//
+		metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+		Expect(metaDescription.Name).To(Equal("a"))
+		Expect(err).To(BeNil())
+		Expect(metaDdlFromDB).NotTo(BeNil())
+		Expect(metaDdlFromDB.Columns).To(HaveLen(2))
+		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
+		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeEnum))
+		Expect(metaDdlFromDB.Columns[1].Enum).To(HaveLen(3))
+
+		globalTransactionManager.CommitTransaction(globalTransaction)
+	})
 
 	It("creates sequence for specified column in the database", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)

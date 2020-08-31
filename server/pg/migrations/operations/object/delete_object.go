@@ -40,6 +40,17 @@ func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *description.M
 			statementSet.Add(statement)
 		}
 	}
+	
+	for _, column := range metaDdl.Columns {
+		if len(column.Enum) > 0 {
+			statement, err := pg.DropEnumStatement(metaDdl.Table, column.Name)
+			if err != nil {
+				return err
+			}
+
+			statementSet.Add(statement)
+		}
+	}
 
 	for _, statement := range statementSet {
 		logger.Debug("Removing object in DB: %syncer\n", statement.Code)

@@ -3,6 +3,7 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"database/sql"
 	"custodian/server/pg"
 	"custodian/server/data"
 	"custodian/server/auth"
@@ -435,6 +436,41 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
+	havingObjectEnum := func() *meta.Meta {
+		metaDescription := description.MetaDescription{
+			Name: "obj_with_enum",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeString,
+					Optional: false,
+				},
+				{
+					Name:     "enumField",
+					Type:     description.FieldTypeEnum,
+					Optional: true,
+					Enum:     description.EnumChoices{"1", "2"},
+				},
+			},
+		}
+		// create enum statement
+		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		stmt, err := pg.CreateEnumStatement("o_obj_with_enum", "enumField", description.EnumChoices{"1", "2"})
+		Expect(err).To(BeNil())
+
+		tx.Exec(stmt.Code)
+		globalTransactionManager.CommitTransaction(globalTransaction)
+
+		metaObj, err := metaStore.NewMeta(&metaDescription)
+		Expect(err).To(BeNil())
+		err = metaStore.Create(metaObj)
+		Expect(err).To(BeNil())
+		return metaObj
+	}
+
 	factoryObjectBWithManuallySetOuterLinkToC := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b",
@@ -516,6 +552,19 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
+
+	It("Can create record with enum values", func() {
+		enumObj := havingObjectEnum()
+
+		// can create enum record
+		_, err := dataProcessor.CreateRecord(enumObj.Name, map[string]interface{}{"id": "enumRecord", "enumField": "1"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		// can't create records with values not in enum choices
+		_, err = dataProcessor.CreateRecord(enumObj.Name, map[string]interface{}{"id": "invalid enumRecord", "enumField": "4"}, auth.User{})
+		Expect(err).NotTo(BeNil())
+	})
+	
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
 		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())

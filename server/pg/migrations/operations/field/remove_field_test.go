@@ -37,6 +37,66 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	//setup transaction
 	AfterEach(flushDb)
 
+	Describe("Enum field case", func() {
+
+		//setup MetaObj
+		BeforeEach(func() {
+			//"Direct" case
+			metaDescription = &description.MetaDescription{
+				Name: "a",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "enumField",
+						Type:     description.FieldTypeEnum,
+						Optional: true,
+						Enum:     description.EnumChoices{"string", "ping", "wing"},
+					},
+				},
+			}
+			//create MetaDescription
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			operation := object.NewCreateObjectOperation(metaDescription)
+
+			metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			//sync DB
+			err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			//
+			globalTransactionManager.CommitTransaction(globalTransaction)
+
+		})
+
+		It("drops column", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			//apply operation
+			removeFieldOperation := NewRemoveFieldOperation(metaDescription.FindField("enumField"))
+			err = removeFieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			_, err = removeFieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+			Expect(err).To(BeNil())
+			Expect(metaDdlFromDB.Columns).To(HaveLen(1))
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+	})
+
 	Describe("Simple field case", func() {
 
 		//setup MetaObj
