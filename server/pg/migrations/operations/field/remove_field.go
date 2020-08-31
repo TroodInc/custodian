@@ -35,7 +35,9 @@ func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *description.Me
 	if err := o.addColumnStatements(&statementSet, columns, metaDescription); err != nil {
 		return err
 	}
-
+	if err := o.addEnumStatements(&statementSet, columns, metaDescription); err != nil {
+		return err
+	}
 	for _, statement := range statementSet {
 		logger.Debug("Removing field from DB: %s\n", statement.Code)
 		if _, err = tx.Exec(statement.Code); err != nil {
@@ -83,6 +85,20 @@ func (o *RemoveFieldOperation) addConstraintStatement(statementSet *pg.DdlStatem
 		return err
 	}
 	statementSet.Add(statement)
+	return nil
+}
+
+func (o *RemoveFieldOperation) addEnumStatements(statementSet *pg.DdlStatementSet, columns []pg.Column, metaDescription *description.MetaDescription) error {
+	tableName := pg.GetTableName(metaDescription.Name)
+	for _, column := range columns {
+		if len(column.Enum) > 0 {
+			statement, err := pg.DropEnumStatement(tableName, column.Name)
+			if err != nil {
+				return err
+			}
+			statementSet.Add(statement)
+		}
+	}
 	return nil
 }
 

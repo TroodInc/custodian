@@ -15,7 +15,7 @@ down:
 	@docker-compose down
 
 cleanup:
-	find ../src -name "*.json" -delete
+	find ../server -name "*.json" -delete
 	@docker-compose exec custodian_postgres psql -U custodian -d custodian -c "drop schema public cascade; create schema public;"
 
 test-all:

@@ -105,7 +105,7 @@ func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
 
 func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, error) {
 	switch f.Type {
-	case description.FieldTypeString, description.FieldTypeDate, description.FieldTypeDateTime, description.FieldTypeTime:
+	case description.FieldTypeString, description.FieldTypeDate, description.FieldTypeDateTime, description.FieldTypeTime, description.FieldTypeEnum:
 		if isOptional {
 			return new(sql.NullString), nil
 		} else {

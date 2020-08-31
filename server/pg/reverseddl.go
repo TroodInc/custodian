@@ -3,6 +3,7 @@ package pg
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	"custodian/server/object/description"
 )
@@ -64,6 +65,13 @@ const (
 		FROM pg_catalog.pg_constraint c
 		WHERE c.conrelid = $1 AND c.contype = 'f';
 	`
+
+	SQL_ENUM_VALUES string = `
+	SELECT value from (
+		SELECT type.typname AS name, string_agg(enum.enumlabel, '|') AS value
+		FROM pg_enum AS enum JOIN pg_type AS type ON (type.oid = enum.enumtypid)
+		GROUP BY type.typname) AS enums WHERE name=$1;
+	`
 )
 
 //NewReverser create a new Reversers. Returns errors if some error has occurred.
@@ -109,6 +117,19 @@ func (r *Reverser) Columns(cols *[]Column, pk *string) error {
 		//when invariants` restrictions would be implemented (TB-116)
 		*cols = append(*cols, Column{Name: column, Typ: coltyp, Optional: !notnull, Defval: defval})
 		colsmap[column] = i
+	}
+
+	for i, col := range *cols {
+		if col.Typ == description.FieldTypeEnum {
+
+			var enumVal string
+			r.tx.QueryRow(SQL_ENUM_VALUES, r.table+"_"+column).Scan(&enumVal)
+
+			enumChoices := strings.Split(enumVal, "|")
+			if len(enumChoices) > 0 {
+				(*cols)[i].Enum = enumChoices
+			}
+		}
 	}
 
 	conrows, err := r.tx.Query(SQL_PU_CONSTRAINTS, r.oid)

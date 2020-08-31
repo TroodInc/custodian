@@ -131,12 +131,27 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 			}
 			if currentColumn.Typ != newColumn.Typ {
 				//process type change
+				if len(newColumn.Enum) > 0 {
+					statement, err := pg.CreateEnumStatement(tableName, newColumn.Name, newColumn.Enum)
+					if err != nil {
+						return err
+					}
+					statementSet.Add(statement)
+				}
 				statement, err := statementFactory.FactorySetTypeStatement(tableName, newColumn)
 				if err != nil {
 					return err
 				} else {
 					statementSet.Add(statement)
 				}
+			}
+			if len(currentColumn.Enum) > 0 {
+				statement, err := pg.DropEnumStatement(tableName, currentColumn.Name)
+				if err != nil {
+					return err
+				}
+
+				statementSet.Add(statement)
 			}
 			if currentColumn.Unique != newColumn.Unique {
 				//process unique constraint

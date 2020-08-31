@@ -9,6 +9,7 @@ import (
 	. "custodian/server/data/types"
 	"custodian/server/object/description"
 	"custodian/server/transactions"
+	"custodian/utils"
 	"fmt"
 )
 
@@ -85,6 +86,14 @@ func (vs *ValidationService) Validate(dbTransaction transactions.DbTransaction, 
 					delete(record.Data, fieldName)
 				} else if fieldDescription.IsSimple() && fieldDescription.LinkType == description.LinkTypeInner {
 					record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
+				} else if fieldDescription.Type == description.FieldTypeEnum {
+					if !utils.Contains(fieldDescription.Enum, value.(string)) {
+
+						return nil, nil, nil, nil, errors2.NewValidationError(
+							errors.ErrMandatoryFiledAbsent,
+							fmt.Sprintf("value '%s' is not in enum choices %s", value, fieldDescription.Enum),
+							map[string]string{"field": fieldName})
+					}
 				}
 			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (fieldDescription.LinkMeta.Key.Type.AssertType(value) || fieldDescription.Optional && value == nil ):
 				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
