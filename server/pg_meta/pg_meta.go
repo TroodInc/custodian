@@ -21,8 +21,8 @@ const (
 	GET_META_OBJ string = `SELECT meta_description from o___meta__ where meta_description ->> 'name'=$1;`
 	DELETE_META_OBJ string = `DELETE FROM o___meta__ where meta_description ->> 'name'=$1;`
 	CHECK_META_OBJ_EXISTS string = `SELECT 1 FROM o___meta__ WHERE meta_description ->> 'name'=$1;`
-	CREATE_META_OBJ string = `INSERT INTO o___meta__ (meta_description) VALUES ($1)`
-	UPDATE_META_OBJ string = `UPDATE o___meta__ SET meta_description=$1 WHERE meta_description ->> 'name'=$2`
+	CREATE_META_OBJ string = `INSERT INTO o___meta__ (meta_description) VALUES ($1);`
+	UPDATE_META_OBJ string = `UPDATE o___meta__ SET meta_description=$1 WHERE meta_description ->> 'name'=$2;`
 )
 
 func checkMetaObjExists(name string, tx *sql.Tx) bool {
@@ -108,7 +108,7 @@ func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
 	if exists := checkMetaObjExists(name, tx); exists == false {
 		logger.Debug("MetaDescription '%s' does not exist",  name)
 		return false, NewFatalError(
-			"get_meta",
+			"delete_meta_obj",
 			fmt.Sprintf("The MetaDescription '%s' not found", name),
 			nil,
 		)
@@ -117,7 +117,7 @@ func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
 	if err != nil {
 		logger.Error("Can't delete MetaDescription '%s': %s", name, err.Error())
 		return true, NewFatalError(
-			"meta_file_remove",
+			"delete_meta_obj",
 			fmt.Sprintf("Can't delete MetaDescription '%s'", name),
 			nil,
 		)
@@ -134,7 +134,7 @@ func (md *PgMetaDescriptionSyncer) Create(transaction transactions.MetaDescripti
 		logger.Debug("MetaDescription '%s' already exists",  m.Name)
 		return NewFatalError(
 			"create_meta_obj",
-			fmt.Sprintf("The MetaDescription '%s' not found", m.Name),
+			fmt.Sprintf("MetaDescription '%s' already exists", m.Name),
 			nil,
 		)
 	} else if exists == false {
@@ -150,7 +150,7 @@ func (md *PgMetaDescriptionSyncer) Create(transaction transactions.MetaDescripti
 		if _, err = tx.Exec(CREATE_META_OBJ, string(b)); err != nil {
 			logger.Error("Can't create MetaDescription '%s' : %s", m.Name, err.Error())
 			return NewFatalError(
-				"meta_file_create",
+				"create_meta_obj",
 				fmt.Sprintf("Can't save MetaDescription'%s'", m.Name),
 				nil,
 			)
@@ -168,7 +168,7 @@ func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescrip
 	if exists := checkMetaObjExists(name, tx); exists == false {
 		logger.Debug("MetaDescription '%s' does not exist",  name)
 		return false, NewFatalError(
-			"get_meta",
+			"update_meta_obj",
 			fmt.Sprintf("The MetaDescription '%s' not found", name),
 			nil,
 		)
@@ -177,16 +177,16 @@ func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescrip
 		b, err := json.Marshal(m)
 		if err != nil {
 			return false, NewFatalError(
-				"create_meta_obj",
-				fmt.Sprintf("Can't json.Marshal '%s' MetaDescription", m.Name),
+				"update_meta_obj",
+				fmt.Sprintf("Can't json.Marshal '%s' MetaDescription during update", m.Name),
 				nil,
 			)
 		}
 		if _, err = tx.Exec(UPDATE_META_OBJ, string(b), m.Name); err != nil {
-			logger.Error("Can't create MetaDescription '%s' : %s", m.Name, err.Error())
+			logger.Error("Can't update MetaDescription '%s' : %s", m.Name, err.Error())
 			return false, NewFatalError(
-				"meta_file_create",
-				fmt.Sprintf("Can't save MetaDescription'%s'", m.Name),
+				"update_meta_obj",
+				fmt.Sprintf("Can't update MetaDescription'%s'", m.Name),
 				nil,
 			)
 		}
