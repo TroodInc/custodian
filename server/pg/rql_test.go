@@ -7,6 +7,7 @@ import (
 	"custodian/utils"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"custodian/server/pg_meta"
 
 	"github.com/Q-CIS-DEV/go-rql-parser"
 
@@ -16,7 +17,8 @@ import (
 var _ = Describe("RQL test", func(){
 	appConfig := utils.GetConfig()
 	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer,transactions.NewGlobalTransactionManager(nil, nil) )
+	metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer,transactions.NewGlobalTransactionManager(nil, nil) )
 
 	metaDescription := description.MetaDescription{
 		Name: "test",

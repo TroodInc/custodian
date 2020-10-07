@@ -10,19 +10,21 @@ import (
 
 	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
+	"custodian/server/pg_meta"
 )
 
 var _ = Describe("File MetaDescription driver", func() {
-	fileMetaDriver := meta.NewFileMetaDescriptionSyncer("./")
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(fileMetaDriver.Remove, fileMetaDriver.Create)
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	//transaction managers
+	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
+
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -36,22 +38,22 @@ var _ = Describe("File MetaDescription driver", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
 
-			fileMetaDriver.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+			metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
 
 			Context("and this object is removed within transaction", func() {
 				metaDescriptionList, _, _ := metaStore.List()
 				fileMetaTransaction, err := fileMetaTransactionManager.BeginTransaction(metaDescriptionList)
 				Expect(err).To(BeNil())
 
-				fileMetaDriver.Remove(metaDescription.Name)
-				_, ok, _ := fileMetaDriver.Get(metaDescription.Name)
+				metaDescriptionSyncer.Remove(metaDescription.Name)
+				_, ok, _ := metaDescriptionSyncer.Get(metaDescription.Name)
 				Expect(ok).To(BeFalse())
 				Context("object should be restored after rollback", func() {
 					fileMetaTransactionManager.RollbackTransaction(fileMetaTransaction)
-					_, ok, _ := fileMetaDriver.Get(metaDescription.Name)
+					_, ok, _ := metaDescriptionSyncer.Get(metaDescription.Name)
 					Expect(ok).To(BeTrue())
 					//	clean up
-					fileMetaDriver.Remove(metaDescription.Name)
+					metaDescriptionSyncer.Remove(metaDescription.Name)
 				})
 			})
 
@@ -65,7 +67,7 @@ var _ = Describe("File MetaDescription driver", func() {
 			metaDescriptionList, _, _ := metaStore.List()
 			metaTransaction, err := fileMetaTransactionManager.BeginTransaction(metaDescriptionList)
 			Expect(err).To(BeNil())
-			err = fileMetaDriver.Create(metaTransaction, *metaDescription)
+			err = metaDescriptionSyncer.Create(metaTransaction, *metaDescription)
 			Expect(err).To(BeNil())
 
 			Context("and another object is created within new transaction", func() {
@@ -74,15 +76,15 @@ var _ = Describe("File MetaDescription driver", func() {
 				Expect(err).To(BeNil())
 
 				bMetaDescription := GetBaseMetaData(utils.RandomString(8))
-				fileMetaDriver.Create(metaTransaction, *bMetaDescription)
+				metaDescriptionSyncer.Create(metaTransaction, *bMetaDescription)
 
 				Context("B object should be removed after rollback", func() {
 					err = fileMetaTransactionManager.RollbackTransaction(metaTransaction)
 					Expect(err).To(BeNil())
-					_, ok, _ := fileMetaDriver.Get(bMetaDescription.Name)
+					_, ok, _ := metaDescriptionSyncer.Get(bMetaDescription.Name)
 					Expect(ok).To(BeFalse())
 				})
-				fileMetaDriver.Remove(metaDescription.Name)
+				metaDescriptionSyncer.Remove(metaDescription.Name)
 			})
 		})
 	})

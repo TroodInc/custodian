@@ -14,6 +14,7 @@ import (
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
 	"custodian/server/object/description"
+	"custodian/server/pg_meta"
 )
 
 var _ = Describe("PG MetaStore test", func() {
@@ -25,8 +26,10 @@ var _ = Describe("PG MetaStore test", func() {
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
