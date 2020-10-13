@@ -1,6 +1,7 @@
 package abac
 
 import (
+	"encoding/json"
 	"reflect"
 	"strings"
 
@@ -100,4 +101,12 @@ func strIn(list []string, item string) bool {
 	}
 
 	return false
+}
+
+
+func JsonToObject(jsonObj string) map[string]interface{} {
+	var condition map[string]interface{}
+
+	json.Unmarshal([]byte(jsonObj), &condition)
+	return condition
 }

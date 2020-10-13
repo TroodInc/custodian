@@ -25,7 +25,7 @@ type User struct {
 	Id         int                    `json:"id"`
 	Login      string                 `json:"login"`
 	Status     string                 `json:"status"`
-	Role       string                 `json:"role"`
+	Role       map[string]interface{} `json:"role"`
 	Type       string                 `json:"type"`
 	ABAC       map[string]interface{} `json:"abac"`
 	Authorized bool                   `json:"authorized"`

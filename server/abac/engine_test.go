@@ -1,7 +1,6 @@
 package abac
 
 import (
-	"encoding/json"
 	"custodian/server/auth"
 	"custodian/server/data"
 	"custodian/server/data/record"
@@ -23,13 +22,6 @@ type User struct {
 	Status  string                 `json:"status"`
 	Role    string                 `json:"role"`
 	Profile map[string]interface{} `json:"profile"`
-}
-
-func jsonToObject(jsonObj string) map[string]interface{} {
-	var condition map[string]interface{}
-
-	json.Unmarshal([]byte(jsonObj), &condition)
-	return condition
 }
 
 var _ = Describe("Abac Engine", func() {
@@ -117,7 +109,7 @@ var _ = Describe("Abac Engine", func() {
 	Describe("Rules", func() {
 
 		It("must evaluate sbj EQ condition", func() {
-			condition := jsonToObject(`{"sbj.role": "admin"}`)
+			condition := JsonToObject(`{"sbj.role": "admin"}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -125,7 +117,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate sbj IN condition", func() {
-			condition := jsonToObject(`{"sbj.role": {"in": ["manager", "admin"]}}`)
+			condition := JsonToObject(`{"sbj.role": {"in": ["manager", "admin"]}}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -133,7 +125,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate sbj NOT condition", func() {
-			condition := jsonToObject(`{"sbj.role": {"not": "manager"}}`)
+			condition := JsonToObject(`{"sbj.role": {"not": "manager"}}`)
 
 			result, _ := resolver.evaluateCondition(condition)
 
@@ -141,7 +133,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate OR sbj condition", func() {
-			condition := jsonToObject(`{"or": [
+			condition := JsonToObject(`{"or": [
 				{"sbj.role": {"not": "manager"}},
 				{"sbj.id": 5}
 			]}`)
@@ -151,7 +143,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate AND sbj condition", func() {
-			condition := jsonToObject(`{"and": [
+			condition := JsonToObject(`{"and": [
 				{"sbj.role": {"not": "manager"}},
 				{"sbj.id": 10}	
 			]}`)
@@ -161,7 +153,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate and or condition", func() {
-			condition := jsonToObject(`{
+			condition := JsonToObject(`{
                 "or": [
 					{"obj.executor.account": "sbj.id"},
 					{"obj.responsible.account": "sbj.id"}
@@ -173,13 +165,13 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("must evaluate wildcard value", func() {
-			condition := jsonToObject(`{"sbj.role": "*"}`)
+			condition := JsonToObject(`{"sbj.role": "*"}`)
 			result, _ := resolver.evaluateCondition(condition)
 			Expect(result).To(BeTrue())
 		})
 
 		It("must evaluate condition with null/non-existing arguments", func() {
-			condition := jsonToObject(`{"sbj.none.existing.field": null}`)
+			condition := JsonToObject(`{"sbj.none.existing.field": null}`)
 			result, _ := resolver.evaluateCondition(condition)
 			Expect(result).To(BeTrue())
 		})
@@ -187,7 +179,7 @@ var _ = Describe("Abac Engine", func() {
 
 	Describe("Building filter expression", func() {
 		It("Can parse rule and build correct filter expression", func() {
-			condition := jsonToObject(`{
+			condition := JsonToObject(`{
                 "or": [
 					{"obj.executor.account": "sbj.id"},
 					{"obj.responsible.account": "sbj.id"}
@@ -206,7 +198,7 @@ var _ = Describe("Abac Engine", func() {
 		})
 
 		It("Returns nil if there are no suitable rules to build filter expression", func() {
-			condition := jsonToObject(`{"sbj.role": "admin"}`)
+			condition := JsonToObject(`{"sbj.role": "admin"}`)
 			_, rule := resolver.EvaluateRule(map[string]interface{}{"rule": condition, "result": "allow"})
 			Expect(rule.Filter).To(BeNil())
 		})
@@ -225,7 +217,7 @@ var _ = Describe("Abac Engine", func() {
 		metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
 		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
-		abacTree := jsonToObject(`{
+		abacTree := JsonToObject(`{
 			"t_client": {
 				"data_GET": [
 					{ "result": "allow", "rule": { "sbj.role": "admin" }, "mask": [] },
@@ -401,7 +393,7 @@ var _ = Describe("Abac Engine", func() {
 
 	Describe("Allow/Deny resolutions", func() {
 		It("Must resolve to True if only obj rules are set in policy", func() {
-			condition := jsonToObject(`{"obj.color": "red"}`)
+			condition := JsonToObject(`{"obj.color": "red"}`)
 
 			result, filters := resolver.evaluateCondition(condition)
 
