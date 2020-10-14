@@ -112,4 +112,63 @@ var _ = Describe("Store", func() {
 		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, auth.User{Id: userId})
 		Expect(record.Data["profile"]).To(Equal(float64(userId)))
 	})
+
+	It("Set owner for nested objects", func() {
+		childMeta := description.MetaDescription{
+			Name: "a_j1298d",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{"func": "nextval"},
+					Optional: true,
+				}, {
+					Name:     "owner",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+					Def: map[string]interface{}{"func": "owner"},
+				},{
+					Name:     "name",
+					Type:     description.FieldTypeString,
+					Optional: false,
+				},
+			},
+		}
+		childObject, _ := metaStore.NewMeta(&childMeta)
+		metaStore.Create(childObject)
+
+		parentMeta := description.MetaDescription{
+			Name: "b_j1298d",
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Def:      map[string]interface{}{"func": "nextval"},
+					Optional: true,
+				}, {
+					Name: "child",
+					Type: description.FieldTypeObject,
+					LinkMeta: childMeta.Name,
+					LinkType: description.LinkTypeInner,
+				},
+			},
+		}
+
+		parentObject, _ := metaStore.NewMeta(&parentMeta)
+		metaStore.Create(parentObject)
+
+		//create record
+		recordData := map[string]interface{}{
+			"child": map[string]interface{}{"name": "Nested object"},
+		}
+		var userId int = 100
+		record, _ := dataProcessor.CreateRecord(parentObject.Name, recordData, auth.User{Id: userId})
+		child := record.Data["child"].(map[string]interface{})
+		Expect(child["owner"]).To(Equal(float64(userId)))
+
+	})
 })
