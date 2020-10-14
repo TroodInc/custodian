@@ -1,6 +1,7 @@
 package data
 
 import (
+	"custodian/server/auth"
 	. "custodian/server/data/record"
 	"custodian/server/object/meta"
 )
@@ -15,12 +16,12 @@ type RecordProcessingNode struct {
 }
 
 //return records in order of processing
-func (r *RecordProcessingNode) RecordSetOperations() (*RecordSet, []*RecordSetOperation) {
-	recordOperations := r.collectRecordOperations(make([]*RecordOperation, 0))
+func (r *RecordProcessingNode) RecordSetOperations(user auth.User) (*RecordSet, []*RecordSetOperation) {
+	recordOperations := r.collectRecordOperations(make([]*RecordOperation, 0), user)
 	return r.composeRecordSetOperations(recordOperations)
 }
 
-func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*RecordOperation) []*RecordOperation {
+func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*RecordOperation, user auth.User) []*RecordOperation {
 	for _, recordProcessingNode := range r.RetrieveBefore {
 		recordOperations = append(
 			recordOperations,
@@ -36,7 +37,7 @@ func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*Recor
 	}
 
 	for _, recordProcessingNode := range r.ProcessBefore {
-		recordOperations = recordProcessingNode.collectRecordOperations(recordOperations)
+		recordOperations = recordProcessingNode.collectRecordOperations(recordOperations, user)
 	}
 
 	var operation RecordOperationType
@@ -45,10 +46,12 @@ func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*Recor
 	} else {
 		operation = RecordOperationTypeUpdate
 	}
+
+	setRecordOwner(r.Record.Meta, r.Record.Data, user)
 	recordOperations = append(recordOperations, &RecordOperation{Record: r.Record, Type: operation})
 
 	for _, recordProcessingNode := range r.ProcessAfter {
-		recordOperations = recordProcessingNode.collectRecordOperations(recordOperations)
+		recordOperations = recordProcessingNode.collectRecordOperations(recordOperations, user)
 	}
 	return recordOperations
 }

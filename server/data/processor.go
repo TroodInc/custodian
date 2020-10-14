@@ -210,7 +210,6 @@ func setRecordOwner(objectMeta *meta.Meta, recordData map[string]interface{}, us
 func (processor *Processor) CreateRecord(objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
 	// get MetaDescription
 	objectMeta, err := processor.GetMeta(objectName)
-	setRecordOwner(objectMeta, recordData, user)
 	if err != nil {
 		return nil, err
 	}
@@ -228,7 +227,7 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
-	rootRecordSet, recordSetsOperations := recordProcessingNode.RecordSetOperations()
+	rootRecordSet, recordSetsOperations := recordProcessingNode.RecordSetOperations(user)
 
 	// create records
 
@@ -324,7 +323,7 @@ func (processor *Processor) BulkCreateRecords(objectName string, recordData []ma
 			processor.transactionManager.RollbackTransaction(dbTransaction)
 			return nil, err
 		}
-		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
+		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations(user)
 
 		for _, recordSetOperation := range recordSetOperations {
 			isRoot := recordSetOperation.RecordSet == rootRecordSet
@@ -425,7 +424,7 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
-	rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
+	rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations(user)
 
 	for _, recordSetOperation := range recordSetOperations {
 		isRoot := recordSetOperation.RecordSet == rootRecordSet
@@ -522,7 +521,7 @@ func (processor *Processor) BulkUpdateRecords(dbTransaction transactions.DbTrans
 			return err
 		}
 		//perform update
-		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations()
+		rootRecordSet, recordSetOperations := recordProcessingNode.RecordSetOperations(user)
 
 		for _, recordSetOperation := range recordSetOperations {
 			isRoot := recordSetOperation.RecordSet == rootRecordSet
