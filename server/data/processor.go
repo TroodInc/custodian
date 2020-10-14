@@ -103,36 +103,6 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 	}
 }
 
-func (processor *Processor) ShadowGet(transaction transactions.DbTransaction, objectMeta *meta.Meta, key string, depth int, omitOuters bool) (*Record, error) {
-	if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
-		return nil, e
-	} else {
-		ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data", DbTransaction: transaction, omitOuters: omitOuters}
-
-		root := &Node{
-			KeyField:     objectMeta.Key,
-			Meta:         objectMeta,
-			ChildNodes:   *NewChildNodes(),
-			Depth:        1,
-			OnlyLink:     false,
-			plural:       false,
-			Parent:       nil,
-			Type:         NodeTypeRegular,
-			SelectFields: *NewSelectFields(objectMeta.Key, objectMeta.TableFields()),
-		}
-		root.RecursivelyFillChildNodes(ctx.depthLimit, description.FieldModeRetrieve)
-
-		if recordData, e := root.Resolve(ctx, pk); e != nil {
-			return nil, e
-		} else if recordData == nil {
-			return nil, nil
-		} else {
-			return recordData, nil
-			//return NewRecord(objectMeta, root.FillRecordValues(recordData.(map[string]interface{}), ctx)), nil
-		}
-	}
-}
-
 func (processor *Processor) GetBulk(objectName string, filter string, includePaths []string, excludePaths []string, depth int, omitOuters bool) (int, []*Record, error) {
 	if businessObject, ok, e := processor.metaStore.Get(objectName, true); e != nil {
 		return 0, nil, e
@@ -238,8 +208,6 @@ func setRecordOwner(objectMeta *meta.Meta, recordData map[string]interface{}, us
 
 // CreateRecord create object record in database
 func (processor *Processor) CreateRecord(objectName string, recordData map[string]interface{}, user auth.User) (*Record, error) {
-	// set record owner
-	recordData["owner"] = user.Id
 	// get MetaDescription
 	objectMeta, err := processor.GetMeta(objectName)
 	setRecordOwner(objectMeta, recordData, user)
