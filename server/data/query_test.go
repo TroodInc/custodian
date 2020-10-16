@@ -1096,7 +1096,7 @@ var _ = Describe("Data", func() {
 
 			testRecordName := "H&M"
 			
-			aRecordName, err :=dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"name": "H&M"}, auth.User{})
+			aRecordName, err := dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"name": "H&M"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			_, matchedRecords, err := dataProcessor.GetBulk(aMetaDescription.Name, "eq(name,H\\&M)", nil, nil, 2, true)
@@ -1105,6 +1105,18 @@ var _ = Describe("Data", func() {
 			Expect(matchedRecords).To(HaveLen(1))
 			Expect(matchedRecords[0].Data["id"]).To(Equal(aRecordName.Pk()))
 			Expect(matchedRecords[0].Data["name"]).To(Equal(testRecordName))
+
+			testBackslashRecordName := "H\\M"
+			
+			backslahRecord, err := dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"name": "H\\M"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			_, matchedRecords, err = dataProcessor.GetBulk(aMetaDescription.Name, "eq(name,H\\\\M)", nil, nil, 2, true)
+			Expect(err).To(BeNil())
+
+			Expect(matchedRecords).To(HaveLen(1))
+			Expect(matchedRecords[0].Data["id"]).To(Equal(backslahRecord.Pk()))
+			Expect(matchedRecords[0].Data["name"]).To(Equal(testBackslashRecordName))
 		})
 	})
 })

@@ -3,7 +3,7 @@ module custodian
 go 1.14
 
 require (
-	github.com/Q-CIS-DEV/go-rql-parser v0.0.0-20201016103511-0e1aad0ecf90
+	github.com/Q-CIS-DEV/go-rql-parser v0.0.0-20201016130940-fe284a7adb89
 	github.com/certifi/gocertifi v0.0.0-20200211180108-c7c1fbc02894 // indirect
 	github.com/fatih/structs v1.1.0
 	github.com/getlantern/deepcopy v0.0.0-20160317154340-7f45deb8130a
