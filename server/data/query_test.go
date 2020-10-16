@@ -1068,4 +1068,43 @@ var _ = Describe("Data", func() {
 			Expect(matchedRecords[0].Data["id"]).To(Equal(bRecord.Pk()))
 		})
 	})
+	It("can make query with special symbol", func() {
+		Context("having an object with special symbol", func() {
+			aMetaDescription := description.MetaDescription{
+				Name: "a_ijisl2",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "name",
+						Type: description.FieldTypeString,
+					},
+				},
+			}
+			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(aMetaObj)
+			Expect(err).To(BeNil())
+
+			testRecordName := "H&M"
+			
+			aRecordName, err :=dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"name": "H&M"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			_, matchedRecords, err := dataProcessor.GetBulk(aMetaDescription.Name, "eq(name,H\\&M)", nil, nil, 2, true)
+			Expect(err).To(BeNil())
+
+			Expect(matchedRecords).To(HaveLen(1))
+			Expect(matchedRecords[0].Data["id"]).To(Equal(aRecordName.Pk()))
+			Expect(matchedRecords[0].Data["name"]).To(Equal(testRecordName))
+		})
+	})
 })
