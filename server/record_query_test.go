@@ -231,6 +231,42 @@ var _ = Describe("Server", func() {
 			Expect(body["data"].([]interface{})).To(HaveLen(5))
 			Expect(body["total_count"].(float64)).To(Equal(float64(20)))
 		})
+
+		It("returns records by query filtered using two separate parameters", func() {
+			for i := 0; i < 20; i++ {
+				_, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A"}, auth.User{})
+				Expect(err).To(BeNil())
+			}
+
+			url := fmt.Sprintf("%s/data/%s?q=eq(name,A)&q=limit(0,5)", appConfig.UrlPrefix, aMetaObj.Name)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			Expect(body["data"].([]interface{})).To(HaveLen(5))
+			Expect(body["total_count"].(float64)).To(Equal(float64(20)))
+		})
+
+		It("returns records by query filtered using three separate parameters", func() {
+			for i := 0; i < 20; i++ {
+				_, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A"}, auth.User{})
+				Expect(err).To(BeNil())
+			}
+
+			url := fmt.Sprintf("%s/data/%s?q=eq(name,A)&q=gt(id,5)&q=limit(0,10)", appConfig.UrlPrefix, aMetaObj.Name)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			Expect(body["data"].([]interface{})).To(HaveLen(10))
+			Expect(body["total_count"].(float64)).To(Equal(float64(15)))
+		})
 	})
 
 	Context("Having records of objects A,B,C,D", func() {
