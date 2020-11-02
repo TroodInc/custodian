@@ -834,6 +834,9 @@ func parseQuery(m  url.Values, query string) (err error) {
 		}
 
 		m[key] = append(m[key], value)
+		if key == "q"{
+			m[key] = []string{strings.Join(m[key], ",")}
+		}
 	}
 	return err
 }
