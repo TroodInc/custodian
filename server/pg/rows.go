@@ -1,19 +1,19 @@
 package pg
 
 import (
+	"custodian/server/data/types"
+	"custodian/server/errors"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
 	"database/sql"
 	"reflect"
-	"custodian/server/errors"
-	"custodian/server/object/meta"
-	"custodian/server/data/types"
-	"custodian/server/object/description"
 )
 
 type Rows struct {
 	*sql.Rows
 }
 
-func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription, ) ([]interface{}, error) {
+func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription) ([]interface{}, error) {
 	values := make([]interface{}, 0)
 	for _, field := range fields {
 		if newValue, err := newFieldValue(field, field.Optional); err != nil {
@@ -112,7 +112,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 							castAssembledValue.ObjectName = value.String
 							if linkMeta := fieldDescription.LinkMetaList.GetByName(value.String); linkMeta == nil {
 								return nil, errors.NewFatalError(ErrDMLFailed, "Generic field '%s' references improper meta '%s'", map[string]string{
-									"field": fieldDescription.Name,
+									"field":  fieldDescription.Name,
 									"object": castAssembledValue.ObjectName,
 								})
 							} else {
@@ -123,7 +123,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 						if value.String != "" {
 							if linkMeta := fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName); linkMeta == nil {
 								return nil, errors.NewFatalError(ErrDMLFailed, "Generic field %s references improper meta'%s'", map[string]string{
-									"field": fieldDescription.Name,
+									"field":  fieldDescription.Name,
 									"object": castAssembledValue.ObjectName,
 								})
 							} else {
@@ -145,6 +145,8 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					case *sql.NullString:
 						if t.Valid {
 							result[i][columnName] = t.String
+						} else if fieldByColumnName(columnName).Def != nil {
+							result[i][columnName] = fieldByColumnName(columnName).Def.(string)
 						} else {
 							result[i][columnName] = nil
 						}
