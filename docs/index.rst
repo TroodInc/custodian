@@ -7,6 +7,7 @@ Custodian service
     :maxdepth: 3
     :glob:
 
+    field_types
     config
     rest-api
     abac
