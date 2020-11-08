@@ -25,6 +25,7 @@ type User struct {
 	Id         int                    `json:"id"`
 	Login      string                 `json:"login"`
 	Status     string                 `json:"status"`
+	Language   string                 `json:"language"`
 	Role       map[string]interface{} `json:"role"`
 	Type       string                 `json:"type"`
 	ABAC       map[string]interface{} `json:"abac"`
