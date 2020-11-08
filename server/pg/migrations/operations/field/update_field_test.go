@@ -1,10 +1,6 @@
 package field
 
 import (
-	"database/sql"
-	"github.com/getlantern/deepcopy"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg"
@@ -13,6 +9,10 @@ import (
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
+	"database/sql"
+	"github.com/getlantern/deepcopy"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {
@@ -279,7 +279,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 					},
 				},
 			}
-			operation := object.NewCreateObjectOperation(bMetaDescription, )
+			operation := object.NewCreateObjectOperation(bMetaDescription)
 
 			bMetaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
@@ -347,6 +347,76 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("b_link"))
 			Expect(metaDdlFromDB.IFKs).To(HaveLen(1))
 			Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("b_link"))
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+	})
+
+	Describe("Enum field case", func() {
+		//setup MetaObj
+		JustBeforeEach(func() {
+			//"Direct" case
+			metaDescription = &description.MetaDescription{
+				Name: "b",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "enum",
+						Type:     description.FieldTypeEnum,
+						Enum:     []string{"val1", "val2"},
+						Optional: true,
+					},
+				},
+			}
+			//create MetaDescription
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+
+			operation := object.NewCreateObjectOperation(metaDescription)
+			//sync MetaDescription
+			metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			//sync DB
+			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			//
+
+			// clone a field
+			field := metaDescription.FindField("enum")
+			err = deepcopy.Copy(&fieldToUpdate, *field)
+			Expect(err).To(BeNil())
+			Expect(fieldToUpdate).NotTo(BeNil())
+
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("set default", func() {
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+			enumExistingVal := "val1"
+			//set default value
+			fieldToUpdate.Def = enumExistingVal
+
+			//apply operation
+			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("enum"), &fieldToUpdate)
+			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+
+			//check that field`s type has changed
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+			Expect(err).To(BeNil())
+			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal("'val1'::o_b_enum"))
 
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
