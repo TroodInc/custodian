@@ -33,11 +33,12 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
+	testObjAName := utils.RandomString(8)
 
 	//setup MetaDescription
 	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{

@@ -29,6 +29,7 @@ var _ = Describe("Create test", func() {
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	testObjName := utils.RandomString(8)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -37,7 +38,7 @@ var _ = Describe("Create test", func() {
 
 	havingObjectA := func() *meta.Meta {
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -79,11 +80,11 @@ var _ = Describe("Create test", func() {
 					Optional: true,
 				},
 				{
-					Name:     "a",
+					Name:     testObjName,
 					Type:     description.FieldTypeObject,
 					Optional: false,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: testObjName,
 					OnDelete: description.OnDeleteCascade.ToVerbose(),
 				},
 				{
@@ -132,7 +133,7 @@ var _ = Describe("Create test", func() {
 
 	havingObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -153,7 +154,7 @@ var _ = Describe("Create test", func() {
 					Name:           "b_set",
 					Type:           description.FieldTypeArray,
 					LinkType:       description.LinkTypeOuter,
-					OuterLinkField: "a",
+					OuterLinkField: testObjName,
 					LinkMeta:       "b",
 					Optional:       true,
 				},
@@ -169,7 +170,7 @@ var _ = Describe("Create test", func() {
 
 	havingObjectAWithObjectsLinkToB := func() *meta.Meta {
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -403,13 +404,13 @@ var _ = Describe("Create test", func() {
 		bMeta := havingObjectB()
 
 		bData := map[string]interface{}{
-			"a": map[string]interface{}{"name": "A record"},
+			testObjName: map[string]interface{}{"name": "A record"},
 		}
 		user := auth.User{}
 		record, err := dataProcessor.CreateRecord(bMeta.Name, bData, user)
 		Expect(err).To(BeNil())
-		Expect(record.Data).To(HaveKey("a"))
-		aData := record.Data["a"].(map[string]interface{})
+		Expect(record.Data).To(HaveKey(testObjName))
+		aData := record.Data[testObjName].(map[string]interface{})
 		Expect(aData).To(HaveKey("id"))
 		Expect(aData["id"]).To(BeAssignableToTypeOf(1.0))
 	})
@@ -441,7 +442,7 @@ var _ = Describe("Create test", func() {
 		user := auth.User{}
 		anotherARecord, err := dataProcessor.CreateRecord(aMeta.Name, map[string]interface{}{}, user)
 
-		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"name": "Existing B record", "a": anotherARecord.Data["id"]}, user)
+		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"name": "Existing B record", testObjName: anotherARecord.Data["id"]}, user)
 		Expect(err).To(BeNil())
 
 		aData := map[string]interface{}{

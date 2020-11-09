@@ -6,6 +6,7 @@ import (
 	"custodian/server/object/meta"
 	"custodian/server/pg"
 	"custodian/utils"
+	"fmt"
 	"custodian/server/transactions/file_transaction"
 	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
@@ -35,10 +36,16 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 	})
 
+	testObjAName := utils.RandomString(8)
+	testObjBName := utils.RandomString(8)
+	testObjСName := utils.RandomString(8)
+	testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
+	testObjCSetName := fmt.Sprintf("%s_set", testObjСName)
+
 	havingAMetaDescription := func() *description.MetaDescription {
 		By("Having A meta")
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -58,7 +65,7 @@ var _ = Describe("Record tree extractor", func() {
 	havingBMetaDescription := func() *description.MetaDescription {
 		By("Having B referencing A with 'setNull' strategy")
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -71,10 +78,10 @@ var _ = Describe("Record tree extractor", func() {
 					Optional: true,
 				},
 				{
-					Name:     "a",
+					Name:     testObjAName,
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: testObjAName,
 					OnDelete: "setNull",
 					Optional: false,
 				},
@@ -86,7 +93,7 @@ var _ = Describe("Record tree extractor", func() {
 	havingCMetaDescription := func() *description.MetaDescription {
 		By("Having C meta referencing B meta with 'cascade' strategy")
 		cMetaDescription := description.MetaDescription{
-			Name: "c",
+			Name: testObjСName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -99,10 +106,10 @@ var _ = Describe("Record tree extractor", func() {
 					Optional: true,
 				},
 				{
-					Name:     "b",
+					Name:     testObjBName,
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "b",
+					LinkMeta: testObjBName,
 					OnDelete: "cascade",
 				},
 			},
@@ -129,10 +136,10 @@ var _ = Describe("Record tree extractor", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{testObjBName: bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		aMeta, _, err = metaStore.Get(aMeta.Name, true)
@@ -147,10 +154,10 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 		Expect(recordNode).NotTo(BeNil())
 		Expect(recordNode.Children).To(HaveLen(1))
-		Expect(recordNode.Children).To(HaveKey("b_set"))
-		Expect(recordNode.Children["b_set"]).To(HaveLen(1))
-		Expect(recordNode.Children["b_set"][0].Children).To(BeEmpty())
-		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(description.OnDeleteSetNull))
+		Expect(recordNode.Children).To(HaveKey(testObjBSetName))
+		Expect(recordNode.Children[testObjBSetName]).To(HaveLen(1))
+		Expect(recordNode.Children[testObjBSetName][0].Children).To(BeEmpty())
+		Expect(*recordNode.Children[testObjBSetName][0].OnDeleteStrategy).To(Equal(description.OnDeleteSetNull))
 	})
 
 	It("returns error with 'restrict' strategy", func() {
@@ -164,10 +171,10 @@ var _ = Describe("Record tree extractor", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{testObjBName: bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		aMeta, _, err = metaStore.Get(aMeta.Name, true)
@@ -194,10 +201,10 @@ var _ = Describe("Record tree extractor", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMeta.Name, map[string]interface{}{}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMeta.Name, map[string]interface{}{testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{"b": bRecord.Data["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(cMeta.Name, map[string]interface{}{testObjBName: bRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		aMeta, _, err = metaStore.Get(aMeta.Name, true)
@@ -212,13 +219,13 @@ var _ = Describe("Record tree extractor", func() {
 		Expect(err).To(BeNil())
 		Expect(recordNode).NotTo(BeNil())
 		Expect(recordNode.Children).To(HaveLen(1))
-		Expect(recordNode.Children).To(HaveKey("b_set"))
-		Expect(recordNode.Children["b_set"]).To(HaveLen(1))
-		Expect(*recordNode.Children["b_set"][0].OnDeleteStrategy).To(Equal(description.OnDeleteCascade))
-		Expect(recordNode.Children["b_set"][0].Children).To(HaveLen(1))
-		Expect(recordNode.Children["b_set"][0].Children).To(HaveKey("c_set"))
-		Expect(recordNode.Children["b_set"][0].Children["c_set"]).To(HaveLen(1))
-		Expect(*(recordNode.Children["b_set"][0].Children["c_set"][0].OnDeleteStrategy)).To(Equal(description.OnDeleteCascade))
-		Expect(recordNode.Children["b_set"][0].Children["c_set"][0].Children).To(BeEmpty())
+		Expect(recordNode.Children).To(HaveKey(testObjBSetName))
+		Expect(recordNode.Children[testObjBSetName]).To(HaveLen(1))
+		Expect(*recordNode.Children[testObjBSetName][0].OnDeleteStrategy).To(Equal(description.OnDeleteCascade))
+		Expect(recordNode.Children[testObjBSetName][0].Children).To(HaveLen(1))
+		Expect(recordNode.Children[testObjBSetName][0].Children).To(HaveKey(testObjCSetName))
+		Expect(recordNode.Children[testObjBSetName][0].Children[testObjCSetName]).To(HaveLen(1))
+		Expect(*(recordNode.Children[testObjBSetName][0].Children[testObjCSetName][0].OnDeleteStrategy)).To(Equal(description.OnDeleteCascade))
+		Expect(recordNode.Children[testObjBSetName][0].Children[testObjCSetName][0].Children).To(BeEmpty())
 	})
 })

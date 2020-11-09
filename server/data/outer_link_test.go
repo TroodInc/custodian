@@ -35,9 +35,13 @@ var _ = Describe("Data", func() {
 	})
 
 	Describe("Data retrieve depending on outer link modes values", func() {
+
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+
 		havingObjectA := func() *meta.Meta {
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -60,7 +64,7 @@ var _ = Describe("Data", func() {
 
 		havingObjectBLinkedToA := func() *meta.Meta {
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -73,10 +77,10 @@ var _ = Describe("Data", func() {
 						Optional: true,
 					},
 					{
-						Name:     "a",
+						Name:     testObjAName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 						Optional: false,
 					},
 				},
@@ -90,7 +94,7 @@ var _ = Describe("Data", func() {
 
 		havingObjectAWithManuallySpecifiedOuterLinkToB := func() *meta.Meta {
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -106,8 +110,8 @@ var _ = Describe("Data", func() {
 						Name:           "b_set",
 						Type:           description.FieldTypeArray,
 						LinkType:       description.LinkTypeOuter,
-						LinkMeta:       "b",
-						OuterLinkField: "a",
+						LinkMeta:       testObjBName,
+						OuterLinkField: testObjAName,
 						Optional:       true,
 					},
 				},

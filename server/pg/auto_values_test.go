@@ -38,11 +38,12 @@ var _ = Describe("PG Auto Values Test", func() {
 
 	Context("Having an object with fields with autoOnUpdate set to true", func() {
 		var metaObj *meta.Meta
+		testObjAName := utils.RandomString(8)
 
 		BeforeEach(func() {
 			var err error
 			metaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -99,7 +100,7 @@ var _ = Describe("PG Auto Values Test", func() {
 		BeforeEach(func() {
 			var err error
 			metaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{

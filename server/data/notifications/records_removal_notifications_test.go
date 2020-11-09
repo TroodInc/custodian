@@ -38,10 +38,14 @@ var _ = Describe("Data", func() {
 	})
 
 	Describe("RecordSetNotification state capturing", func() {
+
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+
 		havingObjectA := func(onDeleteStrategy description.OnDeleteStrategy) *meta.Meta {
 			By("Having object A with action for 'create' defined")
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -54,10 +58,10 @@ var _ = Describe("Data", func() {
 						Optional: true,
 					},
 					{
-						Name:     "b",
+						Name:     testObjBName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "b",
+						LinkMeta: testObjBName,
 						OnDelete: onDeleteStrategy.ToVerbose(),
 						Optional: true,
 					},
@@ -89,7 +93,7 @@ var _ = Describe("Data", func() {
 		havingObjectB := func() *meta.Meta {
 			By("Having object B which")
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -122,7 +126,7 @@ var _ = Describe("Data", func() {
 		havingARecord := func(bRecordId float64) *record.Record {
 			aMetaObj := havingObjectA(description.OnDeleteCascade)
 			By("Having a record of A object")
-			aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"b": bRecordId}, auth.User{})
+			aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{testObjBName: bRecordId}, auth.User{})
 			Expect(err).To(BeNil())
 			return aRecord
 		}
@@ -175,7 +179,7 @@ var _ = Describe("Data", func() {
 		XIt("makes correct notification messages on record removal with `setNull` remove", func() {
 			bRecord := havingBRecord()
 			aMetaObj := havingObjectA(description.OnDeleteSetNull)
-			dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"b": bRecord.Pk().(float64)}, auth.User{})
+			dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{testObjBName: bRecord.Pk().(float64)}, auth.User{})
 
 			recordSetNotificationPool := NewRecordSetNotificationPool()
 

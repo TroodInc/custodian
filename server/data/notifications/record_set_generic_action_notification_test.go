@@ -39,6 +39,10 @@ var _ = Describe("Data", func() {
 
 	Describe("RecordSetNotification state capturing", func() {
 
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+		testObjCName := utils.RandomString(8)
+
 		var err error
 		var aMetaObj *meta.Meta
 		var bMetaObj *meta.Meta
@@ -50,7 +54,7 @@ var _ = Describe("Data", func() {
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -66,7 +70,7 @@ var _ = Describe("Data", func() {
 						Name:         "target_object",
 						LinkType:     description.LinkTypeInner,
 						Type:         description.FieldTypeGeneric,
-						LinkMetaList: []string{"b", "c"},
+						LinkMetaList: []string{testObjBName, testObjCName},
 						Optional:     true,
 					},
 				},
@@ -80,7 +84,7 @@ var _ = Describe("Data", func() {
 							"field": "target_object",
 							"cases": []interface{}{
 								map[string]interface{}{
-									"object": "b",
+									"object": testObjBName,
 									"value":  "first_name",
 								},
 							},
@@ -97,7 +101,7 @@ var _ = Describe("Data", func() {
 		havingObjectB := func() {
 			By("Having object B which")
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -125,7 +129,7 @@ var _ = Describe("Data", func() {
 		havingObjectC := func() {
 			By("Having object C")
 			cMetaDescription := description.MetaDescription{
-				Name: "c",
+				Name: testObjCName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{

@@ -66,9 +66,10 @@ var _ = Describe("Rollback migrations", func() {
 			//Create object A by applying a migration
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
+			testObjAName := utils.RandomString(8)
 
 			aMetaDescription = description.NewMetaDescription(
-				"a",
+				testObjAName,
 				"id",
 				[]description.Field{
 					{

@@ -28,10 +28,12 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 
 	var metaDescription *description.MetaDescription
 
+	testObjAName := utils.RandomString(8)
+
 	//setup MetaDescription
 	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{

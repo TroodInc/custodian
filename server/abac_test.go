@@ -58,6 +58,8 @@ var _ = Describe("ABAC rules handling", func() {
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
+	testObjName := utils.RandomString(8)
+
 	var user *auth.User
 
 	flushDb := func() {
@@ -67,7 +69,7 @@ var _ = Describe("ABAC rules handling", func() {
 
 	factoryObjectA := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -118,7 +120,7 @@ var _ = Describe("ABAC rules handling", func() {
 				ABAC: map[string]interface{}{
 					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
-						"a": map[string]interface{}{
+						testObjName: map[string]interface{}{
 							"data_GET": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
@@ -158,7 +160,7 @@ var _ = Describe("ABAC rules handling", func() {
 					ABAC: map[string]interface{}{
 						"_default_resolution": "allow",
 						SERVICE_DOMAIN: map[string]interface{}{
-							"a": map[string]interface{}{
+							testObjName: map[string]interface{}{
 								"*": []interface{}{
 									map[string]interface{}{
 										"result": "deny",
@@ -288,6 +290,8 @@ var _ = Describe("ABAC rules handling", func() {
 				url := fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 
 				var request, _ = http.NewRequest("GET", url, nil)
+				Expect(request.Response).To(BeNil())
+
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
@@ -305,7 +309,7 @@ var _ = Describe("ABAC rules handling", func() {
 				ABAC: map[string]interface{}{
 					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
-						"a": map[string]interface{}{
+						testObjName: map[string]interface{}{
 							"data_GET": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
@@ -465,7 +469,7 @@ var _ = Describe("ABAC rules handling", func() {
 			var abac_tree = map[string]interface{}{
 				"_default_resolution": "deny",
 				SERVICE_DOMAIN: map[string]interface{}{
-					"a": map[string]interface{}{
+					testObjName: map[string]interface{}{
 						"data_GET": []interface{}{
 							map[string]interface{}{
 								"result": "allow",
@@ -555,7 +559,7 @@ var _ = Describe("ABAC rules handling", func() {
 				var abac_tree = map[string]interface{}{
 					"_default_resolution": "allow",
 					SERVICE_DOMAIN: map[string]interface{}{
-						"a": map[string]interface{}{
+						testObjName: map[string]interface{}{
 							"data_GET": []interface{}{
 								map[string]interface{}{
 									"result": "deny",
@@ -590,7 +594,7 @@ var _ = Describe("ABAC rules handling", func() {
 			var abac_tree = map[string]interface{}{
 				"_default_resolution": "allow",
 				SERVICE_DOMAIN: map[string]interface{}{
-					"a": map[string]interface{}{
+					testObjName: map[string]interface{}{
 						"data_GET": []interface{}{
 							map[string]interface{}{
 								"result": "deny",

@@ -34,10 +34,13 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 	})
 
+	testObjAName := utils.RandomString(8)
+	testObjBName := utils.RandomString(8)
+
 	//setup MetaDescription
 	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -67,7 +70,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 
 	It("renames metaDescription`s file", func() {
 		updatedMetaDescription := metaDescription.Clone()
-		updatedMetaDescription.Name = "b"
+		updatedMetaDescription.Name = testObjBName
 
 		operation := RenameObjectOperation{MetaDescription: updatedMetaDescription}
 		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
@@ -90,7 +93,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 
 	It("does not rename metaDescription if new name clashes with the existing one", func() {
 		bMetaDescription := &description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -124,7 +127,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	})
 	It("renames metaDescription if only new name provided", func() {
 		bMetaDescription := &description.MetaDescription{
-			Name:   "b",
+			Name:   testObjBName,
 			Key:    "id",
 			Cas:    false,
 			Fields: []description.Field{},

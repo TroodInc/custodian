@@ -14,6 +14,7 @@ import (
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"strconv"
+	"fmt"
 	"custodian/utils"
 	"custodian/server/pg_meta"
 )
@@ -40,6 +41,9 @@ var _ = Describe("Data", func() {
 
 	Describe("RecordSetNotification state capturing", func() {
 
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+
 		var err error
 		var aMetaObj *meta.Meta
 		var bMetaObj *meta.Meta
@@ -49,7 +53,7 @@ var _ = Describe("Data", func() {
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -72,10 +76,10 @@ var _ = Describe("Data", func() {
 						Optional: false,
 					},
 					{
-						Name:     "b",
+						Name:     testObjBName,
 						LinkType: description.LinkTypeInner,
 						Type:     description.FieldTypeObject,
-						LinkMeta: "b",
+						LinkMeta: testObjBName,
 						Optional: true,
 					},
 				},
@@ -85,7 +89,7 @@ var _ = Describe("Data", func() {
 						Protocol:        description.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
-						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", "b": "b.id"},
+						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
 					},
 					{
 						Method:          description.MethodCreate,
@@ -105,7 +109,7 @@ var _ = Describe("Data", func() {
 		havingObjectB := func() {
 			By("Having object B which")
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -127,7 +131,7 @@ var _ = Describe("Data", func() {
 
 		havingARecord := func(bRecordId float64) {
 			By("Having a record of A object")
-			aRecord, err = dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", "b": bRecordId}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", testObjBName: bRecordId}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 

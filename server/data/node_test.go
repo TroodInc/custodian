@@ -34,9 +34,13 @@ var _ = Describe("Node", func() {
 
 	It("can fill child nodes with circular dependency", func() {
 
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+		testObjСName := utils.RandomString(8)
+
 		Describe("Having three objects with mediated circular dependency", func() {
 			objectA := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -52,7 +56,7 @@ var _ = Describe("Node", func() {
 			Expect(err).To(BeNil())
 
 			objectB := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -61,11 +65,11 @@ var _ = Describe("Node", func() {
 						Type: description.FieldTypeString,
 					},
 					{
-						Name:     "a",
+						Name:     testObjAName,
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 					},
 				},
 			}
@@ -75,7 +79,7 @@ var _ = Describe("Node", func() {
 			Expect(err).To(BeNil())
 
 			objectC := description.MetaDescription{
-				Name: "c",
+				Name: testObjСName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -84,11 +88,11 @@ var _ = Describe("Node", func() {
 						Type: description.FieldTypeString,
 					},
 					{
-						Name:     "b",
+						Name:     testObjBName,
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "b",
+						LinkMeta: testObjBName,
 					},
 				},
 			}
@@ -98,7 +102,7 @@ var _ = Describe("Node", func() {
 			Expect(err).To(BeNil())
 
 			objectA = description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -107,11 +111,11 @@ var _ = Describe("Node", func() {
 						Type: description.FieldTypeString,
 					},
 					{
-						Name:     "c",
+						Name:     testObjСName,
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "c",
+						LinkMeta: testObjСName,
 					},
 				},
 			}
@@ -131,7 +135,7 @@ var _ = Describe("Node", func() {
 					Parent:     nil,
 				}
 				node.RecursivelyFillChildNodes(100, description.FieldModeRetrieve)
-				Expect(node.ChildNodes.Nodes()["c"].ChildNodes.Nodes()["b"].ChildNodes.Nodes()["a"].ChildNodes.Nodes()).To(HaveLen(0))
+				Expect(node.ChildNodes.Nodes()[testObjСName].ChildNodes.Nodes()[testObjBName].ChildNodes.Nodes()[testObjAName].ChildNodes.Nodes()).To(HaveLen(0))
 			})
 		})
 	})

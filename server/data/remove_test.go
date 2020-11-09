@@ -3,6 +3,7 @@ package data_test
 import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"fmt"
 	"custodian/server/pg"
 	"custodian/server/data"
 	"custodian/server/auth"
@@ -35,9 +36,12 @@ var _ = Describe("RecordSetOperations removal", func() {
 	})
 
 	It("Can remove records with cascade relation", func() {
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+		testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
 
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -61,7 +65,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -74,10 +78,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 					},
 				},
 				{
-					Name:     "a",
+					Name:     testObjAName,
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: testObjAName,
 					OnDelete: description.OnDeleteCascade.ToVerbose(),
 				},
 			},
@@ -87,7 +91,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
@@ -106,14 +110,17 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).NotTo(BeNil())
-		Expect(removedData).To(HaveKey("b_set"))
-		Expect(removedData["b_set"]).To(HaveLen(1))
+		Expect(removedData).To(HaveKey(testObjBSetName))
+		Expect(removedData[testObjBSetName]).To(HaveLen(1))
 	})
 
 	It("Can remove record and update child records with 'setNull' relation", func() {
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+		testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
 
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -137,7 +144,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -150,10 +157,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 					},
 				},
 				{
-					Name:     "a",
+					Name:     testObjAName,
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: testObjAName,
 					Optional: true,
 					OnDelete: description.OnDeleteSetNull.ToVerbose(),
 				},
@@ -164,7 +171,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 		bKey, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
@@ -180,17 +187,19 @@ var _ = Describe("RecordSetOperations removal", func() {
 		//check B record exists
 		record, err = dataProcessor.Get(bMetaObj.Name, bKey, nil, nil, 1, false)
 		Expect(record).To(Not(BeNil()))
-		Expect(record.Data["a"]).To(BeNil())
+		Expect(record.Data[testObjAName]).To(BeNil())
 
 		//check removed data tree
 		Expect(removedData).NotTo(BeNil())
-		Expect(removedData).To(Not(HaveKey("b_set")))
+		Expect(removedData).To(Not(HaveKey(testObjBSetName)))
 	})
 
 	It("Cannot remove record with 'restrict' relation", func() {
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
 
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -214,7 +223,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -227,10 +236,10 @@ var _ = Describe("RecordSetOperations removal", func() {
 					},
 				},
 				{
-					Name:     "a",
+					Name:     testObjAName,
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: testObjAName,
 					Optional: true,
 					OnDelete: description.OnDeleteRestrict.ToVerbose(),
 				},
@@ -241,7 +250,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"]}, auth.User{})
+		_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 		aKey, _ := aMetaObj.Key.ValueAsString(aRecord.Data["id"])
 
@@ -251,9 +260,12 @@ var _ = Describe("RecordSetOperations removal", func() {
 	})
 
 	It("Can remove record and update child records with generic relation and 'setNull' strategy", func() {
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+		testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
 
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -277,7 +289,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -293,7 +305,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{testObjAName},
 					Optional:     true,
 					OnDelete:     description.OnDeleteSetNull.ToVerbose(),
 				},
@@ -329,12 +341,16 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).To(Not(BeNil()))
-		Expect(removedData).To(Not(HaveKey("b_set")))
+		Expect(removedData).To(Not(HaveKey(testObjBSetName)))
 	})
 
 	It("Can remove record and update child records with generic relation and 'cascade' strategy", func() {
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+		testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
+		
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -358,7 +374,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -374,7 +390,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"a"},
+					LinkMetaList: []string{testObjAName},
 					Optional:     true,
 					OnDelete:     description.OnDeleteCascade.ToVerbose(),
 				},
@@ -408,7 +424,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).To(Not(BeNil()))
-		Expect(removedData).To(HaveKey("b_set"))
-		Expect(removedData["b_set"]).To(HaveLen(1))
+		Expect(removedData).To(HaveKey(testObjBSetName))
+		Expect(removedData[testObjBSetName]).To(HaveLen(1))
 	})
 })

@@ -36,6 +36,8 @@ var _ = Describe("Migration Constructor", func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	}
+	testObjAName := utils.RandomString(8)
+
 
 	AfterEach(flushDb)
 
@@ -43,9 +45,10 @@ var _ = Describe("Migration Constructor", func() {
 		It("generates empty migration if nothing has changed", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
+			testObjAName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []description.Field{
 					{
@@ -58,7 +61,7 @@ var _ = Describe("Migration Constructor", func() {
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -84,9 +87,10 @@ var _ = Describe("Migration Constructor", func() {
 		It("generates migration description with create operation if object is being created", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
+			testObjAName := utils.RandomString(8)
 
 			newMetaDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -115,9 +119,11 @@ var _ = Describe("Migration Constructor", func() {
 		It("generates operation if object is being renamed", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []description.Field{
 					{
@@ -130,7 +136,7 @@ var _ = Describe("Migration Constructor", func() {
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -160,9 +166,10 @@ var _ = Describe("Migration Constructor", func() {
 		It("generates operation if object is being deleted", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
+			testObjAName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []description.Field{
 					{
@@ -189,9 +196,10 @@ var _ = Describe("Migration Constructor", func() {
 		It("generates operation if field is being added", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
+			testObjAName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []description.Field{
 					{
@@ -204,7 +212,7 @@ var _ = Describe("Migration Constructor", func() {
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -241,9 +249,10 @@ var _ = Describe("Migration Constructor", func() {
 		It("generates operation if field is being removed", func() {
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
+			testObjAName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []description.Field{
 					{
@@ -261,7 +270,7 @@ var _ = Describe("Migration Constructor", func() {
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -289,10 +298,11 @@ var _ = Describe("Migration Constructor", func() {
 
 		Describe("Update field", func() {
 			var currentMetaDescription *description.MetaDescription
+
 			BeforeEach(func() {
 
 				currentMetaDescription = &description.MetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []description.Field{
 						{
@@ -309,7 +319,7 @@ var _ = Describe("Migration Constructor", func() {
 							Name:         "target_object",
 							Type:         description.FieldTypeGeneric,
 							LinkType:     description.LinkTypeInner,
-							LinkMetaList: []string{"a"},
+							LinkMetaList: []string{testObjAName},
 							Optional:     false,
 						},
 						{
@@ -328,7 +338,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -352,7 +362,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name:         "target_object",
 								Type:         description.FieldTypeGeneric,
 								LinkType:     description.LinkTypeInner,
-								LinkMetaList: []string{"a"},
+								LinkMetaList: []string{testObjAName},
 								Optional:     false,
 							},
 						},
@@ -383,7 +393,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -407,7 +417,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name:         "target_object",
 								Type:         description.FieldTypeGeneric,
 								LinkType:     description.LinkTypeInner,
-								LinkMetaList: []string{"a"},
+								LinkMetaList: []string{testObjAName},
 								Optional:     false,
 							},
 						},
@@ -439,7 +449,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -463,7 +473,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name:         "target_object",
 								Type:         description.FieldTypeGeneric,
 								LinkType:     description.LinkTypeInner,
-								LinkMetaList: []string{"a"},
+								LinkMetaList: []string{testObjAName},
 								Optional:     false,
 							},
 						},
@@ -494,7 +504,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -517,7 +527,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name:         "target_object",
 								Type:         description.FieldTypeGeneric,
 								LinkType:     description.LinkTypeInner,
-								LinkMetaList: []string{"a"},
+								LinkMetaList: []string{testObjAName},
 								Optional:     false,
 							},
 						},
@@ -549,7 +559,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -572,7 +582,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name:         "target_object",
 								Type:         description.FieldTypeGeneric,
 								LinkType:     description.LinkTypeInner,
-								LinkMetaList: []string{"a"},
+								LinkMetaList: []string{testObjAName},
 								Optional:     false,
 							},
 						},
@@ -604,7 +614,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -628,7 +638,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name:         "target_object",
 								Type:         description.FieldTypeGeneric,
 								LinkType:     description.LinkTypeInner,
-								LinkMetaList: []string{"a"},
+								LinkMetaList: []string{testObjAName},
 								Optional:     false,
 							},
 						},
@@ -659,7 +669,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -682,7 +692,7 @@ var _ = Describe("Migration Constructor", func() {
 								Name:         "target_object",
 								Type:         description.FieldTypeGeneric,
 								LinkType:     description.LinkTypeInner,
-								LinkMetaList: []string{"a", "b"},
+								LinkMetaList: []string{testObjAName, "b"},
 								Optional:     false,
 							},
 						},
@@ -714,7 +724,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(err).To(BeNil())
 
 			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []description.Field{
 					{
@@ -727,7 +737,7 @@ var _ = Describe("Migration Constructor", func() {
 				Cas:     false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -765,7 +775,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(err).To(BeNil())
 
 			currentMetaDescription := &description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []description.Field{
 					{
@@ -785,7 +795,7 @@ var _ = Describe("Migration Constructor", func() {
 				Cas: false,
 			}
 			newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Fields: []migration_description.MigrationFieldDescription{
 					{
@@ -816,7 +826,7 @@ var _ = Describe("Migration Constructor", func() {
 			BeforeEach(func() {
 
 				currentMetaDescription = &description.MetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []description.Field{
 						{
@@ -842,7 +852,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -883,7 +893,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -923,7 +933,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
@@ -963,7 +973,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(err).To(BeNil())
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
-					Name: "a",
+					Name: testObjAName,
 					Key:  "id",
 					Fields: []migration_description.MigrationFieldDescription{
 						{
