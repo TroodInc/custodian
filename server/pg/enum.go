@@ -3,7 +3,7 @@ package pg
 import (
 	"bytes"
 	"fmt"
-	
+
 	"custodian/server/object/description"
 
 	"strings"
@@ -28,7 +28,7 @@ func CreateEnumStatement(tableName string, fieldName string, choices description
 }
 
 func DropEnumStatement(tableName string, fieldName string) (*DDLStmt, error) {
-	const dropEnumTemplate = `DROP TYPE {{.Table}}_{{.Column}};`
+	const dropEnumTemplate = `DROP TYPE IF EXISTS {{.Table}}_{{.Column}};`
 	var buffer bytes.Buffer
 
 	context := map[string]interface{}{"Table": tableName, "Column": fieldName}
