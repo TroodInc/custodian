@@ -1,17 +1,17 @@
 package field
 
 import (
-	"custodian/server/errors"
-	"custodian/server/transactions"
-	"database/sql"
-	"custodian/server/migrations/operations/field"
-	"custodian/server/migrations"
-	"custodian/server/pg"
-	"fmt"
 	"custodian/logger"
-	"custodian/server/pg/migrations/operations/statement_factories"
+	"custodian/server/errors"
+	"custodian/server/migrations"
+	"custodian/server/migrations/operations/field"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/pg/migrations/operations/statement_factories"
+	"custodian/server/transactions"
+	"database/sql"
+	"fmt"
 )
 
 type UpdateFieldOperation struct {
@@ -120,16 +120,19 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 					statementSet.Add(statement)
 				}
 			}
-			if currentColumn.Defval != newColumn.Defval {
-				//process default value change
-				statement, err := statementFactory.FactorySetDefaultStatement(tableName, newColumn)
-				if err != nil {
-					return err
-				} else {
+			if currentColumn.Typ != newColumn.Typ {
+				if len(currentColumn.Enum) > 0 {
+					statement, err := statementFactory.FactoryDropDefaultStatement(tableName, currentColumn)
+					if err != nil {
+						return err
+					}
+					statementSet.Add(statement)
+					statement, err = pg.DropEnumStatement(tableName, currentColumn.Name)
+					if err != nil {
+						return err
+					}
 					statementSet.Add(statement)
 				}
-			}
-			if currentColumn.Typ != newColumn.Typ {
 				//process type change
 				if len(newColumn.Enum) > 0 {
 					statement, err := pg.CreateEnumStatement(tableName, newColumn.Name, newColumn.Enum)
@@ -145,13 +148,14 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 					statementSet.Add(statement)
 				}
 			}
-			if len(currentColumn.Enum) > 0 {
-				statement, err := pg.DropEnumStatement(tableName, currentColumn.Name)
+			if currentColumn.Defval != newColumn.Defval {
+				//process default value change
+				statement, err := statementFactory.FactorySetDefaultStatement(tableName, newColumn)
 				if err != nil {
 					return err
+				} else {
+					statementSet.Add(statement)
 				}
-
-				statementSet.Add(statement)
 			}
 			if currentColumn.Unique != newColumn.Unique {
 				//process unique constraint
