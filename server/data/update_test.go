@@ -458,7 +458,9 @@ var _ = Describe("Data", func() {
 		// create enum statement
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-		stmt, err := pg.CreateEnumStatement("o_obj_with_enum", "enumField", description.EnumChoices{"1", "2"})
+		choices := description.EnumChoices{"1", "2"}
+		pg.QuotedChoices(choices)
+		stmt, err := pg.CreateEnumStatement("o_obj_with_enum", "enumField", choices)
 		Expect(err).To(BeNil())
 
 		tx.Exec(stmt.Code)

@@ -504,13 +504,12 @@ func (md *MetaDDL) CreateScript() (DdlStatementSet, error) {
 }
 
 func (c *Column) GetEnumStatement(table string) (*DDLStmt, error) {
+	QuotedChoices(c.Enum)
 	statement, err := CreateEnumStatement(table, c.Name, c.Enum)
 	if err != nil {
 		return nil, err
-	} else {
-		return statement, nil
 	}
-	return nil, nil
+	return statement, nil
 }
 
 //Creates a full DDL to remove a table and foreign getColumnsToInsert refer to it

@@ -12,7 +12,7 @@ services:
       - test-network
 
   custodian_postgres:
-    image: postgres:10.5
+    image: postgres:12
     container_name: postgres.custodian
     environment:
       LC_ALL: C.UTF-8

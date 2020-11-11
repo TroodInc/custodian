@@ -19,6 +19,7 @@ var statementsMap = map[string]string{
 	"alter_column_set_default":  `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" {{if .Column.Defval}} SET DEFAULT {{.Column.Defval}}{{if eq .Column.Typ .FieldTypeEnum}}::{{.Table}}_{{.Column.Name}}{{end}}{{else}} DROP DEFAULT {{end}};`,
 	"alter_column_drop_default": `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" DROP DEFAULT;`,
 	"alter_column_set_type":     `{{$enum := len .Column.Enum}} ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" SET DATA TYPE {{ if gt $enum 0 }} {{.Table}}_{{.Column.Name}} USING ({{.Column.Name}}::text::{{.Table}}_{{.Column.Name}}) {{else}} {{.Column.Typ.DdlType}} {{end}};`,
+	"alter_column_add_enum_choice" : `ALTER TYPE "{{.Table}}_{{.Column.Name}}" ADD VALUE IF NOT EXISTS {{.Choice}};`,
 }
 
 func (csm *ColumnStatementFactory) build(statement string, tableName string, context map[string]interface{}) (*pg.DDLStmt, error) {
@@ -69,4 +70,9 @@ func (csm *ColumnStatementFactory) FactoryDropStatement(tableName string, Column
 func (csm *ColumnStatementFactory) FactoryAddEnumStatement(tableName string, Column pg.Column) (*pg.DDLStmt, error) {
 	context := map[string]interface{}{"Column": Column}
 	return csm.build("add_enum_column", tableName, context)
+}
+
+func (csm *ColumnStatementFactory) FactoryAddEnumChoice(tableName string, Column pg.Column, choice string) (*pg.DDLStmt, error) {
+	context := map[string]interface{}{"Column": Column, "Choice": choice}
+	return csm.build("alter_column_add_enum_choice", tableName, context)
 }
