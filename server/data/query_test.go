@@ -1,6 +1,7 @@
 package data_test
 
 import (
+	"custodian/server/pg/migrations/operations/object"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"custodian/server/pg"
@@ -24,6 +25,7 @@ var _ = Describe("Data", func() {
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
 	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
@@ -33,6 +35,8 @@ var _ = Describe("Data", func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
+
+	testObjEnumName := utils.RandomString(8)
 
 	It("can query records by date field", func() {
 		Context("having an object with date field", func() {
@@ -1117,6 +1121,58 @@ var _ = Describe("Data", func() {
 			Expect(matchedRecords).To(HaveLen(1))
 			Expect(matchedRecords[0].Data["id"]).To(Equal(backslahRecord.Pk()))
 			Expect(matchedRecords[0].Data["name"]).To(Equal(testBackslashRecordName))
+		})
+	})
+	It("can filter by enum field values ", func() {
+		Context("having an object with datetime field", func() {
+			metaDescription := &description.MetaDescription{
+				Name: testObjEnumName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "name_enum",
+						Type: description.FieldTypeEnum,
+						Optional: true,
+						Enum: []string{"val1", "val2"},
+					},
+				},
+			}
+			//create MetaDescription
+			operation := object.NewCreateObjectOperation(metaDescription)
+			//sync MetaDescription
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+			metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			//sync DB
+			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			globalTransactionManager.CommitTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+			//
+
+			Context("having two records with different enum values", func() {
+				testEnumValue := "val1"
+
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name_enum": testEnumValue}, auth.User{})
+				Expect(err).To(BeNil())
+				_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name_enum": "val2"}, auth.User{})
+				Expect(err).To(BeNil())
+				Context("query by 'name_enum' field returns correct result", func() {
+					_, matchedRecords, err := dataProcessor.GetBulk(metaDescription.Name, "eq(name_enum,val1)", nil, nil, 1, false)
+					Expect(err).To(BeNil())
+					Expect(matchedRecords).To(HaveLen(1))
+					Expect(matchedRecords[0].Data["id"]).To(Equal(record.Data["id"]))
+				})
+			})
 		})
 	})
 })
