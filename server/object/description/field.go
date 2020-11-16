@@ -102,7 +102,7 @@ func (fieldType FieldType) DdlType() (string, error) {
 	case FieldTypeTime:
 		return "time with time zone", nil
 	case FieldTypeEnum:
-		return "enum_type", errors.New("Enum choices are not set!")
+		return "enum_type", nil
 	default:
 		return "", errors.New("Unsupported column type: " + string(fieldType))
 	}
