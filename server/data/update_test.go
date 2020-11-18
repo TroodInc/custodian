@@ -1,20 +1,19 @@
 package data_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"database/sql"
-	"custodian/server/pg"
-	"custodian/server/data"
 	"custodian/server/auth"
-	"strconv"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
+	"custodian/server/data"
+	"custodian/server/data/record"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
 	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
-	"custodian/server/object/meta"
-	"custodian/server/object/description"
-	"custodian/server/data/record"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+	"strconv"
 )
 
 var _ = Describe("Data", func() {
@@ -455,14 +454,7 @@ var _ = Describe("Data", func() {
 				},
 			},
 		}
-		// create enum statement
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-		stmt, err := pg.CreateEnumStatement("o_obj_with_enum", "enumField", description.EnumChoices{"1", "2"})
-		Expect(err).To(BeNil())
-
-		tx.Exec(stmt.Code)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		//create enum statement
 
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
