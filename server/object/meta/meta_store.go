@@ -88,10 +88,8 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 
 // Creates a new object type described by passed metadata.
 func (metaStore *MetaStore) Create(objectMeta *Meta) error {
-	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
-
-	if e := metaStore.Syncer.CreateObj(transaction.DbTransaction, objectMeta.MetaDescription, metaStore.MetaDescriptionSyncer); e == nil {
-		if e := metaStore.MetaDescriptionSyncer.Create(transaction.MetaDescriptionTransaction, *objectMeta.MetaDescription); e == nil {
+	if e := metaStore.Syncer.CreateObj(metaStore.globalTransactionManager, objectMeta.MetaDescription, metaStore.MetaDescriptionSyncer); e == nil {
+		if e := metaStore.MetaDescriptionSyncer.Create(*objectMeta.MetaDescription); e == nil {
 
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(nil, objectMeta)
@@ -99,22 +97,18 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 			metaStore.addReversedOuterFields(nil, objectMeta)
 			//create through object if needed
 			if err := metaStore.createThroughMeta(objectMeta); err != nil {
-				metaStore.globalTransactionManager.RollbackTransaction(transaction)
 				return err
 			}
 
 			//invalidate cache
 			metaStore.cache.Invalidate()
-			metaStore.globalTransactionManager.CommitTransaction(transaction)
 			return nil
 		} else {
-			var e2 = metaStore.Syncer.RemoveObj(transaction.DbTransaction, objectMeta.Name, false)
+			var e2 = metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, objectMeta.Name, false)
 			logger.Error("Error while compenstaion of object '%s' metadata creation: %v", objectMeta.Name, e2)
-			metaStore.globalTransactionManager.RollbackTransaction(transaction)
 			return e
 		}
 	} else {
-		metaStore.globalTransactionManager.RollbackTransaction(transaction)
 		return e
 	}
 }
@@ -136,8 +130,7 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 			return ok, e
 		}
 
-		globalTransaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
-		if updateError := metaStore.Syncer.UpdateObj(globalTransaction.DbTransaction, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
+		if updateError := metaStore.Syncer.UpdateObj(metaStore.globalTransactionManager, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(currentMetaObj, newMetaObj)
 
@@ -146,32 +139,33 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 
 			//create through object if needed
 			if err := metaStore.createThroughMeta(newMetaObj); err != nil {
-				metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
 				return false, err
 			}
 
 			//invalidate cache
 			metaStore.cache.Invalidate()
-			metaStore.globalTransactionManager.CommitTransaction(globalTransaction)
 			return true, nil
 		} else {
-			//rollback to the previous version
-			rollbackError := metaStore.Syncer.UpdateObjTo(globalTransaction.DbTransaction, currentMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer)
-			if rollbackError != nil {
-				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
-				metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
-				return false, updateError
-
-			}
-			_, rollbackError = metaStore.MetaDescriptionSyncer.Update(name, *currentMetaObj.MetaDescription)
-			if rollbackError != nil {
-				logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
-				metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
-				return false, updateError
-			}
-			metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
 			return false, updateError
 		}
+			// } else {
+		// 	//rollback to the previous version
+		// 	rollbackError := metaStore.Syncer.UpdateObjTo(globalTransaction.DbTransaction, currentMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer)
+		// 	if rollbackError != nil {
+		// 		logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
+		// 		metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
+		// 		return false, updateError
+
+		// 	}
+		// 	_, rollbackError = metaStore.MetaDescriptionSyncer.Update(name, *currentMetaObj.MetaDescription)
+		// 	if rollbackError != nil {
+		// 		logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
+		// 		metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
+		// 		return false, updateError
+		// 	}
+		// 	metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
+		// 	return false, updateError
+		// }
 	} else {
 		return ok, err
 	}
@@ -193,18 +187,16 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	metaStore.removeRelatedGenericInnerLinks(meta)
 
 	//remove object from the database
-	transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
-	if e := metaStore.Syncer.RemoveObj(transaction.DbTransaction, name, force); e == nil {
+	// transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
+	if e := metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, name, force); e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
 
 		//invalidate cache
 		metaStore.cache.Invalidate()
-		metaStore.globalTransactionManager.CommitTransaction(transaction)
 
 		return ok, err
 	} else {
-		metaStore.globalTransactionManager.RollbackTransaction(transaction)
 		return false, e
 	}
 }

@@ -7,7 +7,7 @@ import (
 
 type FileMetaDescriptionTransactionManager struct {
 	RemoveMetaCallback func(name string) (bool, error)
-	CreateMetaCallBack func(MetaDescriptionTransaction, description.MetaDescription) error
+	CreateMetaCallBack func(description.MetaDescription) error
 }
 
 func (fm *FileMetaDescriptionTransactionManager) BeginTransaction(metaList []*description.MetaDescription) (MetaDescriptionTransaction, error) {
@@ -35,13 +35,13 @@ func (fm *FileMetaDescriptionTransactionManager) RollbackTransaction(transaction
 	}
 	//restore initial state
 	for _, metaDescription := range transaction.InitialMetaList() {
-		fm.CreateMetaCallBack(transaction, *metaDescription)
+		fm.CreateMetaCallBack(*metaDescription)
 	}
 	transaction.SetState(RolledBack)
 	return nil
 }
 
 func NewFileMetaDescriptionTransactionManager(RemoveMetaCallback func(name string) (bool, error),
-	CreateMetaCallBack func(MetaDescriptionTransaction, description.MetaDescription) error) *FileMetaDescriptionTransactionManager {
+	CreateMetaCallBack func(description.MetaDescription) error) *FileMetaDescriptionTransactionManager {
 	return &FileMetaDescriptionTransactionManager{RemoveMetaCallback: RemoveMetaCallback, CreateMetaCallBack: CreateMetaCallBack}
 }

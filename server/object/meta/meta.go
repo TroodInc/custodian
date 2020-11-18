@@ -67,15 +67,15 @@ func (f *FieldDescription) canBeLinkTo(m *Meta) bool {
 type MetaDescriptionSyncer interface {
 	List() ([]*MetaDescription, bool, error)
 	Get(name string) (*MetaDescription, bool, error)
-	Create(fileTransaction transactions.MetaDescriptionTransaction, m MetaDescription) error
+	Create(m MetaDescription) error
 	Remove(name string) (bool, error)
 	Update(name string, m MetaDescription) (bool, error)
 }
 
 type MetaDbSyncer interface {
-	CreateObj(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
-	RemoveObj(transactions.DbTransaction, string, bool) error
-	UpdateObj(transactions.DbTransaction, *MetaDescription, *MetaDescription, MetaDescriptionSyncer) error
+	CreateObj(*transactions.GlobalTransactionManager, *MetaDescription, MetaDescriptionSyncer) error
+	RemoveObj(*transactions.GlobalTransactionManager, string, bool) error
+	UpdateObj(*transactions.GlobalTransactionManager, *MetaDescription, *MetaDescription, MetaDescriptionSyncer) error
 	UpdateObjTo(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
 	ValidateObj(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) (bool, error)
 	BeginTransaction() (transactions.DbTransaction, error)
