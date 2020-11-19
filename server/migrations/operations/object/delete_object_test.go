@@ -49,10 +49,8 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 
 		//factory new MetaDescription
 		//sync its MetaDescription
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err := metaDescriptionSyncer.Create(*metaDescription)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup teardown

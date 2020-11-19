@@ -53,7 +53,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		}
 		Expect(err).To(BeNil())
 		//sync its MetaDescription
-		err = syncer.CreateObj(globalTransaction.DbTransaction, metaDescription, metaDescriptionSyncer)
+		err = syncer.CreateObj(globalTransactionManager, metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)

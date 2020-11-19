@@ -23,7 +23,7 @@ import (
 	"custodian/server/pg_meta"
 )
 
-var _ = Describe("Server", func() {
+var _ = Describe("Server 101", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 

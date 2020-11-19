@@ -58,9 +58,9 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 				},
 			},
 		}
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		
+		err := metaDescriptionSyncer.Create(*metaDescription)
+		
 		Expect(err).To(BeNil())
 	})
 

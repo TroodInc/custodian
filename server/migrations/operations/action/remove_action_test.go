@@ -59,10 +59,8 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 				},
 			},
 		}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err := metaDescriptionSyncer.Create(*metaDescription)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("removes an action from metaDescription`s file", func() {

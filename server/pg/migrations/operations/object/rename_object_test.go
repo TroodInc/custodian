@@ -53,10 +53,10 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//sync its MetaDescription with MetaDescription storage
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err = metaDescriptionSyncer.Create(*metaDescription)
 		Expect(err).To(BeNil())
 		//sync its MetaDescription with DB
-		err = syncer.CreateObj(globalTransaction.DbTransaction, metaDescription, metaDescriptionSyncer)
+		err = syncer.CreateObj(globalTransactionManager, metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		globalTransactionManager.CommitTransaction(globalTransaction)

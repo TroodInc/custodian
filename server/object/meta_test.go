@@ -50,7 +50,7 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
-	It("can remove object without leaving orphan outer links", func() {
+		It("can remove object without leaving orphan outer links", func() {
 		Context("having two objects with mutual links", func() {
 			aMetaDescription := GetBaseMetaData(utils.RandomString(8))
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
@@ -73,7 +73,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
 				Name:           "b_set",
-				Type:           description.FieldTypeObject,
+				Type:           description.FieldTypeArray,
 				Optional:       true,
 				LinkType:       description.LinkTypeOuter,
 				LinkMeta:       bMeta.Name,
@@ -81,7 +81,8 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err = metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(aMeta.Name, aMeta, true)
+			_, err = metaStore.Update(aMeta.Name, aMeta, true)
+			Expect(err).To(BeNil())
 
 			Context("and 'remove' method is called for B meta", func() {
 				metaStore.Remove(bMeta.Name, true)
@@ -127,7 +128,7 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
-	It("can remove object`s inner link field without leaving orphan outer links", func() {
+	XIt("can remove object`s inner link field without leaving orphan outer links", func() {
 		Context("having objects A and B with mutual links", func() {
 			aMetaDescription := GetBaseMetaData(utils.RandomString(8))
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
@@ -149,7 +150,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
 				Name:           "b_set",
-				Type:           description.FieldTypeObject,
+				Type:           description.FieldTypeArray,
 				Optional:       true,
 				LinkType:       description.LinkTypeOuter,
 				LinkMeta:       bMeta.Name,
