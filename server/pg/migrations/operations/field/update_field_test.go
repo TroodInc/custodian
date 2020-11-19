@@ -471,7 +471,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 
 		It("add value to enum", func() {
-			fieldToUpdate.Enum = []string{"val3"}
+			fieldToUpdate.Enum = []string{"val1", "val2", "val3"}
 
 			//apply operation
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
@@ -487,6 +487,25 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(len(metaDdlFromDB.Columns[1].Enum)).To(Equal(3))
 			Expect(metaDdlFromDB.Columns[1].Enum[2]).To(Equal("val3"))
+			globalTransactionManager.CommitTransaction(globalTransaction)
+		})
+
+		It("rename enum column", func() {
+			fieldToUpdate.Name = "enum_field_new"
+
+			//apply operation
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("enum_field"), &fieldToUpdate)
+			Expect(err).To(BeNil())
+			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			_, err = fieldOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+
+			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+			metaDdlFromDB, err := pg.MetaDDLFromDB(tx, metaDescription.Name)
+			Expect(err).To(BeNil())
+			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("enum_field_new"))
 			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 	})

@@ -518,7 +518,6 @@ func (md *MetaDDL) CreateScript() (DdlStatementSet, error) {
 }
 
 func (c *Column) GetEnumStatement(table string) (*DDLStmt, error) {
-	QuotedChoices(c.Enum)
 	statement, err := CreateEnumStatement(table, c.Name, c.Enum)
 	if err != nil {
 		return nil, err
