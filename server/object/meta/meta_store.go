@@ -8,7 +8,6 @@ import (
 	. "custodian/server/object/description"
 	"custodian/server/transactions"
 	"custodian/utils"
-	"fmt"
 )
 
 /*
@@ -149,24 +148,6 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 		} else {
 			return false, updateError
 		}
-			// } else {
-		// 	//rollback to the previous version
-		// 	rollbackError := metaStore.Syncer.UpdateObjTo(globalTransaction.DbTransaction, currentMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer)
-		// 	if rollbackError != nil {
-		// 		logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
-		// 		metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
-		// 		return false, updateError
-
-		// 	}
-		// 	_, rollbackError = metaStore.MetaDescriptionSyncer.Update(name, *currentMetaObj.MetaDescription)
-		// 	if rollbackError != nil {
-		// 		logger.Error("Error while rolling back an update of MetaDescription '%s': %v", name, rollbackError)
-		// 		metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
-		// 		return false, updateError
-		// 	}
-		// 	metaStore.globalTransactionManager.RollbackTransaction(globalTransaction)
-		// 	return false, updateError
-		// }
 	} else {
 		return ok, err
 	}
@@ -188,7 +169,6 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	metaStore.removeRelatedGenericInnerLinks(meta)
 
 	//remove object from the database
-	// transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
 	if e := metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, name, force); e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
