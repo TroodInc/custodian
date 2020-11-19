@@ -65,10 +65,8 @@ var _ = Describe("'RemoveAction' Migration Operation", func() {
 
 	It("removes an action from metaDescription`s file", func() {
 		operation := NewRemoveActionOperation(metaDescription.FindAction("new_action"))
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		objectMeta, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(objectMeta).NotTo(BeNil())
 
 		//ensure action has been removed from file

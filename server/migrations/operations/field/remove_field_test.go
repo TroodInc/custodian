@@ -64,10 +64,8 @@ var _ = Describe("'RemoveField' Migration Operation", func() {
 
 	It("removes a field from metaDescription`s file", func() {
 		operation := NewRemoveFieldOperation(metaDescription.FindField("name"))
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		objectMeta, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(objectMeta).NotTo(BeNil())
 
 		//ensure MetaDescription has been removed from file

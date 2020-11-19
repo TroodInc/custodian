@@ -63,7 +63,7 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		operation := NewCreateObjectOperation(metaDescription)
-		metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		//sync MetaDescription with DB

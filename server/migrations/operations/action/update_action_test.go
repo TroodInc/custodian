@@ -74,10 +74,8 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 		}
 
 		operation := NewUpdateActionOperation(currentAction, newAction)
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		metaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaDescription, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file with updated action

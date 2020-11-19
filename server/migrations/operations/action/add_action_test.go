@@ -67,10 +67,8 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 		action := description.Action{Name: "new_action", Method: description.MethodCreate, Protocol: description.REST, Args: []string{"http://localhost:3000/some-handler"}}
 
 		operation := NewAddActionOperation(&action)
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		objectMeta, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(objectMeta).NotTo(BeNil())
 
 		//ensure MetaDescription contains added field

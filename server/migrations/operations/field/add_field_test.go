@@ -61,10 +61,8 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		field := description.Field{Name: "new_field", Type: description.FieldTypeString, Optional: true}
 
 		operation := NewAddFieldOperation(&field)
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		objectMeta, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		objectMeta, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(objectMeta).NotTo(BeNil())
 
 		//ensure MetaDescription contains added field

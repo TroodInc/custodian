@@ -62,10 +62,8 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	It("removes MetaDescription`s file", func() {
 		operation := DeleteObjectOperation{}
 		metaName := metaDescription.Name
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		metaObj, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaObj).To(BeNil())
 
 		//ensure meta`s file has been removed

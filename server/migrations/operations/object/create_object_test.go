@@ -56,10 +56,8 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 	It("stores MetaDescription to file", func() {
 
 		operation := CreateObjectOperation{MetaDescription: metaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaDescription, err := operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file

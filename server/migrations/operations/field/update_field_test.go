@@ -69,9 +69,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		field := description.Field{Name: "name", Type: description.FieldTypeNumber, Optional: false, Def: nil}
 
 		operation := NewUpdateFieldOperation(metaDescription.FindField("name"), &field)
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		metaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		metaDescription, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(metaDescription).NotTo(BeNil())
 

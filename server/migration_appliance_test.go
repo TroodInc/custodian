@@ -201,7 +201,7 @@ var _ = Describe("Server 101", func() {
 		}
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
@@ -277,7 +277,7 @@ var _ = Describe("Server 101", func() {
 		}
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
@@ -353,7 +353,7 @@ var _ = Describe("Server 101", func() {
 		}
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
@@ -426,7 +426,7 @@ var _ = Describe("Server 101", func() {
 		}
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
@@ -501,7 +501,7 @@ var _ = Describe("Server 101", func() {
 		}
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
-		aMetaDescription, err = createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
