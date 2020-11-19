@@ -102,6 +102,7 @@ func (o *AddFieldOperation) addConstraintStatement(statementSet *pg.DdlStatement
 
 func (o *AddFieldOperation) addEnumStatement(statementSet *pg.DdlStatementSet, metaDescriptionToApply *meta_description.MetaDescription) error {
 	tableName := pg.GetTableName(metaDescriptionToApply.Name)
+	pg.QuotedChoices(o.Field.Enum)
 	statement, err := pg.CreateEnumStatement(tableName, o.Field.Name, o.Field.Enum)
 	if err != nil {
 		return err

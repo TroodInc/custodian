@@ -120,6 +120,7 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 					statementSet.Add(statement)
 				}
 			}
+			pg.QuotedChoices(newColumn.Enum)
 			if currentColumn.Typ != newColumn.Typ {
 				if len(currentColumn.Enum) > 0 {
 					statement, err := statementFactory.FactoryDropDefaultStatement(tableName, currentColumn)
@@ -133,7 +134,6 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 					}
 					statementSet.Add(statement)
 				}
-				//process type change
 				if len(newColumn.Enum) > 0 {
 					statement, err := pg.CreateEnumStatement(tableName, newColumn.Name, newColumn.Enum)
 					if err != nil {
@@ -141,6 +141,7 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 					}
 					statementSet.Add(statement)
 				}
+				//process type change
 				statement, err := statementFactory.FactorySetTypeStatement(tableName, newColumn)
 				if err != nil {
 					return err
@@ -148,6 +149,17 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 					statementSet.Add(statement)
 				}
 			}
+			if newColumn.Typ == description.FieldTypeEnum && len(newColumn.Enum) > 0{
+				// process old enum change
+				for _ , choice := range newColumn.Enum {
+					statement, err := statementFactory.FactoryAddEnumChoice(tableName, newColumn, choice)
+					if err != nil {
+						return err
+					}
+					statementSet.Add(statement)
+				}
+			}
+
 			if currentColumn.Defval != newColumn.Defval {
 				//process default value change
 				statement, err := statementFactory.FactorySetDefaultStatement(tableName, newColumn)
