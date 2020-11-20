@@ -562,7 +562,7 @@ var _ = Describe("Data", func() {
 		return aMetaObj
 	}
 
-	It("Can create record with enum values", func() {
+	XIt("Can create record with enum values", func() {
 		enumObj := havingObjectEnum()
 
 		// can create enum record
