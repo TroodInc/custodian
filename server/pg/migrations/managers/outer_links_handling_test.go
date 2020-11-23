@@ -8,11 +8,9 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
-	"custodian/server/pg_meta"
 )
 
 var _ = Describe("Outer links spawned migrations appliance", func() {
@@ -20,8 +18,8 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)

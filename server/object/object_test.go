@@ -8,9 +8,7 @@ import (
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
 
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
-	"custodian/server/pg_meta"
 )
 
 var _ = Describe("File MetaDescription driver", func() {
@@ -18,8 +16,8 @@ var _ = Describe("File MetaDescription driver", func() {
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
 

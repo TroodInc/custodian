@@ -8,11 +8,9 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
-	"custodian/server/pg_meta"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -220,8 +218,8 @@ var _ = Describe("Abac Engine", func() {
 		dataManager, _ := syncer.NewDataManager()
 		//transaction managers
 		fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-		metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
+		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+		metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 		globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
 		metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)

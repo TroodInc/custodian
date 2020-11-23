@@ -10,14 +10,12 @@ import (
 	"custodian/server/object/meta"
 	"custodian/server/transactions/file_transaction"
 
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"net/http/httptest"
 	"custodian/server"
 	"custodian/server/auth"
 	"custodian/server/data"
 	"custodian/server/object/description"
-	"custodian/server/pg_meta"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -50,9 +48,9 @@ var _ = Describe("ABAC rules handling", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)

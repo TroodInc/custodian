@@ -18,9 +18,7 @@ import (
 	"custodian/server/auth"
 	"custodian/server/data"
 	"custodian/server/object/description"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
-	"custodian/server/pg_meta"
 )
 
 var _ = Describe("Server", func() {
@@ -33,8 +31,8 @@ var _ = Describe("Server", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
