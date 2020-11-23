@@ -25,8 +25,6 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/managers"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/pg_meta"
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"strconv"
@@ -146,8 +144,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	//MetaDescription routes
 	syncer, err := pg.NewSyncer(config.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg_meta.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
@@ -163,7 +161,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	)
 
 	getDataProcessor := func () *data.Processor {
-		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
 		processor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 		return processor
 	}
