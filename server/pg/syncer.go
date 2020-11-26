@@ -91,12 +91,15 @@ func (syncer *Syncer) RemoveObj(globalTransactionManager *transactions.GlobalTra
 	var e error
 	if metaDdlFromDb, e = MetaDDLFromDB(tx, name); e != nil {
 		if e.(*DDLError).code == ErrNotFound {
+			globalTransactionManager.RollbackTransaction(transaction)
 			return nil
 		}
+		globalTransactionManager.RollbackTransaction(transaction)
 		return e
 	}
 	var ds DdlStatementSet
 	if ds, e = metaDdlFromDb.DropScript(force); e != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
 		return e
 	}
 	for _, st := range ds {

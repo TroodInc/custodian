@@ -123,7 +123,11 @@ func (r *Reverser) Columns(cols *[]Column, pk *string) error {
 		if col.Typ == description.FieldTypeEnum {
 
 			var enumVal string
-			r.tx.QueryRow(SQL_ENUM_VALUES, r.table+"_"+column).Scan(&enumVal)
+			if err = r.tx.QueryRow(SQL_ENUM_VALUES, r.table+"_"+column).Scan(&enumVal); err != nil {
+				if err != sql.ErrNoRows {
+					return &DDLError{table: r.table, code: ErrInternal, msg: fmt.Sprintf("Can't get ENUM values: '%s'", err.Error())}
+				}
+			}
 
 			enumChoices := strings.Split(enumVal, "|")
 			if len(enumChoices) > 0 {
