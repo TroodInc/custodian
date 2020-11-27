@@ -126,7 +126,7 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
-	XIt("can remove object`s inner link field without leaving orphan outer links", func() {
+	It("can remove object`s inner link field without leaving orphan outer links", func() {
 		Context("having objects A and B with mutual links", func() {
 			aMetaDescription := GetBaseMetaData(utils.RandomString(8))
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
