@@ -503,31 +503,23 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	app.router.PATCH(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
 
-			user := request.Context().Value("auth_user").(auth.User)
+		user := request.Context().Value("auth_user").(auth.User)
 
-			var i = 0
-			var result []interface{}
-			e := dataProcessor.BulkUpdateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-				if i < len(src.list) {
-					i += 1
-					return src.list[i-1], nil
-				} else {
-					return nil, nil
-				}
-			}, func(obj map[string]interface{}) error { result = append(result, obj); return nil  }, user)
-			if e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
+		var i = 0
+		var result []interface{}
+		e := dataProcessor.BulkUpdateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
+			if i < len(src.list) {
+				i += 1
+				return src.list[i-1], nil
 			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				defer sink.pushList(result, len(result))
+				return nil, nil
 			}
+		}, func(obj map[string]interface{}) error { result = append(result, obj); return nil  }, user)
+		if e != nil {
+			sink.pushError(e)
+		} else {
+			defer sink.pushList(result, len(result))
 		}
 	}))
 
