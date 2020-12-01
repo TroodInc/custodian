@@ -175,9 +175,7 @@ var _ = Describe("Data", func() {
 				updatedRecords = append(updatedRecords, record)
 				return nil
 			}
-			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-			err := dataProcessor.BulkUpdateRecords(globalTransaction.DbTransaction, metaDescription.Name, next, sink, auth.User{})
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			err := dataProcessor.BulkUpdateRecords(metaDescription.Name, next, sink, auth.User{})
 			Expect(err).To(BeNil())
 
 			Expect(updatedRecords[0]["name"]).To(Equal("Victor"))

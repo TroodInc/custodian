@@ -181,7 +181,9 @@ var _ = Describe("Record tree extractor", func() {
 		By("Building removal node for A record")
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		_, err = new(data.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction.DbTransaction)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		if err != nil {
+			globalTransactionManager.RollbackTransaction(globalTransaction)
+		}
 
 		By("It should return error")
 		Expect(err).NotTo(BeNil())
