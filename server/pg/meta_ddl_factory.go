@@ -49,7 +49,7 @@ func (mdf *MetaDdlFactory) FactoryFieldProperties(field *description.Field, meta
 	} else if field.Type == description.FieldTypeGeneric && field.LinkType == description.LinkTypeOuter {
 		return nil, nil, nil, nil, nil
 	} else {
-		return nil, nil, nil, nil, &DDLError{table: metaDescription.Name, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(field.LinkType), string(field.LinkType))}
+		return nil, nil, nil, nil, &DDLError{table: metaDescription.Name, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(rune(field.LinkType)), string(rune(field.LinkType)))}
 
 	}
 
