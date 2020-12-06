@@ -103,7 +103,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//
-		enums := description.EnumChoices{"string", "ping", "wing"}
+		enums := description.EnumChoices{"string", "ping", "CAMEL"}
 		field := description.Field{
 			Name: fmt.Sprintf("%s_enum", utils.RandomString(8)),
 			Type: description.FieldTypeEnum,
