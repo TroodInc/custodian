@@ -104,16 +104,68 @@ Field description example:
 
 Object
 ------
+Denotes a "one-to-many" relation.
+
+Field description example:
+
+.. code-block:: json
+
+    {
+        "name": "person",
+        "type": "object",
+        "optional": false,
+        "linkMeta": "person",
+        "linkType": "inner",
+        "onDelete": "cascade"
+    }
 
 
 Generic
 -------
+Denotes a "one to many" relation, indicating many types of objects with which a relation is established.
+
+Field description example:
+
+.. code-block:: json
+
+    {
+        "name": "person",
+        "type": "generic",
+        "linkType": "inner",
+        "optional": false,
+        "linkMetaList": ["employee", "client"],
+    }
 
 
 Array
 -----
+Denotes a "many-to-one" relation.
 
+Field description example:
+
+.. code-block:: json
+
+    {
+        "name": "addresses",
+        "type": "array",
+        "optional": true,
+        "linkMeta": "address",
+        "outerLinkField": "person",
+        "linkType": "outer"
+    }
 
 Objects
 ------
+Denotes a "many-to-many" relation.
 
+Field description example:
+
+.. code-block:: json
+
+    {
+        "name": "managers",
+        "type": "objects",
+        "optional": true,
+        "linkMeta": "address",
+        "linkType": "inner"
+    }
