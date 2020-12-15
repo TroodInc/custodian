@@ -71,7 +71,11 @@ func (syncer *Syncer) CreateObj(globalTransactionManager *transactions.GlobalTra
 	if ds, e = md.CreateScript(); e != nil {
 		return e
 	}
-	transaction, _ := globalTransactionManager.BeginTransaction(nil)
+	transaction, err := globalTransactionManager.BeginTransaction(nil)
+	if err != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
+		return nil
+	}
 	tx := transaction.DbTransaction.Transaction().(*sql.Tx)
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
@@ -85,7 +89,11 @@ func (syncer *Syncer) CreateObj(globalTransactionManager *transactions.GlobalTra
 }
 
 func (syncer *Syncer) RemoveObj(globalTransactionManager *transactions.GlobalTransactionManager, name string, force bool) error {
-	transaction, _ := globalTransactionManager.BeginTransaction(nil)
+	transaction, err := globalTransactionManager.BeginTransaction(nil)
+	if err != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
+		return err
+	}
 	tx := transaction.DbTransaction.Transaction().(*sql.Tx)
 	var metaDdlFromDb *MetaDDL
 	var e error
@@ -135,7 +143,11 @@ func (syncer *Syncer) UpdateObj(globalTransactionManager *transactions.GlobalTra
 	if ddlStatements, err = metaDdlDiff.Script(); err != nil {
 		return err
 	}
-	transaction, _ := globalTransactionManager.BeginTransaction(nil)
+	transaction, err := globalTransactionManager.BeginTransaction(nil)
+	if err != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
+		return err
+	}
 	tx := transaction.DbTransaction.Transaction().(*sql.Tx)
 	for _, ddlStatement := range ddlStatements {
 		logger.Debug("Updating object in DB: %s\n", ddlStatement.Code)
