@@ -15,9 +15,9 @@ const (
 		id serial NOT NULL PRIMARY KEY,
 		meta_description json NOT NULL
 	);`
-	SQL_GET_META_LIST     string = `SELECT meta_description from o___meta__;`
-	GET_META_OBJ          string = `SELECT meta_description from o___meta__ where meta_description ->> 'name'=$1;`
-	DELETE_META_OBJ       string = `DELETE FROM o___meta__ where meta_description ->> 'name'=$1;`
+	SQL_GET_META_LIST     string = `SELECT meta_description FROM o___meta__ ORDER BY id;`
+	GET_META_OBJ          string = `SELECT meta_description FROM o___meta__ WHERE meta_description ->> 'name'=$1;`
+	DELETE_META_OBJ       string = `DELETE FROM o___meta__ WHERE meta_description ->> 'name'=$1;`
 	CHECK_META_OBJ_EXISTS string = `SELECT 1 FROM o___meta__ WHERE meta_description ->> 'name'=$1;`
 	CREATE_META_OBJ       string = `INSERT INTO o___meta__ (meta_description) VALUES ($1);`
 	UPDATE_META_OBJ       string = `UPDATE o___meta__ SET meta_description=$1 WHERE meta_description ->> 'name'=$2;`
@@ -55,8 +55,12 @@ func getMetaObjFromDb(name string, tx *sql.Tx) (description.MetaDescription, err
 func (md *PgMetaDescriptionSyncer) CreateMetaTableIfNotExists() {
 	dbTransaction, _ := md.transactionManager.BeginTransaction()
 	tx := dbTransaction.Transaction().(*sql.Tx)
-	tx.Exec(SQL_CREATE_META_TABLE)
-	md.transactionManager.CommitTransaction(dbTransaction)
+	_, err := tx.Exec(SQL_CREATE_META_TABLE)
+	if err != nil {
+		md.transactionManager.RollbackTransaction(dbTransaction)
+	} else {
+		md.transactionManager.CommitTransaction(dbTransaction)
+	}
 }
 
 type PgMetaDescriptionSyncer struct {
@@ -112,7 +116,12 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 		return nil, false, err
 	}
 	tx := dbTransaction.Transaction().(*sql.Tx)
-	rows, _ := tx.Query(SQL_GET_META_LIST)
+	rows, err := tx.Query(SQL_GET_META_LIST)
+	if err != nil {
+		md.transactionManager.RollbackTransaction(dbTransaction)
+		return nil, false, err
+	}
+
 	var metaList []*description.MetaDescription
 
 	if err := rows.Err(); err != nil {
