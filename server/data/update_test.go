@@ -41,6 +41,7 @@ var _ = Describe("Data", func() {
 	testObjDName := utils.RandomString(8)
 	testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
 	testObjCSetName := fmt.Sprintf("%s_set", testObjCName)
+	testObjWithEnumName := fmt.Sprintf("%s_enum", utils.RandomString(8))
 
 	It("Can update records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
@@ -443,7 +444,7 @@ var _ = Describe("Data", func() {
 
 	havingObjectEnum := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "obj_with_enum",
+			Name: testObjWithEnumName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
