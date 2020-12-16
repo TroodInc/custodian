@@ -36,7 +36,7 @@ func (f *FieldDescription) IsValueTypeValid(v interface{}) bool {
 
 func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 	switch field.Type {
-	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime:
+	case FieldTypeString, FieldTypeDateTime, FieldTypeDate, FieldTypeTime, FieldTypeEnum:
 		return v, nil
 	case FieldTypeNumber:
 		return strconv.ParseFloat(v, 64)

@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"custodian/server/abac"
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 	"net/http"
@@ -114,7 +115,7 @@ var _ = Describe("ABAC rules handling", func() {
 	Describe("'Subject' scope tests", func() {
 		BeforeEach(func() {
 			user = &auth.User{
-				Role: "admin",
+				Role: abac.JsonToObject(`{"id": "admin"}`),
 				ABAC: map[string]interface{}{
 					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
@@ -123,7 +124,7 @@ var _ = Describe("ABAC rules handling", func() {
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
-										"sbj.role": map[string]interface{}{"eq": "admin"},
+										"sbj.role.id": map[string]interface{}{"eq": "admin"},
 									},
 								},
 							},
@@ -133,7 +134,7 @@ var _ = Describe("ABAC rules handling", func() {
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
-										"sbj.role": map[string]interface{}{"eq": "admin"},
+										"sbj.role.id": map[string]interface{}{"eq": "admin"},
 									},
 								},
 							},
@@ -141,7 +142,7 @@ var _ = Describe("ABAC rules handling", func() {
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
-										"sbj.role": map[string]interface{}{"eq": "manager"},
+										"sbj.role.id": map[string]interface{}{"eq": "manager"},
 									},
 								},
 							},
@@ -189,7 +190,7 @@ var _ = Describe("ABAC rules handling", func() {
 
 		Context("Meta & Wildcard rules", func() {
 			It("Must allow meta list with ACTION rule set", func() {
-				user.Role = "manager"
+				user.Role = abac.JsonToObject(`{"id": "manager"}`)
 				httpServer = get_server(user)
 				factoryObjectA()
 
@@ -205,7 +206,7 @@ var _ = Describe("ABAC rules handling", func() {
 			})
 
 			It("Must deny meta Creation", func() {
-				user.Role = "manager"
+				user.Role = abac.JsonToObject(`{"id": "manager"}`)
 				httpServer = get_server(user)
 				encodedMetaData := []byte(`{"name":"test","key":"id","cas":false,"fields":[{"name":"id","type":"number","optional":true}]}`)
 
@@ -221,7 +222,7 @@ var _ = Describe("ABAC rules handling", func() {
 			})
 
 			It("Must deny meta list for Unauthorized", func() {
-				user.Role = ""
+				user.Role = nil
 				user.Authorized = false
 
 				httpServer = get_server(user)
@@ -239,7 +240,7 @@ var _ = Describe("ABAC rules handling", func() {
 			})
 
 			It("Must allow meta list by wildcard", func() {
-				user.Role = "admin"
+				user.Role = abac.JsonToObject(`{"id": "admin"}`)
 				httpServer = get_server(user)
 				factoryObjectA()
 
@@ -257,7 +258,7 @@ var _ = Describe("ABAC rules handling", func() {
 
 		Context("And this user has the role 'manager'", func() {
 			It("Should return error when trying to retrieve a record of object A", func() {
-				user.Role = "manager"
+				user.Role = abac.JsonToObject(`{"id": "manager"}`)
 				httpServer = get_server(user)
 				aObject := factoryObjectA()
 
@@ -303,7 +304,7 @@ var _ = Describe("ABAC rules handling", func() {
 	Describe("'Data' scope tests", func() {
 		BeforeEach(func() {
 			user = &auth.User{
-				Role: "admin",
+				Role: abac.JsonToObject(`{"id": "admin"}`),
 				ABAC: map[string]interface{}{
 					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
@@ -312,7 +313,7 @@ var _ = Describe("ABAC rules handling", func() {
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
-										"obj.owner_role": map[string]interface{}{"eq": "sbj.role"},
+										"obj.owner_role": map[string]interface{}{"eq": "sbj.role.id"},
 									},
 								},
 							},
@@ -320,7 +321,7 @@ var _ = Describe("ABAC rules handling", func() {
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
-										"obj.owner_role": map[string]interface{}{"eq": "sbj.role"},
+										"obj.owner_role": map[string]interface{}{"eq": "sbj.role.id"},
 									},
 								},
 							},
@@ -328,7 +329,7 @@ var _ = Describe("ABAC rules handling", func() {
 								map[string]interface{}{
 									"result": "allow",
 									"rule": map[string]interface{}{
-										"obj.owner_role": map[string]interface{}{"eq": "sbj.role"},
+										"obj.owner_role": map[string]interface{}{"eq": "sbj.role.id"},
 									},
 								},
 							},
@@ -455,7 +456,7 @@ var _ = Describe("ABAC rules handling", func() {
 			aObject := factoryObjectA()
 			aRecord, err := dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "A record", "owner_role": "manager"}, auth.User{})
 			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Blue record", "owner_role": "user", "color": "blue"}, auth.User{})
-			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Red record", "owner_role": "user",}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(aObject.Name, map[string]interface{}{"name": "Red record", "owner_role": "user"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			list_url = fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, aObject.Name)
@@ -472,17 +473,17 @@ var _ = Describe("ABAC rules handling", func() {
 							map[string]interface{}{
 								"result": "allow",
 								"rule": map[string]interface{}{
-									"sbj.role": "admin",
+									"sbj.role.id": "admin",
 								},
 							},map[string]interface{}{
 								"result": "deny",
 								"rule": map[string]interface{}{
-									"sbj.role": "disabled",
+									"sbj.role.id": "disabled",
 								},
 							},map[string]interface{} {
 								"result": "deny",
 								"rule": map[string]interface{}{
-									"sbj.role": "restricted",
+									"sbj.role.id": "restricted",
 									"obj.color": "red",
 								},
 							},
@@ -493,7 +494,7 @@ var _ = Describe("ABAC rules handling", func() {
 
 			It("Must deny if rules not matched", func() {
 				user = &auth.User{
-					Role: "test", ABAC: abac_tree,
+					Role: abac.JsonToObject(`{"id": "test"}`), ABAC: abac_tree,
 				}
 				httpServer = get_server(user)
 
@@ -508,7 +509,7 @@ var _ = Describe("ABAC rules handling", func() {
 
 			It("Must allow if matched rule result is allow", func() {
 				user = &auth.User{
-					Role: "admin", ABAC: abac_tree,
+					Role: abac.JsonToObject(`{"id": "admin"}`), ABAC: abac_tree,
 				}
 				httpServer = get_server(user)
 
@@ -524,7 +525,7 @@ var _ = Describe("ABAC rules handling", func() {
 			It("Must allow if no rules matched but domain result is overriden to allow", func() {
 				abac_tree[SERVICE_DOMAIN].(map[string]interface{})["_default_resolution"] = "allow"
 				user = &auth.User{
-					Role: "test", ABAC: abac_tree,
+					Role: abac.JsonToObject(`{"id": "test"}`), ABAC: abac_tree,
 				}
 				httpServer = get_server(user)
 
@@ -540,7 +541,7 @@ var _ = Describe("ABAC rules handling", func() {
 			It("Must deny if matched rule result is deny", func() {
 				abac_tree[SERVICE_DOMAIN].(map[string]interface{})["_default_resolution"] = "allow"
 				user = &auth.User{
-					Role: "disabled", ABAC: abac_tree,
+					Role: abac.JsonToObject(`{"id": "disabled"}`), ABAC: abac_tree,
 				}
 				httpServer = get_server(user)
 
@@ -597,7 +598,7 @@ var _ = Describe("ABAC rules handling", func() {
 							map[string]interface{}{
 								"result": "deny",
 								"rule": map[string]interface{}{
-									"sbj.role": "user",
+									"sbj.role.id": "user",
 									"obj.color": "red",
 								},
 							},
@@ -608,7 +609,7 @@ var _ = Describe("ABAC rules handling", func() {
 
 			It("Must show only blue for users", func(){
 				user = &auth.User{
-					Role: "user", ABAC: abac_tree,
+					Role: abac.JsonToObject(`{"id": "user"}`), ABAC: abac_tree,
 				}
 				httpServer = get_server(user)
 

@@ -1,18 +1,20 @@
 package data_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/server/data"
 	"custodian/server/auth"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"custodian/server/object/meta"
+	"custodian/server/data"
 	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/transactions"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 	"fmt"
 	"strconv"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Data", func() {
@@ -33,6 +35,8 @@ var _ = Describe("Data", func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
+
+	testObjEnumName := utils.RandomString(8)
 
 	It("can query records by date field", func() {
 		Context("having an object with date field", func() {
@@ -599,7 +603,6 @@ var _ = Describe("Data", func() {
 			testObjAName := utils.RandomString(8)
 			testObjBName := utils.RandomString(8)
 			testObjCName := utils.RandomString(8)
-			
 
 			aMetaDescription := description.MetaDescription{
 				Name: testObjAName,
@@ -748,7 +751,7 @@ var _ = Describe("Data", func() {
 		testObjAName := utils.RandomString(8)
 		testObjBName := utils.RandomString(8)
 		testObjCName := utils.RandomString(8)
-		
+
 		aMetaDescription := description.MetaDescription{
 			Name: testObjAName,
 			Key:  "id",
@@ -1089,6 +1092,110 @@ var _ = Describe("Data", func() {
 
 			Expect(matchedRecords).To(HaveLen(1))
 			Expect(matchedRecords[0].Data["id"]).To(Equal(bRecord.Pk()))
+		})
+	})
+	It("can make query with special symbol", func() {
+		Context("having an object with special symbol", func() {
+			aMetaDescription := description.MetaDescription{
+				Name: "a_ijisl2",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "name",
+						Type: description.FieldTypeString,
+					},
+				},
+			}
+			aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(aMetaObj)
+			Expect(err).To(BeNil())
+
+			testRecordName := "H&M"
+
+			aRecordName, err := dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"name": "H&M"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			_, matchedRecords, err := dataProcessor.GetBulk(aMetaDescription.Name, "eq(name,H\\&M)", nil, nil, 2, true)
+			Expect(err).To(BeNil())
+
+			Expect(matchedRecords).To(HaveLen(1))
+			Expect(matchedRecords[0].Data["id"]).To(Equal(aRecordName.Pk()))
+			Expect(matchedRecords[0].Data["name"]).To(Equal(testRecordName))
+
+			testBackslashRecordName := "H\\M"
+
+			backslahRecord, err := dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"name": "H\\M"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			_, matchedRecords, err = dataProcessor.GetBulk(aMetaDescription.Name, "eq(name,H\\\\M)", nil, nil, 2, true)
+			Expect(err).To(BeNil())
+
+			Expect(matchedRecords).To(HaveLen(1))
+			Expect(matchedRecords[0].Data["id"]).To(Equal(backslahRecord.Pk()))
+			Expect(matchedRecords[0].Data["name"]).To(Equal(testBackslashRecordName))
+		})
+	})
+	It("can filter by enum field values ", func() {
+		Context("having an object with datetime field", func() {
+			metaDescription := &description.MetaDescription{
+				Name: testObjEnumName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "name_enum",
+						Type:     description.FieldTypeEnum,
+						Optional: true,
+						Enum:     []string{"val1", "val2"},
+					},
+				},
+			}
+			//create MetaDescription
+			operation := object.NewCreateObjectOperation(metaDescription)
+			//sync MetaDescription
+
+			metaDescription, err := operation.SyncMetaDescription(nil, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			//sync DB
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			globalTransactionManager.CommitTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+			//
+
+			Context("having two records with different enum values", func() {
+				testEnumValue := "val1"
+
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name_enum": testEnumValue}, auth.User{})
+				Expect(err).To(BeNil())
+				_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name_enum": "val2"}, auth.User{})
+				Expect(err).To(BeNil())
+				Context("query by 'name_enum' field returns correct result", func() {
+					_, matchedRecords, err := dataProcessor.GetBulk(metaDescription.Name, "eq(name_enum,val1)", nil, nil, 1, false)
+					Expect(err).To(BeNil())
+					Expect(matchedRecords).To(HaveLen(1))
+					Expect(matchedRecords[0].Data["id"]).To(Equal(record.Data["id"]))
+				})
+			})
 		})
 	})
 })

@@ -3,23 +3,31 @@ package pg
 import (
 	"bytes"
 	"fmt"
-	
+
 	"custodian/server/object/description"
 
-	"strings"
 	"text/template"
 )
 
 func CreateEnumStatement(tableName string, fieldName string, choices description.EnumChoices) (*DDLStmt, error) {
-	const createEnumTemplate = `CREATE TYPE {{.Table}}_{{.Column}} AS ENUM ({{.Choices}});`
+	const createEnumTemplate = `
+	DO $$
+	BEGIN
+		IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '{{.Table}}_{{.Column}}') THEN
+			CREATE TYPE {{.Table}}_{{.Column}} AS ENUM ({{.Choices}});
+  		END IF;
+	END$$;`
 	var buffer bytes.Buffer
+	choicesString := ""
 
 	for idx, itm := range choices {
-		choices[idx] = fmt.Sprintf("'%s'", itm)
+		choicesString = choicesString + " '" + itm + "' "
+		if idx != len(choices) - 1 {
+			choicesString = choicesString + ", "
+		}
 	}
 
-	enumChoices := strings.Join(choices[:], ", ")
-	context := map[string]interface{}{"Table": tableName, "Column": fieldName, "Choices": enumChoices}
+	context := map[string]interface{}{"Table": tableName, "Column": fieldName, "Choices": choicesString}
 	parsedEnumTemplate := template.Must(template.New("statement").Parse(createEnumTemplate))
 	if e := parsedEnumTemplate.Execute(&buffer, context); e != nil {
 		return nil, NewDdlError(ErrInternal, e.Error(), tableName)
@@ -28,7 +36,7 @@ func CreateEnumStatement(tableName string, fieldName string, choices description
 }
 
 func DropEnumStatement(tableName string, fieldName string) (*DDLStmt, error) {
-	const dropEnumTemplate = `DROP TYPE {{.Table}}_{{.Column}};`
+	const dropEnumTemplate = `DROP TYPE IF EXISTS {{.Table}}_{{.Column}};`
 	var buffer bytes.Buffer
 
 	context := map[string]interface{}{"Table": tableName, "Column": fieldName}
@@ -37,4 +45,32 @@ func DropEnumStatement(tableName string, fieldName string) (*DDLStmt, error) {
 		return nil, NewDdlError(ErrInternal, e.Error(), tableName)
 	}
 	return NewDdlStatement(fmt.Sprintf("drop_type#%s_%s ", tableName, fieldName), buffer.String()), nil
+}
+
+func AddEnumStatement(tableName string, fieldName string, choice string) (*DDLStmt, error) {
+	const addEnumTemplate = `ALTER TYPE "{{.Table}}_{{.Column}}" ADD VALUE IF NOT EXISTS '{{.Choice}}';`
+	var buffer bytes.Buffer
+	context := map[string]interface{}{"Table": tableName, "Column": fieldName, "Choice": choice}
+	parsedEnumTemplate := template.Must(template.New("statement").Parse(addEnumTemplate))
+	if e := parsedEnumTemplate.Execute(&buffer, context); e != nil {
+		return nil, NewDdlError(ErrInternal, e.Error(), tableName)
+	}
+	return NewDdlStatement(fmt.Sprintf("add_enum#%s_%s ", tableName, fieldName), buffer.String()), nil
+}
+
+func ChoicesIsCompleting(oldChoices description.EnumChoices, newChoices description.EnumChoices ) bool {
+	exists := false
+	for _, oldChoice := range oldChoices {
+		for _, newChoice := range newChoices{
+			if oldChoice == newChoice {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			return false
+		}
+		exists = false
+	}
+	return true
 }

@@ -11,6 +11,7 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/pg/migrations/operations/object"
 	"database/sql"
+	"fmt"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {
@@ -101,7 +102,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 		//
 		enums := description.EnumChoices{"string", "ping", "wing"}
-		field := description.Field{Name: "myenum", Type: description.FieldTypeEnum, Optional: true, Enum: enums}
+		field := description.Field{
+			Name: fmt.Sprintf("%s_enum", utils.RandomString(8)),
+			Type: description.FieldTypeEnum, 
+			Optional: true,
+			Enum: enums}
 
 		fieldOperation := NewAddFieldOperation(&field)
 

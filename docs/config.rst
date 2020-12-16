@@ -1,4 +1,4 @@
-Environment variables
+Service configuration
 =====================
 
 General settings
@@ -37,7 +37,7 @@ Cache settings
     Type of cache used, can be ``REDIS`` or ``NONE``
 
 
-.. REDIS_URL
+.. envar:: REDIS_URL
 
     Redis server used for cache
 

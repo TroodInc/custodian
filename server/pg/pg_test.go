@@ -34,10 +34,13 @@ var _ = Describe("PG MetaStore test", func() {
 		Expect(err).To(BeNil())
 	})
 
+	testObjName := utils.RandomString(8)
+	testObjBName := utils.RandomString(8)
+
 	It("can create object with fields containing reserved words", func() {
 		Context("Once create method is called with an object containing fields with reserved words", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: testObjName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -68,7 +71,7 @@ var _ = Describe("PG MetaStore test", func() {
 	It("can remove object with fields containing reserved words", func() {
 		Context("once create method is called with an object containing fields with reserved words", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: testObjName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -102,7 +105,7 @@ var _ = Describe("PG MetaStore test", func() {
 	It("can add field containing reserved words", func() {
 		Context("once 'create' method is called with an object", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: testObjName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -120,7 +123,7 @@ var _ = Describe("PG MetaStore test", func() {
 			metaStore.Create(metaObj)
 			Context("and 'update' method is called with an object containing fields with reserved words", func() {
 				updatedMetaDescription := description.MetaDescription{
-					Name: "order",
+					Name: testObjName,
 					Key:  "id",
 					Cas:  false,
 					Fields: []description.Field{
@@ -152,7 +155,7 @@ var _ = Describe("PG MetaStore test", func() {
 	It("can remove field containing reserved words", func() {
 		Context("once 'create' method is called with an object containing fields with reserved words", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: testObjName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -177,7 +180,7 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			Context("and 'remove' method is called", func() {
 				updatedMetaDescription := description.MetaDescription{
-					Name: "order",
+					Name: testObjName,
 					Key:  "id",
 					Cas:  false,
 					Fields: []description.Field{
@@ -205,7 +208,7 @@ var _ = Describe("PG MetaStore test", func() {
 	It("can create object containing date field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'date' type", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: testObjName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -241,7 +244,7 @@ var _ = Describe("PG MetaStore test", func() {
 	It("can create object containing time field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'time' type", func() {
 			metaDescription := description.MetaDescription{
-				Name: "someobject",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -279,7 +282,7 @@ var _ = Describe("PG MetaStore test", func() {
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: testObjName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -315,7 +318,7 @@ var _ = Describe("PG MetaStore test", func() {
 	It("can create object containing datetime field with default value", func() {
 		Context("once 'create' method is called with an object containing field with 'datetime' type", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: testObjName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -338,7 +341,7 @@ var _ = Describe("PG MetaStore test", func() {
 				Expect(recordCreateError).To(BeNil())
 				Context("Mandatory field added", func() {
 					updatedMetaDescription := description.MetaDescription{
-						Name: "order",
+						Name: testObjName,
 						Key:  "id",
 						Cas:  false,
 						Fields: []description.Field{
@@ -371,7 +374,7 @@ var _ = Describe("PG MetaStore test", func() {
 	It("can query object containing reserved words", func() {
 		Context("once 'create' method is called with an object containing fields with reserved words", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: testObjName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -402,6 +405,102 @@ var _ = Describe("PG MetaStore test", func() {
 			Expect(err).To(BeNil())
 			Expect(record.Data["order"]).To(Equal("value"))
 
+		})
+	})
+
+	It("can create object containing enum field", func() {
+		Context("can create object with enum", func() {
+			metaDescription := description.MetaDescription{
+				Name: testObjName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:     "name_string_to_enum",
+						Type:     description.FieldTypeString,
+						Optional: false,
+					},
+					{
+						Name:     "name_enum_to_string",
+						Type:     description.FieldTypeEnum,
+						Optional: false,
+						Enum:	  []string{"one", "two"},
+					},
+					{
+						Name:     "name_enum_for_update",
+						Type:     description.FieldTypeEnum,
+						Optional: false,
+						Enum:	  []string{"one", "two"},
+					},
+					{
+						Name:     "name_enum_for_drop",
+						Type:     description.FieldTypeEnum,
+						Optional: false,
+						Enum:	  []string{"one", "two"},
+					},
+				},
+			}
+			meta, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(meta)
+			Expect(err).To(BeNil())
+			object, _, err := metaStore.Get(metaDescription.Name, true)
+			Expect(err).To(BeNil())
+			Expect(object.Name).To(BeEquivalentTo(metaDescription.Name))
+
+			Context("and can update it", func() {
+				updatedMetaDescription := description.MetaDescription{
+					Name: testObjName,
+					Key:  "id",
+					Cas:  false,
+					Fields: []description.Field{
+						{
+							Name: "id",
+							Type: description.FieldTypeNumber,
+							Def: map[string]interface{}{
+								"func": "nextval",
+							},
+							Optional: true,
+						},
+						{
+							Name:     "name_string_to_enum",
+							Type:     description.FieldTypeEnum,
+							Enum:	  []string{"one", "two", "three"},
+							Optional: false,
+						},
+						{
+							Name:     "name_enum_to_string",
+							Type:     description.FieldTypeString,
+							Optional: false,
+						},
+						{
+							Name:     "name_enum_for_update",
+							Type:     description.FieldTypeEnum,
+							Optional: false,
+							Enum:	  []string{"one", "two", "three"},
+						},
+					},
+				}
+				updatedMetaObj, err := metaStore.NewMeta(&updatedMetaDescription)
+				Expect(err).To(BeNil())
+				_, err = metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
+				Expect(err).To(BeNil())
+				metaObj, _, err := metaStore.Get(metaDescription.Name, true)
+				Expect(err).To(BeNil())
+				Expect(len(metaObj.Fields)).To(BeEquivalentTo(4))
+
+				Expect(metaObj.Fields[1].Enum[2]).To(BeEquivalentTo("three"))
+				Expect(metaObj.Fields[2].Type).To(BeEquivalentTo(description.FieldTypeString))
+				Expect(metaObj.Fields[3].Enum[2]).To(BeEquivalentTo("three"))
+			})
 		})
 	})
 })

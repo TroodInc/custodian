@@ -1,20 +1,20 @@
 package data_test
 
 import (
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/data/record"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
+	"fmt"
+	"strconv"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"database/sql"
-	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/server/auth"
-	"strconv"
-	"fmt"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"custodian/server/object/meta"
-	"custodian/server/object/description"
-	"custodian/server/data/record"
 )
 
 var _ = Describe("Data", func() {
@@ -259,7 +259,7 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("and having one record of A object")
-		record, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": ""}, auth.User{}, )
+		record, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": ""}, auth.User{})
 		Expect(err).To(BeNil())
 
 		keyValue, _ := record.Data["id"].(float64)
@@ -460,14 +460,7 @@ var _ = Describe("Data", func() {
 				},
 			},
 		}
-		// create enum statement
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
-		stmt, err := pg.CreateEnumStatement("o_obj_with_enum", "enumField", description.EnumChoices{"1", "2"})
-		Expect(err).To(BeNil())
-
-		tx.Exec(stmt.Code)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		//create enum statement
 
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
@@ -558,7 +551,7 @@ var _ = Describe("Data", func() {
 		return aMetaObj
 	}
 
-	XIt("Can create record with enum values", func() {
+	It("Can create record with enum values", func() {
 		enumObj := havingObjectEnum()
 
 		// can create enum record
@@ -569,7 +562,7 @@ var _ = Describe("Data", func() {
 		_, err = dataProcessor.CreateRecord(enumObj.Name, map[string]interface{}{"id": "invalid enumRecord", "enumField": "4"}, auth.User{})
 		Expect(err).NotTo(BeNil())
 	})
-	
+
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
 		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
@@ -629,8 +622,8 @@ var _ = Describe("Data", func() {
 			"name": "Updated A name",
 			testObjBSetName: []interface{}{
 				map[string]interface{}{"id": bRecord.Data["id"], "name": "Updated B name"}, //existing record with new data
-				anotherBRecord.Data["id"],                                                  //existing record`s PK
-				map[string]interface{}{"name": "New B Record"},                             //new record`s data
+				anotherBRecord.Data["id"],                      //existing record`s PK
+				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
 
@@ -663,7 +656,7 @@ var _ = Describe("Data", func() {
 			"id":   aRecord.PkAsString(),
 			"name": "Updated A name",
 			testObjBSetName: []interface{}{
-				bRecord.Pk(),                                   //existing record with new data
+				bRecord.Pk(), //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
@@ -717,7 +710,7 @@ var _ = Describe("Data", func() {
 			"id":   aRecord.Pk(),
 			"name": "Updated A name",
 			testObjBSetName: []interface{}{
-				bRecord.Data["id"],                             //existing record with new data
+				bRecord.Data["id"], //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
@@ -765,7 +758,7 @@ var _ = Describe("Data", func() {
 			"id":   aRecord.Pk(),
 			"name": "Updated A name",
 			testObjBSetName: []interface{}{
-				bRecord.Pk(),                                   //existing record with new data
+				bRecord.Pk(), //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}

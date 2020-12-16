@@ -2,6 +2,7 @@ package pg
 
 import (
 	"bytes"
+	errors2 "custodian/server/errors"
 	"custodian/server/object/description"
 	"database/sql"
 	"errors"
@@ -297,7 +298,7 @@ const (
 		"{{.dot.Name}}" 
 		{{ if gt $enum 0 }} {{ .Mtable }}_{{ .dot.Name }} {{ else }} {{ .dot.Typ.DdlType }}{{ end }}
 		{{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}
-		{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}}{{end}}`
+		{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{if eq .dot.Typ 11}}::{{.Mtable}}_{{.dot.Name}}{{end}}{{end}}{{end}}`
 	templCreateTableInnerFK = `{{define "ifk"}}
 		CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} 
 		FOREIGN KEY ("{{.dot.FromColumn}}") 
@@ -355,7 +356,7 @@ func (cl *Column) dropScript(tname string) (*DDLStmt, error) {
 }
 
 //DDL add table column template
-const templAddTableColumn = `ALTER TABLE "{{.Table}}" ADD COLUMN "{{.dot.Name}}" {{.dot.Typ.DdlType}}{{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}};`
+const templAddTableColumn = `ALTER TABLE "{{.Table}}" ADD COLUMN "{{.dot.Name}}" {{if eq .dot.Typ .FieldTypeEnum}} {{.Table}}_{{.dot.Name}} {{else}} {{.dot.Typ.DdlType}} {{end}} {{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}};`
 
 var parsedTemplAddTableColumn = template.Must(template.New("add_table_column").Funcs(ddlFuncs).Parse(templAddTableColumn))
 
@@ -364,13 +365,15 @@ func (cl *Column) addScript(tname string) (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplAddTableColumn.Execute(&buffer, map[string]interface{}{
 		"Table": tname,
-		"dot":   cl}); e != nil {
+		"dot":   cl,
+		"FieldTypeEnum": description.FieldTypeEnum,
+	}); e != nil {
 		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
 	}
 	return &DDLStmt{Name: fmt.Sprintf("add_table_column#%s.%s", tname, cl.Name), Code: buffer.String()}, nil
 }
 
-const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{.dot.Typ.DdlType}};`
+const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{if eq .dot.Typ .FieldTypeEnum}} {{.Table}}_{{.dot.Name}} USING {{.dot.Name}}::text::{{.Table}}_{{.dot.Name}}{{else}} {{.dot.Typ.DdlType}} {{end}};`
 const templAlterTableColumnAlterNull = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if not .dot.Optional}} SET {{else}} DROP {{end}} NOT NULL;`
 const templAlterTableColumnAlterDefault = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if .dot.Defval}} SET DEFAULT {{.dot.Defval}} {{else}} DROP DEFAULT {{end}};`
 
@@ -383,7 +386,9 @@ func (cl *Column) alterScript(tname string) (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplAlterTableColumnAlterType.Execute(&buffer, map[string]interface{}{
 		"Table": tname,
-		"dot":   cl}); e != nil {
+		"dot":   cl,
+		"FieldTypeEnum": description.FieldTypeEnum,
+	}); e != nil {
 		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
 	}
 	if e := parsedTemplAlterTableColumnAlterNull.Execute(&buffer, map[string]interface{}{
@@ -493,6 +498,15 @@ func (md *MetaDDL) CreateScript() (DdlStatementSet, error) {
 			return nil, err
 		} else {
 			stmts.Add(statement)
+		}
+	}
+	for _, col := range md.Columns {
+		if len(col.Enum) > 0 {
+			if s, err := CreateEnumStatement(md.Table, col.Name, col.Enum); err != nil {
+				return nil, err
+			} else {
+				stmts.Add(s)
+			}
 		}
 	}
 	if s, e := md.CreateTableDdlStatement(); e != nil {
@@ -629,8 +643,14 @@ func (m1 *MetaDDL) Diff(m2 *MetaDDL) (*MetaDDLDiff, error) {
 			//omit this check for PK`s until TB-116 is implemented
 			if currentObjectColumn.Name == objectToUpdateColumn.Name && m1.Pk != currentObjectColumn.Name {
 				if currentObjectColumn.Optional != objectToUpdateColumn.Optional ||
-					currentObjectColumn.Typ != objectToUpdateColumn.Typ {
+					currentObjectColumn.Typ != objectToUpdateColumn.Typ || len(objectToUpdateColumn.Enum) > 0 {
 					mdd.ColsAlter = append(mdd.ColsAlter, objectToUpdateColumn)
+
+					if currentObjectColumn.Typ == description.FieldTypeEnum &&
+						objectToUpdateColumn.Typ == description.FieldTypeEnum &&
+						!ChoicesIsCompleting(currentObjectColumn.Enum, objectToUpdateColumn.Enum) {
+						return nil, errors2.NewValidationError("400", fmt.Sprintf("Table %s. Not all values are entered for the column `%s`. Necessary minimum: %v", m2.Table, objectToUpdateColumn.Name, currentObjectColumn.Enum), nil)
+					}
 				}
 			}
 		}
@@ -653,6 +673,11 @@ func (m *MetaDDLDiff) Script() (DdlStatementSet, error) {
 		} else {
 			stmts.Add(s)
 		}
+		if stmt, e := DropEnumStatement(m.Table, m.ColsRem[i].Name); e != nil {
+			return nil, e
+		} else {
+			stmts.Add(stmt)
+		}
 	}
 	for i, _ := range m.SeqsRem {
 		if s, e := m.SeqsRem[i].DropDdlStatement(); e != nil {
@@ -669,6 +694,13 @@ func (m *MetaDDLDiff) Script() (DdlStatementSet, error) {
 		}
 	}
 	for i, _ := range m.ColsAdd {
+		if len(m.ColsAdd[i].Enum) > 0 {
+			if stmt, e := CreateEnumStatement(m.Table, m.ColsAdd[i].Name, m.ColsAdd[i].Enum); e != nil {
+				return nil, e
+			} else {
+				stmts.Add(stmt)
+			}
+		}
 		if s, e := m.ColsAdd[i].addScript(m.Table); e != nil {
 			return nil, e
 		} else {
@@ -676,6 +708,20 @@ func (m *MetaDDLDiff) Script() (DdlStatementSet, error) {
 		}
 	}
 	for i, _ := range m.ColsAlter {
+		if len(m.ColsAlter[i].Enum) > 0 {
+			if stmt, e := CreateEnumStatement(m.Table, m.ColsAlter[i].Name, m.ColsAlter[i].Enum); e != nil {
+				return nil, e
+			} else {
+				stmts.Add(stmt)
+			}
+			for _, choice := range m.ColsAlter[i].Enum {
+				if stmt, e := AddEnumStatement(m.Table, m.ColsAlter[i].Name, choice); e != nil {
+					return nil, e
+				} else {
+					stmts.Add(stmt)
+				}
+			}
+		}
 		if s, e := m.ColsAlter[i].alterScript(m.Table); e != nil {
 			return nil, e
 		} else {
