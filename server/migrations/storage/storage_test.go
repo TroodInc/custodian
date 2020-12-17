@@ -14,10 +14,11 @@ var _ = Describe("Migration Storage", func() {
 
 	BeforeEach(func() { migrationStorage.Flush() })
 	AfterEach(func() { migrationStorage.Flush() })
+	testObjAName := utils.RandomString(8)
 
 	It("stores MigrationMetaDescription to file", func() {
 		metaDescription := &description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -37,7 +38,7 @@ var _ = Describe("Migration Storage", func() {
 		}
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
-			ApplyTo:   "a",
+			ApplyTo:   testObjAName,
 			DependsOn: nil,
 			Operations: [] migrations_description.MigrationOperationDescription{
 				{

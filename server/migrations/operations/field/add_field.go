@@ -4,7 +4,6 @@ import (
 	"custodian/server/errors"
 	"custodian/server/object/meta"
 	meta_description "custodian/server/object/description"
-	"custodian/server/transactions"
 	"custodian/server/migrations"
 	"fmt"
 )
@@ -13,7 +12,7 @@ type AddFieldOperation struct {
 	Field *meta_description.Field
 }
 
-func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+func (o *AddFieldOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 	if err := o.validate(metaDescriptionToApply); err != nil {
 		//TODO:This is a workaround to avoid duplicated outer field (<meta-name>_set) to be created.

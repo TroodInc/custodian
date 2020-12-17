@@ -10,7 +10,6 @@ import (
 	"custodian/utils"
 
 	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
 	"custodian/server/object/description"
@@ -23,15 +22,18 @@ var _ = Describe("PG Auto Values Test", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
+	testObjAName := utils.RandomString(8)
 
 	Context("Having an object with fields with autoOnUpdate set to true", func() {
 		var metaObj *meta.Meta
@@ -39,7 +41,7 @@ var _ = Describe("PG Auto Values Test", func() {
 		BeforeEach(func() {
 			var err error
 			metaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -96,7 +98,7 @@ var _ = Describe("PG Auto Values Test", func() {
 		BeforeEach(func() {
 			var err error
 			metaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{

@@ -7,13 +7,14 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
+	"fmt"
+	"strconv"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"strconv"
 )
 
 var _ = Describe("Data", func() {
@@ -23,16 +24,24 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
+	testObjAName := utils.RandomString(8)
+	testObjBName := utils.RandomString(8)
+	testObjCName := utils.RandomString(8)
+	testObjDName := utils.RandomString(8)
+	testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
+	testObjCSetName := fmt.Sprintf("%s_set", testObjCName)
+	testObjWithEnumName := fmt.Sprintf("%s_enum", utils.RandomString(8))
 
 	It("Can update records containing reserved words", func() {
 		Context("having an object named by reserved word and containing field named by reserved word", func() {
@@ -167,9 +176,7 @@ var _ = Describe("Data", func() {
 				updatedRecords = append(updatedRecords, record)
 				return nil
 			}
-			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-			err := dataProcessor.BulkUpdateRecords(globalTransaction.DbTransaction, metaDescription.Name, next, sink, auth.User{})
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			err := dataProcessor.BulkUpdateRecords(metaDescription.Name, next, sink, auth.User{})
 			Expect(err).To(BeNil())
 
 			Expect(updatedRecords[0]["name"]).To(Equal("Victor"))
@@ -228,7 +235,7 @@ var _ = Describe("Data", func() {
 		By("Having A object")
 
 		positionMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -253,7 +260,7 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		By("and having one record of A object")
-		record, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": ""}, auth.User{}, )
+		record, err := dataProcessor.CreateRecord(positionMetaDescription.Name, map[string]interface{}{"name": ""}, auth.User{})
 		Expect(err).To(BeNil())
 
 		keyValue, _ := record.Data["id"].(float64)
@@ -269,7 +276,7 @@ var _ = Describe("Data", func() {
 
 	havingObjectA := func() *meta.Meta {
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -298,7 +305,7 @@ var _ = Describe("Data", func() {
 
 	havingObjectAWithObjectsLinkToD := func() *meta.Meta {
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -319,7 +326,7 @@ var _ = Describe("Data", func() {
 					Name:     "ds",
 					Type:     description.FieldTypeObjects,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "d",
+					LinkMeta: testObjDName,
 				},
 			},
 		}
@@ -333,7 +340,7 @@ var _ = Describe("Data", func() {
 
 	havingObjectB := func(onDelete string) *meta.Meta {
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -346,11 +353,11 @@ var _ = Describe("Data", func() {
 					Optional: true,
 				},
 				{
-					Name:     "a",
+					Name:     testObjAName,
 					Type:     description.FieldTypeObject,
 					Optional: true,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: testObjAName,
 					OnDelete: onDelete,
 				},
 				{
@@ -370,7 +377,7 @@ var _ = Describe("Data", func() {
 
 	havingObjectC := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "c",
+			Name: testObjCName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -388,17 +395,17 @@ var _ = Describe("Data", func() {
 					Optional: true,
 				},
 				{
-					Name:     "b",
+					Name:     testObjBName,
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "b",
+					LinkMeta: testObjBName,
 					Optional: true,
 				},
 				{
-					Name:     "d",
+					Name:     testObjDName,
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "d",
+					LinkMeta: testObjDName,
 					Optional: true,
 				},
 			},
@@ -412,7 +419,7 @@ var _ = Describe("Data", func() {
 
 	havingObjectD := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "d",
+			Name: testObjDName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -437,7 +444,7 @@ var _ = Describe("Data", func() {
 
 	havingObjectEnum := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "obj_with_enum",
+			Name: testObjWithEnumName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -465,7 +472,7 @@ var _ = Describe("Data", func() {
 
 	factoryObjectBWithManuallySetOuterLinkToC := func() *meta.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -483,19 +490,19 @@ var _ = Describe("Data", func() {
 					Optional: true,
 				},
 				{
-					Name:     "a",
+					Name:     testObjAName,
 					Type:     description.FieldTypeObject,
 					Optional: true,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: testObjAName,
 					OnDelete: description.OnDeleteCascade.ToVerbose(),
 				},
 				{
-					Name:           "c_set",
+					Name:           testObjCSetName,
 					Type:           description.FieldTypeArray,
 					LinkType:       description.LinkTypeOuter,
-					LinkMeta:       "c",
-					OuterLinkField: "b",
+					LinkMeta:       testObjCName,
+					OuterLinkField: testObjBName,
 					Optional:       true,
 				},
 			},
@@ -511,7 +518,7 @@ var _ = Describe("Data", func() {
 	havingObjectAWithManuallySetOuterLink := func() *meta.Meta {
 
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -529,10 +536,10 @@ var _ = Describe("Data", func() {
 					Optional: true,
 				},
 				{
-					Name:     "b_set",
+					Name:     testObjBSetName,
 					Type:     description.FieldTypeArray,
 					LinkType: description.LinkTypeOuter,
-					LinkMeta: "b", OuterLinkField: "a",
+					LinkMeta: testObjBName, OuterLinkField: testObjAName,
 					Optional: true,
 				},
 			},
@@ -556,7 +563,7 @@ var _ = Describe("Data", func() {
 		_, err = dataProcessor.CreateRecord(enumObj.Name, map[string]interface{}{"id": "invalid enumRecord", "enumField": "4"}, auth.User{})
 		Expect(err).NotTo(BeNil())
 	})
-	
+
 	It("Can perform update of record with nested inner record at once", func() {
 		aMetaObj := havingObjectA()
 		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
@@ -564,7 +571,7 @@ var _ = Describe("Data", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		bUpdatedData := map[string]interface{}{
@@ -574,7 +581,7 @@ var _ = Describe("Data", func() {
 		}
 		record, err := dataProcessor.UpdateRecord(bMetaObj.Name, bRecord.PkAsString(), bUpdatedData, auth.User{})
 		Expect(err).To(BeNil())
-		Expect(record.Data).To(HaveKey("a"))
+		Expect(record.Data).To(HaveKey(testObjAName))
 	})
 
 	It("Can perform update of record with nested inner record at once", func() {
@@ -584,7 +591,7 @@ var _ = Describe("Data", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		bUpdatedData := map[string]interface{}{
@@ -594,7 +601,7 @@ var _ = Describe("Data", func() {
 		}
 		recordData, err := dataProcessor.UpdateRecord(bMetaObj.Name, bRecord.PkAsString(), bUpdatedData, auth.User{})
 		Expect(err).To(BeNil())
-		Expect(recordData.Data).To(HaveKey("a"))
+		Expect(recordData.Data).To(HaveKey(testObjAName))
 	})
 
 	It("Can perform update of record with nested outer records of mixed types: new record, existing record`s PK and existing record`s new data at once", func() {
@@ -605,26 +612,26 @@ var _ = Describe("Data", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
-		anotherBRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "Another B record", "a": aRecord.Data["id"]}, auth.User{})
+		anotherBRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "Another B record", testObjAName: aRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
 
 		aUpdateData := map[string]interface{}{
 			"id":   aRecord.PkAsString(),
 			"name": "Updated A name",
-			"b_set": []interface{}{
+			testObjBSetName: []interface{}{
 				map[string]interface{}{"id": bRecord.Data["id"], "name": "Updated B name"}, //existing record with new data
-				anotherBRecord.Data["id"],                                                  //existing record`s PK
-				map[string]interface{}{"name": "New B Record"},                             //new record`s data
+				anotherBRecord.Data["id"],                      //existing record`s PK
+				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
 
 		record, err := dataProcessor.UpdateRecord(aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
 		Expect(err).To(BeNil())
-		Expect(record.Data).To(HaveKey("b_set"))
-		bSetData := record.Data["b_set"].([]interface{})
+		Expect(record.Data).To(HaveKey(testObjBSetName))
+		bSetData := record.Data[testObjBSetName].([]interface{})
 		Expect(bSetData).To(HaveLen(3))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("Updated B name"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("Another B record"))
@@ -639,18 +646,18 @@ var _ = Describe("Data", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", "a": aRecord.Pk()}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", testObjAName: aRecord.Pk()}, auth.User{})
 		Expect(err).To(BeNil())
 
-		anotherBRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "Another B record", "a": aRecord.Pk()}, auth.User{})
+		anotherBRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "Another B record", testObjAName: aRecord.Pk()}, auth.User{})
 		Expect(err).To(BeNil())
 
 		//anotherBRecord`s id is not set
 		aUpdateData := map[string]interface{}{
 			"id":   aRecord.PkAsString(),
 			"name": "Updated A name",
-			"b_set": []interface{}{
-				bRecord.Pk(),                                   //existing record with new data
+			testObjBSetName: []interface{}{
+				bRecord.Pk(), //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
@@ -659,16 +666,16 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		//check returned data
-		Expect(obj.Data).To(HaveKey("b_set"))
-		bSetData := obj.Data["b_set"].([]interface{})
+		Expect(obj.Data).To(HaveKey(testObjBSetName))
+		bSetData := obj.Data[testObjBSetName].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
 		obj, err = dataProcessor.Get(aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
 		Expect(err).To(BeNil())
-		Expect(obj.Data).To(HaveKey("b_set"))
-		bSetData = obj.Data["b_set"].([]interface{})
+		Expect(obj.Data).To(HaveKey(testObjBSetName))
+		bSetData = obj.Data[testObjBSetName].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(*record.Record).Data["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(*record.Record).Data["name"]).To(Equal("New B Record"))
@@ -690,12 +697,12 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		bRecord, err := dataProcessor.CreateRecord(
-			bMetaObj.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{},
+			bMetaObj.Name, map[string]interface{}{"name": "B record", testObjAName: aRecord.Data["id"]}, auth.User{},
 		)
 		Expect(err).To(BeNil())
 
 		anotherBRecord, err := dataProcessor.CreateRecord(
-			bMetaObj.Name, map[string]interface{}{"name": "Another B record", "a": aRecord.Data["id"]}, auth.User{},
+			bMetaObj.Name, map[string]interface{}{"name": "Another B record", testObjAName: aRecord.Data["id"]}, auth.User{},
 		)
 		Expect(err).To(BeNil())
 
@@ -703,8 +710,8 @@ var _ = Describe("Data", func() {
 		aUpdateData := map[string]interface{}{
 			"id":   aRecord.Pk(),
 			"name": "Updated A name",
-			"b_set": []interface{}{
-				bRecord.Data["id"],                             //existing record with new data
+			testObjBSetName: []interface{}{
+				bRecord.Data["id"], //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
@@ -713,16 +720,16 @@ var _ = Describe("Data", func() {
 		Expect(err).To(BeNil())
 
 		//check returned data
-		Expect(obj.Data).To(HaveKey("b_set"))
-		bSetData := obj.Data["b_set"].([]interface{})
+		Expect(obj.Data).To(HaveKey(testObjBSetName))
+		bSetData := obj.Data[testObjBSetName].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(map[string]interface{})["name"]).To(Equal("New B Record"))
 		//	check queried data
 		obj, err = dataProcessor.Get(aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
 		Expect(err).To(BeNil())
-		Expect(obj.Data).To(HaveKey("b_set"))
-		bSetData = obj.Data["b_set"].([]interface{})
+		Expect(obj.Data).To(HaveKey(testObjBSetName))
+		bSetData = obj.Data[testObjBSetName].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
 		Expect(bSetData[0].(*record.Record).Data["name"]).To(Equal("B record"))
 		Expect(bSetData[1].(*record.Record).Data["name"]).To(Equal("New B Record"))
@@ -741,18 +748,18 @@ var _ = Describe("Data", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", "a": aRecord.Pk()}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", testObjAName: aRecord.Pk()}, auth.User{})
 		Expect(err).To(BeNil())
 
-		_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "Another B record", "a": aRecord.Pk()}, auth.User{})
+		_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "Another B record", testObjAName: aRecord.Pk()}, auth.User{})
 		Expect(err).To(BeNil())
 
 		//anotherBRecord`s id is not set
 		aUpdateData := map[string]interface{}{
 			"id":   aRecord.Pk(),
 			"name": "Updated A name",
-			"b_set": []interface{}{
-				bRecord.Pk(),                                   //existing record with new data
+			testObjBSetName: []interface{}{
+				bRecord.Pk(), //existing record with new data
 				map[string]interface{}{"name": "New B Record"}, //new record`s data
 			},
 		}
@@ -772,13 +779,13 @@ var _ = Describe("Data", func() {
 		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 		Expect(err).To(BeNil())
 
-		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", "a": aRecord.Pk()}, auth.User{})
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", testObjAName: aRecord.Pk()}, auth.User{})
 		Expect(err).To(BeNil())
 
-		cRecordWithNilA, err := dataProcessor.CreateRecord(cMetaObj.Name, map[string]interface{}{"name": "C record", "a": nil, "b": bRecord.Pk()}, auth.User{})
+		cRecordWithNilA, err := dataProcessor.CreateRecord(cMetaObj.Name, map[string]interface{}{"name": "C record", testObjAName: nil, testObjBName: bRecord.Pk()}, auth.User{})
 		Expect(err).To(BeNil())
 
-		cRecordWithValuableA, err := dataProcessor.CreateRecord(cMetaObj.Name, map[string]interface{}{"name": "C record", "a": aRecord.Pk(), "b": bRecord.Pk()}, auth.User{})
+		cRecordWithValuableA, err := dataProcessor.CreateRecord(cMetaObj.Name, map[string]interface{}{"name": "C record", testObjAName: aRecord.Pk(), testObjBName: bRecord.Pk()}, auth.User{})
 		Expect(err).To(BeNil())
 
 		dRecord, err := dataProcessor.CreateRecord(dMetaObj.Name, map[string]interface{}{"id": "DRecord", "name": "DDDrecord"}, auth.User{})
@@ -788,17 +795,17 @@ var _ = Describe("Data", func() {
 		bUpdateData := map[string]interface{}{
 			"id":   bRecord.Pk(),
 			"name": "Updated B name",
-			"c_set": []interface{}{
-				map[string]interface{}{"id": cRecordWithNilA.Pk(), "d": nil},
-				map[string]interface{}{"id": cRecordWithValuableA.Pk(), "d": dRecord.Pk()}, //new record`s data
+			testObjCSetName: []interface{}{
+				map[string]interface{}{"id": cRecordWithNilA.Pk(), testObjDName: nil},
+				map[string]interface{}{"id": cRecordWithValuableA.Pk(), testObjDName: dRecord.Pk()}, //new record`s data
 			},
 		}
 
 		bRecord, err = dataProcessor.UpdateRecord(bMetaObj.Name, bRecord.PkAsString(), bUpdateData, auth.User{})
 		Expect(err).To(BeNil())
 		Expect(bRecord.Data).To(HaveKeyWithValue("name", "Updated B name"))
-		Expect(bRecord.Data["c_set"].([]interface{})[0].(map[string]interface{})["d"]).To(BeNil())
-		Expect(bRecord.Data["c_set"].([]interface{})[1].(map[string]interface{})).To(HaveKeyWithValue("d", "DRecord"))
+		Expect(bRecord.Data[testObjCSetName].([]interface{})[0].(map[string]interface{})[testObjDName]).To(BeNil())
+		Expect(bRecord.Data[testObjCSetName].([]interface{})[1].(map[string]interface{})).To(HaveKeyWithValue(testObjDName, "DRecord"))
 	})
 
 	It("Processes delete logic for records within 'Objects' relation which are not presented in update data. Case 1: uniform type of data(list of ids)", func() {

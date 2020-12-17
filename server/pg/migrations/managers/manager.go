@@ -141,9 +141,8 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 	for _, operation := range migration.Operations {
 		//metaToApply should mutate only within iterations, not inside iteration
 		if !fake {
-			updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, globalTransaction.MetaDescriptionTransaction, mm.metaStore.MetaDescriptionSyncer)
+			updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, mm.metaStore.MetaDescriptionSyncer)
 			if err != nil {
-				mm.globalTransactionManager.RollbackTransaction(globalTransaction)
 				return nil, err
 			} else {
 				err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction.DbTransaction, mm.metaStore.MetaDescriptionSyncer)

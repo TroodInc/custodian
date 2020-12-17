@@ -9,7 +9,6 @@ import (
 	"custodian/server/auth"
 	"custodian/utils"
 	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/object/meta"
 	"custodian/server/object/description"
@@ -22,10 +21,11 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -35,8 +35,10 @@ var _ = Describe("Data", func() {
 
 	It("can outputs by 'Objects' field values respecting specified depth value set to 1", func() {
 		Context("having an object with outer link to another object", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -60,7 +62,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -76,7 +78,7 @@ var _ = Describe("Data", func() {
 						Name:     "as",
 						Type:     description.FieldTypeObjects,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 						Optional: true,
 					},
 				},
@@ -124,8 +126,10 @@ var _ = Describe("Data", func() {
 
 	It("can outputs by 'Objects' field values respecting specified depth value set to 2", func() {
 		Context("having an object with outer link to another object", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -149,7 +153,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -165,7 +169,7 @@ var _ = Describe("Data", func() {
 						Name:     "as",
 						Type:     description.FieldTypeObjects,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 						Optional: true,
 					},
 				},

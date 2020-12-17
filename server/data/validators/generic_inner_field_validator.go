@@ -6,14 +6,12 @@ import (
 	"custodian/server/object/meta"
 	"custodian/server/data/types"
 	"custodian/server/data/errors"
-	"custodian/server/transactions"
 	"custodian/server/data/record"
 )
 
 type GenericInnerFieldValidator struct {
 	metaGetCallback   func(name string, useCache bool) (*meta.Meta, bool, error)
 	recordGetCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)
-	dbTransaction     transactions.DbTransaction
 }
 
 func (validator *GenericInnerFieldValidator) Validate(fieldDescription *meta.FieldDescription, value interface{}) (*types.GenericInnerLink, error) {
@@ -109,6 +107,6 @@ func (validator *GenericInnerFieldValidator) validateRecord(objectMeta *meta.Met
 	}
 }
 
-func NewGenericInnerFieldValidator(dbTransaction transactions.DbTransaction, metaGetCallback func(name string, useCache bool) (*meta.Meta, bool, error), recordGetCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *GenericInnerFieldValidator {
-	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback, dbTransaction: dbTransaction}
+func NewGenericInnerFieldValidator(metaGetCallback func(name string, useCache bool) (*meta.Meta, bool, error), recordGetCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *GenericInnerFieldValidator {
+	return &GenericInnerFieldValidator{metaGetCallback: metaGetCallback, recordGetCallback: recordGetCallback}
 }

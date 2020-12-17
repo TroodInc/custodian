@@ -8,7 +8,6 @@ import (
 	"custodian/utils"
 	"custodian/server/object/meta"
 	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/object/description"
 	"database/sql"
@@ -21,9 +20,11 @@ var _ = Describe("The PG MetaStore", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -47,7 +48,7 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
-	It("can remove object without leaving orphan outer links", func() {
+		It("can remove object without leaving orphan outer links", func() {
 		Context("having two objects with mutual links", func() {
 			aMetaDescription := GetBaseMetaData(utils.RandomString(8))
 			aMeta, err := metaStore.NewMeta(aMetaDescription)
@@ -70,7 +71,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
 				Name:           "b_set",
-				Type:           description.FieldTypeObject,
+				Type:           description.FieldTypeArray,
 				Optional:       true,
 				LinkType:       description.LinkTypeOuter,
 				LinkMeta:       bMeta.Name,
@@ -78,7 +79,8 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err = metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(aMeta.Name, aMeta, true)
+			_, err = metaStore.Update(aMeta.Name, aMeta, true)
+			Expect(err).To(BeNil())
 
 			Context("and 'remove' method is called for B meta", func() {
 				metaStore.Remove(bMeta.Name, true)
@@ -146,7 +148,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
 				Name:           "b_set",
-				Type:           description.FieldTypeObject,
+				Type:           description.FieldTypeArray,
 				Optional:       true,
 				LinkType:       description.LinkTypeOuter,
 				LinkMeta:       bMeta.Name,
