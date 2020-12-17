@@ -1,16 +1,17 @@
 package data_test
 
 import (
+	"custodian/server/data"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/object/meta"
-	"custodian/server/object/description"
-	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/utils"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
 )
 
 var _ = Describe("Node", func() {
@@ -20,10 +21,11 @@ var _ = Describe("Node", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -32,9 +34,13 @@ var _ = Describe("Node", func() {
 
 	It("can fill child nodes with circular dependency", func() {
 
+		testObjAName := fmt.Sprintf("%s_a", utils.RandomString(8))
+		testObjBName := fmt.Sprintf("%s_b", utils.RandomString(8))
+		testObjCName := fmt.Sprintf("%s_c", utils.RandomString(8))
+
 		Describe("Having three objects with mediated circular dependency", func() {
 			objectA := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -50,7 +56,7 @@ var _ = Describe("Node", func() {
 			Expect(err).To(BeNil())
 
 			objectB := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -59,11 +65,11 @@ var _ = Describe("Node", func() {
 						Type: description.FieldTypeString,
 					},
 					{
-						Name:     "a",
+						Name:     testObjAName,
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 					},
 				},
 			}
@@ -73,7 +79,7 @@ var _ = Describe("Node", func() {
 			Expect(err).To(BeNil())
 
 			objectC := description.MetaDescription{
-				Name: "c",
+				Name: testObjCName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -82,11 +88,11 @@ var _ = Describe("Node", func() {
 						Type: description.FieldTypeString,
 					},
 					{
-						Name:     "b",
+						Name:     testObjBName,
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "b",
+						LinkMeta: testObjBName,
 					},
 				},
 			}
@@ -96,7 +102,7 @@ var _ = Describe("Node", func() {
 			Expect(err).To(BeNil())
 
 			objectA = description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -105,11 +111,11 @@ var _ = Describe("Node", func() {
 						Type: description.FieldTypeString,
 					},
 					{
-						Name:     "c",
+						Name:     testObjCName,
 						Type:     description.FieldTypeObject,
 						Optional: true,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "c",
+						LinkMeta: testObjCName,
 					},
 				},
 			}
@@ -129,7 +135,7 @@ var _ = Describe("Node", func() {
 					Parent:     nil,
 				}
 				node.RecursivelyFillChildNodes(100, description.FieldModeRetrieve)
-				Expect(node.ChildNodes.Nodes()["c"].ChildNodes.Nodes()["b"].ChildNodes.Nodes()["a"].ChildNodes.Nodes()).To(HaveLen(0))
+				Expect(node.ChildNodes.Nodes()[testObjCName].ChildNodes.Nodes()[testObjBName].ChildNodes.Nodes()[testObjAName].ChildNodes.Nodes()).To(HaveLen(0))
 			})
 		})
 	})

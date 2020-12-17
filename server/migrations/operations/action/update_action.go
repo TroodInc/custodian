@@ -11,7 +11,7 @@ type UpdateActionOperation struct {
 	CurrentAction *meta_description.Action
 }
 
-func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.MetaDescriptionTransaction, syncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, syncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 
 	//replace action
