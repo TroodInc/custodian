@@ -14,7 +14,6 @@ import (
 	"custodian/server/object/meta"
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/managers"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
@@ -146,11 +145,11 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	//MetaDescription routes
 	syncer, err := pg.NewSyncer(config.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
 	//transaction managers
 	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
@@ -162,8 +161,9 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		globalTransactionManager,
 	)
 
-	getDataProcessor := func() *data.Processor {
-		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+
+	getDataProcessor := func () *data.Processor {
+		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
 		processor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 		return processor
 	}
@@ -504,44 +504,35 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	app.router.PATCH(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
-		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
-			sink.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
 
-			user := request.Context().Value("auth_user").(auth.User)
-
-			var i = 0
-			var result []interface{}
-			e := dataProcessor.BulkUpdateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
-				if i < len(src.list) {
-					i += 1
-					return src.list[i-1], nil
-				} else {
-					return nil, nil
-				}
-			}, func(obj map[string]interface{}) error { result = append(result, obj); return nil }, user)
-			if e != nil {
-				dbTransactionManager.RollbackTransaction(dbTransaction)
-				sink.pushError(e)
+		user := request.Context().Value("auth_user").(auth.User)
+		var i = 0
+		var result []interface{}
+		e := dataProcessor.BulkUpdateRecords(p.ByName("name"), func() (map[string]interface{}, error) {
+			if i < len(src.list) {
+				i += 1
+				return src.list[i-1], nil
 			} else {
-				dbTransactionManager.CommitTransaction(dbTransaction)
-				var updatedResult []interface{}
-				var depth = 2
-				if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
-					depth = i
-				}
-				for _, record := range result {
-					if recordData, err := dataProcessor.Get(p.ByName("name"), fmt.Sprint(int(record.(map[string]interface{})["id"].(float64))), request.URL.Query()["only"], request.URL.Query()["exclude"], depth, false); err != nil {
-						sink.pushError(err)
-					} else {
-						updatedResult = append(updatedResult, recordData.GetData())
-					}
-				}
-				defer sink.pushList(updatedResult, len(updatedResult))
-				// defer sink.pushList(result, len(result))
+				return nil, nil
+
 			}
+		}, func(obj map[string]interface{}) error { result = append(result, obj); return nil  }, user)
+		if e != nil {
+			sink.pushError(e)
+		} else {
+      var updatedResult []interface{}
+			var depth = 2
+			if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
+				depth = i
+			}
+			for _, record := range result {
+				if recordData, err := dataProcessor.Get(p.ByName("name"), fmt.Sprint(int(record.(map[string]interface{})["id"].(float64))), request.URL.Query()["only"], request.URL.Query()["exclude"], depth, false); err != nil {
+					sink.pushError(err)
+				} else {
+					updatedResult = append(updatedResult, recordData.GetData())
+        }
+      }
+			defer sink.pushList(updatedResult, len(updatedResult))
 		}
 	}))
 

@@ -14,7 +14,7 @@ type RemoveActionOperation struct {
 	Action *description.Action
 }
 
-func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
 	updatedMetaDescription := metaDescription.Clone()
 	if err := o.validate(updatedMetaDescription); err != nil {
 		return nil, err

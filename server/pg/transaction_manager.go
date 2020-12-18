@@ -1,15 +1,14 @@
-package transactions
+package pg
 
 import (
 	"database/sql"
 	"custodian/server/data"
-	"custodian/server/pg"
 	"custodian/server/transactions"
 )
 
 type PgDbTransactionManager struct {
 	dataManager data.DataManager
-	transaction *pg.PgTransaction
+	transaction *PgTransaction
 }
 
 //transaction related methods
@@ -18,7 +17,7 @@ func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction
 		if tx, err := tm.dataManager.Db().(*sql.DB).Begin(); err != nil {
 			return nil, err
 		} else {
-			tm.transaction = &pg.PgTransaction{tx, tm, 0}
+			tm.transaction = &PgTransaction{tx, tm, 0}
 		}
 	} else {
 		tm.transaction.Counter += 1

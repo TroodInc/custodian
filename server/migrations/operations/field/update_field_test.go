@@ -7,7 +7,6 @@ import (
 	"custodian/utils"
 	"custodian/server/object/meta"
 	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/object/description"
 )
@@ -15,12 +14,13 @@ import (
 var _ = Describe("'UpdateField' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
@@ -32,10 +32,12 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 	})
 
+	testObjAName := utils.RandomString(8)
+
 	//setup MetaDescription
 	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -54,9 +56,9 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 				},
 			},
 		}
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		err = metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		
+		err := metaDescriptionSyncer.Create(*metaDescription)
+		
 		Expect(err).To(BeNil())
 	})
 
@@ -65,9 +67,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		field := description.Field{Name: "name", Type: description.FieldTypeNumber, Optional: false, Def: nil}
 
 		operation := NewUpdateFieldOperation(metaDescription.FindField("name"), &field)
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		metaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		metaDescription, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(metaDescription).NotTo(BeNil())
 
