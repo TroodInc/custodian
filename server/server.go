@@ -161,8 +161,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		globalTransactionManager,
 	)
 
-
-	getDataProcessor := func () *data.Processor {
+	getDataProcessor := func() *data.Processor {
 		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
 		processor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 		return processor
@@ -516,11 +515,11 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				return nil, nil
 
 			}
-		}, func(obj map[string]interface{}) error { result = append(result, obj); return nil  }, user)
+		}, func(obj map[string]interface{}) error { result = append(result, obj); return nil }, user)
 		if e != nil {
 			sink.pushError(e)
 		} else {
-      var updatedResult []interface{}
+			var updatedResult []interface{}
 			var depth = 2
 			if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
 				depth = i
@@ -530,8 +529,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					sink.pushError(err)
 				} else {
 					updatedResult = append(updatedResult, recordData.GetData())
-        }
-      }
+				}
+			}
 			defer sink.pushList(updatedResult, len(updatedResult))
 		}
 	}))
