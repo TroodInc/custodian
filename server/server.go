@@ -297,14 +297,22 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				sink.pushError(e)
 			} else {
 				result := make([]interface{}, 0)
+
+				var ids []string
 				for _, obj := range records {
-					if recordData, err := dataProcessor.Get(p.ByName("name"), fmt.Sprint(obj.GetData()["id"]), r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false); err != nil {
-						sink.pushError(err)
-					} else {
-						result = append(result, recordData.GetData())
-					}
+					ids = append(ids, fmt.Sprint(obj.GetData()["id"]))
 				}
-				sink.pushList(result, len(result))
+				count, records, e := dataProcessor.GetBulk(
+					p.ByName("name"), fmt.Sprintf("in(id,(%s))", strings.Join(ids, ",")), r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false,
+				)
+				if e != nil {
+					sink.pushError(e)
+				} else {
+					for _, obj := range records {
+						result = append(result, obj.GetData())
+					}
+					sink.pushList(result, count)
+				}
 			}
 		}
 
@@ -524,14 +532,21 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
 				depth = i
 			}
-			for _, record := range result {
-				if recordData, err := dataProcessor.Get(p.ByName("name"), fmt.Sprint(int(record.(map[string]interface{})["id"].(float64))), request.URL.Query()["only"], request.URL.Query()["exclude"], depth, false); err != nil {
-					sink.pushError(err)
-				} else {
-					updatedResult = append(updatedResult, recordData.GetData())
-				}
+			var ids []string
+			for _, obj := range result {
+				ids = append(ids, fmt.Sprint(int(obj.(map[string]interface{})["id"].(float64))))
 			}
-			defer sink.pushList(updatedResult, len(updatedResult))
+			count, record, e := dataProcessor.GetBulk(
+				p.ByName("name"), fmt.Sprintf("in(id,(%s))", strings.Join(ids, ",")), request.URL.Query()["only"], request.URL.Query()["exclude"], depth, false,
+			)
+			if e != nil {
+				sink.pushError(e)
+			} else {
+				for _, obj := range record {
+					updatedResult = append(updatedResult, obj.GetData())
+				}
+				sink.pushList(updatedResult, count)
+			}
 		}
 	}))
 
