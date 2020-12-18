@@ -293,13 +293,10 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		} else if src.list != nil {
 
 			records, e := dataProcessor.BulkCreateRecords(p.ByName("name"), src.list, user)
-			fmt.Println("Records done")
 
 			if e != nil {
-				fmt.Println("Errror")
 				sink.pushError(e)
 			} else {
-				fmt.Println("No Errror")
 				result := make([]interface{}, 0)
 				for _, obj := range records {
 					if recordData, err := dataProcessor.Get(p.ByName("name"), fmt.Sprint(obj.GetData()["id"]), r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false); err != nil {
