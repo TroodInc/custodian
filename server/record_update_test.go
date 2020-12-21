@@ -1,24 +1,25 @@
 package server_test
 
 import (
+	"bytes"
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/pg"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"fmt"
-	"net/http/httptest"
-	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/server/auth"
-	"bytes"
-	"encoding/json"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
 
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
 	"custodian/server"
 	"custodian/server/data/record"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
 )
 
 var _ = Describe("Server", func() {
@@ -204,11 +205,10 @@ var _ = Describe("Server", func() {
 		)
 		Expect(err).To(BeNil())
 
-
 		cRecord, err := dataProcessor.CreateRecord(
 			cMetaObject.Name,
 			map[string]interface{}{
-				"name": "root obj m2m test", "as":[]interface{}{aRecordFirst.Pk(), aRecordSecond.Pk()},
+				"name": "root obj m2m test", "as": []interface{}{aRecordFirst.Pk(), aRecordSecond.Pk()},
 			},
 			auth.User{},
 		)
@@ -217,7 +217,7 @@ var _ = Describe("Server", func() {
 		url := fmt.Sprintf("%s/data/%s/%d", appConfig.UrlPrefix, cMetaObject.Name, int(cRecord.Data["id"].(float64)))
 
 		encodedMetaData, _ := json.Marshal(map[string]interface{}{
-			"as":  []interface{}{aRecordFirst.Pk(), aRecordSecond.Pk(), aRecordThird.Pk()},
+			"as": []interface{}{aRecordFirst.Pk(), aRecordSecond.Pk(), aRecordThird.Pk()},
 		})
 
 		var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
@@ -315,4 +315,94 @@ var _ = Describe("Server", func() {
 			Expect(responseBody).To(Equal("{\"data\":{\"a\":1,\"id\":1,\"name\":\"B record new name\"},\"status\":\"OK\"}"))
 		})
 	})
+
+	Context("having a records of given object", func() {
+		var aRecord *record.Record
+		var bRecord *record.Record
+		var cRecord *record.Record
+		var objectB *meta.Meta
+		var err error
+
+		BeforeEach(func() {
+			objectA := factoryObjectA()
+			objectB = factoryObjectB()
+			factoryObjectAWithManuallySetOuterLinkToB()
+
+			aRecord, err = dataProcessor.CreateRecord(objectA.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			bRecord, err = dataProcessor.CreateRecord(objectB.Name, map[string]interface{}{"name": "B record", "a": aRecord.Data["id"]}, auth.User{})
+			Expect(err).To(BeNil())
+
+			cRecord, err = dataProcessor.CreateRecord(objectB.Name, map[string]interface{}{"name": "C record", "a": aRecord.Data["id"]}, auth.User{})
+			Expect(err).To(BeNil())
+		})
+
+		It("updates multiple records and outputs its data respecting depth = 2", func() {
+			updateData := []map[string]interface{}{
+				{
+					"name": "B record new name",
+					"id":   bRecord.Data["id"],
+				},
+				{
+					"name": "C record new name",
+					"id":   cRecord.Data["id"],
+				}}
+			encodedMetaData, _ := json.Marshal(updateData)
+
+			url := fmt.Sprintf("%s/data/%s?depth=2", appConfig.UrlPrefix, objectB.Name)
+			var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+			responseStatus := recorder.Code
+			Expect(responseStatus).To(Equal(200))
+			Expect(responseBody).To(Equal("{\"data\":[{\"a\":{\"b_set\":[1,2],\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},{\"a\":{\"b_set\":[1,2],\"id\":1,\"name\":\"A record\"},\"id\":2,\"name\":\"C record new name\"}],\"status\":\"OK\",\"total_count\":2}"))
+		})
+		It("updates multiple records and outputs its data respecting depth = 3", func() {
+			updateData := []map[string]interface{}{
+				{
+					"name": "B record new name",
+					"id":   bRecord.Data["id"],
+				},
+				{
+					"name": "C record new name",
+					"id":   cRecord.Data["id"],
+				}}
+			encodedMetaData, _ := json.Marshal(updateData)
+
+			url := fmt.Sprintf("%s/data/%s?depth=3", appConfig.UrlPrefix, objectB.Name)
+			var request, _ = http.NewRequest("PATCH", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+			responseStatus := recorder.Code
+			Expect(responseStatus).To(Equal(200))
+			Expect(responseBody).To(Equal("{\"data\":[{\"a\":{\"b_set\":[{\"a\":1,\"id\":1,\"name\":\"B record new name\"},{\"a\":1,\"id\":2,\"name\":\"C record new name\"}],\"id\":1,\"name\":\"A record\"},\"id\":1,\"name\":\"B record new name\"},{\"a\":{\"b_set\":[{\"a\":1,\"id\":1,\"name\":\"B record new name\"},{\"a\":1,\"id\":2,\"name\":\"C record new name\"}],\"id\":1,\"name\":\"A record\"},\"id\":2,\"name\":\"C record new name\"}],\"status\":\"OK\",\"total_count\":2}"))
+		})
+		It("create multiple records and outputs its data respecting depth = 3", func() {
+			updateData := []map[string]interface{}{
+				{
+					"id":   3,
+					"name": "D record",
+					"a":    aRecord.Data["id"],
+				},
+				{
+					"id":   4,
+					"name": "E record",
+					"a":    aRecord.Data["id"],
+				}}
+			encodedMetaData, _ := json.Marshal(updateData)
+
+			url := fmt.Sprintf("%s/data/%s?depth=3", appConfig.UrlPrefix, objectB.Name)
+			var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+			request.Header.Set("Content-Type", "application/json")
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+			responseStatus := recorder.Code
+			Expect(responseStatus).To(Equal(200))
+			Expect(responseBody).To(Equal("{\"data\":[{\"a\":{\"b_set\":[{\"a\":1,\"id\":1,\"name\":\"B record\"},{\"a\":1,\"id\":2,\"name\":\"C record\"},{\"a\":1,\"id\":3,\"name\":\"D record\"},{\"a\":1,\"id\":4,\"name\":\"E record\"}],\"id\":1,\"name\":\"A record\"},\"id\":3,\"name\":\"D record\"},{\"a\":{\"b_set\":[{\"a\":1,\"id\":1,\"name\":\"B record\"},{\"a\":1,\"id\":2,\"name\":\"C record\"},{\"a\":1,\"id\":3,\"name\":\"D record\"},{\"a\":1,\"id\":4,\"name\":\"E record\"}],\"id\":1,\"name\":\"A record\"},\"id\":4,\"name\":\"E record\"}],\"status\":\"OK\",\"total_count\":2}"))
+		})
+	})
+
 })
