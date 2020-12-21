@@ -3,35 +3,36 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/json"
-	"fmt"
-	"github.com/getsentry/raven-go"
-	"github.com/julienschmidt/httprouter"
-	"io/ioutil"
 	"custodian/logger"
-	"mime"
-	"net/http"
-	_ "net/http/pprof"
-	"net/textproto"
-	"net/url"
-	"os"
 	"custodian/server/abac"
 	"custodian/server/auth"
 	"custodian/server/data"
 	"custodian/server/data/record"
 	. "custodian/server/errors"
 	migrations_description "custodian/server/migrations/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/description"
+	"custodian/server/object/meta"
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/managers"
 	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"mime"
+	"net/http"
+	_ "net/http/pprof"
+	"net/textproto"
+	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
-	"custodian/utils"
+
+	"github.com/getsentry/raven-go"
+	"github.com/julienschmidt/httprouter"
 )
 
 type CustodianApp struct {
@@ -54,7 +55,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
 		if handler != nil {
-			var res= strings.Split(opts.ByName("name"), "?")[0]
+			var res = strings.Split(opts.ByName("name"), "?")[0]
 			splited := strings.Split(req.URL.Path, "/")
 			action := ""
 			if res != "" {
@@ -93,7 +94,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 				abac_default_resolution,
 			)
 			ctx = context.WithValue(ctx, "resource", res)
-			ctx = context.WithValue(ctx, "action", action + req.Method)
+			ctx = context.WithValue(ctx, "action", action+req.Method)
 			ctx = context.WithValue(ctx, "abac", abac_resolver)
 
 		}
@@ -161,7 +162,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		globalTransactionManager,
 	)
 
-	getDataProcessor := func () *data.Processor {
+	getDataProcessor := func() *data.Processor {
 		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
 		processor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 		return processor
@@ -173,7 +174,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}
 
 	app.router.ServeFiles("/static/*filepath", http.Dir("/home/static"))
-	app.router.GET(cs.root+"/swagger", func(w http.ResponseWriter, req *http.Request, p httprouter.Params){
+	app.router.GET(cs.root+"/swagger", func(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		http.ServeFile(w, req, "/home/static/swagger_ui.html")
 	})
 
@@ -181,7 +182,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	app.router.GET(cs.root+"/meta", CreateJsonAction(func(src *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
 		if metaList, _, err := metaStore.List(); err == nil {
 			var result []interface{}
-			for _, val := range(metaList) {
+			for _, val := range metaList {
 				result = append(result, val.ForExport())
 			}
 			js.pushList(result, len(result))
@@ -260,6 +261,10 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		abac_resolver := r.Context().Value("abac").(abac.TroodABAC)
 		_, rule := abac_resolver.Check(objectName, "data_POST")
 
+		var depth = 1
+		if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
+			depth = i
+		}
 		if src.single != nil {
 			if rule != nil {
 				restricted := abac.CheckMask(src.single, rule.Mask)
@@ -277,14 +282,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			if record, err := dataProcessor.CreateRecord(objectName, src.single, user); err != nil {
 				sink.pushError(err)
 			} else {
-				var depth = 1
-				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
-					depth = i
-				}
-
 				pkValue, _ := record.Meta.Key.ValueAsString(record.Data[record.Meta.Key.Name])
-				if record, err := dataProcessor.Get(objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
-					err != nil {
+				if record, err := dataProcessor.Get(objectName, pkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false); err != nil {
 					sink.pushError(err)
 				} else {
 					sink.pushObj(record.GetData())
@@ -299,10 +298,22 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				sink.pushError(e)
 			} else {
 				result := make([]interface{}, 0)
+
+				var ids []string
 				for _, obj := range records {
-					result = append(result, obj.GetData())
+					ids = append(ids, fmt.Sprint(obj.GetData()["id"]))
 				}
-				sink.pushList(result, len(result))
+				count, records, e := dataProcessor.GetBulk(
+					p.ByName("name"), fmt.Sprintf("in(id,(%s))", strings.Join(ids, ",")), r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false,
+				)
+				if e != nil {
+					sink.pushError(e)
+				} else {
+					for _, obj := range records {
+						result = append(result, obj.GetData())
+					}
+					sink.pushList(result, count)
+				}
 			}
 		}
 
@@ -347,7 +358,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
 			depth = i
 		}
-
 		var omitOuters = false
 		if len(q.Get("omit_outers")) > 0 {
 			omitOuters = true
@@ -396,7 +406,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		recordPkValue := p.ByName("key")
 		//set transaction to the context
 
-
 		//process access check
 		recordToUpdate, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], 1, true)
 		if err != nil || recordToUpdate == nil {
@@ -421,7 +430,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		}
 	}))
 
-	app.router.DELETE(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
+	app.router.DELETE(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
 
 		user := request.Context().Value("auth_user").(auth.User)
@@ -489,8 +498,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				if i, e := strconv.Atoi(r.URL.Query().Get("depth")); e == nil {
 					depth = i
 				}
-				if recordData, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false);
-					err != nil {
+				if recordData, err := dataProcessor.Get(objectName, recordPkValue, r.URL.Query()["only"], r.URL.Query()["exclude"], depth, false); err != nil {
 					sink.pushError(err)
 				} else {
 					sink.pushObj(recordData.GetData())
@@ -502,7 +510,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	}))
 
-	app.router.PATCH(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params,  q url.Values, request *http.Request) {
+	app.router.PATCH(cs.root+"/data/:name", CreateJsonAction(func(src *JsonSource, sink *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
 		dataProcessor := getDataProcessor()
 		if dbTransaction, err := dbTransactionManager.BeginTransaction(); err != nil {
 			sink.pushError(err)
@@ -511,7 +519,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", dbTransaction))
 
 			user := request.Context().Value("auth_user").(auth.User)
-
 			var i = 0
 			var result []interface{}
 			e := dataProcessor.BulkUpdateRecords(dbTransaction, p.ByName("name"), func() (map[string]interface{}, error) {
@@ -520,14 +527,34 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					return src.list[i-1], nil
 				} else {
 					return nil, nil
+
 				}
-			}, func(obj map[string]interface{}) error { result = append(result, obj); return nil  }, user)
+			}, func(obj map[string]interface{}) error { result = append(result, obj); return nil }, user)
 			if e != nil {
 				dbTransactionManager.RollbackTransaction(dbTransaction)
 				sink.pushError(e)
 			} else {
 				dbTransactionManager.CommitTransaction(dbTransaction)
-				defer sink.pushList(result, len(result))
+				var updatedResult []interface{}
+				var depth = 1
+				if i, e := strconv.Atoi(url.QueryEscape(q.Get("depth"))); e == nil {
+					depth = i
+				}
+				var ids []string
+				for _, obj := range result {
+					ids = append(ids, fmt.Sprint(int(obj.(map[string]interface{})["id"].(float64))))
+				}
+				count, record, e := dataProcessor.GetBulk(
+					p.ByName("name"), fmt.Sprintf("in(id,(%s))", strings.Join(ids, ",")), request.URL.Query()["only"], request.URL.Query()["exclude"], depth, false,
+				)
+				if e != nil {
+					sink.pushError(e)
+				} else {
+					for _, obj := range record {
+						updatedResult = append(updatedResult, obj.GetData())
+					}
+					sink.pushList(updatedResult, count)
+				}
 			}
 		}
 	}))
@@ -689,7 +716,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		fake := len(q.Get("fake")) > 0
 
 		migrationId := p.ByName("id")
-		
+
 		metaDescription, err := migrationManager.RollBackTo(migrationId, true, fake)
 
 		if err != nil {
@@ -715,7 +742,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			sink.pushObj(probeData)
 		}
 	}))
-
 
 	if config.EnableProfiler {
 		app.router.Handler(http.MethodGet, "/debug/pprof/:item", http.DefaultServeMux)
@@ -796,7 +822,7 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 			}
 		}
 
-		query  := make(url.Values)
+		query := make(url.Values)
 		err := parseQuery(query, req.URL.RawQuery)
 
 		if err != nil {
@@ -809,7 +835,7 @@ func CreateJsonAction(f func(*JsonSource, *JsonSink, httprouter.Params, url.Valu
 	}
 }
 
-func parseQuery(m  url.Values, query string) (err error) {
+func parseQuery(m url.Values, query string) (err error) {
 
 	for query != "" {
 		key := query
@@ -834,7 +860,7 @@ func parseQuery(m  url.Values, query string) (err error) {
 		}
 
 		m[key] = append(m[key], value)
-		if key == "q"{
+		if key == "q" {
 			m[key] = []string{strings.Join(m[key], ",")}
 		}
 	}
@@ -869,9 +895,9 @@ func returnError(w http.ResponseWriter, e interface{}) {
 
 //The source of JSON object. It contains a value of type map[string]interface{}.
 type JsonSource struct {
-	body []byte
+	body   []byte
 	single map[string]interface{}
-	list []map[string]interface{}
+	list   []map[string]interface{}
 }
 
 type httpRequest http.Request
@@ -887,7 +913,7 @@ func (js *JsonSource) GetData() interface{} {
 //Converts an HTTP request to the JsonSource if the request is valid and contains a valid JSON object in its body.
 func (r *httpRequest) asJsonSource() (*JsonSource, error) {
 	if r.Body != nil {
-		smime := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type"));
+		smime := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type"))
 
 		if mm, _, e := mime.ParseMediaType(smime); e == nil && mm == "application/json" {
 			var result JsonSource
@@ -941,7 +967,7 @@ func (js *JsonSink) pushObj(object interface{}) {
 func (js *JsonSink) pushList(objects []interface{}, total int) {
 	responseData := map[string]interface{}{"status": js.Status}
 	if objects == nil {
-		objects = make([]interface{},0)
+		objects = make([]interface{}, 0)
 	}
 	responseData["data"] = objects
 	responseData["total_count"] = total
