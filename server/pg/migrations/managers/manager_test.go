@@ -45,7 +45,7 @@ var _ = Describe("MigrationManager", func() {
 	})
 
 	It("Records migration", func() {
-		migrationUid := "c1be598d"
+		migrationUid := utils.RandomString(8)
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		migrationHistoryId, err := NewMigrationManager(
@@ -57,7 +57,7 @@ var _ = Describe("MigrationManager", func() {
 	})
 
 	It("Does not apply same migration twice", func() {
-		migrationUid := "c1be59xd"
+		migrationUid := utils.RandomString(8)
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		_, err := NewMigrationManager(
