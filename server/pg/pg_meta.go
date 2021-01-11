@@ -11,16 +11,13 @@ import (
 )
 
 const (
-	SQL_CREATE_META_TABLE string = `CREATE TABLE IF NOT EXISTS o___meta__ (
-		id serial NOT NULL PRIMARY KEY,
-		meta_description json NOT NULL
-	);`
-	SQL_GET_META_LIST     string = `SELECT meta_description FROM o___meta__ ORDER BY id;`
-	GET_META_OBJ          string = `SELECT meta_description FROM o___meta__ WHERE meta_description ->> 'name'=$1;`
-	DELETE_META_OBJ       string = `DELETE FROM o___meta__ WHERE meta_description ->> 'name'=$1;`
-	CHECK_META_OBJ_EXISTS string = `SELECT 1 FROM o___meta__ WHERE meta_description ->> 'name'=$1;`
-	CREATE_META_OBJ       string = `INSERT INTO o___meta__ (meta_description) VALUES ($1);`
-	UPDATE_META_OBJ       string = `UPDATE o___meta__ SET meta_description=$1 WHERE meta_description ->> 'name'=$2;`
+	SQL_CREATE_META_TABLE_IF_NOT_EXISTS string = `CREATE TABLE IF NOT EXISTS o___meta__ (id serial NOT NULL PRIMARY KEY, name VARCHAR(255) UNIQUE NOT NULL, meta_description json NOT NULL);`
+	SQL_GET_META_LIST                   string = `SELECT meta_description FROM o___meta__ ORDER BY id;`
+	GET_META_OBJ                        string = `SELECT meta_description FROM o___meta__ WHERE name=$1;`
+	DELETE_META_OBJ                     string = `DELETE FROM o___meta__ WHERE name=$1;`
+	CHECK_META_OBJ_EXISTS               string = `SELECT 1 FROM o___meta__ WHERE name=$1;`
+	CREATE_META_OBJ                     string = `INSERT INTO o___meta__ (name, meta_description) VALUES ($1, $2);`
+	UPDATE_META_OBJ                     string = `UPDATE o___meta__ SET meta_description=$1, name=$2 WHERE name=$3;`
 )
 
 func checkMetaObjExists(name string, tx *sql.Tx) (bool, error) {
@@ -52,34 +49,27 @@ func getMetaObjFromDb(name string, tx *sql.Tx) (description.MetaDescription, err
 	return meta, nil
 }
 
-func (md *PgMetaDescriptionSyncer) CreateMetaTableIfNotExists() {
-	dbTransaction, _ := md.transactionManager.BeginTransaction()
-	tx := dbTransaction.Transaction().(*sql.Tx)
-	_, err := tx.Exec(SQL_CREATE_META_TABLE)
-	if err != nil {
-		md.transactionManager.RollbackTransaction(dbTransaction)
-	} else {
-		md.transactionManager.CommitTransaction(dbTransaction)
-	}
-}
-
 type PgMetaDescriptionSyncer struct {
 	transactionManager *PgDbTransactionManager
 }
 
 func NewPgMetaDescriptionSyncer(transactionManager *PgDbTransactionManager) *PgMetaDescriptionSyncer {
 	md := PgMetaDescriptionSyncer{transactionManager}
-	md.CreateMetaTableIfNotExists()
 	return &md
 }
 
 func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescription, bool, error) {
-	dbTransaction, err := md.transactionManager.BeginTransaction()
+	dbTransaction, _ := md.transactionManager.BeginTransaction()
+	tx := dbTransaction.Transaction().(*sql.Tx)
+	_, err := tx.Exec(SQL_CREATE_META_TABLE_IF_NOT_EXISTS)
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
-		return nil, false, err
+		return nil, false, errors.NewFatalError(
+			"get_meta",
+			fmt.Sprintf("Error while checking if o___meta__ table exists Error: %s", err.Error()),
+			nil,
+		)
 	}
-	tx := dbTransaction.Transaction().(*sql.Tx)
 	if exists, err := checkMetaObjExists(name, tx); err != nil {
 		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -110,12 +100,17 @@ func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 }
 
 func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool, error) {
-	dbTransaction, err := md.transactionManager.BeginTransaction()
+	dbTransaction, _ := md.transactionManager.BeginTransaction()
+	tx := dbTransaction.Transaction().(*sql.Tx)
+	_, err := tx.Exec(SQL_CREATE_META_TABLE_IF_NOT_EXISTS)
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
-		return nil, false, err
+		return nil, false, errors.NewFatalError(
+			"get_meta",
+			fmt.Sprintf("Error while checking if o___meta__ table exists Error: %s", err.Error()),
+			nil,
+		)
 	}
-	tx := dbTransaction.Transaction().(*sql.Tx)
 	rows, err := tx.Query(SQL_GET_META_LIST)
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -145,12 +140,17 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 }
 
 func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
-	dbTransaction, err := md.transactionManager.BeginTransaction()
+	dbTransaction, _ := md.transactionManager.BeginTransaction()
+	tx := dbTransaction.Transaction().(*sql.Tx)
+	_, err := tx.Exec(SQL_CREATE_META_TABLE_IF_NOT_EXISTS)
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
-		return false, err
+		return false, errors.NewFatalError(
+			"get_meta",
+			fmt.Sprintf("Error while checking if o___meta__ table exists Error: %s", err.Error()),
+			nil,
+		)
 	}
-	tx := dbTransaction.Transaction().(*sql.Tx)
 	if exists, err := checkMetaObjExists(name, tx); err != nil {
 		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -184,12 +184,17 @@ func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
 }
 
 func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
-	dbTransaction, err := md.transactionManager.BeginTransaction()
+	dbTransaction, _ := md.transactionManager.BeginTransaction()
+	tx := dbTransaction.Transaction().(*sql.Tx)
+	_, err := tx.Exec(SQL_CREATE_META_TABLE_IF_NOT_EXISTS)
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
-		return err
+		return errors.NewFatalError(
+			"get_meta",
+			fmt.Sprintf("Error while checking if o___meta__ table exists Error: %s", err.Error()),
+			nil,
+		)
 	}
-	tx := dbTransaction.Transaction().(*sql.Tx)
 	if exists, err := checkMetaObjExists(m.Name, tx); err != nil {
 		logger.Debug("Error while checking if object exists %s: %s", m.Name, err.Error())
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -218,7 +223,7 @@ func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
 				nil,
 			)
 		}
-		if _, err = tx.Exec(CREATE_META_OBJ, string(b)); err != nil {
+		if _, err = tx.Exec(CREATE_META_OBJ, m.Name, string(b)); err != nil {
 			md.transactionManager.RollbackTransaction(dbTransaction)
 			logger.Error("Can't create MetaDescription '%s' : %s", m.Name, err.Error())
 			return errors.NewFatalError(
@@ -234,12 +239,17 @@ func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
 }
 
 func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescription) (bool, error) {
-	dbTransaction, err := md.transactionManager.BeginTransaction()
+	dbTransaction, _ := md.transactionManager.BeginTransaction()
+	tx := dbTransaction.Transaction().(*sql.Tx)
+	_, err := tx.Exec(SQL_CREATE_META_TABLE_IF_NOT_EXISTS)
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
-		return false, err
+		return false, errors.NewFatalError(
+			"get_meta",
+			fmt.Sprintf("Error while checking if o___meta__ table exists Error: %s", err.Error()),
+			nil,
+		)
 	}
-	tx := dbTransaction.Transaction().(*sql.Tx)
 	if exists, err := checkMetaObjExists(name, tx); err != nil {
 		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -267,7 +277,8 @@ func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescrip
 				nil,
 			)
 		}
-		if _, err = tx.Exec(UPDATE_META_OBJ, string(b), m.Name); err != nil {
+		newName := m.Name
+		if _, err = tx.Exec(UPDATE_META_OBJ, string(b), newName, name); err != nil {
 			md.transactionManager.RollbackTransaction(dbTransaction)
 			logger.Error("Can't update MetaDescription '%s' : %s", m.Name, err.Error())
 			return false, errors.NewFatalError(

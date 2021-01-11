@@ -5,13 +5,12 @@ import (
 	. "github.com/onsi/gomega"
 
 	"custodian/server/errors"
+	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg"
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
-	"custodian/server/object/description"
-
 )
 
 var _ = Describe("PG meta test", func() {
@@ -26,8 +25,14 @@ var _ = Describe("PG meta test", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
+	AfterEach(func() {
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
+	})
+
 	testObjAName := utils.RandomString(8)
 	testObjBName := utils.RandomString(8)
+	testObjCName := utils.RandomString(8)
 
 	metaDescriptionA := description.MetaDescription{
 		Name: testObjAName,
@@ -64,7 +69,7 @@ var _ = Describe("PG meta test", func() {
 			},
 		},
 	}
-	
+
 	createObjectA := func() {
 		err := metaDescriptionSyncer.Create(metaDescriptionA)
 		Expect(err).To(BeNil())
@@ -112,7 +117,7 @@ var _ = Describe("PG meta test", func() {
 		Expect(retrievedMetaDescription).To(BeNil())
 
 	})
-	
+
 	It("can update meta object", func() {
 		createObjectA()
 		updatedMetaDescription := metaDescriptionA.Clone()
@@ -130,6 +135,27 @@ var _ = Describe("PG meta test", func() {
 		Expect(retrievedMetaDescription).NotTo(BeNil())
 		Expect(retrievedMetaDescription.Fields).To(HaveLen(3))
 		Expect(retrievedMetaDescription).To(Equal(updatedMetaDescription))
+	})
+
+	It("can rename meta object", func() {
+		createObjectA()
+		updatedMetaDescription := metaDescriptionA.Clone()
+		updatedMetaDescription.Name = testObjCName
+
+		_, err := metaDescriptionSyncer.Update(testObjAName, *updatedMetaDescription)
+		Expect(err).To(BeNil())
+
+		notExistingMetaDescription, _, err := metaDescriptionSyncer.Get(testObjAName)
+		Expect(err).NotTo(BeNil())
+		Expect(notExistingMetaDescription).To(BeNil())
+
+		retrievedMetaDescription, _, err := metaDescriptionSyncer.Get(testObjCName)
+		Expect(err).To(BeNil())
+		Expect(retrievedMetaDescription).NotTo(BeNil())
+
+		Expect(retrievedMetaDescription).NotTo(BeNil())
+		Expect(retrievedMetaDescription.Fields).To(HaveLen(2))
+		Expect(retrievedMetaDescription.Fields).To(Equal(metaDescriptionA.Fields))
 	})
 
 	It("can get list of meta objects", func() {
