@@ -195,14 +195,14 @@ var _ = Describe("ABAC rules handling", func() {
 					ABAC: map[string]interface{}{
 						"_default_resolution": "allow",
 						SERVICE_DOMAIN: map[string]interface{}{
-							"a": map[string]interface{}{
+							testObjName: map[string]interface{}{
 								"data_GET": []interface{}{
 									map[string]interface{}{
-										"result": "allow",
+										"result": "deny",
 										"rule": map[string]interface{}{
 											"sbj.role.id": map[string]interface{}{
 												"not": map[string]interface{}{
-													"in": []interface{}{"admin", "manager"}},
+													"in": []interface{}{"manager", "admin"}},
 											},
 										},
 									},
@@ -215,7 +215,7 @@ var _ = Describe("ABAC rules handling", func() {
 				httpServer = get_server(user)
 				factoryObjectA()
 
-				url := fmt.Sprintf("%s/data/a", appConfig.UrlPrefix)
+				url := fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, testObjName)
 
 				var request, _ = http.NewRequest("GET", url, nil)
 				httpServer.Handler.ServeHTTP(recorder, request)
