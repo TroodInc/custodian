@@ -192,24 +192,29 @@ var _ = Describe("ABAC rules handling", func() {
 			It("NOT IN can work together", func() {
 				user = &auth.User{
 					Role: abac.JsonToObject(`{"id": "admin"}`),
-					ABAC: map[string]interface{}{
+					ABAC: abac.JsonToObject(fmt.Sprintf(`
+					{
 						"_default_resolution": "allow",
-						SERVICE_DOMAIN: map[string]interface{}{
-							testObjName: map[string]interface{}{
-								"data_GET": []interface{}{
-									map[string]interface{}{
+						"%s": {
+							"%s": {
+								"data_GET": [
+									{
 										"result": "deny",
-										"rule": map[string]interface{}{
-											"sbj.role.id": map[string]interface{}{
-												"not": map[string]interface{}{
-													"in": []interface{}{"manager", "admin"}},
-											},
-										},
-									},
-								},
-							},
-						},
-					},
+										"rule": {
+											"sbj.role.id": {
+												"not": {
+													"in": [
+														"manager",
+														"admin"
+													]
+												}
+											}
+										}
+									}
+								]
+							}
+						}
+					}`, SERVICE_DOMAIN, testObjName)),
 				}
 
 				httpServer = get_server(user)
