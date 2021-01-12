@@ -1,24 +1,24 @@
 package server_test
 
 import (
+	"bytes"
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/pg"
+	"custodian/utils"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"fmt"
-	"net/http/httptest"
-	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/server/auth"
-	"bytes"
-	"encoding/json"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
 
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
 	"custodian/server"
 	"custodian/server/data/record"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/transactions"
 )
 
 var _ = Describe("Server", func() {
@@ -30,11 +30,10 @@ var _ = Describe("Server", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
@@ -207,7 +206,7 @@ var _ = Describe("Server", func() {
 
 		It("must set id sequence properly after creating records with forced Id's", func() {
 			createData := map[string]interface{}{
-				"id": 777,
+				"id":   777,
 				"name": "B record name",
 				"a":    aRecord.Data["id"],
 			}

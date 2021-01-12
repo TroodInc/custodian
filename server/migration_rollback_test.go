@@ -1,24 +1,24 @@
 package server_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"net/http"
-	"net/http/httptest"
 	"custodian/server/pg"
 	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
+	"net/http"
+	"net/http/httptest"
 
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"custodian/server"
 	"custodian/server/object/description"
+	"custodian/server/object/meta"
 	"custodian/server/pg/migrations/managers"
+	"custodian/server/transactions"
 
+	"bytes"
 	migrations_description "custodian/server/migrations/description"
 	"encoding/json"
 	"fmt"
-	"bytes"
 )
 
 var _ = Describe("Rollback migrations", func() {
@@ -29,11 +29,10 @@ var _ = Describe("Rollback migrations", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
@@ -86,7 +85,7 @@ var _ = Describe("Rollback migrations", func() {
 				Id:        "1",
 				ApplyTo:   "",
 				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
 						Type:            migrations_description.CreateObjectOperation,
 						MetaDescription: aMetaDescription,
@@ -118,7 +117,7 @@ var _ = Describe("Rollback migrations", func() {
 					Id:        "2",
 					ApplyTo:   aMetaDescription.Name,
 					DependsOn: []string{firstAppliedMigrationDescription.Id},
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -150,7 +149,7 @@ var _ = Describe("Rollback migrations", func() {
 						Id:        "3",
 						ApplyTo:   aMetaDescription.Name,
 						DependsOn: []string{secondAppliedMigrationDescription.Id},
-						Operations: [] migrations_description.MigrationOperationDescription{
+						Operations: []migrations_description.MigrationOperationDescription{
 							{
 								Type:  migrations_description.UpdateFieldOperation,
 								Field: &migrations_description.MigrationFieldDescription{Field: field, PreviousName: "title"},

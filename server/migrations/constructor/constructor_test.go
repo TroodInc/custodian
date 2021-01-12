@@ -1,18 +1,18 @@
 package constructor
 
 import (
+	"custodian/server/errors"
+	"custodian/server/migrations"
+	migration_description "custodian/server/migrations/description"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/pg/migrations/managers"
+	"custodian/server/transactions"
+	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/errors"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
-	"custodian/server/pg/migrations/managers"
-	migration_description "custodian/server/migrations/description"
-	"custodian/server/migrations"
 )
 
 var _ = Describe("Migration Constructor", func() {
@@ -21,21 +21,20 @@ var _ = Describe("Migration Constructor", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
-	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer,appConfig.MigrationStoragePath, globalTransactionManager))
+	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager))
 
 	flushDb := func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	}
 	testObjAName := utils.RandomString(8)
-
 
 	AfterEach(flushDb)
 

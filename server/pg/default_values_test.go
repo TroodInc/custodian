@@ -4,15 +4,14 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"custodian/server/pg"
-	"custodian/server/data"
 	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/pg"
 	"custodian/utils"
 
-	"custodian/server/transactions/file_transaction"
+	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
-	"custodian/server/object/description"
 )
 
 var _ = Describe("PG MetaStore test", func() {
@@ -21,11 +20,10 @@ var _ = Describe("PG MetaStore test", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
@@ -79,7 +77,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true, )
+			_, err = metaStore.Update(metaObj.Name, metaObj, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {

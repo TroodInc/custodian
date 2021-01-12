@@ -1,16 +1,16 @@
 package object
 
 import (
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/utils"
+	"database/sql"
 	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
-	"database/sql"
 )
 
 var _ = Describe("The PG MetaStore", func() {
@@ -19,11 +19,10 @@ var _ = Describe("The PG MetaStore", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
@@ -48,7 +47,7 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
-		It("can remove object without leaving orphan outer links", func() {
+	It("can remove object without leaving orphan outer links", func() {
 		Context("having two objects with mutual links", func() {
 			aMetaDescription := GetBaseMetaData(utils.RandomString(8))
 			aMeta, err := metaStore.NewMeta(aMetaDescription)

@@ -1,17 +1,17 @@
 package data_test
 
 import (
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/utils"
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/object/meta"
-	"custodian/server/object/description"
-	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/server/auth"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"fmt"
 )
 
 var _ = Describe("Create test", func() {
@@ -20,10 +20,10 @@ var _ = Describe("Create test", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)

@@ -5,23 +5,26 @@ import (
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
 	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"github.com/Q-CIS-DEV/go-rql-parser"
+	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 
 	"custodian/server/data"
 )
 
-var _ = Describe("RQL test", func(){
+var _ = Describe("RQL test", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer,transactions.NewGlobalTransactionManager(nil, nil) )
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
+
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	metaDescription := description.MetaDescription{
 		Name: "test",
@@ -43,7 +46,6 @@ var _ = Describe("RQL test", func(){
 		},
 	}
 	meta, _ := metaStore.NewMeta(&metaDescription)
-
 
 	dataNode := &data.Node{
 		KeyField:   meta.Key,

@@ -1,17 +1,17 @@
 package pg_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"custodian/server/pg"
 	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
 
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
-	"custodian/server/object/description"
-	"custodian/server/data"
-	"custodian/server/auth"
 )
 
 var _ = Describe("Store", func() {
@@ -20,10 +20,10 @@ var _ = Describe("Store", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
+
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
@@ -120,16 +120,16 @@ var _ = Describe("Store", func() {
 			Cas:  false,
 			Fields: []description.Field{
 				{
-					Name: "id",
-					Type: description.FieldTypeNumber,
-					Def: map[string]interface{}{"func": "nextval"},
+					Name:     "id",
+					Type:     description.FieldTypeNumber,
+					Def:      map[string]interface{}{"func": "nextval"},
 					Optional: true,
 				}, {
 					Name:     "owner",
 					Type:     description.FieldTypeNumber,
 					Optional: true,
-					Def: map[string]interface{}{"func": "owner"},
-				},{
+					Def:      map[string]interface{}{"func": "owner"},
+				}, {
 					Name:     "name",
 					Type:     description.FieldTypeString,
 					Optional: false,
@@ -150,8 +150,8 @@ var _ = Describe("Store", func() {
 					Def:      map[string]interface{}{"func": "nextval"},
 					Optional: true,
 				}, {
-					Name: "child",
-					Type: description.FieldTypeObject,
+					Name:     "child",
+					Type:     description.FieldTypeObject,
 					LinkMeta: childMeta.Name,
 					LinkType: description.LinkTypeInner,
 				},

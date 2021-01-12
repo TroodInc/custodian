@@ -1,14 +1,14 @@
 package action
 
 import (
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
 )
 
 var _ = Describe("'UpdateAction' Migration Operation", func() {
@@ -17,11 +17,10 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
@@ -45,9 +44,9 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 			},
 			Actions: []description.Action{
 				{Name: "new_action",
-					Method: description.MethodCreate,
+					Method:   description.MethodCreate,
 					Protocol: description.REST,
-					Args: []string{"http://localhost:3000/some-handler"},
+					Args:     []string{"http://localhost:3000/some-handler"},
 				},
 			},
 		}

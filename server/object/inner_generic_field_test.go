@@ -1,15 +1,15 @@
 package object
 
 import (
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/utils"
+	"database/sql"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"database/sql"
-	"custodian/server/object/description"
 )
 
 var _ = Describe("Inner generic field", func() {
@@ -18,18 +18,15 @@ var _ = Describe("Inner generic field", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
-
 
 	It("can create object with inner generic field", func() {
 		By("having two objects: A and B")
@@ -154,7 +151,7 @@ var _ = Describe("Inner generic field", func() {
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
-		cMetaDescription :=  GetBaseMetaData(utils.RandomString(8))
+		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
 			Name:         "target",
 			Type:         description.FieldTypeGeneric,
@@ -187,7 +184,7 @@ var _ = Describe("Inner generic field", func() {
 
 		By("and object C, containing generic inner field")
 
-		cMetaDescription :=  GetBaseMetaData(utils.RandomString(8))
+		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
 			Name:         "target",
 			Type:         description.FieldTypeGeneric,
@@ -211,19 +208,19 @@ var _ = Describe("Inner generic field", func() {
 
 	It("can create object with inner generic field", func() {
 		By("having two objects: A and B")
-		aMetaObj, err := metaStore.NewMeta( GetBaseMetaData(utils.RandomString(8)))
+		aMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaObj, err := metaStore.NewMeta( GetBaseMetaData(utils.RandomString(8)))
+		bMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and object C, containing generic inner field")
 
-		cMetaDescription :=  GetBaseMetaData(utils.RandomString(8))
+		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
 			Name:         "target",
 			Type:         description.FieldTypeGeneric,
@@ -242,7 +239,7 @@ var _ = Describe("Inner generic field", func() {
 		Expect(aMeta.Fields).To(HaveLen(2))
 
 		By("removing object A from object`s C LinkMetaList")
-		cMetaDescription =  GetBaseMetaData(cMetaDescription.Name)
+		cMetaDescription = GetBaseMetaData(cMetaDescription.Name)
 		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
 			Name:         "target",
 			Type:         description.FieldTypeGeneric,
