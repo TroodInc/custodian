@@ -2,26 +2,27 @@ package server_test
 
 import (
 	"custodian/server/abac"
+	"custodian/server/pg"
+	"net/http"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"custodian/server/pg"
 
-	"custodian/utils"
 	"custodian/server/object/meta"
 	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 
-	"custodian/server/transactions"
-	"net/http/httptest"
+	"bytes"
 	"custodian/server"
 	"custodian/server/auth"
 	"custodian/server/data"
+	"custodian/server/data/record"
 	"custodian/server/object/description"
+	"custodian/server/transactions"
 	"encoding/json"
 	"fmt"
+	"net/http/httptest"
 	"os"
-	"bytes"
-	"custodian/server/data/record"
 )
 
 const SERVICE_DOMAIN = "custodian"
@@ -52,7 +53,6 @@ var _ = Describe("ABAC rules handling", func() {
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
@@ -91,10 +91,10 @@ var _ = Describe("ABAC rules handling", func() {
 					Optional: true,
 				},
 				{
-					Name:	  "color",
-					Type:	  description.FieldTypeString,
+					Name:     "color",
+					Type:     description.FieldTypeString,
 					Optional: true,
-					Def: 	  "red",
+					Def:      "red",
 				},
 			},
 		}
@@ -185,6 +185,50 @@ var _ = Describe("ABAC rules handling", func() {
 				var body map[string]interface{}
 				json.Unmarshal([]byte(responseBody), &body)
 				Expect(body["status"].(string)).To(Equal("FAIL"))
+			})
+		})
+
+		Context("NOT IN can work together", func() {
+			It("NOT IN can work together", func() {
+				user = &auth.User{
+					Role: abac.JsonToObject(`{"id": "admin"}`),
+					ABAC: abac.JsonToObject(fmt.Sprintf(`
+					{
+						"_default_resolution": "allow",
+						"%s": {
+							"%s": {
+								"data_GET": [
+									{
+										"result": "deny",
+										"rule": {
+											"sbj.role.id": {
+												"not": {
+													"in": [
+														"manager",
+														"admin"
+													]
+												}
+											}
+										}
+									}
+								]
+							}
+						}
+					}`, SERVICE_DOMAIN, testObjName)),
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, testObjName)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
 			})
 		})
 
@@ -475,16 +519,16 @@ var _ = Describe("ABAC rules handling", func() {
 								"rule": map[string]interface{}{
 									"sbj.role.id": "admin",
 								},
-							},map[string]interface{}{
+							}, map[string]interface{}{
 								"result": "deny",
 								"rule": map[string]interface{}{
 									"sbj.role.id": "disabled",
 								},
-							},map[string]interface{} {
+							}, map[string]interface{}{
 								"result": "deny",
 								"rule": map[string]interface{}{
 									"sbj.role.id": "restricted",
-									"obj.color": "red",
+									"obj.color":   "red",
 								},
 							},
 						},
@@ -599,7 +643,7 @@ var _ = Describe("ABAC rules handling", func() {
 								"result": "deny",
 								"rule": map[string]interface{}{
 									"sbj.role.id": "user",
-									"obj.color": "red",
+									"obj.color":   "red",
 								},
 							},
 						},
@@ -607,7 +651,7 @@ var _ = Describe("ABAC rules handling", func() {
 				},
 			}
 
-			It("Must show only blue for users", func(){
+			It("Must show only blue for users", func() {
 				user = &auth.User{
 					Role: abac.JsonToObject(`{"id": "user"}`), ABAC: abac_tree,
 				}
