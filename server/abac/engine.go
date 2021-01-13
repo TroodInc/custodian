@@ -3,6 +3,7 @@ package abac
 import (
 	"custodian/server/data/record"
 	"custodian/server/object/description"
+	"fmt"
 	"strings"
 )
 
@@ -115,23 +116,7 @@ func (abac *TroodABAC) evaluateCondition(condition map[string]interface{}) (bool
 
 		operand, value, isFilter := abac.reveal(operand, value)
 
-		var flt *FilterExpression
-		result := true
-		if isFilter {
-			flt = makeFilter(operator, operand.(string), value)
-		} else {
-			if operatorFunc, ok := operations[operator]; ok {
-				result, _ = operatorFunc(operand, value)
-			}
-
-			if operatorFunc, ok := aggregation[operator]; ok {
-				if operator == inOperator {
-					result, flt = operatorFunc(value.([]interface{}), operand)
-				} else {
-					result, flt = operatorFunc(value.([]interface{}), abac)
-				}
-			}
-		}
+		result, flt := evaluateExpression(isFilter, operator, operand, value, abac)
 		totalResult = totalResult && result
 
 		if flt != nil {
@@ -258,8 +243,38 @@ func operatorExact(operand interface{}, value interface{}) (bool, interface{}) {
 	return cleanupType(operand) == cleanupType(value), nil
 }
 
+func evaluateExpression(isFilter bool, operator string, operand interface{}, value interface{}, abac *TroodABAC) (bool, *FilterExpression) {
+	var flt *FilterExpression
+	result := true
+	if isFilter {
+		flt = makeFilter(operator, operand.(string), value)
+	} else {
+		if operatorFunc, ok := operations[operator]; ok {
+			result, _ = operatorFunc(operand, value)
+		}
+
+		if operatorFunc, ok := aggregation[operator]; ok {
+			if operator == inOperator {
+				result, flt = operatorFunc(value.([]interface{}), operand)
+			} else {
+				result, flt = operatorFunc(value.([]interface{}), abac)
+			}
+		}
+	}
+	return result, flt
+}
+
 func operatorNot(operand interface{}, value interface{}) (bool, interface{}) {
-	return operand != value, nil
+	if fmt.Sprintf("%T", value) == "string" {
+		return operand != value, nil
+	} else {
+		var operator string
+		for operator, value = range value.(map[string]interface{}) {
+			break
+		}
+		result, flt := evaluateExpression(false, operator, operand, value, &TroodABAC{})
+		return !result, flt
+	}
 }
 
 func operatorIn(value []interface{}, operand interface{}) (bool, *FilterExpression) {
