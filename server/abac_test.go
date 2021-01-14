@@ -186,6 +186,50 @@ var _ = Describe("ABAC rules handling", func() {
 			})
 		})
 
+		Context("NOT IN can work together", func() {
+			It("NOT IN can work together", func() {
+				user = &auth.User{
+					Role: abac.JsonToObject(`{"id": "admin"}`),
+					ABAC: abac.JsonToObject(fmt.Sprintf(`
+					{
+						"_default_resolution": "allow",
+						"%s": {
+							"%s": {
+								"data_GET": [
+									{
+										"result": "deny",
+										"rule": {
+											"sbj.role.id": {
+												"not": {
+													"in": [
+														"manager",
+														"admin"
+													]
+												}
+											}
+										}
+									}
+								]
+							}
+						}
+					}`, SERVICE_DOMAIN, testObjName)),
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, testObjName)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+			})
+		})
+
 		Context("Meta & Wildcard rules", func() {
 			It("Must allow meta list with ACTION rule set", func() {
 				user.Role = abac.JsonToObject(`{"id": "manager"}`)
