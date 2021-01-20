@@ -9,7 +9,6 @@ import (
 	"custodian/server/data"
 	"custodian/utils"
 	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/auth"
 )
@@ -21,10 +20,11 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -33,9 +33,13 @@ var _ = Describe("Data", func() {
 	})
 
 	Describe("Data retrieve depending on outer link modes values", func() {
+
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+
 		havingObjectA := func() *meta.Meta {
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -58,7 +62,7 @@ var _ = Describe("Data", func() {
 
 		havingObjectBLinkedToA := func() *meta.Meta {
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -71,10 +75,10 @@ var _ = Describe("Data", func() {
 						Optional: true,
 					},
 					{
-						Name:     "a",
+						Name:     testObjAName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 						Optional: false,
 					},
 				},
@@ -88,7 +92,7 @@ var _ = Describe("Data", func() {
 
 		havingObjectAWithManuallySpecifiedOuterLinkToB := func() *meta.Meta {
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -104,8 +108,8 @@ var _ = Describe("Data", func() {
 						Name:           "b_set",
 						Type:           description.FieldTypeArray,
 						LinkType:       description.LinkTypeOuter,
-						LinkMeta:       "b",
-						OuterLinkField: "a",
+						LinkMeta:       testObjBName,
+						OuterLinkField: testObjAName,
 						Optional:       true,
 					},
 				},

@@ -7,7 +7,6 @@ import (
 	"custodian/utils"
 	"custodian/server/object/meta"
 	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/object/description"
 )
@@ -19,9 +18,10 @@ var _ = Describe("Outer generic field", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

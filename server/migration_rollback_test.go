@@ -10,7 +10,6 @@ import (
 	"custodian/server/transactions/file_transaction"
 
 	"custodian/server/object/meta"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server"
 	"custodian/server/object/description"
@@ -25,17 +24,17 @@ import (
 var _ = Describe("Rollback migrations", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
 	)
@@ -65,9 +64,10 @@ var _ = Describe("Rollback migrations", func() {
 			//Create object A by applying a migration
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 			Expect(err).To(BeNil())
+			testObjAName := utils.RandomString(8)
 
 			aMetaDescription = description.NewMetaDescription(
-				"a",
+				testObjAName,
 				"id",
 				[]description.Field{
 					{

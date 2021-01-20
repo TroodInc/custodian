@@ -7,7 +7,6 @@ import (
 	"custodian/utils"
 	"custodian/server/object/meta"
 	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/object/description"
 )
@@ -15,12 +14,13 @@ import (
 var _ = Describe("'CreateObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
@@ -31,11 +31,12 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
+	testObjAName := utils.RandomString(8)
 
 	//setup MetaDescription
 	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -53,10 +54,8 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 	It("stores MetaDescription to file", func() {
 
 		operation := CreateObjectOperation{MetaDescription: metaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaDescription, err := operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file

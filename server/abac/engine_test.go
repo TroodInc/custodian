@@ -7,7 +7,6 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
@@ -211,10 +210,11 @@ var _ = Describe("Abac Engine", func() {
 		dataManager, _ := syncer.NewDataManager()
 		//transaction managers
 		fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-		dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+		metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 		globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-		metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+		metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 		abacTree := JsonToObject(`{

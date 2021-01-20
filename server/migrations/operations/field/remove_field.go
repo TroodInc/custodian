@@ -3,7 +3,6 @@ package field
 import (
 	"custodian/server/errors"
 	"custodian/server/object/meta"
-	"custodian/server/transactions"
 	"custodian/server/migrations"
 	"fmt"
 	"custodian/server/object/description"
@@ -13,7 +12,7 @@ type RemoveFieldOperation struct {
 	Field *description.Field
 }
 
-func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+func (o *RemoveFieldOperation) SyncMetaDescription(metaDescription *description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
 	updatedMetaDescription := metaDescription.Clone()
 	if err := o.validate(updatedMetaDescription); err != nil {
 		return nil, err

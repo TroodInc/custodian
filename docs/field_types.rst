@@ -104,16 +104,73 @@ Field description example:
 
 Object
 ------
+Denotes a "one-to-many" relation.
+
+When using any type with some sort of relation you should provide following fields.
+"linkMeta" or "linkMetaList" are used to denote the name of the object with which this object is related.
+"linkType" is used to denote the type of relation. It can be either "inner" (refers to the internal object, on which this object depends) or "outer" (refers to an external, dependent object).
+And if your "linkType" is "outer", you should provide "outerLinkField" field which is used as an attribute of an external object that contains the identifiers of that object.
+
+Field description example:
+
+.. code-block:: json
+
+    {
+        "name": "person",
+        "type": "object",
+        "optional": false,
+        "linkMeta": "person",
+        "linkType": "inner",
+        "onDelete": "cascade"
+    }
 
 
 Generic
 -------
+Denotes a "one to many" relation, indicating many types of objects with which a relation is established.
+
+Field description example:
+
+.. code-block:: json
+
+    {
+        "name": "person",
+        "type": "generic",
+        "linkType": "inner",
+        "optional": false,
+        "linkMetaList": ["employee", "client"],
+    }
 
 
 Array
 -----
+Denotes a "many-to-one" relation.
 
+Field description example:
+
+.. code-block:: json
+
+    {
+        "name": "addresses",
+        "type": "array",
+        "optional": true,
+        "linkMeta": "address",
+        "outerLinkField": "person",
+        "linkType": "outer"
+    }
 
 Objects
 ------
+Denotes a "many-to-many" relation.
 
+Field description example:
+
+.. code-block:: json
+
+    {
+        "name": "managers",
+        "type": "objects",
+        "optional": true,
+        "linkMeta": "address",
+        "linkType": "inner"
+    }
