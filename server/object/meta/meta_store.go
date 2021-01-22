@@ -124,15 +124,15 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 		metaStore.processInnerLinksRemoval(currentMetaObj, newMetaObj)
 		metaStore.processGenericInnerLinksRemoval(currentMetaObj, newMetaObj)
 
-		ok, e := metaStore.MetaDescriptionSyncer.Update(name, *newMetaObj.MetaDescription)
-
-		if e != nil || !ok {
-			return ok, e
-		}
 
 		if updateError := metaStore.Syncer.UpdateObj(metaStore.globalTransactionManager, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(currentMetaObj, newMetaObj)
+
+			ok, e := metaStore.MetaDescriptionSyncer.Update(name, *newMetaObj.MetaDescription)
+			if e != nil || !ok {
+				return ok, e
+			}
 
 			//add corresponding outer field
 			metaStore.addReversedOuterFields(currentMetaObj, newMetaObj)
