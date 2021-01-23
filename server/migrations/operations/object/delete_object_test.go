@@ -7,7 +7,6 @@ import (
 	"custodian/utils"
 	"custodian/server/object/meta"
 	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
 	"custodian/server/object/description"
 )
@@ -15,22 +14,24 @@ import (
 var _ = Describe("'DeleteObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
+	testObjAName := utils.RandomString(8)
 
 
 	//setup MetaDescription
 	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -46,10 +47,8 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 
 		//factory new MetaDescription
 		//sync its MetaDescription
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		err := metaDescriptionSyncer.Create(globalTransaction.MetaDescriptionTransaction, *metaDescription)
+		err := metaDescriptionSyncer.Create(*metaDescription)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup teardown
@@ -61,10 +60,8 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	It("removes MetaDescription`s file", func() {
 		operation := DeleteObjectOperation{}
 		metaName := metaDescription.Name
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		metaObj, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaObj, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaObj).To(BeNil())
 
 		//ensure meta`s file has been removed

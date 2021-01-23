@@ -40,7 +40,7 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 	return &meta, true, nil
 }
 
-func (dm *DbMetaDescriptionSyncer) Create(transaction transactions.MetaDescriptionTransaction, m description.MetaDescription) error {
+func (dm *DbMetaDescriptionSyncer) Create(m description.MetaDescription) error {
 	return nil
 }
 

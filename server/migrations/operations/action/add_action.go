@@ -13,7 +13,7 @@ type AddActionOperation struct {
 	Action *meta_description.Action
 }
 
-func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 	if err := o.validate(metaDescriptionToApply); err != nil {
 		return nil, err

@@ -60,8 +60,7 @@ func (syncer *Syncer) NewDataManager() (*DataManager, error) {
 	return NewDataManager(syncer.db)
 }
 
-func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) error {
-	tx := transaction.Transaction().(*sql.Tx)
+func (syncer *Syncer) CreateObj(globalTransactionManager *transactions.GlobalTransactionManager, metaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) error {
 	var md *MetaDDL
 	var e error
 	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
@@ -72,41 +71,59 @@ func (syncer *Syncer) CreateObj(transaction transactions.DbTransaction, metaDesc
 	if ds, e = md.CreateScript(); e != nil {
 		return e
 	}
+	transaction, err := globalTransactionManager.BeginTransaction(nil)
+	if err != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
+		return nil
+	}
+	tx := transaction.DbTransaction.Transaction().(*sql.Tx)
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
+			globalTransactionManager.RollbackTransaction(transaction)
 			return errors.NewValidationError(ErrExecutingDDL, e.Error(), nil)
 		}
 	}
+	globalTransactionManager.CommitTransaction(transaction)
 	return nil
 }
 
-func (syncer *Syncer) RemoveObj(transaction transactions.DbTransaction, name string, force bool) error {
-	tx := transaction.(*PgTransaction)
+func (syncer *Syncer) RemoveObj(globalTransactionManager *transactions.GlobalTransactionManager, name string, force bool) error {
+	transaction, err := globalTransactionManager.BeginTransaction(nil)
+	if err != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
+		return err
+	}
+	tx := transaction.DbTransaction.Transaction().(*sql.Tx)
 	var metaDdlFromDb *MetaDDL
 	var e error
-	if metaDdlFromDb, e = MetaDDLFromDB(tx.Tx, name); e != nil {
+	if metaDdlFromDb, e = MetaDDLFromDB(tx, name); e != nil {
 		if e.(*DDLError).code == ErrNotFound {
+			globalTransactionManager.RollbackTransaction(transaction)
 			return nil
 		}
+		globalTransactionManager.RollbackTransaction(transaction)
 		return e
 	}
 	var ds DdlStatementSet
 	if ds, e = metaDdlFromDb.DropScript(force); e != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
 		return e
 	}
 	for _, st := range ds {
 		logger.Debug("Removing object from DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
+			globalTransactionManager.RollbackTransaction(transaction)
 			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
 		}
 	}
+	globalTransactionManager.CommitTransaction(transaction)
+
 	return nil
 }
 
 //UpdateRecord an existing business object
-func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentMetaDescription *description.MetaDescription, newMetaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) error {
-	tx := transaction.(*PgTransaction)
+func (syncer *Syncer) UpdateObj(globalTransactionManager *transactions.GlobalTransactionManager, currentMetaDescription *description.MetaDescription, newMetaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) error {
 	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
 	var err error
 
@@ -126,11 +143,18 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentM
 	if ddlStatements, err = metaDdlDiff.Script(); err != nil {
 		return err
 	}
+	transaction, err := globalTransactionManager.BeginTransaction(nil)
+	if err != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
+		return err
+	}
+	tx := transaction.DbTransaction.Transaction().(*sql.Tx)
 	for _, ddlStatement := range ddlStatements {
 		logger.Debug("Updating object in DB: %s\n", ddlStatement.Code)
 		if _, e := tx.Exec(ddlStatement.Code); e != nil {
 			// TODO: Postgres error must return column field
 			// TOFIX: https://github.com/postgres/postgres/blob/14751c340754af9f906a893eb87a894dea3adbc9/src/backend/commands/tablecmds.c#L10539
+			globalTransactionManager.RollbackTransaction(transaction)
 			var data map[string]interface{}
 			if e.(*pq.Error).Code == "42804" {
 				matched := regexp.MustCompile(`column "(.*)"`).FindAllStringSubmatch(e.(*pq.Error).Message, -1)
@@ -141,6 +165,7 @@ func (syncer *Syncer) UpdateObj(transaction transactions.DbTransaction, currentM
 			return errors.NewValidationError(ErrExecutingDDL, e.Error(), data)
 		}
 	}
+	globalTransactionManager.CommitTransaction(transaction)
 	return nil
 }
 

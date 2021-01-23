@@ -1,20 +1,20 @@
 package data_test
 
 import (
-	"custodian/server/pg/migrations/operations/object"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/server/data"
 	"custodian/server/auth"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions"
-	"custodian/server/object/meta"
+	"custodian/server/data"
 	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/transactions"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 	"fmt"
 	"strconv"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Data", func() {
@@ -24,11 +24,11 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -41,7 +41,7 @@ var _ = Describe("Data", func() {
 	It("can query records by date field", func() {
 		Context("having an object with date field", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: utils.RandomString(8),
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -80,8 +80,11 @@ var _ = Describe("Data", func() {
 
 	It("can query records by string PK value", func() {
 		Context("having an A object with string PK field", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
+
 			metaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -108,7 +111,7 @@ var _ = Describe("Data", func() {
 			By("having another object, containing A object as a link")
 
 			metaDescription = description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -118,10 +121,10 @@ var _ = Describe("Data", func() {
 						Optional: false,
 					},
 					{
-						Name:     "a",
+						Name:     testObjAName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 						Optional: true,
 					},
 				},
@@ -132,11 +135,11 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			By("having a record of B object")
-			_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"id": "id", "a": "PKVALUE"}, auth.User{})
+			_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"id": "id", testObjAName: "PKVALUE"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			Context("query by PK returns correct result", func() {
-				_, matchedRecords, _ := dataProcessor.GetBulk(bMetaObj.Name, "eq(a,PKVALUE)", nil, nil, 1, false)
+				_, matchedRecords, _ := dataProcessor.GetBulk(bMetaObj.Name, fmt.Sprintf("eq(%s,PKVALUE)", testObjAName), nil, nil, 1, false)
 				Expect(matchedRecords).To(HaveLen(1))
 				Expect(matchedRecords[0].Data["id"]).To(Equal("id"))
 			})
@@ -147,7 +150,7 @@ var _ = Describe("Data", func() {
 	It("can query records by datetime field", func() {
 		Context("having an object with datetime field", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: utils.RandomString(8),
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -187,7 +190,7 @@ var _ = Describe("Data", func() {
 	It("can query records by time field", func() {
 		Context("having an object with datetime field", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: utils.RandomString(8),
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -226,7 +229,7 @@ var _ = Describe("Data", func() {
 	It("can query records by multiple ids", func() {
 		Context("having an object", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: utils.RandomString(8),
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -270,7 +273,7 @@ var _ = Describe("Data", func() {
 	It("can query with 'in' expression by single value", func() {
 		Context("having an object", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: utils.RandomString(8),
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -304,7 +307,7 @@ var _ = Describe("Data", func() {
 
 		Context("having an object with string field", func() {
 			metaDescription := description.MetaDescription{
-				Name: "order",
+				Name: utils.RandomString(8),
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -445,8 +448,11 @@ var _ = Describe("Data", func() {
 
 	It("can query records by related record`s attribute", func() {
 		Context("having an object A", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
+
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -469,7 +475,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(aMetaObj)
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -482,10 +488,10 @@ var _ = Describe("Data", func() {
 						},
 					},
 					{
-						Name:     "a",
+						Name:     testObjAName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 					},
 				},
 			}
@@ -504,14 +510,14 @@ var _ = Describe("Data", func() {
 
 			By("and two records of object B, each has link to object A")
 
-			bRecordOne, err := dataProcessor.CreateRecord(bMetaDescription.Name, map[string]interface{}{"a": aRecordOne.Data["id"]}, auth.User{})
+			bRecordOne, err := dataProcessor.CreateRecord(bMetaDescription.Name, map[string]interface{}{testObjAName: aRecordOne.Data["id"]}, auth.User{})
 			Expect(err).To(BeNil())
 
-			_, err = dataProcessor.CreateRecord(bMetaDescription.Name, map[string]interface{}{"a": aRecordTwo.Data["id"]}, auth.User{})
+			_, err = dataProcessor.CreateRecord(bMetaDescription.Name, map[string]interface{}{testObjAName: aRecordTwo.Data["id"]}, auth.User{})
 			Expect(err).To(BeNil())
 
 			Context("query by a`s attribute returns correct result", func() {
-				query := fmt.Sprintf("eq(a.name,%s)", aRecordOne.Data["name"])
+				query := fmt.Sprintf("eq(%s.name,%s)", testObjAName, aRecordOne.Data["name"])
 				_, matchedRecords, err := dataProcessor.GetBulk(bMetaObj.Name, query, nil, nil, 1, false)
 				Expect(err).To(BeNil())
 				Expect(matchedRecords).To(HaveLen(1))
@@ -523,8 +529,11 @@ var _ = Describe("Data", func() {
 
 	It("can retrieve records with null inner link value", func() {
 		Context("having an object A", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
+
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -547,7 +556,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(aMetaObj)
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -560,10 +569,10 @@ var _ = Describe("Data", func() {
 						},
 					},
 					{
-						Name:     "a",
+						Name:     testObjAName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 						Optional: true,
 					},
 				},
@@ -583,16 +592,20 @@ var _ = Describe("Data", func() {
 				_, matchedRecords, err := dataProcessor.GetBulk(bMetaObj.Name, query, nil, nil, 1, false)
 				Expect(err).To(BeNil())
 				Expect(matchedRecords).To(HaveLen(1))
-				Expect(matchedRecords[0].Data).To(HaveKey("a"))
-				Expect(matchedRecords[0].Data["a"]).To(BeNil())
+				Expect(matchedRecords[0].Data).To(HaveKey(testObjAName))
+				Expect(matchedRecords[0].Data[testObjAName]).To(BeNil())
 			})
 		})
 	})
 
 	It("can query through 3 related objects", func() {
 		Context("having an object with outer link to another object", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
+			testObjCName := utils.RandomString(8)
+
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -615,7 +628,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(aMetaObj)
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -628,10 +641,10 @@ var _ = Describe("Data", func() {
 						},
 					},
 					{
-						Name:     "a",
+						Name:     testObjAName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 						Optional: false,
 					},
 				},
@@ -641,7 +654,7 @@ var _ = Describe("Data", func() {
 			metaStore.Create(bMetaObj)
 
 			cMetaDescription := description.MetaDescription{
-				Name: "c",
+				Name: testObjCName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -654,10 +667,10 @@ var _ = Describe("Data", func() {
 						},
 					},
 					{
-						Name:     "b",
+						Name:     testObjBName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "b",
+						LinkMeta: testObjBName,
 						Optional: false,
 					},
 				},
@@ -680,10 +693,10 @@ var _ = Describe("Data", func() {
 						},
 					},
 					{
-						Name:     "c",
+						Name:     testObjCName,
 						Type:     description.FieldTypeObject,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "c",
+						LinkMeta: testObjCName,
 						Optional: false,
 					},
 				},
@@ -701,21 +714,21 @@ var _ = Describe("Data", func() {
 
 			bRecord, err := dataProcessor.CreateRecord(
 				bMetaDescription.Name,
-				map[string]interface{}{"a": aRecord.Data["id"]},
+				map[string]interface{}{testObjAName: aRecord.Data["id"]},
 				auth.User{},
 			)
 			Expect(err).To(BeNil())
 
 			cRecord, err := dataProcessor.CreateRecord(
 				cMetaDescription.Name,
-				map[string]interface{}{"b": bRecord.Data["id"]},
+				map[string]interface{}{testObjBName: bRecord.Data["id"]},
 				auth.User{},
 			)
 			Expect(err).To(BeNil())
 
 			dRecord, err := dataProcessor.CreateRecord(
 				dMetaDescription.Name,
-				map[string]interface{}{"c": cRecord.Data["id"]},
+				map[string]interface{}{testObjCName: cRecord.Data["id"]},
 				auth.User{},
 			)
 			Expect(err).To(BeNil())
@@ -723,7 +736,7 @@ var _ = Describe("Data", func() {
 			Context("query by date returns correct result", func() {
 				_, matchedRecords, err := dataProcessor.GetBulk(
 					dMetaDescription.Name,
-					fmt.Sprintf("eq(c.b.a.name,%s)", "Arecord"), nil, nil,
+					fmt.Sprintf("eq(%s.%s.%s.name,%s)", testObjCName, testObjBName, testObjAName, "Arecord"), nil, nil,
 					1,
 					false,
 				)
@@ -735,8 +748,12 @@ var _ = Describe("Data", func() {
 	})
 
 	It("can query through 1 generic and 2 related objects", func() {
+		testObjAName := utils.RandomString(8)
+		testObjBName := utils.RandomString(8)
+		testObjCName := utils.RandomString(8)
+
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -759,7 +776,7 @@ var _ = Describe("Data", func() {
 		metaStore.Create(aMetaObj)
 
 		bMetaDescription := description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -772,10 +789,10 @@ var _ = Describe("Data", func() {
 					},
 				},
 				{
-					Name:     "a",
+					Name:     testObjAName,
 					Type:     description.FieldTypeObject,
 					LinkType: description.LinkTypeInner,
-					LinkMeta: "a",
+					LinkMeta: testObjAName,
 					Optional: false,
 				},
 			},
@@ -785,7 +802,7 @@ var _ = Describe("Data", func() {
 		metaStore.Create(bMetaObj)
 
 		cMetaDescription := description.MetaDescription{
-			Name: "c",
+			Name: testObjCName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -801,7 +818,7 @@ var _ = Describe("Data", func() {
 					Name:         "target_object",
 					Type:         description.FieldTypeGeneric,
 					LinkType:     description.LinkTypeInner,
-					LinkMetaList: []string{"b"},
+					LinkMetaList: []string{testObjBName},
 					Optional:     false,
 				},
 			},
@@ -819,7 +836,7 @@ var _ = Describe("Data", func() {
 
 		bRecord, err := dataProcessor.CreateRecord(
 			bMetaDescription.Name,
-			map[string]interface{}{"a": aRecord.Data["id"]},
+			map[string]interface{}{testObjAName: aRecord.Data["id"]},
 			auth.User{},
 		)
 		Expect(err).To(BeNil())
@@ -834,7 +851,7 @@ var _ = Describe("Data", func() {
 		Context("query by date returns correct result", func() {
 			_, matchedRecords, err := dataProcessor.GetBulk(
 				cMetaDescription.Name,
-				fmt.Sprintf("eq(target_object.b.a.name,%s)", "Arecord"), nil, nil,
+				fmt.Sprintf("eq(target_object.%s.%s.name,%s)", testObjBName, testObjAName, "Arecord"), nil, nil,
 				1,
 				false,
 			)
@@ -845,8 +862,10 @@ var _ = Describe("Data", func() {
 	})
 
 	It("always uses additional ordering by primary key", func() {
+		testObjAName := utils.RandomString(8)
+
 		aMetaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -992,8 +1011,11 @@ var _ = Describe("Data", func() {
 
 	It("can query by 'Objects' field values", func() {
 		Context("having an object with outer link to another object", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
+
 			aMetaDescription := description.MetaDescription{
-				Name: "a",
+				Name: testObjAName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -1017,7 +1039,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			bMetaDescription := description.MetaDescription{
-				Name: "b",
+				Name: testObjBName,
 				Key:  "id",
 				Cas:  false,
 				Fields: []description.Field{
@@ -1033,7 +1055,7 @@ var _ = Describe("Data", func() {
 						Name:     "as",
 						Type:     description.FieldTypeObjects,
 						LinkType: description.LinkTypeInner,
-						LinkMeta: "a",
+						LinkMeta: testObjAName,
 						Optional: true,
 					},
 				},
@@ -1099,7 +1121,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			testRecordName := "H&M"
-			
+
 			aRecordName, err := dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"name": "H&M"}, auth.User{})
 			Expect(err).To(BeNil())
 
@@ -1111,7 +1133,7 @@ var _ = Describe("Data", func() {
 			Expect(matchedRecords[0].Data["name"]).To(Equal(testRecordName))
 
 			testBackslashRecordName := "H\\M"
-			
+
 			backslahRecord, err := dataProcessor.CreateRecord(aMetaDescription.Name, map[string]interface{}{"name": "H\\M"}, auth.User{})
 			Expect(err).To(BeNil())
 
@@ -1123,7 +1145,7 @@ var _ = Describe("Data", func() {
 			Expect(matchedRecords[0].Data["name"]).To(Equal(testBackslashRecordName))
 		})
 	})
-	It("can filter by enum field CamelCase values ", func() {
+	It("can filter by enum field values ", func() {
 		Context("having an object with datetime field", func() {
 			metaDescription := &description.MetaDescription{
 				Name: testObjEnumName,
@@ -1149,11 +1171,12 @@ var _ = Describe("Data", func() {
 			//create MetaDescription
 			operation := object.NewCreateObjectOperation(metaDescription)
 			//sync MetaDescription
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-			metaDescription, err = operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+
+			metaDescription, err := operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//sync DB
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
 			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
