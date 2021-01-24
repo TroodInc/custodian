@@ -16,9 +16,9 @@ var statementsMap = map[string]string{
 	"drop_column":               `ALTER TABLE "{{.Table}}" DROP COLUMN "{{.Column.Name}}";`,
 	"rename_column":             `ALTER TABLE "{{.Table}}" RENAME "{{.CurrentName}}" TO "{{.NewName}}";`,
 	"alter_column_set_null":     `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" {{if not .Column.Optional}} SET {{else}} DROP {{end}} NOT NULL;`,
-	"alter_column_set_default":  `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" {{if .Column.Defval}} SET DEFAULT {{.Column.Defval}}{{if eq .Column.Typ .FieldTypeEnum}}::{{.Table}}_{{.Column.Name}}{{end}}{{else}} DROP DEFAULT {{end}};`,
+	"alter_column_set_default":  `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" {{if .Column.Defval}} SET DEFAULT {{.Column.Defval}}{{if eq .Column.Typ .FieldTypeEnum}}::"{{.Table}}_{{.Column.Name}}"{{end}}{{else}} DROP DEFAULT {{end}};`,
 	"alter_column_drop_default": `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" DROP DEFAULT;`,
-	"alter_column_set_type":     `{{$enum := len .Column.Enum}} ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" SET DATA TYPE {{ if gt $enum 0 }} "{{.Table}}_{{.Column.Name}}" USING ({{.Column.Name}}::text::"{{.Table}}_{{.Column.Name}})" {{else}} {{.Column.Typ.DdlType}} {{end}};`,
+	"alter_column_set_type":     `{{$enum := len .Column.Enum}} ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.Column.Name}}" SET DATA TYPE {{ if gt $enum 0 }} "{{.Table}}_{{.Column.Name}}" USING ("{{.Column.Name}}"::text::"{{.Table}}_{{.Column.Name}})" {{else}} {{.Column.Typ.DdlType}} {{end}};`,
 }
 
 func (csm *ColumnStatementFactory) build(statement string, tableName string, context map[string]interface{}) (*pg.DDLStmt, error) {

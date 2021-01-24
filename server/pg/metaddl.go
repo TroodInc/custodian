@@ -373,7 +373,7 @@ func (cl *Column) addScript(tname string) (*DDLStmt, error) {
 	return &DDLStmt{Name: fmt.Sprintf("add_table_column#%s.%s", tname, cl.Name), Code: buffer.String()}, nil
 }
 
-const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{if eq .dot.Typ .FieldTypeEnum}} "{{.Table}}_{{.dot.Name}}" USING {{.dot.Name}}::text::"{{.Table}}_{{.dot.Name}}"{{else}} {{.dot.Typ.DdlType}} {{end}};`
+const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{if eq .dot.Typ .FieldTypeEnum}} "{{.Table}}_{{.dot.Name}}" USING "{{.dot.Name}}"::text::"{{.Table}}_{{.dot.Name}}"{{else}} {{.dot.Typ.DdlType}} {{end}};`
 const templAlterTableColumnAlterNull = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if not .dot.Optional}} SET {{else}} DROP {{end}} NOT NULL;`
 const templAlterTableColumnAlterDefault = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if .dot.Defval}} SET DEFAULT {{.dot.Defval}} {{else}} DROP DEFAULT {{end}};`
 
