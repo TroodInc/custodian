@@ -35,6 +35,17 @@ func CreateEnumStatement(tableName string, fieldName string, choices description
 	return NewDdlStatement(fmt.Sprintf("add_type#%s_%s ", tableName, fieldName), buffer.String()), nil
 }
 
+func RenameEnumStatement(tableName string, oldColumn string, newColumn string) (*DDLStmt, error) {
+	const renameEnumTemplate = `ALTER TYPE "{{.Table}}_{{.OldColumn}}" RENAME TO "{{.Table}}_{{.NewColumn}}";`
+	var buffer bytes.Buffer
+	context := map[string]interface{}{"Table": tableName, "OldColumn": oldColumn, "NewColumn": newColumn}
+	parsedEnumTemplate := template.Must(template.New("statement").Parse(renameEnumTemplate))
+	if e := parsedEnumTemplate.Execute(&buffer, context); e != nil {
+		return nil, NewDdlError(ErrInternal, e.Error(), tableName)
+	}
+	return NewDdlStatement(fmt.Sprintf("rename_enum#%s_%s ", tableName, oldColumn ), buffer.String()), nil
+}
+
 func DropEnumStatement(tableName string, fieldName string) (*DDLStmt, error) {
 	const dropEnumTemplate = `DROP TYPE IF EXISTS "{{.Table}}_{{.Column}}";`
 	var buffer bytes.Buffer

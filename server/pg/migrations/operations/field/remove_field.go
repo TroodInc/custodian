@@ -69,6 +69,11 @@ func (o *RemoveFieldOperation) addColumnStatements(statementSet *pg.DdlStatement
 			return err
 		}
 		statementSet.Add(statement)
+		statement, err = pg.DropEnumStatement(tableName, column.Name)
+		if err != nil {
+			return err
+		}
+		statementSet.Add(statement)
 	}
 	return nil
 }
