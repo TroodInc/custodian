@@ -34,7 +34,7 @@ func (ds *DdlStatementSet) Add(s *DDLStmt) {
 }
 
 func dbTypeToFieldType(dt string) (description.FieldType, bool) {
-	if strings.HasPrefix(dt, "o_") {
+	if strings.HasPrefix(dt, `"o_`) || strings.HasPrefix(dt, `o_`) {
 		return description.FieldTypeEnum, true
 	}
 	switch dt {
@@ -296,9 +296,9 @@ const (
 		{{ $enum := len .dot.Enum}}
 		
 		"{{.dot.Name}}" 
-		{{ if gt $enum 0 }} {{ .Mtable }}_{{ .dot.Name }} {{ else }} {{ .dot.Typ.DdlType }}{{ end }}
+		{{ if gt $enum 0 }} "{{ .Mtable }}_{{ .dot.Name }}" {{ else }} {{ .dot.Typ.DdlType }}{{ end }}
 		{{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}
-		{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{if eq .dot.Typ 11}}::{{.Mtable}}_{{.dot.Name}}{{end}}{{end}}{{end}}`
+		{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{if eq .dot.Typ 11}}::"{{.Mtable}}_{{.dot.Name}}"{{end}}{{end}}{{end}}`
 	templCreateTableInnerFK = `{{define "ifk"}}
 		CONSTRAINT fk_{{.dot.FromColumn}}_{{.dot.ToTable}}_{{.dot.ToColumn}} 
 		FOREIGN KEY ("{{.dot.FromColumn}}") 
@@ -356,7 +356,7 @@ func (cl *Column) dropScript(tname string) (*DDLStmt, error) {
 }
 
 //DDL add table column template
-const templAddTableColumn = `ALTER TABLE "{{.Table}}" ADD COLUMN "{{.dot.Name}}" {{if eq .dot.Typ .FieldTypeEnum}} {{.Table}}_{{.dot.Name}} {{else}} {{.dot.Typ.DdlType}} {{end}} {{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}};`
+const templAddTableColumn = `ALTER TABLE "{{.Table}}" ADD COLUMN "{{.dot.Name}}" {{if eq .dot.Typ .FieldTypeEnum}} "{{.Table}}_{{.dot.Name}}" {{else}} {{.dot.Typ.DdlType}} {{end}} {{if not .dot.Optional}} NOT NULL{{end}}{{if .dot.Unique}} UNIQUE{{end}}{{if .dot.Defval}} DEFAULT {{.dot.Defval}}{{end}};`
 
 var parsedTemplAddTableColumn = template.Must(template.New("add_table_column").Funcs(ddlFuncs).Parse(templAddTableColumn))
 
@@ -373,7 +373,7 @@ func (cl *Column) addScript(tname string) (*DDLStmt, error) {
 	return &DDLStmt{Name: fmt.Sprintf("add_table_column#%s.%s", tname, cl.Name), Code: buffer.String()}, nil
 }
 
-const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{if eq .dot.Typ .FieldTypeEnum}} {{.Table}}_{{.dot.Name}} USING {{.dot.Name}}::text::{{.Table}}_{{.dot.Name}}{{else}} {{.dot.Typ.DdlType}} {{end}};`
+const templAlterTableColumnAlterType = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" SET DATA TYPE {{if eq .dot.Typ .FieldTypeEnum}} "{{.Table}}_{{.dot.Name}}" USING "{{.dot.Name}}"::text::"{{.Table}}_{{.dot.Name}}"{{else}} {{.dot.Typ.DdlType}} {{end}};`
 const templAlterTableColumnAlterNull = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if not .dot.Optional}} SET {{else}} DROP {{end}} NOT NULL;`
 const templAlterTableColumnAlterDefault = `ALTER TABLE "{{.Table}}" ALTER COLUMN "{{.dot.Name}}" {{if .dot.Defval}} SET DEFAULT {{.dot.Defval}} {{else}} DROP DEFAULT {{end}};`
 

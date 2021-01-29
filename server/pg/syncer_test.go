@@ -93,6 +93,41 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeTrue())
 			})
+
+			Describe("can update this field to camelCase", func() {
+				metaDescription = description.MetaDescription{
+					Name: "person",
+					Key:  "id",
+					Cas:  false,
+					Fields: []description.Field{
+						{
+							Name: "id",
+							Type: description.FieldTypeNumber,
+							Def: map[string]interface{}{
+								"func": "nextval",
+							},
+							Optional: true,
+						}, {
+							Name:     "Name",
+							Type:     description.FieldTypeString,
+							Optional: true,
+						},
+					},
+				}
+				objectMeta, err := metaStore.NewMeta(&metaDescription)
+				Expect(err).To(BeNil())
+
+				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
+				Expect(err).To(BeNil())
+
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+				metaDdl, err := pg.MetaDDLFromDB(tx, objectMeta.Name)
+				globalTransactionManager.CommitTransaction(globalTransaction)
+
+				Expect(err).To(BeNil())
+				Expect(metaDdl.Columns[1].Name).To(Equal("Name"))
+			})
 		})
 
 	})

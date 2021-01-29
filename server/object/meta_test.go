@@ -196,6 +196,84 @@ var _ = Describe("The PG MetaStore", func() {
 		})
 	})
 
+	It("can create table with camelCase fields", func() {
+		Context("having an object with camelCase fields", func() {
+			metaDescription := GetBaseMetaData(utils.RandomString(8))
+			metaDescription.Fields = append(metaDescription.Fields, []description.Field{
+				{
+					Name:     "NumberCamelCase",
+					Type:     description.FieldTypeNumber,
+					Optional: false,
+				}, {
+					Name:     "StringCamelCase",
+					Type:     description.FieldTypeString,
+					Optional: true,
+				},
+				{
+					Name:     "BoolCamelCase",
+					Type:     description.FieldTypeBool,
+					Optional: true,
+				},
+				{
+					Name:     "DateCamelCase",
+					Type:     description.FieldTypeDate,
+					Optional: true,
+				},
+				{
+					Name:     "DateTimeCamelCase",
+					Type:     description.FieldTypeDateTime,
+					Optional: true,
+				},
+				{
+					Name:     "sneak_case",
+					Type:     description.FieldTypeNumber,
+					Optional: true,
+				},
+			}...)
+			Context("can create camelCasesFields", func() {
+				camelMeta, err := metaStore.NewMeta(metaDescription)
+				Expect(err).To(BeNil())
+				metaStore.Create(camelMeta)
+				Expect(err).To(BeNil())
+
+				Context("all fields exist", func() {
+					camelMeta, _, err = metaStore.Get(camelMeta.Name, false)
+					Expect(err).To(BeNil())
+					Expect(camelMeta.Fields).To(HaveLen(7))
+					Expect(camelMeta.Fields[1].Name).To(Equal("NumberCamelCase"))
+					Expect(camelMeta.Fields[2].Name).To(Equal("StringCamelCase"))
+					Expect(camelMeta.Fields[3].Name).To(Equal("BoolCamelCase"))
+					Expect(camelMeta.Fields[4].Name).To(Equal("DateCamelCase"))
+					Expect(camelMeta.Fields[5].Name).To(Equal("DateTimeCamelCase"))
+				})
+			})
+			Context("can changeType to camelCaseName", func() {
+				metaDescription = GetBaseMetaData(metaDescription.Name)
+				metaDescription.Fields = append(metaDescription.Fields, description.Field{
+					Name:     "NumberCamelCase",
+					Type:     description.FieldTypeString,
+					Optional: false,
+				})
+				meta, err := metaStore.NewMeta(metaDescription)
+				Expect(err).To(BeNil())
+				_, err = metaStore.Update(meta.Name, meta, true)
+				Expect(err).To(BeNil())
+
+				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+				Expect(err).To(BeNil())
+
+				actualMeta, err := pg.MetaDDLFromDB(tx, meta.Name)
+				Expect(err).To(BeNil())
+				err = globalTransactionManager.CommitTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+				Expect(err).To(BeNil())
+				Expect(actualMeta.Columns[1].Typ).To(Equal(description.FieldTypeString))
+			})
+		})
+	})
+
 	It("can change field type of existing object", func() {
 		By("having an existing object with string field")
 		metaDescription := GetBaseMetaData(utils.RandomString(8))

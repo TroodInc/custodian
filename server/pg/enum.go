@@ -14,7 +14,7 @@ func CreateEnumStatement(tableName string, fieldName string, choices description
 	DO $$
 	BEGIN
 		IF NOT EXISTS (SELECT 1 FROM pg_type WHERE typname = '{{.Table}}_{{.Column}}') THEN
-			CREATE TYPE {{.Table}}_{{.Column}} AS ENUM ({{.Choices}});
+			CREATE TYPE "{{.Table}}_{{.Column}}" AS ENUM ({{.Choices}});
   		END IF;
 	END$$;`
 	var buffer bytes.Buffer
@@ -47,7 +47,7 @@ func RenameEnumStatement(tableName string, oldColumn string, newColumn string) (
 }
 
 func DropEnumStatement(tableName string, fieldName string) (*DDLStmt, error) {
-	const dropEnumTemplate = `DROP TYPE IF EXISTS {{.Table}}_{{.Column}};`
+	const dropEnumTemplate = `DROP TYPE IF EXISTS "{{.Table}}_{{.Column}}";`
 	var buffer bytes.Buffer
 
 	context := map[string]interface{}{"Table": tableName, "Column": fieldName}
