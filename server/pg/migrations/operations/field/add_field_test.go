@@ -1,17 +1,18 @@
 package field
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
 	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
 	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/transactions"
+	"custodian/server/transactions/file_transaction"
+	"custodian/utils"
 	"database/sql"
 	"fmt"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("'AddField' Migration Operation", func() {
@@ -101,10 +102,10 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//
-		enums := description.EnumChoices{"string", "ping", "wing"}
+		enums := description.EnumChoices{"string", "ping", "CAMEL"}
 		field := description.Field{
 			Name: fmt.Sprintf("%s_enum", utils.RandomString(8)),
-			Type: description.FieldTypeEnum, 
+			Type: description.FieldTypeEnum,
 			Optional: true,
 			Enum: enums}
 
@@ -125,6 +126,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
 		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeEnum))
 		Expect(metaDdlFromDB.Columns[1].Enum).To(HaveLen(3))
+		Expect(metaDdlFromDB.Columns[1].Enum[2]).To(Equal("CAMEL"))
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})

@@ -1161,10 +1161,10 @@ var _ = Describe("Data", func() {
 						},
 					},
 					{
-						Name:     "name_enum",
-						Type:     description.FieldTypeEnum,
+						Name: "nameEnum",
+						Type: description.FieldTypeEnum,
 						Optional: true,
-						Enum:     []string{"val1", "val2"},
+						Enum: []string{"Val1", "Val2"},
 					},
 				},
 			}
@@ -1183,17 +1183,69 @@ var _ = Describe("Data", func() {
 			//
 
 			Context("having two records with different enum values", func() {
-				testEnumValue := "val1"
+				testEnumValue := "Val1"
 
-				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name_enum": testEnumValue}, auth.User{})
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"nameEnum": testEnumValue}, auth.User{})
 				Expect(err).To(BeNil())
-				_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name_enum": "val2"}, auth.User{})
+				_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"nameEnum": "Val2"}, auth.User{})
 				Expect(err).To(BeNil())
-				Context("query by 'name_enum' field returns correct result", func() {
-					_, matchedRecords, err := dataProcessor.GetBulk(metaDescription.Name, "eq(name_enum,val1)", nil, nil, 1, false)
+				Context("query by 'nameEnum' field returns correct result", func() {
+					_, matchedRecords, err := dataProcessor.GetBulk(metaDescription.Name, "eq(nameEnum,Val1)", nil, nil, 1, false)
 					Expect(err).To(BeNil())
 					Expect(matchedRecords).To(HaveLen(1))
 					Expect(matchedRecords[0].Data["id"]).To(Equal(record.Data["id"]))
+					Expect(matchedRecords[0].Data["nameEnum"]).To(Equal("Val1"))
+				})
+			})
+		})
+	})
+
+	It("can query by camelCase string ", func() {
+		Context("having an object with datetime field", func() {
+			metaDescription := &description.MetaDescription{
+				Name: testObjEnumName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name: "stringCamelCase",
+						Type: description.FieldTypeString,
+						Optional: true,
+					},
+				},
+			}
+			//create MetaDescription
+			operation := object.NewCreateObjectOperation(metaDescription)
+			//sync MetaDescription
+			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			Expect(err).To(BeNil())
+			metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
+			Expect(err).To(BeNil())
+			//sync DB
+			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+			globalTransactionManager.CommitTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+			//
+
+			Context("creating record in camelCaseField, filter it ", func() {
+				record, err := dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"stringCamelCase": "Camel"}, auth.User{})
+				Expect(err).To(BeNil())
+				_, err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"stringCamelCase": "NotCamel"}, auth.User{})
+				Expect(err).To(BeNil())
+				Context("query by 'name_enum' field returns correct result", func() {
+					_, matchedRecords, err := dataProcessor.GetBulk(metaDescription.Name, "eq(stringCamelCase,Camel)", nil, nil, 1, false)
+					Expect(err).To(BeNil())
+					Expect(matchedRecords).To(HaveLen(1))
+					Expect(matchedRecords[0].Data["id"]).To(Equal(record.Data["id"]))
+					Expect(matchedRecords[0].Data["stringCamelCase"]).To(Equal("Camel"))
 				})
 			})
 		})

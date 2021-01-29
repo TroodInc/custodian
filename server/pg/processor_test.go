@@ -52,7 +52,7 @@ var _ = Describe("Store", func() {
 					Type:     description.FieldTypeString,
 					Optional: false,
 				}, {
-					Name:     "gender",
+					Name:     "Gender",
 					Type:     description.FieldTypeString,
 					Optional: true,
 				},
@@ -68,7 +68,7 @@ var _ = Describe("Store", func() {
 			"name": "Sergey",
 		}
 		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, auth.User{})
-		Expect(record.Data).To(HaveKey("gender"))
+		Expect(record.Data).To(HaveKey("Gender"))
 	})
 
 	It("Can set owner of a record", func() {

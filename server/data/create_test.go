@@ -518,4 +518,77 @@ var _ = Describe("Create test", func() {
 		existingCRecordData := csData[1].(map[string]interface{})
 		Expect(existingCRecordData[cMeta.Key.Name]).To(Equal(existingCRecord.Pk()))
 	})
+
+	It("can create a record to CamelCase field", func() {
+		Context("having Reason object", func() {
+			camelCaseDescription := description.MetaDescription{
+				Name: "camel_case_description",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "camelCaseString",
+						Type:     description.FieldTypeString,
+						Optional: true,
+					},
+				},
+			}
+			camelCaseObj, err := metaStore.NewMeta(&camelCaseDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(camelCaseObj)
+			Expect(err).To(BeNil())
+
+
+			Context("DataManager creates record without any values", func() {
+				recordOne, err := dataProcessor.CreateRecord(camelCaseDescription.Name, map[string]interface{}{"camelCaseString": "CaMeL"}, auth.User{})
+				Expect(err).To(BeNil())
+				Expect(recordOne.Data["camelCaseString"]).To(Equal("CaMeL"))
+			})
+		})
+	})
+
+	It("can create a record to CamelCase enum field", func() {
+		Context("having Reason object", func() {
+			camelCaseDescription := description.MetaDescription{
+				Name: "camel_case_description",
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "camelCaseEnum",
+						Type:     description.FieldTypeEnum,
+						Optional: true,
+						Enum: []string{"Camel"},
+					},
+				},
+			}
+			camelCaseObj, err := metaStore.NewMeta(&camelCaseDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(camelCaseObj)
+			Expect(err).To(BeNil())
+
+
+			Context("DataManager creates record without any values", func() {
+				recordOne, err := dataProcessor.CreateRecord(camelCaseDescription.Name, map[string]interface{}{"camelCaseEnum": "Camel"}, auth.User{})
+				Expect(err).To(BeNil())
+				Expect(recordOne.Data["camelCaseEnum"]).To(Equal("Camel"))
+			})
+		})
+	})
 })
