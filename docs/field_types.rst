@@ -47,7 +47,15 @@ Enum
 ----
 An enum is a string object with a value chosen from a list of permitted values
 
-Field description example:
+Updating enum fields
+""""""""""""""""""""
+Due to PostgreSQL limitations, it is not possible to delete existing choices
+
+To add choices, you need to send existing choices + new ones
+
+Reducing the number of choices is possible only by changing the type of the enum field to string
+and back - this will create a new type in PostgreSQL.
+The user is responsible for the consistency of the data.
 
 .. code-block:: json
 
