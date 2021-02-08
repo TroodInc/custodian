@@ -107,7 +107,13 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 				statement, err := statementFactory.FactoryRenameStatement(tableName, currentColumn, newColumn)
 				if err != nil {
 					return err
-				} else {
+				}
+				statementSet.Add(statement)
+				if currentColumn.Typ == description.FieldTypeEnum {
+					statement, err = pg.RenameEnumStatement(tableName, currentColumn.Name, newColumn.Name)
+					if err != nil {
+						return err
+					}
 					statementSet.Add(statement)
 				}
 			}
@@ -116,24 +122,10 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 				statement, err := statementFactory.FactorySetNullStatement(tableName, newColumn)
 				if err != nil {
 					return err
-				} else {
-					statementSet.Add(statement)
 				}
+				statementSet.Add(statement)
 			}
 			if currentColumn.Typ != newColumn.Typ {
-				if len(currentColumn.Enum) > 0 {
-					statement, err := statementFactory.FactoryDropDefaultStatement(tableName, currentColumn)
-					if err != nil {
-						return err
-					}
-					statementSet.Add(statement)
-					statement, err = pg.DropEnumStatement(tableName, currentColumn.Name)
-					if err != nil {
-						return err
-					}
-					statementSet.Add(statement)
-				}
-				//process type change
 				if len(newColumn.Enum) > 0 {
 					statement, err := pg.CreateEnumStatement(tableName, newColumn.Name, newColumn.Enum)
 					if err != nil {
@@ -141,21 +133,45 @@ func (o *UpdateFieldOperation) factoryColumnsStatements(statementSet *pg.DdlStat
 					}
 					statementSet.Add(statement)
 				}
+				//process type change
 				statement, err := statementFactory.FactorySetTypeStatement(tableName, newColumn)
 				if err != nil {
 					return err
-				} else {
+				}
+				statementSet.Add(statement)
+				if len(currentColumn.Enum) > 0 {
+					statement, err := statementFactory.FactoryDropDefaultStatement(tableName, newColumn)
+					if err != nil {
+						return err
+					}
+					statementSet.Add(statement)
+					statement, err = pg.DropEnumStatement(tableName, newColumn.Name)
+					if err != nil {
+						return err
+					}
 					statementSet.Add(statement)
 				}
 			}
+			if newColumn.Typ == description.FieldTypeEnum && len(newColumn.Enum) > 0 {
+				if !pg.ChoicesIsCompleting(currentColumn.Enum, newColumn.Enum) {
+					return errors.NewValidationError("400", fmt.Sprintf("Table %s. Not all values are entered for the column `%s`. Necessary minimum: %v", tableName, newColumn.Name, currentColumn.Enum), nil)
+				}
+				for _ , choice := range newColumn.Enum {
+					statement, err := pg.AddEnumStatement(tableName, newColumn.Name, choice)
+					if err != nil {
+						return err
+					}
+					statementSet.Add(statement)
+				}
+			}
+
 			if currentColumn.Defval != newColumn.Defval {
 				//process default value change
 				statement, err := statementFactory.FactorySetDefaultStatement(tableName, newColumn)
 				if err != nil {
 					return err
-				} else {
-					statementSet.Add(statement)
 				}
+				statementSet.Add(statement)
 			}
 			if currentColumn.Unique != newColumn.Unique {
 				//process unique constraint

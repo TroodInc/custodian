@@ -43,6 +43,11 @@ var _ = Describe("RQL test", func() {
 				Type:     description.FieldTypeString,
 				Optional: true,
 			},
+			{
+				Name:     "camelField",
+				Type:     description.FieldTypeString,
+				Optional: true,
+			},
 		},
 	}
 	meta, _ := metaStore.NewMeta(&metaDescription)
@@ -122,5 +127,27 @@ var _ = Describe("RQL test", func() {
 
 		Expect(err).To(BeNil())
 		Expect(query.Where).To(BeEquivalentTo("test.\"id\" !=$1"))
+	})
+
+	It("handle eq() operator", func() {
+		parser := rqlParser.NewParser()
+		rqlNode, _ := parser.Parse("eq(id,1)")
+		translator := NewSqlTranslator(rqlNode)
+
+		query, err := translator.query("test", dataNode)
+
+		Expect(err).To(BeNil())
+		Expect(query.Where).To(BeEquivalentTo("test.\"id\" =$1"))
+	})
+
+	It("handle eq() operator with camelCase", func() {
+		parser := rqlParser.NewParser()
+		rqlNode, _ := parser.Parse("eq(camelField,val)")
+		translator := NewSqlTranslator(rqlNode)
+
+		query, err := translator.query("test", dataNode)
+
+		Expect(err).To(BeNil())
+		Expect(query.Where).To(BeEquivalentTo("test.\"camelField\" =$1"))
 	})
 })
