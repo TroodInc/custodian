@@ -1,13 +1,13 @@
 package pg
 
 import (
-	"database/sql"
 	"custodian/server/object/description"
 	"custodian/server/transactions"
+	"database/sql"
 )
 
 type DbMetaDescriptionSyncer struct {
-	DbTransactionManager  transactions.DbTransactionManager
+	DbTransactionManager transactions.DbTransactionManager
 }
 
 func NewDbMetaDescriptionSyncer(transactionManager transactions.DbTransactionManager) *DbMetaDescriptionSyncer {
@@ -20,7 +20,7 @@ func (dm *DbMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 }
 
 func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescription, bool, error) {
-
+	// TODO add context
 	transaction, _ := dm.DbTransactionManager.BeginTransaction()
 
 	ddl, _ := MetaDDLFromDB(transaction.Transaction().(*sql.Tx), name)
@@ -29,10 +29,10 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 
 	for _, col := range ddl.Columns {
 		meta.Fields = append(meta.Fields, description.Field{
-			Name: col.Name,
-			Type: col.Typ,
+			Name:     col.Name,
+			Type:     col.Typ,
 			Optional: col.Optional,
-			Unique: col.Unique,
+			Unique:   col.Unique,
 		})
 	}
 

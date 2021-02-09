@@ -66,6 +66,7 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 		if pk, e := objectMeta.Key.ValueFromString(key); e != nil {
 			return nil, e
 		} else {
+			// TODO add transaction context
 			transaction, _ := processor.transactionManager.BeginTransaction()
 			ctx := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data", DbTransaction: transaction, omitOuters: omitOuters}
 
@@ -111,6 +112,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 			errors.ErrObjectClassNotFound, fmt.Sprintf("Object class '%s' not found", objectName), nil,
 		)
 	} else {
+		// TODO add transaction context
 		transaction, _ := processor.transactionManager.BeginTransaction()
 		searchContext := SearchContext{depthLimit: depth, dm: processor.dataManager, lazyPath: "/custodian/data/bulk", DbTransaction: transaction, omitOuters: omitOuters}
 
@@ -568,6 +570,7 @@ func (processor *Processor) RemoveRecord(objectName string, key string, user aut
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//fill node
+	// TODO add transaction context
 	dbTransaction, err := processor.transactionManager.BeginTransaction()
 	removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
 	if err != nil {
@@ -620,6 +623,7 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 		}
 
 		//fill node
+		// TODO add transaction context
 		dbTransaction, err := processor.transactionManager.BeginTransaction()
 		removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
 		if err != nil {
@@ -703,7 +707,7 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 	} else {
 		operations = append(operations, operation)
 	}
-	//
+	// TODO add transaction context
 	dbTransaction, err := processor.transactionManager.BeginTransaction()
 	if err != nil {
 		processor.transactionManager.RollbackTransaction(dbTransaction)
@@ -736,7 +740,7 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 	} else {
 		operations = append(operations, operation)
 	}
-	//
+	// TODO add transaction context
 	dbTransaction, err := processor.transactionManager.BeginTransaction()
 	if err != nil {
 		processor.transactionManager.RollbackTransaction(dbTransaction)

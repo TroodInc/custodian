@@ -2,22 +2,23 @@ package transactions
 
 import "custodian/server/object/description"
 
+//  TODO ideally we need to get rid of all of theese managers
 type DbTransactionManager interface {
 	BeginTransaction() (DbTransaction, error)
-	CommitTransaction(DbTransaction) (error)
-	RollbackTransaction(DbTransaction) (error)
+	CommitTransaction(DbTransaction) error
+	RollbackTransaction(DbTransaction) error
 }
 
 type MetaDescriptionTransactionManager interface {
 	BeginTransaction(metaList []*description.MetaDescription) (MetaDescriptionTransaction, error)
-	CommitTransaction(MetaDescriptionTransaction) (error)
-	RollbackTransaction(MetaDescriptionTransaction) (error)
+	CommitTransaction(MetaDescriptionTransaction) error
+	RollbackTransaction(MetaDescriptionTransaction) error
 }
 
 type GlobalTransactionManager struct {
 	MetaDescriptionTransactionManager MetaDescriptionTransactionManager
 	DbTransactionManager              DbTransactionManager
-	transaction *GlobalTransaction
+	transaction                       *GlobalTransaction
 }
 
 func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*description.MetaDescription) (*GlobalTransaction, error) {
@@ -30,14 +31,14 @@ func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*descr
 		if err != nil {
 			return nil, err
 		}
-		g.transaction = &GlobalTransaction{metaDescriptionTransaction, dbTransaction,0}
+		g.transaction = &GlobalTransaction{metaDescriptionTransaction, dbTransaction, 0}
 	} else {
 		g.transaction.Counter += 1
 	}
 	return g.transaction, nil
 }
 
-func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransaction) (error) {
+func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransaction) error {
 	if g.transaction.Counter == 0 {
 		if err := g.DbTransactionManager.CommitTransaction(transaction.DbTransaction); err != nil {
 			return err

@@ -2,13 +2,7 @@ package pg
 
 import (
 	"bytes"
-	"database/sql"
-	"fmt"
-	"github.com/Q-CIS-DEV/go-rql-parser"
-	"github.com/lib/pq"
-	_ "github.com/lib/pq"
 	"custodian/logger"
-	"regexp"
 	"custodian/server/data"
 	"custodian/server/data/notifications"
 	"custodian/server/data/record"
@@ -18,12 +12,20 @@ import (
 	"custodian/server/object/meta"
 	"custodian/server/pg/dml_info"
 	"custodian/server/transactions"
+	"custodian/utils"
+	"database/sql"
+	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
-	"custodian/utils"
+
+	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
+	"github.com/lib/pq"
+	_ "github.com/lib/pq"
 )
 
+// TODO should manage with pgxpool
 type DataManager struct {
 	db *sql.DB
 }
@@ -32,6 +34,7 @@ func (dm *DataManager) Db() interface{} {
 	return dm.db
 }
 
+// TODO should manage with pgxpool
 func NewDataManager(db *sql.DB) (*DataManager, error) {
 	return &DataManager{db: db}, nil
 }
@@ -41,7 +44,7 @@ const (
 	ErrTemplateFailed     = "template_failed"
 	ErrInvalidArgument    = "invalid_argument"
 	ErrDMLFailed          = "dml_failed"
-	ErrValidation 		  = "validation_error"
+	ErrValidation         = "validation_error"
 	ErrValueDuplication   = "duplicated_value_error"
 	ErrConvertationFailed = "convertation_failed"
 	ErrCommitFailed       = "commit_failed"
@@ -50,11 +53,11 @@ const (
 
 //{{ if isLast $key .Cols}}{{else}},{{end}}
 const (
-	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
+	templInsert      = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
 	templFixSequence = `SELECT setval('{{.Table}}_{{.Field}}_seq',(SELECT CAST(MAX("{{.Field}}") AS INT) FROM {{.Table}}), true);`
-	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
-	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
-	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
+	templSelect      = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
+	templDelete      = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
+	templUpdate      = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
 )
 
 var funcs = template.FuncMap{"join": strings.Join}
@@ -140,6 +143,7 @@ func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, erro
 	}
 }
 
+// TODO drop this entity
 type Stmt struct {
 	*sql.Stmt
 }
@@ -149,6 +153,9 @@ type StmtPreparer interface {
 }
 
 func NewStmt(tx *sql.Tx, q string) (*Stmt, error) {
+	// TODO pgxpool.tx has different interface
+	// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Prepare
+	// Tx.Prepare(ctx context.Context, name, sql string)
 	statement, err := tx.Prepare(q)
 	if err != nil {
 		logger.Error("Prepare statement error: %s %s", q, err.Error())
@@ -162,7 +169,11 @@ func (dm *DataManager) Prepare(q string, tx *sql.Tx) (*Stmt, error) {
 	return NewStmt(tx, q)
 }
 
+// TODO ParsedQuery can be a function (not a method)
+// should receive *pgx.StatementDescription
 func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
+	// TODO adjust pgx Query interface
+	// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Query
 	rows, err := s.Query(binds)
 	if err != nil {
 		logger.Error("Query statement error: %s", err.Error())
@@ -172,6 +183,8 @@ func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription)
 	return rows.Parse(fields)
 }
 
+// TODO ParsedSingleQuery can be a function (not a method)
+// should receive *pgx.StatementDescription
 func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*meta.FieldDescription) (map[string]interface{}, error) {
 	objs, err := s.ParsedQuery(binds, fields)
 	if err != nil {
@@ -189,24 +202,27 @@ func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*meta.FieldDescri
 
 }
 
+// TODO should be independent method
 func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
+	// TODO adjust pgx Query interface
+	// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Query
 	rows, err := s.Stmt.Query(binds...)
 	if err != nil {
 		logger.Error("Execution statement error: %s\nBinds: %s", err.Error(), binds)
 		if err, ok := err.(*pq.Error); ok {
-			switch err.Code{
-				case "23502",
-				     "23503":
-					return nil, errors.NewValidationError(ErrValidation, err.Error(), nil) // Return data here
-				case "23505":
-					re := regexp.MustCompile(`\(([^)]+)\)=\(([^)]+)\)`)
-					parts := re.FindStringSubmatch(err.Detail)[1:]
-					data := make(map[string]interface{})
-					data[parts[0]] = parts[1]
+			switch err.Code {
+			case "23502",
+				"23503":
+				return nil, errors.NewValidationError(ErrValidation, err.Error(), nil) // Return data here
+			case "23505":
+				re := regexp.MustCompile(`\(([^)]+)\)=\(([^)]+)\)`)
+				parts := re.FindStringSubmatch(err.Detail)[1:]
+				data := make(map[string]interface{})
+				data[parts[0]] = parts[1]
 
-					return nil, errors.NewValidationError(ErrValueDuplication, err.Error(), data) // Return data here
-				default:
-					return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
+				return nil, errors.NewValidationError(ErrValueDuplication, err.Error(), data) // Return data here
+			default:
+				return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 			}
 		} else {
 			return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
@@ -216,7 +232,10 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	return &Rows{rows}, nil
 }
 
-func (s *Stmt) Scalar(receiver interface{}, binds []interface{}) (error) {
+// TODO should be independent method
+func (s *Stmt) Scalar(receiver interface{}, binds []interface{}) error {
+	// TODO adjust pgx Tx.Query interface
+	// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Query
 	if rows, err := s.Query(binds); err != nil {
 		return err
 	} else {
@@ -405,6 +424,9 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 	}
 
 	return func(dbTransaction transactions.DbTransaction) error {
+		// TODO implement pgx Tx.Prepare interface
+		// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Prepare
+		// drop stmt
 		stmt, err := dbTransaction.(*PgTransaction).Prepare(b.String())
 		if err != nil {
 			return err
@@ -437,6 +459,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 					}
 				}
 			}
+			// TODO get rid of stmt
 			if uo, err := stmt.ParsedSingleQuery(binds, rFields); err == nil {
 				updateNodes(recordValues[i], uo)
 			} else {
@@ -490,6 +513,9 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 				binds = append(binds, values...)
 			}
 		}
+		// TODO implement pgx Tx.Prepare interface
+		// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Prepare
+		// drop stmt
 		stmt, err := dbTransaction.(*PgTransaction).Prepare(insertDML.String())
 		if err != nil {
 			return err
@@ -498,10 +524,14 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 		dbObjs, err := stmt.ParsedQuery(binds, fields)
 		if err != nil {
 			if err, ok := err.(*errors.ServerError); ok && err.Code == ErrValueDuplication {
+				// TODO Can use pseudonested transactions pgx.Tx.Begin()
+				// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Begin
 				dupTransaction, _ := dbTransaction.(*PgTransaction).Manager.BeginTransaction()
 				duplicates, dup_error := dm.GetAll(m, m.TableFields(), err.Data.(map[string]interface{}), dupTransaction)
 				dupTransaction.Close()
-				if dup_error != nil { logger.Error(dup_error.Error()) }
+				if dup_error != nil {
+					logger.Error(dup_error.Error())
+				}
 				err.Data = duplicates
 			}
 			return err
@@ -559,6 +589,9 @@ func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, fil
 		return nil, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
 
+	// TODO probably we can use tx.prepare directly
+	// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Prepare
+	// and pass *pgconn.StatementDescription to ParsedQuery func
 	stmt, err := dm.Prepare(q.String(), tx)
 	if err != nil {
 		return nil, err
@@ -567,7 +600,7 @@ func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, fil
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
+func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) error {
 	var operation transactions.Operation
 	var err error
 	var onDeleteStrategy description.OnDeleteStrategy
@@ -631,6 +664,9 @@ func (dm *DataManager) PrepareRemoveOperation(record *record.Record) (transactio
 	var query bytes.Buffer
 	deleteInfo := dml_info.NewDeleteInfo(GetTableName(record.Meta.Name), []string{dml_info.EscapeColumn(record.Meta.Key.Name) + " IN (" + dml_info.BindValues(1, 1) + ")"})
 	operation := func(dbTransaction transactions.DbTransaction) error {
+		// TODO implement pgx Tx.Prepare interface
+		// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Tx.Prepare
+		// drop stmt
 		stmt, err := dbTransaction.(*PgTransaction).Prepare(query.String())
 		if err != nil {
 			return err
@@ -677,10 +713,14 @@ func (dm *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNod
 	if err := selectInfo.sql(&queryString); err != nil {
 		return nil, 0, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
+
+	// TODO should use directrly Tx.Prepare()
 	statement, err := dm.Prepare(queryString.String(), tx)
 	if err != nil {
 		return nil, 0, err
 	}
+
+	// TODO drop
 	defer statement.Close()
 	//count data
 	count := 0
@@ -688,13 +728,17 @@ func (dm *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNod
 	if err := countInfo.sql(&queryString); err != nil {
 		return nil, 0, errors.NewFatalError(ErrTemplateFailed, err.Error(), nil)
 	}
+	// TODO should use directrly Tx.Prepare()
 	countStatement, err := dm.Prepare(queryString.String(), tx)
 	if err != nil {
 		return nil, 0, err
 	}
+	// TODO drop
 	defer countStatement.Close()
 
+	// TODO should ParsedQuery(statement, sqlQuery.Binds, fields)
 	recordsData, err := statement.ParsedQuery(sqlQuery.Binds, fields)
+	// TODO should Scalar(countStatement, &count, sqlQuery.Binds)
 	err = countStatement.Scalar(&count, sqlQuery.Binds)
 	if err != nil {
 		return nil, 0, err

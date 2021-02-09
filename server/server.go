@@ -201,6 +201,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
 		metaDescriptionList, _, _ := metaStore.List()
+		// TODO Get rid of this transaction?
 		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
 			js.pushError(err)
 		} else {

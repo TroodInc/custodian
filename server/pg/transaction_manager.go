@@ -1,9 +1,9 @@
 package pg
 
 import (
-	"database/sql"
 	"custodian/server/data"
 	"custodian/server/transactions"
+	"database/sql"
 )
 
 type PgDbTransactionManager struct {
@@ -11,6 +11,11 @@ type PgDbTransactionManager struct {
 	transaction *PgTransaction
 }
 
+// TODO impliment pgxpool for theese methods
+// Probably we can drop thees methods? and use directly pgxpool.Begin()
+// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Pool.Begin
+// instead thees methods we can add https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#Stat
+// for transaction monioring if necessery
 //transaction related methods
 func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction, error) {
 	if tm.transaction == nil {
@@ -27,7 +32,8 @@ func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction
 	return tm.transaction, nil
 }
 
-func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) (error) {
+// TODO impliment pgxpool for theese methods
+func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) error {
 	if tm.transaction.Counter == 0 {
 		tx := dbTransaction.Transaction().(*sql.Tx)
 		if err := tx.Commit(); err != nil {
@@ -42,7 +48,8 @@ func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.D
 	return nil
 }
 
-func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) (error) {
+// TODO impliment pgxpool for theese methods
+func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) error {
 	if tm.transaction.Counter == 0 {
 		tm.transaction = nil
 		return dbTransaction.Transaction().(*sql.Tx).Rollback()
