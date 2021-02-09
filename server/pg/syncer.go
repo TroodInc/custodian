@@ -1,15 +1,15 @@
 package pg
 
 import (
-	"database/sql"
-	"fmt"
-	"log"
 	"custodian/logger"
-	"regexp"
 	"custodian/server/errors"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
+	"database/sql"
+	"fmt"
+	"log"
+	"regexp"
 	"time"
 
 	"github.com/lib/pq"
@@ -20,6 +20,8 @@ type Syncer struct {
 	db *sql.DB
 }
 
+// TODO conect to db via pgxpool
+// https://pkg.go.dev/github.com/jackc/pgx/v4/pgxpool#hdr-Establishing_a_Connection
 func getDBConnection(dbInfo string) *sql.DB {
 	db, err := dburl.Open(dbInfo)
 	if err != nil {
@@ -34,6 +36,7 @@ func getDBConnection(dbInfo string) *sql.DB {
 
 var activeDBConnection *sql.DB
 
+// TODO adjust function to pgxpool interface
 func NewSyncer(dbInfo string) (*Syncer, error) {
 	if activeDBConnection == nil {
 		activeDBConnection = getDBConnection(dbInfo)
@@ -71,6 +74,7 @@ func (syncer *Syncer) CreateObj(globalTransactionManager *transactions.GlobalTra
 	if ds, e = md.CreateScript(); e != nil {
 		return e
 	}
+	// TODO add context
 	transaction, err := globalTransactionManager.BeginTransaction(nil)
 	if err != nil {
 		globalTransactionManager.RollbackTransaction(transaction)
@@ -79,6 +83,7 @@ func (syncer *Syncer) CreateObj(globalTransactionManager *transactions.GlobalTra
 	tx := transaction.DbTransaction.Transaction().(*sql.Tx)
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
+		// TODO add context
 		if _, e := tx.Exec(st.Code); e != nil {
 			globalTransactionManager.RollbackTransaction(transaction)
 			return errors.NewValidationError(ErrExecutingDDL, e.Error(), nil)
@@ -89,6 +94,7 @@ func (syncer *Syncer) CreateObj(globalTransactionManager *transactions.GlobalTra
 }
 
 func (syncer *Syncer) RemoveObj(globalTransactionManager *transactions.GlobalTransactionManager, name string, force bool) error {
+	// TODO add context
 	transaction, err := globalTransactionManager.BeginTransaction(nil)
 	if err != nil {
 		globalTransactionManager.RollbackTransaction(transaction)
@@ -112,6 +118,7 @@ func (syncer *Syncer) RemoveObj(globalTransactionManager *transactions.GlobalTra
 	}
 	for _, st := range ds {
 		logger.Debug("Removing object from DB: %syncer\n", st.Code)
+		// TODO add context
 		if _, e := tx.Exec(st.Code); e != nil {
 			globalTransactionManager.RollbackTransaction(transaction)
 			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
@@ -143,6 +150,7 @@ func (syncer *Syncer) UpdateObj(globalTransactionManager *transactions.GlobalTra
 	if ddlStatements, err = metaDdlDiff.Script(); err != nil {
 		return err
 	}
+	// TODO add context
 	transaction, err := globalTransactionManager.BeginTransaction(nil)
 	if err != nil {
 		globalTransactionManager.RollbackTransaction(transaction)
@@ -151,6 +159,7 @@ func (syncer *Syncer) UpdateObj(globalTransactionManager *transactions.GlobalTra
 	tx := transaction.DbTransaction.Transaction().(*sql.Tx)
 	for _, ddlStatement := range ddlStatements {
 		logger.Debug("Updating object in DB: %s\n", ddlStatement.Code)
+		// TODO add context
 		if _, e := tx.Exec(ddlStatement.Code); e != nil {
 			// TODO: Postgres error must return column field
 			// TOFIX: https://github.com/postgres/postgres/blob/14751c340754af9f906a893eb87a894dea3adbc9/src/backend/commands/tablecmds.c#L10539
@@ -168,6 +177,8 @@ func (syncer *Syncer) UpdateObj(globalTransactionManager *transactions.GlobalTra
 	globalTransactionManager.CommitTransaction(transaction)
 	return nil
 }
+
+// TODO Drop this method?
 
 //Calculates the difference between the given and the existing business object in the database
 func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) (DdlStatementSet, error) {
@@ -192,6 +203,8 @@ func (syncer *Syncer) diffScripts(transaction transactions.DbTransaction, metaDe
 
 }
 
+// TODO Drop this method?
+
 func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDescription *description.MetaDescription, descriptionSyncer meta.MetaDescriptionSyncer) error {
 	tx := transaction.(*PgTransaction)
 	ddlStatements, e := syncer.diffScripts(tx, metaDescription, descriptionSyncer)
@@ -206,6 +219,8 @@ func (syncer *Syncer) UpdateObjTo(transaction transactions.DbTransaction, metaDe
 	}
 	return nil
 }
+
+// TODO Drop this method?
 
 //Check if the given business object equals to the corresponding one stored in the database.
 //The validation fails if the given business object is different
@@ -223,17 +238,20 @@ func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, metaDe
 	return len(ddlStatements) == 0, nil
 }
 
+// TODO Drop this method?
 //transaction related methods
 func (syncer *Syncer) BeginTransaction() (transactions.DbTransaction, error) {
 	tx, err := syncer.db.Begin()
 	return &PgTransaction{Tx: tx}, err
 }
 
+// TODO Drop this method?
 func (syncer *Syncer) CommitTransaction(transaction transactions.DbTransaction) error {
 	tx := transaction.(*PgTransaction)
 	return tx.Commit()
 }
 
+// TODO Drop this method?
 func (syncer *Syncer) RollbackTransaction(transaction transactions.DbTransaction) error {
 	tx := transaction.(*PgTransaction)
 	err := tx.Rollback()

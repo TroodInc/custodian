@@ -364,8 +364,8 @@ var parsedTemplAddTableColumn = template.Must(template.New("add_table_column").F
 func (cl *Column) addScript(tname string) (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplAddTableColumn.Execute(&buffer, map[string]interface{}{
-		"Table": tname,
-		"dot":   cl,
+		"Table":         tname,
+		"dot":           cl,
 		"FieldTypeEnum": description.FieldTypeEnum,
 	}); e != nil {
 		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}
@@ -385,8 +385,8 @@ var parsedTemplAlterTableColumnAlterDefault = template.Must(template.New("alter_
 func (cl *Column) alterScript(tname string) (*DDLStmt, error) {
 	var buffer bytes.Buffer
 	if e := parsedTemplAlterTableColumnAlterType.Execute(&buffer, map[string]interface{}{
-		"Table": tname,
-		"dot":   cl,
+		"Table":         tname,
+		"dot":           cl,
 		"FieldTypeEnum": description.FieldTypeEnum,
 	}); e != nil {
 		return nil, &DDLError{table: tname, code: ErrInternal, msg: e.Error()}

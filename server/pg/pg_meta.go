@@ -54,6 +54,7 @@ func getMetaObjFromDb(name string, tx *sql.Tx) (description.MetaDescription, err
 
 func (md *PgMetaDescriptionSyncer) CreateMetaTableIfNotExists() {
 	dbTransaction, _ := md.transactionManager.BeginTransaction()
+	// TODO add context
 	tx := dbTransaction.Transaction().(*sql.Tx)
 	_, err := tx.Exec(SQL_CREATE_META_TABLE)
 	if err != nil {
@@ -74,6 +75,7 @@ func NewPgMetaDescriptionSyncer(transactionManager *PgDbTransactionManager) *PgM
 }
 
 func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescription, bool, error) {
+	// TODO add context
 	dbTransaction, err := md.transactionManager.BeginTransaction()
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -110,6 +112,7 @@ func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 }
 
 func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool, error) {
+	// TODO add context
 	dbTransaction, err := md.transactionManager.BeginTransaction()
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -145,6 +148,7 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 }
 
 func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
+	// TODO add context
 	dbTransaction, err := md.transactionManager.BeginTransaction()
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -184,6 +188,7 @@ func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
 }
 
 func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
+	// TODO add context
 	dbTransaction, err := md.transactionManager.BeginTransaction()
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)
@@ -234,6 +239,7 @@ func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
 }
 
 func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescription) (bool, error) {
+	// TODO add context
 	dbTransaction, err := md.transactionManager.BeginTransaction()
 	if err != nil {
 		md.transactionManager.RollbackTransaction(dbTransaction)

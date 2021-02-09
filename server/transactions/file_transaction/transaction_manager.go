@@ -1,8 +1,9 @@
 package file_transaction
 
+// TODO drop this package
 import (
-	. "custodian/server/transactions"
 	"custodian/server/object/description"
+	. "custodian/server/transactions"
 )
 
 type FileMetaDescriptionTransactionManager struct {
@@ -15,7 +16,7 @@ func (fm *FileMetaDescriptionTransactionManager) BeginTransaction(metaList []*de
 	return NewFileMetaDescriptionTransaction(Pending, metaList), nil
 }
 
-func (fm *FileMetaDescriptionTransactionManager) CommitTransaction(transaction MetaDescriptionTransaction) (error) {
+func (fm *FileMetaDescriptionTransactionManager) CommitTransaction(transaction MetaDescriptionTransaction) error {
 	if transaction.State() == Pending {
 		transaction.SetState(Committed)
 		return nil
@@ -25,7 +26,7 @@ func (fm *FileMetaDescriptionTransactionManager) CommitTransaction(transaction M
 
 }
 
-func (fm *FileMetaDescriptionTransactionManager) RollbackTransaction(transaction MetaDescriptionTransaction) (error) {
+func (fm *FileMetaDescriptionTransactionManager) RollbackTransaction(transaction MetaDescriptionTransaction) error {
 	if transaction.State() != Pending {
 		return &TransactionError{"MetaDescription driver is not in pending state"}
 	}
