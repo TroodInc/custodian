@@ -1,19 +1,19 @@
 package pg
 
 import (
-	"database/sql"
-	"fmt"
-	"log"
 	"custodian/logger"
-	"regexp"
 	"custodian/server/errors"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
+	"database/sql"
+	"fmt"
+	"log"
+	"regexp"
 	"time"
 
+	_ "github.com/jackc/pgx/v4/stdlib" // needed for proper driver work
 	"github.com/lib/pq"
-	"github.com/xo/dburl"
 )
 
 type Syncer struct {
@@ -21,7 +21,7 @@ type Syncer struct {
 }
 
 func getDBConnection(dbInfo string) *sql.DB {
-	db, err := dburl.Open(dbInfo)
+	db, err := sql.Open("pgx", dbInfo)
 	if err != nil {
 		logger.Error("%s", err)
 		logger.Error("Could not connect to Postgres.")
