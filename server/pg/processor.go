@@ -4,11 +4,15 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
-	"github.com/Q-CIS-DEV/go-rql-parser"
-	"github.com/lib/pq"
-	_ "github.com/lib/pq"
-	"custodian/logger"
 	"regexp"
+
+	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
+
+	_ "github.com/jackc/pgx/v4/stdlib"
+	"github.com/lib/pq"
+
+	// _ "github.com/lib/pq"
+	"custodian/logger"
 	"custodian/server/data"
 	"custodian/server/data/notifications"
 	"custodian/server/data/record"
@@ -18,10 +22,10 @@ import (
 	"custodian/server/object/meta"
 	"custodian/server/pg/dml_info"
 	"custodian/server/transactions"
+	"custodian/utils"
 	"strconv"
 	"strings"
 	"text/template"
-	"custodian/utils"
 )
 
 type DataManager struct {
@@ -41,7 +45,7 @@ const (
 	ErrTemplateFailed     = "template_failed"
 	ErrInvalidArgument    = "invalid_argument"
 	ErrDMLFailed          = "dml_failed"
-	ErrValidation 		  = "validation_error"
+	ErrValidation         = "validation_error"
 	ErrValueDuplication   = "duplicated_value_error"
 	ErrConvertationFailed = "convertation_failed"
 	ErrCommitFailed       = "commit_failed"
@@ -50,11 +54,11 @@ const (
 
 //{{ if isLast $key .Cols}}{{else}},{{end}}
 const (
-	templInsert = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
+	templInsert      = `INSERT INTO {{.Table}} {{if not .Cols}} DEFAULT VALUES {{end}}  {{if .Cols}} ({{join .Cols ", "}}) VALUES {{.GetValues}} {{end}} {{if .RCols}} RETURNING {{join .RCols ", "}}{{end}};`
 	templFixSequence = `SELECT setval('{{.Table}}_{{.Field}}_seq',(SELECT CAST(MAX("{{.Field}}") AS INT) FROM {{.Table}}), true);`
-	templSelect = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
-	templDelete = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
-	templUpdate = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
+	templSelect      = `SELECT {{join .Cols ", "}} FROM {{.From}}{{if .Where}} WHERE {{.Where}}{{end}}{{if .Order}} ORDER BY {{.Order}}{{end}}{{if .Limit}} LIMIT {{.Limit}}{{end}}{{if .Offset}} OFFSET {{.Offset}}{{end}}`
+	templDelete      = `DELETE FROM {{.Table}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}`
+	templUpdate      = `UPDATE {{.Table}} SET {{join .Values ","}}{{if .Filters}} WHERE {{join .Filters " AND "}}{{end}}{{if .Cols}} RETURNING {{join .Cols ", "}}{{end}}`
 )
 
 var funcs = template.FuncMap{"join": strings.Join}
@@ -194,19 +198,19 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	if err != nil {
 		logger.Error("Execution statement error: %s\nBinds: %s", err.Error(), binds)
 		if err, ok := err.(*pq.Error); ok {
-			switch err.Code{
-				case "23502",
-				     "23503":
-					return nil, errors.NewValidationError(ErrValidation, err.Error(), nil) // Return data here
-				case "23505":
-					re := regexp.MustCompile(`\(([^)]+)\)=\(([^)]+)\)`)
-					parts := re.FindStringSubmatch(err.Detail)[1:]
-					data := make(map[string]interface{})
-					data[parts[0]] = parts[1]
+			switch err.Code {
+			case "23502",
+				"23503":
+				return nil, errors.NewValidationError(ErrValidation, err.Error(), nil) // Return data here
+			case "23505":
+				re := regexp.MustCompile(`\(([^)]+)\)=\(([^)]+)\)`)
+				parts := re.FindStringSubmatch(err.Detail)[1:]
+				data := make(map[string]interface{})
+				data[parts[0]] = parts[1]
 
-					return nil, errors.NewValidationError(ErrValueDuplication, err.Error(), data) // Return data here
-				default:
-					return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
+				return nil, errors.NewValidationError(ErrValueDuplication, err.Error(), data) // Return data here
+			default:
+				return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 			}
 		} else {
 			return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
@@ -216,7 +220,7 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	return &Rows{rows}, nil
 }
 
-func (s *Stmt) Scalar(receiver interface{}, binds []interface{}) (error) {
+func (s *Stmt) Scalar(receiver interface{}, binds []interface{}) error {
 	if rows, err := s.Query(binds); err != nil {
 		return err
 	} else {
@@ -273,7 +277,8 @@ func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, ex
 		switch castValue := rawValues[fieldName].(type) {
 		case *types.GenericInnerLink:
 			values = append(values, castValue.ObjectName)
-			values = append(values, castValue.Pk)
+			castValuePk := fmt.Sprintf("%v", castValue.Pk)
+			values = append(values, castValuePk)
 			processedColumns = append(processedColumns, meta.GetGenericFieldTypeColumnName(fieldName))
 			processedColumns = append(processedColumns, meta.GetGenericFieldKeyColumnName(fieldName))
 		case types.LazyLink:
@@ -283,7 +288,12 @@ func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, ex
 			values = append(values, castValue.Id)
 			processedColumns = append(processedColumns, fieldName)
 		default:
-			values = append(values, castValue)
+			switch castValue.(type) {
+			case nil:
+				values = append(values, castValue)
+			default:
+				values = append(values, fmt.Sprintf("%v", castValue))
+			}
 			processedColumns = append(processedColumns, fieldName)
 		}
 	}
@@ -429,10 +439,21 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 						case []interface{}:
 							//case for inner generic nil value: [nil,nil]
 							for _, value := range castValue {
-								binds = append(binds, value)
+								switch value.(type) {
+								case nil:
+									binds = append(binds, value)
+								default:
+									binds = append(binds, fmt.Sprintf("%v", value))
+								}
+
 							}
 						case interface{}:
-							binds = append(binds, castValue)
+							switch castValue.(type) {
+							case nil:
+								binds = append(binds, castValue)
+							default:
+								binds = append(binds, fmt.Sprintf("%v", castValue))
+							}
 						}
 					}
 				}
@@ -501,7 +522,9 @@ func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[
 				dupTransaction, _ := dbTransaction.(*PgTransaction).Manager.BeginTransaction()
 				duplicates, dup_error := dm.GetAll(m, m.TableFields(), err.Data.(map[string]interface{}), dupTransaction)
 				dupTransaction.Close()
-				if dup_error != nil { logger.Error(dup_error.Error()) }
+				if dup_error != nil {
+					logger.Error(dup_error.Error())
+				}
 				err.Data = duplicates
 			}
 			return err
@@ -551,7 +574,7 @@ func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, fil
 	if fields == nil {
 		fields = m.TableFields()
 	}
-	filterKeys, filterValues := utils.GetMapKeysValues(filters)
+	filterKeys, filterValues := GetMapKeysStrValues(filters)
 
 	selectInfo := NewSelectInfo(m, fields, filterKeys)
 	var q bytes.Buffer
@@ -567,7 +590,7 @@ func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, fil
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) (error) {
+func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) error {
 	var operation transactions.Operation
 	var err error
 	var onDeleteStrategy description.OnDeleteStrategy
@@ -700,4 +723,22 @@ func (dm *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNod
 		return nil, 0, err
 	}
 	return recordsData, count, err
+}
+
+// GetMapKeysStrValues added to adjust pgx driver
+// it is necessery to add binds in string type or in nil type.
+func GetMapKeysStrValues(targetMap map[string]interface{}) ([]string, []interface{}) {
+	values := make([]interface{}, 0)
+	keys := make([]string, 0)
+	for key, value := range targetMap {
+		switch value.(type) {
+		case nil:
+			values = append(values, nil)
+		default:
+			values = append(values, fmt.Sprintf("%v", value))
+		}
+
+		keys = append(keys, key)
+	}
+	return keys, values
 }

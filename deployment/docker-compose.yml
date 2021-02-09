@@ -7,7 +7,7 @@ services:
       dockerfile: ./deployment/Dockerfile
     container_name: custodian
     environment:
-      DATABASE_URL: "pgsql://custodian:custodian@postgres.custodian/custodian?sslmode=disable"
+      DATABASE_URL: "postgres://custodian:custodian@postgres.custodian/custodian?sslmode=disable"
     networks:
       - test-network
 
