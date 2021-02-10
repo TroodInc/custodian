@@ -1,11 +1,11 @@
 package meta
 
 import (
-	"encoding/json"
 	"custodian/server/noti"
-	"custodian/utils"
 	. "custodian/server/object/description"
 	"custodian/server/transactions"
+	"custodian/utils"
+	"encoding/json"
 )
 
 var notifierFactories = map[Protocol]noti.Factory{
@@ -70,6 +70,7 @@ type MetaDescriptionSyncer interface {
 	Create(m MetaDescription) error
 	Remove(name string) (bool, error)
 	Update(name string, m MetaDescription) (bool, error)
+	Cache() *MetaCache
 }
 
 type MetaDbSyncer interface {
@@ -79,6 +80,6 @@ type MetaDbSyncer interface {
 	UpdateObjTo(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
 	ValidateObj(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) (bool, error)
 	BeginTransaction() (transactions.DbTransaction, error)
-	CommitTransaction(transactions.DbTransaction) (error)
-	RollbackTransaction(transactions.DbTransaction) (error)
+	CommitTransaction(transactions.DbTransaction) error
+	RollbackTransaction(transactions.DbTransaction) error
 }

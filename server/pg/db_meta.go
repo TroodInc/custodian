@@ -1,17 +1,23 @@
 package pg
 
 import (
-	"database/sql"
 	"custodian/server/object/description"
+	"custodian/server/object/meta"
 	"custodian/server/transactions"
+	"database/sql"
 )
 
 type DbMetaDescriptionSyncer struct {
-	DbTransactionManager  transactions.DbTransactionManager
+	DbTransactionManager transactions.DbTransactionManager
+	cache                *meta.MetaCache
 }
 
 func NewDbMetaDescriptionSyncer(transactionManager transactions.DbTransactionManager) *DbMetaDescriptionSyncer {
-	return &DbMetaDescriptionSyncer{transactionManager}
+	return &DbMetaDescriptionSyncer{transactionManager, meta.NewCache()}
+}
+
+func (dm *DbMetaDescriptionSyncer) Cache() *meta.MetaCache {
+	return dm.cache
 }
 
 func (dm *DbMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool, error) {
@@ -29,10 +35,10 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 
 	for _, col := range ddl.Columns {
 		meta.Fields = append(meta.Fields, description.Field{
-			Name: col.Name,
-			Type: col.Typ,
+			Name:     col.Name,
+			Type:     col.Typ,
 			Optional: col.Optional,
-			Unique: col.Unique,
+			Unique:   col.Unique,
 		})
 	}
 
