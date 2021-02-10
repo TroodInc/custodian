@@ -22,6 +22,9 @@ type Syncer struct {
 
 func getDBConnection(dbInfo string) *sql.DB {
 	db, err := sql.Open("pgx", dbInfo)
+	db.SetConnMaxLifetime(0)
+	db.SetMaxIdleConns(50)
+	db.SetMaxOpenConns(50)
 	if err != nil {
 		logger.Error("%s", err)
 		logger.Error("Could not connect to Postgres.")
