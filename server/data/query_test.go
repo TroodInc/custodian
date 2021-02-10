@@ -8,7 +8,6 @@ import (
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/operations/object"
 	"custodian/server/transactions"
-	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
 	"fmt"
 	"strconv"
@@ -23,11 +22,9 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
@@ -1161,10 +1158,10 @@ var _ = Describe("Data", func() {
 						},
 					},
 					{
-						Name: "nameEnum",
-						Type: description.FieldTypeEnum,
+						Name:     "nameEnum",
+						Type:     description.FieldTypeEnum,
 						Optional: true,
-						Enum: []string{"Val1", "Val2"},
+						Enum:     []string{"Val1", "Val2"},
 					},
 				},
 			}
@@ -1216,8 +1213,8 @@ var _ = Describe("Data", func() {
 						},
 					},
 					{
-						Name: "stringCamelCase",
-						Type: description.FieldTypeString,
+						Name:     "stringCamelCase",
+						Type:     description.FieldTypeString,
 						Optional: true,
 					},
 				},

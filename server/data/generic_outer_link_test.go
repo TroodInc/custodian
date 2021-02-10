@@ -1,20 +1,20 @@
 package data_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/data/record"
+	"custodian/server/data/types"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/utils"
-	"custodian/server/auth"
-	"strconv"
-	"custodian/server/data/types"
-	"custodian/server/transactions/file_transaction"
 	"custodian/server/transactions"
-	"custodian/server/data/record"
+	"custodian/utils"
 	"fmt"
+	"strconv"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Data", func() {
@@ -23,11 +23,9 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
@@ -209,7 +207,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			aRecordData := map[string]interface{}{"name": "New A record", "b_set": []interface{}{map[string]interface{}{"id": bRecord.Data["id"]}}}
-			aRecord, err := dataProcessor.CreateRecord( testObjAName, aRecordData, auth.User{})
+			aRecord, err := dataProcessor.CreateRecord(testObjAName, aRecordData, auth.User{})
 
 			//check returned data
 			Expect(err).To(BeNil())
@@ -219,7 +217,7 @@ var _ = Describe("Data", func() {
 			Expect(bSetData[0].(float64)).To(Equal(bRecord.Data["id"]))
 
 			//check queried data
-			aRecord, err = dataProcessor.Get( testObjAName, strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
+			aRecord, err = dataProcessor.Get(testObjAName, strconv.Itoa(int(aRecord.Data["id"].(float64))), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 
 			Expect(aRecord.Data).To(HaveKey("b_set"))
@@ -236,7 +234,7 @@ var _ = Describe("Data", func() {
 			Describe("And having a record of object A", havingARecordOfObjectA)
 			Describe("and having a record of object B containing generic field value with A object`s record", havingARecordOfObjectBContainingRecordOfObjectA)
 
-			bRecord, err = dataProcessor.CreateRecord( testObjBName, map[string]interface{}{"target": map[string]interface{}{"_object": testObjAName, "id": aRecord.Data["id"]}, "name": "anotherbrecord"}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(testObjBName, map[string]interface{}{"target": map[string]interface{}{"_object": testObjAName, "id": aRecord.Data["id"]}, "name": "anotherbrecord"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			_, matchedRecords, err := dataProcessor.GetBulk(testObjAName, fmt.Sprintf("eq(b_set.name,%s)", bRecord.Data["name"].(string)), nil, nil, 1, false)

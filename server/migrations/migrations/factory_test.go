@@ -1,19 +1,19 @@
 package migrations_test
 
 import (
+	migrations_description "custodian/server/migrations/description"
+	. "custodian/server/migrations/migrations"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/pg/migrations/managers"
+	"custodian/server/pg/migrations/operations/field"
+	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/transactions"
+	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
-	"custodian/server/pg/migrations/operations/object"
-	"custodian/server/pg/migrations/operations/field"
-	migrations_description "custodian/server/migrations/description"
-	"custodian/server/pg/migrations/managers"
-	. "custodian/server/migrations/migrations"
 )
 
 var _ = Describe("Migration Factory", func() {
@@ -22,11 +22,8 @@ var _ = Describe("Migration Factory", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
-
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
@@ -92,7 +89,7 @@ var _ = Describe("Migration Factory", func() {
 			Id:        "some-unique-id",
 			ApplyTo:   "",
 			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
+			Operations: []migrations_description.MigrationOperationDescription{
 				{
 					Type:            migrations_description.CreateObjectOperation,
 					MetaDescription: metaDescription,
@@ -122,7 +119,7 @@ var _ = Describe("Migration Factory", func() {
 			Id:        "some-unique-id",
 			ApplyTo:   testObjAName,
 			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
+			Operations: []migrations_description.MigrationOperationDescription{
 				{
 					Type:            migrations_description.RenameObjectOperation,
 					MetaDescription: updatedMetaDescription,
@@ -149,7 +146,7 @@ var _ = Describe("Migration Factory", func() {
 			Id:        "some-unique-id",
 			ApplyTo:   testObjAName,
 			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
+			Operations: []migrations_description.MigrationOperationDescription{
 				{
 					Type:            migrations_description.DeleteObjectOperation,
 					MetaDescription: metaDescription,
@@ -176,7 +173,7 @@ var _ = Describe("Migration Factory", func() {
 			Id:        "some-unique-id",
 			ApplyTo:   testObjAName,
 			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
+			Operations: []migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.AddFieldOperation,
 					Field: &migrations_description.MigrationFieldDescription{Field: description.Field{Name: "new-field", Type: description.FieldTypeString, Optional: true}},
@@ -203,7 +200,7 @@ var _ = Describe("Migration Factory", func() {
 			Id:        "some-unique-id",
 			ApplyTo:   testObjAName,
 			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
+			Operations: []migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.RemoveFieldOperation,
 					Field: &migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
@@ -230,7 +227,7 @@ var _ = Describe("Migration Factory", func() {
 			Id:        "some-unique-id",
 			ApplyTo:   testObjAName,
 			DependsOn: nil,
-			Operations: [] migrations_description.MigrationOperationDescription{
+			Operations: []migrations_description.MigrationOperationDescription{
 				{
 					Type:  migrations_description.RemoveFieldOperation,
 					Field: &migrations_description.MigrationFieldDescription{Field: description.Field{Name: "date"}},
@@ -281,7 +278,7 @@ var _ = Describe("Migration Factory", func() {
 				Id:        "some-unique-id",
 				ApplyTo:   "",
 				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
 						Type:            migrations_description.CreateObjectOperation,
 						MetaDescription: bMetaDescription,
@@ -340,7 +337,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -373,7 +370,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -381,7 +378,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err := migrationManager.Apply(migrationDescription,false, false)
+				_, err := migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				cMetaDescription := description.NewMetaDescription(
@@ -418,7 +415,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.UpdateFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field, PreviousName: field.Name},
@@ -453,7 +450,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -461,7 +458,7 @@ var _ = Describe("Migration Factory", func() {
 					},
 				}
 
-				_, err := migrationManager.Apply(migrationDescription,false, false)
+				_, err := migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				renamedBMetaDescription := bMetaDescription.Clone()
@@ -471,7 +468,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.RenameObjectOperation,
 							MetaDescription: renamedBMetaDescription,
@@ -501,7 +498,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -516,7 +513,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.DeleteObjectOperation,
 							MetaDescription: bMetaDescription,
@@ -546,7 +543,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -561,7 +558,7 @@ var _ = Describe("Migration Factory", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.RemoveFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},

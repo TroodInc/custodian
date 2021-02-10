@@ -1,20 +1,20 @@
 package data_test
 
 import (
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/data/record"
+	"custodian/server/data/types"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/utils"
+	"fmt"
+	"strconv"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/utils"
-	"custodian/server/auth"
-	"custodian/server/object/meta"
-	"custodian/server/object/description"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"strconv"
-	"fmt"
-	"custodian/server/data/types"
-	"custodian/server/data/record"
 )
 
 var _ = Describe("Data", func() {
@@ -23,11 +23,9 @@ var _ = Describe("Data", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
@@ -694,7 +692,7 @@ var _ = Describe("Data", func() {
 			bRecord, err = dataProcessor.Get(testObjBName, strconv.Itoa(int(bRecord.Data["id"].(float64))), nil, nil, 2, false)
 			Expect(err).To(BeNil())
 
-			_, ok := bRecord.Data["target"].(*record.Record).Data[testObjDName + "_set"].([]interface{})
+			_, ok := bRecord.Data["target"].(*record.Record).Data[testObjDName+"_set"].([]interface{})
 			Expect(ok).To(BeTrue())
 		})
 	})
@@ -823,8 +821,8 @@ var _ = Describe("Data", func() {
 			Describe("and having a record of object B containing null generic field value ", havingARecordOfObjectBContainingRecordOfObjectC)
 
 			_, matchedRecords, err := dataProcessor.GetBulk(
-				testObjBName, 
-				fmt.Sprintf("eq(target.%s.name,A record)",testObjAName),
+				testObjBName,
+				fmt.Sprintf("eq(target.%s.name,A record)", testObjAName),
 				nil, nil, 1, false,
 			)
 			Expect(err).To(BeNil())
@@ -846,7 +844,7 @@ var _ = Describe("Data", func() {
 
 			_, matchedRecords, err := dataProcessor.GetBulk(
 				testObjBName,
-				fmt.Sprintf("eq(target.%s.name,A record)",testObjAName),
+				fmt.Sprintf("eq(target.%s.name,A record)", testObjAName),
 				nil, nil, 2, false,
 			)
 			Expect(err).To(BeNil())
