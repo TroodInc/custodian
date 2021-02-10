@@ -15,7 +15,6 @@ import (
 */
 type MetaStore struct {
 	MetaDescriptionSyncer    MetaDescriptionSyncer
-	cache                    *MetaCache
 	Syncer                   MetaDbSyncer
 	globalTransactionManager *transactions.GlobalTransactionManager
 }
@@ -52,7 +51,7 @@ func (metaStore *MetaStore) List() ([]*MetaDescription, bool, error) {
 func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error) {
 	//try to get meta from cache
 	if useCache {
-		metaObj := metaStore.cache.Get(name)
+		metaObj := metaStore.MetaDescriptionSyncer.Cache().Get(name)
 		if metaObj != nil {
 			return metaObj, true, nil
 		}
@@ -70,7 +69,6 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 		return nil, isFound, err
 	}
 
-	metaStore.cache.Set(metaObj)
 	return metaObj, isFound, nil
 
 	// @todo: Find another way of checking DB schema consistency
@@ -101,7 +99,7 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 			}
 
 			//invalidate cache
-			metaStore.cache.Invalidate()
+			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 			return nil
 		} else {
 			var e2 = metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, objectMeta.Name, false)
@@ -124,7 +122,6 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 		metaStore.processInnerLinksRemoval(currentMetaObj, newMetaObj)
 		metaStore.processGenericInnerLinksRemoval(currentMetaObj, newMetaObj)
 
-
 		if updateError := metaStore.Syncer.UpdateObj(metaStore.globalTransactionManager, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(currentMetaObj, newMetaObj)
@@ -143,7 +140,7 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 			}
 
 			//invalidate cache
-			metaStore.cache.Invalidate()
+			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 			return true, nil
 		} else {
 			return false, updateError
@@ -171,7 +168,7 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
 
 		//invalidate cache
-		metaStore.cache.Invalidate()
+		metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 
 		return ok, err
 	} else {
@@ -541,10 +538,6 @@ func (metaStore *MetaStore) addReversedOuterFields(previousMeta *Meta, currentMe
 	}
 }
 
-func (metaStore *MetaStore) Cache() *MetaCache {
-	return metaStore.cache
-}
-
 //create through meta if it does not exist
 func (metaStore *MetaStore) createThroughMeta(meta *Meta) error {
 	for _, field := range meta.Fields {
@@ -572,5 +565,5 @@ func (metaStore *MetaStore) Flush() error {
 }
 
 func NewStore(md MetaDescriptionSyncer, mds MetaDbSyncer, gtm *transactions.GlobalTransactionManager) *MetaStore {
-	return &MetaStore{MetaDescriptionSyncer: md, Syncer: mds, cache: NewCache(), globalTransactionManager: gtm}
+	return &MetaStore{MetaDescriptionSyncer: md, Syncer: mds, globalTransactionManager: gtm}
 }

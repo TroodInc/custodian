@@ -67,7 +67,7 @@ func (metaFactory *MetaFactory) resolveEnqueued() error {
 }
 
 // fill MetaDescription with all required attributes
-func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) (error) {
+func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) error {
 	//factory fields
 	currentMeta.Fields = make([]FieldDescription, 0, len(currentMeta.MetaDescription.Fields))
 	for _, field := range currentMeta.MetaDescription.Fields {
@@ -135,6 +135,9 @@ func (metaFactory *MetaFactory) buildMeta(metaName string) (metaObj *Meta, shoul
 	}
 	metaObj = &Meta{MetaDescription: metaDescription}
 	metaFactory.builtMetas[metaName] = metaObj
+
+	metaFactory.metaDriver.Cache().Set(metaObj)
+
 	return metaObj, true, nil
 
 }
@@ -153,7 +156,7 @@ func (metaFactory *MetaFactory) FactoryFieldDescription(field Field, objectMeta 
 }
 
 //factory field description by provided NewField
-func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, ) (metaObj *Meta, shouldBuild bool) {
+func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta) (metaObj *Meta, shouldBuild bool) {
 	metaName := fmt.Sprintf("%s__%s", ownerMeta.Name, field.LinkMeta)
 
 	if metaObj, ok := metaFactory.builtMetas[metaName]; ok {
@@ -189,6 +192,9 @@ func (metaFactory *MetaFactory) buildThroughMeta(field *Field, ownerMeta *Meta, 
 	//
 	metaDescription := NewMetaDescription(metaName, "id", fields, []Action{}, false)
 	metaObj = &Meta{MetaDescription: metaDescription}
+
+	metaFactory.metaDriver.Cache().Set(metaObj)
+
 	return metaObj, true
 
 }
@@ -237,6 +243,8 @@ func (metaFactory *MetaFactory) factoryFieldDescription(field Field, objectMeta 
 				)
 			} else {
 				fieldDescription.LinkMetaList.AddMeta(linkMeta)
+				metaFactory.metaDriver.Cache().Set(linkMeta)
+
 				if shouldBuild {
 					metaFactory.enqueueForResolving(linkMeta)
 				}
