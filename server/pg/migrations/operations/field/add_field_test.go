@@ -6,7 +6,6 @@ import (
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/operations/object"
 	"custodian/server/transactions"
-	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
 	"database/sql"
 	"fmt"
@@ -21,10 +20,8 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
@@ -89,7 +86,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
-	
+
 	It("creates enum", func() {
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
 		Expect(err).To(BeNil())
@@ -104,10 +101,10 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		//
 		enums := description.EnumChoices{"string", "ping", "CAMEL"}
 		field := description.Field{
-			Name: fmt.Sprintf("%s_enum", utils.RandomString(8)),
-			Type: description.FieldTypeEnum,
+			Name:     fmt.Sprintf("%s_enum", utils.RandomString(8)),
+			Type:     description.FieldTypeEnum,
 			Optional: true,
-			Enum: enums}
+			Enum:     enums}
 
 		fieldOperation := NewAddFieldOperation(&field)
 

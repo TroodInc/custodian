@@ -15,7 +15,6 @@ import (
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/managers"
 	"custodian/server/transactions"
-	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
 	"encoding/json"
 	"fmt"
@@ -146,11 +145,10 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	syncer, err := pg.NewSyncer(config.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
 	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 

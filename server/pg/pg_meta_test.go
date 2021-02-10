@@ -5,13 +5,11 @@ import (
 	. "github.com/onsi/gomega"
 
 	"custodian/server/errors"
+	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg"
 	"custodian/server/transactions"
-	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
-	"custodian/server/object/description"
-
 )
 
 var _ = Describe("PG meta test", func() {
@@ -20,10 +18,9 @@ var _ = Describe("PG meta test", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	testObjAName := utils.RandomString(8)
@@ -64,7 +61,7 @@ var _ = Describe("PG meta test", func() {
 			},
 		},
 	}
-	
+
 	createObjectA := func() {
 		err := metaDescriptionSyncer.Create(metaDescriptionA)
 		Expect(err).To(BeNil())
@@ -112,7 +109,7 @@ var _ = Describe("PG meta test", func() {
 		Expect(retrievedMetaDescription).To(BeNil())
 
 	})
-	
+
 	It("can update meta object", func() {
 		createObjectA()
 		updatedMetaDescription := metaDescriptionA.Clone()

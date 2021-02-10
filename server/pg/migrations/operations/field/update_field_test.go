@@ -6,7 +6,6 @@ import (
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/operations/object"
 	"custodian/server/transactions"
-	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
 	"database/sql"
 	"fmt"
@@ -22,11 +21,8 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
-
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	var metaDescription *description.MetaDescription
@@ -471,7 +467,6 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(fieldToUpdate).NotTo(BeNil())
 		})
 
-
 		It("add value to enum", func() {
 			fieldToUpdate.Enum = []string{"val1", "val2", "val3"}
 
@@ -481,7 +476,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
-			_, err = fieldOperation.SyncMetaDescription(metaDescription,  metaDescriptionSyncer)
+			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
