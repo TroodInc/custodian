@@ -589,7 +589,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
 
-			metaStore.Cache().Invalidate()
+			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 
 			if err != nil {
 				js.pushError(err)
@@ -611,7 +611,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			var appliedMigrations []description.MetaDescription
 			for _, migrationDescription := range bulkMigrationDescription {
 				updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
-				metaStore.Cache().Invalidate()
+				metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 				if err != nil {
 					js.pushError(err)
 					return

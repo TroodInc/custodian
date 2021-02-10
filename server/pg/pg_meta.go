@@ -4,6 +4,7 @@ import (
 	"custodian/logger"
 	"custodian/server/errors"
 	"custodian/server/object/description"
+	"custodian/server/object/meta"
 	"custodian/server/transactions"
 	"database/sql"
 	"encoding/json"
@@ -66,12 +67,17 @@ func (md *PgMetaDescriptionSyncer) CreateMetaTableIfNotExists() {
 
 type PgMetaDescriptionSyncer struct {
 	globalTransactionManager *transactions.GlobalTransactionManager
+	cache                    *meta.MetaCache
 }
 
-func NewPgMetaDescriptionSyncer(transactionManager *transactions.GlobalTransactionManager) *PgMetaDescriptionSyncer {
-	md := PgMetaDescriptionSyncer{transactionManager}
+func NewPgMetaDescriptionSyncer(globalTransactionManager *transactions.GlobalTransactionManager) *PgMetaDescriptionSyncer {
+	md := PgMetaDescriptionSyncer{globalTransactionManager, meta.NewCache()}
 	md.CreateMetaTableIfNotExists()
 	return &md
+}
+
+func (md *PgMetaDescriptionSyncer) Cache() *meta.MetaCache {
+	return md.cache
 }
 
 func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescription, bool, error) {
