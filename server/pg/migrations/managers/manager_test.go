@@ -1,15 +1,16 @@
 package managers
 
 import (
-	. "github.com/onsi/ginkgo"
+	"custodian/server/migrations/description"
+	"custodian/server/migrations/migrations"
+	"custodian/server/object/meta"
 	"custodian/server/pg"
 	"custodian/server/transactions"
 	"custodian/utils"
-	. "github.com/onsi/gomega"
 	"database/sql"
-	"custodian/server/migrations/migrations"
-	"custodian/server/migrations/description"
-	"custodian/server/object/meta"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("MigrationManager", func() {
@@ -19,9 +20,8 @@ var _ = Describe("MigrationManager", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-
-	globalTransactionManager := transactions.NewGlobalTransactionManager(nil, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
