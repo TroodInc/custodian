@@ -1,17 +1,17 @@
 package data_test
 
 import (
+	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/utils"
+	"fmt"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"fmt"
-	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/server/auth"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"custodian/server/object/meta"
-	"custodian/server/object/description"
 )
 
 var _ = Describe("RecordSetOperations removal", func() {
@@ -20,11 +20,9 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
@@ -346,7 +344,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 		testObjAName := utils.RandomString(8)
 		testObjBName := utils.RandomString(8)
 		testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
-		
+
 		aMetaDescription := description.MetaDescription{
 			Name: testObjAName,
 			Key:  "id",

@@ -1,28 +1,25 @@
 package managers
 
 import (
+	migrations_description "custodian/server/migrations/description"
+	obj "custodian/server/object"
+	"custodian/server/object/description"
+	"custodian/server/object/meta"
+	"custodian/server/pg"
+	"custodian/server/transactions"
+	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	obj "custodian/server/object"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
-	migrations_description "custodian/server/migrations/description"
-
 )
+
 var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	appConfig := utils.GetConfig()
 	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	
-	//transaction managers
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
@@ -39,7 +36,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 	//setup MetaDescription
 	JustBeforeEach(func() {
-		metaDescription =  obj.GetBaseMetaData(utils.RandomString(8))
+		metaDescription = obj.GetBaseMetaData(utils.RandomString(8))
 
 		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
@@ -77,7 +74,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				Id:        "some-unique-id",
 				ApplyTo:   "",
 				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
 						Type:            migrations_description.CreateObjectOperation,
 						MetaDescription: bMetaDescription,
@@ -85,7 +82,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				},
 			}
 
-			_, err := migrationManager.Apply(migrationDescription,false, false)
+			_, err := migrationManager.Apply(migrationDescription, false, false)
 			Expect(err).To(BeNil())
 
 			aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
@@ -118,7 +115,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -126,7 +123,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					},
 				}
 
-				_, err := migrationManager.Apply(migrationDescription,false, false)
+				_, err := migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
 
 				aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
@@ -148,7 +145,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -179,7 +176,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.UpdateFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field, PreviousName: field.Name},
@@ -214,7 +211,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -232,7 +229,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.RenameObjectOperation,
 							MetaDescription: renamedBMetaDescription,
@@ -263,7 +260,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -278,7 +275,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.DeleteObjectOperation,
 							MetaDescription: bMetaDescription,
@@ -309,7 +306,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -324,7 +321,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.RemoveFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},

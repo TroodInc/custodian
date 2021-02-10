@@ -1,8 +1,6 @@
 package migrations_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	migrations_description "custodian/server/migrations/description"
 	. "custodian/server/migrations/migrations"
 	"custodian/server/object/description"
@@ -10,8 +8,10 @@ import (
 	"custodian/server/pg"
 	"custodian/server/pg/migrations/managers"
 	"custodian/server/transactions"
-	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Automated generic links` migrations` spawning", func() {
@@ -21,10 +21,8 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	
-	fileMetaTransactionManager := file_transaction.NewFileMetaDescriptionTransactionManager(metaDescriptionSyncer.Remove, metaDescriptionSyncer.Create)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
@@ -101,7 +99,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Id:        "some-unique-id",
 				ApplyTo:   "",
 				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
 						Type:            migrations_description.CreateObjectOperation,
 						MetaDescription: bMetaDescription,
@@ -119,7 +117,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 
 		Context("having object B", func() {
 			var bMetaDescription *description.MetaDescription
-			
+
 			BeforeEach(func() {
 				bMetaDescription = description.NewMetaDescription(
 					testObjBName,
@@ -156,7 +154,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -185,7 +183,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -193,9 +191,8 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					},
 				}
 
-				_, err := migrationManager.Apply(migrationDescription,false, false)
+				_, err := migrationManager.Apply(migrationDescription, false, false)
 				Expect(err).To(BeNil())
-				
 
 				cMetaDescription := description.NewMetaDescription(
 					testObjCName,
@@ -231,7 +228,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.UpdateFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field, PreviousName: field.Name},
@@ -266,7 +263,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -284,7 +281,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.RenameObjectOperation,
 							MetaDescription: renamedBMetaDescription,
@@ -314,7 +311,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -329,7 +326,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:            migrations_description.DeleteObjectOperation,
 							MetaDescription: bMetaDescription,
@@ -359,7 +356,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.AddFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},
@@ -374,7 +371,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					Id:        "some-unique-id",
 					ApplyTo:   bMetaDescription.Name,
 					DependsOn: nil,
-					Operations: [] migrations_description.MigrationOperationDescription{
+					Operations: []migrations_description.MigrationOperationDescription{
 						{
 							Type:  migrations_description.RemoveFieldOperation,
 							Field: &migrations_description.MigrationFieldDescription{Field: field},

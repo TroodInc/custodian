@@ -4,16 +4,15 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"custodian/server/pg"
-	"custodian/server/data"
 	"custodian/server/auth"
+	"custodian/server/data"
+	"custodian/server/pg"
 	"custodian/utils"
 	"regexp"
 
-	"custodian/server/transactions/file_transaction"
+	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
-	"custodian/server/object/description"
 )
 
 var _ = Describe("PG MetaStore test", func() {
@@ -22,10 +21,9 @@ var _ = Describe("PG MetaStore test", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
@@ -432,19 +430,19 @@ var _ = Describe("PG MetaStore test", func() {
 						Name:     "name_enum_to_string",
 						Type:     description.FieldTypeEnum,
 						Optional: false,
-						Enum:	  []string{"one", "two"},
+						Enum:     []string{"one", "two"},
 					},
 					{
 						Name:     "name_enum_for_update",
 						Type:     description.FieldTypeEnum,
 						Optional: false,
-						Enum:	  []string{"one", "two"},
+						Enum:     []string{"one", "two"},
 					},
 					{
 						Name:     "name_enum_for_drop",
 						Type:     description.FieldTypeEnum,
 						Optional: false,
-						Enum:	  []string{"one", "two"},
+						Enum:     []string{"one", "two"},
 					},
 				},
 			}
@@ -473,7 +471,7 @@ var _ = Describe("PG MetaStore test", func() {
 						{
 							Name:     "name_string_to_enum",
 							Type:     description.FieldTypeEnum,
-							Enum:	  []string{"one", "two", "three"},
+							Enum:     []string{"one", "two", "three"},
 							Optional: false,
 						},
 						{
@@ -485,7 +483,7 @@ var _ = Describe("PG MetaStore test", func() {
 							Name:     "name_enum_for_update",
 							Type:     description.FieldTypeEnum,
 							Optional: false,
-							Enum:	  []string{"one", "two", "three"},
+							Enum:     []string{"one", "two", "three"},
 						},
 					},
 				}

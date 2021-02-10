@@ -4,20 +4,19 @@ import "custodian/server/object/description"
 
 type DbTransactionManager interface {
 	BeginTransaction() (DbTransaction, error)
-	CommitTransaction(DbTransaction) (error)
-	RollbackTransaction(DbTransaction) (error)
+	CommitTransaction(DbTransaction) error
+	RollbackTransaction(DbTransaction) error
 }
 
 type MetaDescriptionTransactionManager interface {
 	BeginTransaction(metaList []*description.MetaDescription) (MetaDescriptionTransaction, error)
-	CommitTransaction(MetaDescriptionTransaction) (error)
-	RollbackTransaction(MetaDescriptionTransaction) (error)
+	CommitTransaction(MetaDescriptionTransaction) error
+	RollbackTransaction(MetaDescriptionTransaction) error
 }
 
 type GlobalTransactionManager struct {
-	MetaDescriptionTransactionManager MetaDescriptionTransactionManager
-	DbTransactionManager              DbTransactionManager
-	transaction *GlobalTransaction
+	DbTransactionManager DbTransactionManager
+	transaction          *GlobalTransaction
 }
 
 func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*description.MetaDescription) (*GlobalTransaction, error) {
@@ -26,23 +25,16 @@ func (g *GlobalTransactionManager) BeginTransaction(metaDescriptionList []*descr
 		if err != nil {
 			return nil, err
 		}
-		metaDescriptionTransaction, err := g.MetaDescriptionTransactionManager.BeginTransaction(metaDescriptionList)
-		if err != nil {
-			return nil, err
-		}
-		g.transaction = &GlobalTransaction{metaDescriptionTransaction, dbTransaction,0}
+		g.transaction = &GlobalTransaction{dbTransaction, 0}
 	} else {
 		g.transaction.Counter += 1
 	}
 	return g.transaction, nil
 }
 
-func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransaction) (error) {
+func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransaction) error {
 	if g.transaction.Counter == 0 {
 		if err := g.DbTransactionManager.CommitTransaction(transaction.DbTransaction); err != nil {
-			return err
-		}
-		if err := g.MetaDescriptionTransactionManager.CommitTransaction(transaction.MetaDescriptionTransaction); err != nil {
 			return err
 		}
 
@@ -57,7 +49,6 @@ func (g *GlobalTransactionManager) CommitTransaction(transaction *GlobalTransact
 func (g *GlobalTransactionManager) RollbackTransaction(transaction *GlobalTransaction) {
 	if g.transaction.Counter == 0 {
 		g.DbTransactionManager.RollbackTransaction(transaction.DbTransaction)
-		g.MetaDescriptionTransactionManager.RollbackTransaction(transaction.MetaDescriptionTransaction)
 
 		g.transaction = nil
 	} else {
@@ -65,10 +56,8 @@ func (g *GlobalTransactionManager) RollbackTransaction(transaction *GlobalTransa
 	}
 }
 
-func NewGlobalTransactionManager(metaDescriptionTransactionManager MetaDescriptionTransactionManager,
-	dbTransactionManager DbTransactionManager) *GlobalTransactionManager {
+func NewGlobalTransactionManager(dbTransactionManager DbTransactionManager) *GlobalTransactionManager {
 	return &GlobalTransactionManager{
-		MetaDescriptionTransactionManager: metaDescriptionTransactionManager,
-		DbTransactionManager:              dbTransactionManager,
+		DbTransactionManager: dbTransactionManager,
 	}
 }

@@ -1,24 +1,23 @@
 package server_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"net/http"
-	"net/http/httptest"
 	"custodian/server/pg"
 	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
+	"net/http"
+	"net/http/httptest"
 
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
-	"custodian/server"
-	"encoding/json"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"bytes"
-	"fmt"
+	"custodian/server"
 	"custodian/server/object/description"
-	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/object/meta"
 	"custodian/server/pg/migrations/managers"
-
+	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/transactions"
+	"encoding/json"
+	"fmt"
 )
 
 var _ = Describe("Server 101", func() {
@@ -30,10 +29,9 @@ var _ = Describe("Server 101", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(

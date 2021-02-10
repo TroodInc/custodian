@@ -1,23 +1,23 @@
 package server_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
-	"net/http"
-	"net/http/httptest"
 	"custodian/server/object"
 	"custodian/server/pg"
-	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
+	"net/http"
+	"net/http/httptest"
 
-	"encoding/json"
-	"fmt"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"custodian/server"
 	migrations_description "custodian/server/migrations/description"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/pg/migrations/managers"
 	"custodian/server/transactions"
+	"encoding/json"
+	"fmt"
 )
 
 var _ = Describe("Migrations` listing", func() {
@@ -28,11 +28,9 @@ var _ = Describe("Migrations` listing", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
 	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(dbTransactionManager)
-
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
@@ -66,7 +64,7 @@ var _ = Describe("Migrations` listing", func() {
 				Id:        "some-unique-id",
 				ApplyTo:   "",
 				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
 						Type:            migrations_description.CreateObjectOperation,
 						MetaDescription: metaDescription,
@@ -74,15 +72,15 @@ var _ = Describe("Migrations` listing", func() {
 				},
 			}
 
-			_, err := migrationManager.Apply(migrationDescription,true, false)
+			_, err := migrationManager.Apply(migrationDescription, true, false)
 
 			migrationDescription2 := &migrations_description.MigrationDescription{
 				Id:        "with-depends",
 				ApplyTo:   metaDescription.Name,
 				DependsOn: []string{"some-unique-id"},
-				Operations: [] migrations_description.MigrationOperationDescription{
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
-						Type:   migrations_description.AddActionOperation,
+						Type: migrations_description.AddActionOperation,
 						Action: &migrations_description.MigrationActionDescription{
 							Action: description.Action{
 								Method:          description.MethodUpdate,
@@ -97,7 +95,7 @@ var _ = Describe("Migrations` listing", func() {
 				},
 			}
 
-			_, err = migrationManager.Apply(migrationDescription2,true, false)
+			_, err = migrationManager.Apply(migrationDescription2, true, false)
 			Expect(err).To(BeNil())
 		})
 
