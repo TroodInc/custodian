@@ -3,7 +3,6 @@ package abac
 import (
 	"custodian/server/data/record"
 	"custodian/server/object/description"
-	"fmt"
 	"strings"
 )
 
@@ -265,15 +264,16 @@ func evaluateExpression(isFilter bool, operator string, operand interface{}, val
 }
 
 func operatorNot(operand interface{}, value interface{}) (bool, interface{}) {
-	if fmt.Sprintf("%T", value) == "string" {
-		return operand != value, nil
-	} else {
+	switch value.(type) {
+	case map[string]interface{}:
 		var operator string
 		for operator, value = range value.(map[string]interface{}) {
 			break
 		}
 		result, flt := evaluateExpression(false, operator, operand, value, &TroodABAC{})
 		return !result, flt
+	default:
+		return operand != value, nil
 	}
 }
 
