@@ -230,6 +230,85 @@ var _ = Describe("ABAC rules handling", func() {
 			})
 		})
 
+		Context("NOT operator can work with numeric id allowed", func() {
+			It("NOT operator can work with numeric id", func() {
+				url := fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, testObjName)
+
+				user := &auth.User{
+					Role: abac.JsonToObject(`{"id": 20}`),
+					ABAC: abac.JsonToObject(fmt.Sprintf(`
+					{
+						"_default_resolution": "allow",
+						"%s": {
+							"%s": {
+								"data_GET": [
+									{
+										"result": "deny",
+										"rule": {
+											"sbj.role.id": {
+												"not": 21
+											}
+										}
+									}
+								]
+							}
+						}
+					}`, SERVICE_DOMAIN, testObjName)),
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				request, _ := http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+
+			})
+		})
+
+		Context("NOT operator can work with numeric id allowed", func() {
+			It("NOT operator can work with numeric id", func() {
+				url := fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, testObjName)
+
+				user := &auth.User{
+					Role: abac.JsonToObject(`{"id": 21}`),
+					ABAC: abac.JsonToObject(fmt.Sprintf(`
+					{
+						"_default_resolution": "allow",
+						"%s": {
+							"%s": {
+								"data_GET": [
+									{
+										"result": "deny",
+										"rule": {
+											"sbj.role.id": {
+												"not": 21
+											}
+										}
+									}
+								]
+							}
+						}
+					}`, SERVICE_DOMAIN, testObjName)),
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				request, _ := http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+
+			})
+		})
 		Context("Meta & Wildcard rules", func() {
 			It("Must allow meta list with ACTION rule set", func() {
 				user.Role = abac.JsonToObject(`{"id": "manager"}`)
