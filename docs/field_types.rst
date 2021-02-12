@@ -47,7 +47,13 @@ Enum
 ----
 An enum is a string object with a value chosen from a list of permitted values
 
-Field description example:
+Updating enum fields
+""""""""""""""""""""
+To add choices, you need to send all existing choices + new ones
+
+It is not possible to delete existing choices.
+Reducing the number of choices is possible only by changing the type of the enum field to string and back.
+The user is responsible for the consistency of the data in this action.
 
 .. code-block:: json
 
