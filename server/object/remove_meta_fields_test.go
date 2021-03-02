@@ -132,13 +132,13 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
-		objMeta, _, err := metaStore.Get(name, true)
+		objMeta, _, err := metaStore.Get(name, false)
 		Expect(err).To(BeNil())
 		Expect(objMeta.Fields).To(HaveLen(1))
 		Expect(objMeta.Fields[0].Name).To(Equal("id"))
 	}
 
-	It("Does not leave orphan on object removal if both inner and outer related objects presence", func() {
+	It("okokok Does not leave orphan on object removal if both inner and outer related objects presence", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 		metaObjC := havingObjectC()
@@ -150,17 +150,17 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		checkNoOrphansLeft(metaObjC.Name)
 	})
 
-	It("Removes outer _set field", func() {
+	It("okokok Removes outer _set field 1", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
-		_, err := metaStore.Remove(metaObjB.Name, true)
+		_, err := metaStore.Remove(metaObjB.Name, false)
 		Expect(err).To(BeNil())
 		checkNoOrphansLeft(metaObjA.Name)
 
 	})
 
-	It("Removes inner link if outer object is removed", func() {
+	It("okokok Removes inner link if outer object is removed", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -170,7 +170,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		checkNoOrphansLeft(metaObjB.Name)
 	})
 
-	It("Does not leave orphan outer link on object update if inner link removed", func() {
+	It("okokok Does not leave orphan outer link on object update if inner link removed", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -197,12 +197,12 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 
 	})
 
-	It("Does not remove inner link on update if outer link is removed", func() {
+	It("okokok Does not remove inner link on update if outer link is removed", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
 		updatedbMetaDescription := description.MetaDescription{
-			Name: testObjAName,
+			Name: metaObjA.Name,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -216,9 +216,9 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 				},
 			},
 		}
-		updatedBMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
+		updatedAMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
 
-		_, err = metaStore.Update(metaObjA.Name, updatedBMetaObj, false)
+		_, err = metaStore.Update(metaObjA.Name, updatedAMetaObj, false)
 		Expect(err).To(BeNil())
 
 		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
@@ -236,11 +236,18 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		Expect(columns[0].Name).To(Equal("id"))
 		Expect(columns[1].Name).To(Equal(testObjAName))
 		// check meta fields
-		cMeta, _, err := metaStore.Get(metaObjB.Name, true)
+		cMeta, _, err := metaStore.Get(metaObjB.Name, false)
 		Expect(err).To(BeNil())
 		Expect(cMeta.Fields).To(HaveLen(2))
 		Expect(cMeta.Fields[0].Name).To(Equal("id"))
 		Expect(cMeta.Fields[1].Name).To(Equal(testObjAName))
+
+		// delete this manualy beacause if this objects will be removed via metastore.Flush() method
+		// A object will be removed first and thus removing of B object will cause get_meta error
+		// while building the B object meta.
+		// TODO resolve it.
+		metaStore.Remove(metaObjB.Name, true)
+		metaStore.Remove(metaObjA.Name, true)
 
 	})
 
@@ -427,7 +434,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		Expect(objMeta.Fields[0].Name).To(Equal("id"))
 	}
 
-	It("Removes outer _set field", func() {
+	It("okokok Removes outer _set field generic", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -438,14 +445,14 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 
 	})
 
-	It("Flush LinkMetaList if related outer generic object is removed", func() {
+	It("okokok Flush LinkMetaList if related outer generic object is removed 1", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 		// havingObjectB()
-		_, err := metaStore.Remove(metaObjA.Name, true)
+		_, err := metaStore.Remove(metaObjA.Name, false)
 		Expect(err).To(BeNil())
 
-		bMeta, _, err := metaStore.Get(metaObjB.Name, true)
+		bMeta, _, err := metaStore.Get(metaObjB.Name, false)
 		Expect(err).To(BeNil())
 		Expect(bMeta.Fields).To(HaveLen(2))
 		Expect(bMeta.Fields[0].Name).To(Equal("id"))
@@ -454,7 +461,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 
 	})
 
-	It("Does not leave orphan on object update if inner object is updated", func() {
+	It("okokok Does not leave orphan on object update if inner object is updated", func() {
 		metaObjA := havingObjectA()
 		metaObjE := havingObjectE()
 		metaObjD := havingObjectD()
@@ -508,7 +515,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 
 	})
 
-	It("Does not leave orphan on object removal if both outer and inner presence", func() {
+	It("okokok Does not leave orphan on object removal if both outer and inner presence", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 		metaObjC := havingObjectC()
@@ -528,7 +535,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 
 	})
 
-	It("Flush LinkMetaList if related outer generic object is removed on object update", func() {
+	It("okokok Flush LinkMetaList if related outer generic object is removed on object update", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -643,13 +650,14 @@ var _ = Describe("Remove m2m fields", func() {
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
-		aMeta, _, err := metaStore.Get(name, true)
+		aMeta, _, err := metaStore.Get(name, false)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(1))
 		Expect(aMeta.Fields[0].Name).To(Equal("id"))
 	}
 
-	XIt("Does not leave orphan in related object if m2m obj deleted", func() {
+	It("okokok Does not leave orphan in related object if outer m2m obj deleted", func() {
+
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -659,7 +667,7 @@ var _ = Describe("Remove m2m fields", func() {
 		checkNoOrphansLeft(metaObjB.Name)
 	})
 
-	XIt("Does not leave orphan in related object if m2m obj deleted", func() {
+	It("okokok Does not leave orphan in related object if inner m2m obj deleted", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -668,5 +676,57 @@ var _ = Describe("Remove m2m fields", func() {
 
 		checkNoOrphansLeft(metaObjA.Name)
 
+	})
+
+	It("okokok Does not leave orphan in related object on outer m2m obj update", func() {
+		metaObjA := havingObjectA()
+		metaObjB := havingObjectB()
+
+		updatedbMetaDescription := description.MetaDescription{
+			Name: testObjBName,
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		updatedBMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
+
+		_, err = metaStore.Update(metaObjB.Name, updatedBMetaObj, false)
+		Expect(err).To(BeNil())
+		checkNoOrphansLeft(metaObjA.Name)
+	})
+
+	It("okokok Does not leave orphan in related object on inner m2m obj update", func() {
+		metaObjA := havingObjectA()
+		metaObjB := havingObjectB()
+
+		updatedbMetaDescription := description.MetaDescription{
+			Name: testObjAName,
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		updatedBMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
+
+		_, err = metaStore.Update(metaObjA.Name, updatedBMetaObj, false)
+		Expect(err).To(BeNil())
+		checkNoOrphansLeft(metaObjB.Name)
 	})
 })

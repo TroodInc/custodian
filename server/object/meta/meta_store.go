@@ -8,6 +8,7 @@ import (
 	"custodian/utils"
 	"encoding/json"
 	"io"
+	"strings"
 )
 
 /*
@@ -112,15 +113,14 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 }
 
 // Updates an existing object metadata.
-func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool) (bool, error) {
+func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool, upateRelated bool) (bool, error) {
 	if currentMetaObj, ok, err := metaStore.Get(name, false); err == nil {
+
 		if keepOuter {
 			metaStore.processGenericOuterLinkKeeping(currentMetaObj, newMetaObj)
 		}
 		// remove possible outer links before main update processing
-
-		metaStore.processInnerLinksRemoval(currentMetaObj, newMetaObj)
-		metaStore.processGenericInnerLinksRemoval(currentMetaObj, newMetaObj)
+		metaStore.removeRelatedLinksOnUpdate(upateRelated, currentMetaObj, newMetaObj)
 
 		if updateError := metaStore.Syncer.UpdateObj(metaStore.globalTransactionManager, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
 			//add corresponding outer generic fields
@@ -157,10 +157,7 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 		return false, err
 	}
 	//remove related links from the database
-	metaStore.removeRelatedInnerLinks(meta)
-	metaStore.removeRelatedOuterLinks(meta)
-	metaStore.removeRelatedObjectsFieldAndThroughMeta(force, meta)
-	metaStore.removeRelatedGenericOuterLinks(meta)
+	metaStore.removeRelatedLinks(force, meta)
 
 	//remove object from the database
 	if e := metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, name, force); e == nil {
@@ -176,92 +173,81 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	}
 }
 
-//Remove all outer fields linking to given MetaDescription
-func (metaStore *MetaStore) removeRelatedOuterLinks(targetMeta *Meta) {
-	for _, field := range targetMeta.Fields {
-		if field.Type == FieldTypeObject && field.LinkType == LinkTypeInner {
-			metaStore.removeRelatedOuterLink(targetMeta, field)
-		}
-	}
-}
-
-//Remove outer field from related object if it links to the given field
-func (metaStore *MetaStore) removeRelatedOuterLink(targetMeta *Meta, innerLinkFieldDescription FieldDescription) {
-	relatedObjectMeta := innerLinkFieldDescription.LinkMeta
-	for i, relatedObjectField := range relatedObjectMeta.Fields {
-		if relatedObjectField.LinkType == LinkTypeOuter &&
-			relatedObjectField.LinkMeta.Name == targetMeta.Name &&
-			relatedObjectField.OuterLinkField.Field.Name == innerLinkFieldDescription.Field.Name {
-			//omit outer field and update related object
-			relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
-			relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
-			metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
-		}
-	}
-}
-
-//Remove all outer fields linking to given MetaDescription
-func (metaStore *MetaStore) removeRelatedGenericOuterLinks(targetMeta *Meta) {
-	for _, field := range targetMeta.Fields {
-		if field.Type == FieldTypeGeneric && field.LinkType == LinkTypeInner {
-			metaStore.removeRelatedToInnerGenericOuterLinks(targetMeta, field, field.LinkMetaList.GetAll())
-		}
-	}
-}
-
-//Remove generic outer field from each of linkMetaList`s meta related to the given inner generic field
-func (metaStore *MetaStore) removeRelatedToInnerGenericOuterLinks(targetMeta *Meta, genericInnerLinkFieldDescription FieldDescription, linkMetaList []*Meta) {
-	for _, relatedObjectMeta := range linkMetaList {
-		for i, relatedObjectField := range relatedObjectMeta.Fields {
-			if relatedObjectField.Type == FieldTypeGeneric &&
-				relatedObjectField.LinkType == LinkTypeOuter &&
-				relatedObjectField.LinkMeta.Name == targetMeta.Name &&
-				relatedObjectField.OuterLinkField.Field.Name == genericInnerLinkFieldDescription.Field.Name {
-				//omit outer field and update related object
-				relatedObjectMeta.Fields = append(relatedObjectMeta.Fields[:i], relatedObjectMeta.Fields[i+1:]...)
-				relatedObjectMeta.MetaDescription.Fields = append(relatedObjectMeta.MetaDescription.Fields[:i], relatedObjectMeta.MetaDescription.Fields[i+1:]...)
-				metaStore.Update(relatedObjectMeta.Name, relatedObjectMeta, false)
-			}
-		}
-	}
-}
-
-func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(keepMeta bool, targetMeta *Meta) error {
+func (metaStore *MetaStore) removeRelatedLinks(keepMeta bool, targetMeta *Meta) error {
 	metaDescriptionList, _, _ := metaStore.List()
-	for _, objectMetaDescription := range metaDescriptionList {
+	for _, objectMeta := range metaDescriptionList {
+		if !strings.Contains(objectMeta.Name, "__") {
+			metaStore.updateRelatedObj(keepMeta, objectMeta.Name, targetMeta.Name, FieldTypeObject)
+		}
+	}
 
-		if targetMeta.Name != objectMetaDescription.Name {
-			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
-			if objectMeta != nil {
-				objectMetaFields := make([]Field, 0)
-				objectMetaFieldDescriptions := make([]FieldDescription, 0)
-				objectNeedsUpdate := false
+	for _, field := range targetMeta.Fields {
+		metaStore.processRelatedObjectUpdate(keepMeta, field, targetMeta.Name)
+	}
+	return nil
+}
 
-				for i, fieldDescription := range objectMeta.Fields {
-					//omit orphan fields
-					fieldIsObjectsLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObjects
-
-					if !fieldIsObjectsLink {
-						objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
-						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
-						// TODO: Need to be refactored after additional investigation
-					} else if fieldDescription.LinkMeta.Name == targetMeta.Name {
-						objectNeedsUpdate = true
-						if !keepMeta {
-							if _, err := metaStore.Remove(fieldDescription.LinkThrough.Name, true); err != nil {
-								return err
+func (metaStore *MetaStore) removeRelatedLinksOnUpdate(updateRelated bool, currentMeta *Meta, newMeta *Meta) error {
+	if updateRelated {
+		for _, currentFieldDescription := range currentMeta.Fields {
+			isInnerLink := currentFieldDescription.LinkType == LinkTypeInner && currentFieldDescription.Type == FieldTypeObject
+			isArrayLink := currentFieldDescription.LinkType == LinkTypeOuter && currentFieldDescription.Type == FieldTypeArray
+			isObjectsLink := currentFieldDescription.LinkType == LinkTypeInner && currentFieldDescription.Type == FieldTypeObjects
+			isInnerGeneric := currentFieldDescription.LinkType == LinkTypeInner && currentFieldDescription.Type == FieldTypeGeneric
+			isOuterGeneric := currentFieldDescription.LinkType == LinkTypeOuter && currentFieldDescription.Type == FieldTypeGeneric
+			if isInnerLink || isArrayLink || isObjectsLink || isInnerGeneric || isOuterGeneric {
+				if newField := newMeta.FindField(currentFieldDescription.Name); newField == nil {
+					if !isArrayLink && !isOuterGeneric {
+						metaStore.processRelatedObjectUpdate(false, currentFieldDescription, currentMeta.Name)
+					} else if isOuterGeneric {
+						var isRenamed bool
+						for _, f := range newMeta.Fields {
+							if f.LinkMeta != nil && currentFieldDescription.LinkMeta.Name == f.LinkMeta.Name &&
+								f.Type == FieldTypeGeneric && f.LinkType == LinkTypeOuter {
+								isRenamed = true
 							}
 						}
+						if !isRenamed {
+							metaStore.processRelatedObjectUpdate(false, currentFieldDescription, currentMeta.Name)
+						}
 					}
-				}
 
-				// means that related object should be updated
-				if objectNeedsUpdate {
-					objectMeta.Fields = objectMetaFieldDescriptions
-					objectMeta.MetaDescription.Fields = objectMetaFields
-					if _, err := metaStore.Update(objectMeta.Name, objectMeta, false); err != nil {
-						return err
+				} else if newField != nil {
+
+					var sameLinkMeta bool
+					sameName := currentFieldDescription.Name == newField.Name
+					sameType := currentFieldDescription.Type == newField.Type
+
+					if currentFieldDescription.LinkMeta != nil {
+						if newField.LinkMeta == nil && currentFieldDescription.LinkMeta == nil {
+							sameLinkMeta = true
+						} else if newField.LinkMeta != nil && currentFieldDescription.LinkMeta != nil {
+							sameLinkMeta = currentFieldDescription.LinkMeta.Name == newField.LinkMeta.Name
+						}
 					}
+
+					isChanged := !sameName || !sameType || !sameLinkMeta
+
+					if isChanged && (isInnerLink || isArrayLink) {
+						metaStore.updateRelatedObj(true, currentFieldDescription.LinkMeta.Name, currentMeta.Name, FieldTypeArray)
+
+					} else if isChanged && isObjectsLink {
+						if _, err := metaStore.Remove(currentFieldDescription.LinkThrough.Name, true); err != nil {
+							return err
+						}
+
+					} else if isChanged && isInnerGeneric {
+						sameLinkMetaList := utils.Equal(currentFieldDescription.Field.LinkMetaList, newField.Field.LinkMetaList, false)
+						if !sameLinkMetaList {
+							linkMetaListDiff := currentFieldDescription.LinkMetaList.Diff(newField.LinkMetaList.GetAll())
+							for _, linkMeta := range linkMetaListDiff {
+								metaStore.updateRelatedObj(true, linkMeta.Name, currentMeta.Name, FieldTypeGeneric)
+							}
+						}
+					} else if isChanged && isOuterGeneric {
+						metaStore.updateRelatedObj(true, currentFieldDescription.LinkMeta.Name, currentMeta.Name, FieldTypeGeneric)
+					}
+
 				}
 			}
 		}
@@ -269,110 +255,112 @@ func (metaStore *MetaStore) removeRelatedObjectsFieldAndThroughMeta(keepMeta boo
 	return nil
 }
 
-//Remove inner fields linking to given MetaDescription
-func (metaStore *MetaStore) removeRelatedInnerLinks(targetMeta *Meta) {
-	metaDescriptionList, _, _ := metaStore.List()
-	for _, objectMetaDescription := range metaDescriptionList {
-
-		if targetMeta.Name != objectMetaDescription.Name {
-			objectMeta, _, _ := metaStore.Get(objectMetaDescription.Name, false)
-			if objectMeta != nil {
-
-				objectMetaFields := make([]Field, 0)
-				objectMetaFieldDescriptions := make([]FieldDescription, 0)
-				objectNeedsUpdate := false
-
-				for i, fieldDescription := range objectMeta.Fields {
-					//omit orphan fields
-					fieldIsTargetOuterLink := fieldDescription.LinkType == LinkTypeOuter && fieldDescription.Type == FieldTypeArray && fieldDescription.LinkMeta.Name == targetMeta.Name
-					fieldIsTargetInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObject && fieldDescription.LinkMeta.Name == targetMeta.Name
-					fieldIsTargetGenericInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeGeneric && utils.Contains(fieldDescription.Field.LinkMetaList, targetMeta.Name)
-
-					if !(fieldIsTargetInnerLink || fieldIsTargetGenericInnerLink) {
-						objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
-						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
-					} else if fieldIsTargetGenericInnerLink {
-						objectNeedsUpdate = true
-						indexOfTargetMeta := utils.IndexOf(fieldDescription.Field.LinkMetaList, targetMeta.Name)
-
-						//alter field
-						field := objectMeta.MetaDescription.Fields[i]
-						field.LinkMetaList = append(field.LinkMetaList[:indexOfTargetMeta], field.LinkMetaList[indexOfTargetMeta+1:]...)
-						objectMetaFields = append(objectMetaFields, field)
-
-						//alter field description
-						fieldDescription := objectMeta.Fields[i]
-						fieldDescription.LinkMetaList.RemoveByName(targetMeta.Name)
-						objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, fieldDescription)
-
-					} else if fieldIsTargetInnerLink || fieldIsTargetOuterLink {
-						objectNeedsUpdate = true
-
+func (metaStore *MetaStore) processRelatedObjectUpdate(keepMeta bool, field FieldDescription, targetMetaName string) error {
+	switch field.Type {
+	// remove related intermediate table a__b
+	case FieldTypeObjects:
+		if !keepMeta {
+			if _, err := metaStore.Remove(field.LinkThrough.Name, true); err != nil {
+				return err
+			}
+		}
+	// remove related objects filed (m2m)
+	case FieldTypeArray:
+		if strings.Contains(field.LinkMeta.Name, "__") {
+			m2mIntermediateTable, _, _ := metaStore.Get(field.LinkMeta.Name, false)
+			if m2mIntermediateTable != nil {
+				var relatedObjName string
+				for _, f := range m2mIntermediateTable.Fields {
+					if f.Type == FieldTypeObject && f.Name != targetMetaName {
+						relatedObjName = f.Name
 					}
 				}
-				// it means that related object should be updated
-				if objectNeedsUpdate {
-					objectMeta.Fields = objectMetaFieldDescriptions
-					objectMeta.MetaDescription.Fields = objectMetaFields
-					metaStore.Update(objectMeta.Name, objectMeta, false)
-				}
+				metaStore.updateRelatedObj(keepMeta, relatedObjName, field.LinkMeta.Name, FieldTypeArray)
+				metaStore.updateRelatedObj(keepMeta, relatedObjName, targetMetaName, FieldTypeObjects)
 			}
+			// remove field related to object field
+			// } else if !strings.Contains(field.LinkMeta.Name, "__") {
+			// 	metaDescriptionList, _, _ := metaStore.List()
+			// 	for _, objectMeta := range metaDescriptionList {
+			// 		fmt.Println(objectMeta.Name)
+			// 		metaStore.updateRelatedObj(keepMeta, objectMeta.Name, targetMetaName, FieldTypeObject)
+			// 	}
+		}
+
+	// remove related outer field
+	case FieldTypeObject:
+		metaStore.updateRelatedObj(keepMeta, field.LinkMeta.Name, targetMetaName, FieldTypeArray)
+	case FieldTypeGeneric:
+		// if inner generic field remove related generic outer field or if outer pop from LinkMetaList
+		if field.LinkType == LinkTypeInner {
+			for _, linkedMeta := range field.LinkMetaList.GetAll() {
+				metaStore.updateRelatedObj(keepMeta, linkedMeta.Name, targetMetaName, FieldTypeGeneric)
+			}
+		} else if field.LinkType == LinkTypeOuter {
+
+			metaStore.updateRelatedObj(keepMeta, field.LinkMeta.Name, targetMetaName, FieldTypeGeneric)
 		}
 	}
+	return nil
 }
 
-// compare current object`s version to the version is being updated and remove outer links
-// if any inner link is being removed
-func (metaStore *MetaStore) processInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) {
-	for _, currentFieldDescription := range currentMeta.Fields {
-		if currentFieldDescription.LinkType == LinkTypeInner && currentFieldDescription.Type == FieldTypeObject {
-			fieldIsBeingRemoved := true
-			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
-				if fieldDescriptionToBeUpdated.Name == currentFieldDescription.Name &&
-					fieldDescriptionToBeUpdated.LinkType == LinkTypeInner &&
-					fieldDescriptionToBeUpdated.Type == currentFieldDescription.Type &&
-					fieldDescriptionToBeUpdated.LinkMeta.Name == currentFieldDescription.LinkMeta.Name {
-					fieldIsBeingRemoved = false
-				}
-			}
-			if fieldIsBeingRemoved {
-				metaStore.removeRelatedOuterLink(currentMeta, currentFieldDescription)
-			}
-		}
-	}
-}
+// updateRelatedObj gathers all fields of related object except field which type is equal to relatedFieldType
+// and which fieldDescription.LinkMeta.Name is equal to targetMetaName (or contains in LinkMetaList for inner generic) into new meta  of related object
+// and updates related object with new meta
+func (metaStore *MetaStore) updateRelatedObj(keepMeta bool, relatedObjectName string, targetMetaName string, relatedFieldType FieldType) error {
+	objectMeta, _, _ := metaStore.Get(relatedObjectName, false)
+	if objectMeta != nil {
+		objectMetaFields := make([]Field, 0)
+		objectMetaFieldDescriptions := make([]FieldDescription, 0)
+		objectNeedsUpdate := false
+		for i, fieldDescription := range objectMeta.Fields {
 
-// compare current object`s version to the version is being updated and remove outer links
-// if any generic inner link is being removed
-func (metaStore *MetaStore) processGenericInnerLinksRemoval(currentMeta *Meta, metaToBeUpdated *Meta) {
-	for _, currentFieldDescription := range currentMeta.Fields {
-		if currentFieldDescription.LinkType == LinkTypeInner && currentFieldDescription.Type == FieldTypeGeneric {
-			fieldIsBeingRemoved := true
-			fieldIsBeingUpdated := true
-			var linkMetaListDiff []*Meta
-			for _, fieldDescriptionToBeUpdated := range metaToBeUpdated.Fields {
-				if fieldDescriptionToBeUpdated.Name == currentFieldDescription.Name &&
-					fieldDescriptionToBeUpdated.LinkType == LinkTypeInner {
-					if utils.Equal(fieldDescriptionToBeUpdated.Field.LinkMetaList, currentFieldDescription.Field.LinkMetaList, false) {
-						fieldIsBeingRemoved = false
-						fieldIsBeingUpdated = false
-					} else {
-						fieldIsBeingRemoved = false
-						fieldIsBeingUpdated = true
-						linkMetaListDiff = currentFieldDescription.LinkMetaList.Diff(fieldDescriptionToBeUpdated.LinkMetaList.GetAll())
+			fieldIsObjectsLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObjects && fieldDescription.LinkMeta.Name == targetMetaName
+			fieldIsTargetOuterLink := fieldDescription.LinkType == LinkTypeOuter && fieldDescription.Type == FieldTypeArray && fieldDescription.LinkMeta.Name == targetMetaName
+			fieldIsTargetInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeObject && fieldDescription.LinkMeta.Name == targetMetaName
+			fieldIsTargetGenericInnerLink := fieldDescription.LinkType == LinkTypeInner && fieldDescription.Type == FieldTypeGeneric && utils.Contains(fieldDescription.Field.LinkMetaList, targetMetaName)
+			fieldIsTargetGenericOuterLink := fieldDescription.LinkType == LinkTypeOuter && fieldDescription.Type == FieldTypeGeneric && fieldDescription.LinkMeta.Name == targetMetaName
+
+			if !(fieldIsTargetInnerLink || fieldIsTargetOuterLink || fieldIsObjectsLink || fieldIsTargetGenericInnerLink || fieldIsTargetGenericOuterLink) {
+				objectMetaFields = append(objectMetaFields, objectMeta.MetaDescription.Fields[i])
+				objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, objectMeta.Fields[i])
+
+			} else if fieldIsTargetGenericInnerLink && fieldDescription.Type == relatedFieldType {
+				objectNeedsUpdate = true
+
+				indexOfTargetMeta := utils.IndexOf(fieldDescription.Field.LinkMetaList, targetMetaName)
+
+				//alter field
+				field := objectMeta.MetaDescription.Fields[i]
+				field.LinkMetaList = append(field.LinkMetaList[:indexOfTargetMeta], field.LinkMetaList[indexOfTargetMeta+1:]...)
+				objectMetaFields = append(objectMetaFields, field)
+
+				//alter field description
+				fieldDescription := objectMeta.Fields[i]
+				fieldDescription.LinkMetaList.RemoveByName(targetMetaName)
+				objectMetaFieldDescriptions = append(objectMetaFieldDescriptions, fieldDescription)
+
+			} else if (fieldIsTargetInnerLink || fieldIsTargetOuterLink || fieldIsTargetGenericOuterLink) && fieldDescription.Type == relatedFieldType {
+				objectNeedsUpdate = true
+			} else if fieldIsObjectsLink && fieldDescription.Type == relatedFieldType {
+				objectNeedsUpdate = true
+				if !keepMeta {
+					if _, err := metaStore.Remove(fieldDescription.LinkThrough.Name, true); err != nil {
+						return err
 					}
 				}
 			}
-			//process generic outer link removal only for removed metas
-			if fieldIsBeingUpdated {
-				metaStore.removeRelatedToInnerGenericOuterLinks(currentMeta, currentFieldDescription, linkMetaListDiff)
-			}
-			//process generic outer link removal for each linked meta
-			if fieldIsBeingRemoved {
-				metaStore.removeRelatedToInnerGenericOuterLinks(currentMeta, currentFieldDescription, currentFieldDescription.LinkMetaList.GetAll())
+		}
+
+		if objectNeedsUpdate {
+			objectMeta.Fields = objectMetaFieldDescriptions
+			objectMeta.MetaDescription.Fields = objectMetaFields
+			if _, err := metaStore.Update(objectMeta.Name, objectMeta, false, false); err != nil {
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 //track outer link removal and return it if corresponding inner generic field was not removed
@@ -459,7 +447,7 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(previousMeta *Meta, cu
 							LinkMeta:       currentMeta,
 							OuterLinkField: &field},
 					)
-					metaStore.Update(linkMeta.Name, linkMeta, true)
+					metaStore.Update(linkMeta.Name, linkMeta, true, false)
 				}
 
 				//remove reverse outer
@@ -469,7 +457,7 @@ func (metaStore *MetaStore) addReversedOuterGenericFields(previousMeta *Meta, cu
 							if excludedField.OuterLinkField.Name == field.Name && excludedField.LinkMeta.Name == field.Meta.Name {
 								excludedMeta.Fields = append(excludedMeta.Fields[:i], excludedMeta.Fields[i+1:]...)
 								excludedMeta.MetaDescription.Fields = append(excludedMeta.MetaDescription.Fields[:i], excludedMeta.MetaDescription.Fields[i+1:]...)
-								metaStore.Update(excludedMeta.Name, excludedMeta, true)
+								metaStore.Update(excludedMeta.Name, excludedMeta, true, false)
 							}
 						}
 					}
@@ -532,7 +520,7 @@ func (metaStore *MetaStore) addReversedOuterFields(previousMeta *Meta, currentMe
 						OuterLinkField: &field,
 					},
 				)
-				metaStore.Update(referencedMeta.Name, referencedMeta, true)
+				metaStore.Update(referencedMeta.Name, referencedMeta, true, false)
 			}
 		}
 	}
@@ -557,9 +545,13 @@ func (metaStore *MetaStore) Flush() error {
 		return err
 	}
 	for _, meta := range metaList {
-		if _, err := metaStore.Remove(meta.Name, true); err != nil {
-			return err
+		// check object exists
+		if meta, _, _ := metaStore.Get(meta.Name, false); meta != nil {
+			if _, err := metaStore.Remove(meta.Name, false); err != nil {
+				return err
+			}
 		}
+
 	}
 	return nil
 }
