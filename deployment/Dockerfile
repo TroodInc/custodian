@@ -20,6 +20,7 @@ RUN chmod +x /usr/bin/migrate.py \
     && curl https://bootstrap.pypa.io/get-pip.py -o /tmp/get-pip.py \
     && python3 /tmp/get-pip.py \
     && pip install requests \
+    && pip install trood==1.0.0 \
     && echo $TAG > /home/custodian/VERSION \
     && go build -o /go/app \
     && go get github.com/onsi/ginkgo/ginkgo \
