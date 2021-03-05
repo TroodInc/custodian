@@ -29,20 +29,20 @@ var _ = Describe("Outer generic field", func() {
 
 	It("can create object with manually specified outer generic field", func() {
 		By("having two objects: A and B")
-		aMetaDescription := GetBaseMetaData(utils.RandomString(8))
+		aMetaDescription := GetBaseMetaData(utils.RandomString(8) + "_a")
 		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
 		Expect(err).To(BeNil())
 
-		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
+		bMetaDescription := GetBaseMetaData(utils.RandomString(8) + "_b")
 		bMetaObj, err := metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
 		err = metaStore.Create(bMetaObj)
 		Expect(err).To(BeNil())
 
 		By("and object C, containing generic inner field")
-		cMetaDescription := GetBaseMetaData(utils.RandomString(8))
+		cMetaDescription := GetBaseMetaData(utils.RandomString(8) + "_c")
 		cMetaDescription.Fields = append(cMetaDescription.Fields, description.Field{
 			Name:         "target",
 			Type:         description.FieldTypeGeneric,
@@ -67,12 +67,12 @@ var _ = Describe("Outer generic field", func() {
 		(&description.NormalizationService{}).Normalize(aMetaDescription)
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		// check meta fields
 		fieldName := "c_set"
-		aMeta, _, err := metaStore.Get(aMetaDescription.Name, true)
+		aMeta, _, err := metaStore.Get(aMetaDescription.Name, false)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(2))
 		Expect(aMeta.Fields[1].Name).To(Equal(fieldName))
@@ -164,14 +164,14 @@ var _ = Describe("Outer generic field", func() {
 		})
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true)
+		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		By("and outer generic field removed from object A")
 		aMetaDescription = GetBaseMetaData(aMetaObj.Name)
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true)
+		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true, true)
 		Expect(err).To(BeNil())
 	})
 
@@ -207,7 +207,7 @@ var _ = Describe("Outer generic field", func() {
 		})
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		//
@@ -216,7 +216,7 @@ var _ = Describe("Outer generic field", func() {
 		bMetaDescription = GetBaseMetaData(bMetaObj.Name)
 		bMetaObj, err = metaStore.NewMeta(bMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true)
+		_, err = metaStore.Update(bMetaObj.Name, bMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		By("outer link should be removed from object A")
@@ -260,7 +260,7 @@ var _ = Describe("Outer generic field", func() {
 		})
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		//
@@ -303,7 +303,7 @@ var _ = Describe("Outer generic field", func() {
 		aMetaDescription = GetBaseMetaData(aMetaObj.Name)
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 		//
 

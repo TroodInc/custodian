@@ -80,7 +80,7 @@ var _ = Describe("Store", func() {
 				objectMeta, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(BeNil())
 
-				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
+				_, err = metaStore.Update(objectMeta.Name, objectMeta, true, true)
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
@@ -115,7 +115,7 @@ var _ = Describe("Store", func() {
 				objectMeta, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(BeNil())
 
-				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
+				_, err = metaStore.Update(objectMeta.Name, objectMeta, true, true)
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
@@ -179,7 +179,7 @@ var _ = Describe("Store", func() {
 				}
 				objectMeta, err := metaStore.NewMeta(&metaDescription)
 				Expect(err).To(BeNil())
-				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
+				_, err = metaStore.Update(objectMeta.Name, objectMeta, true, true)
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)

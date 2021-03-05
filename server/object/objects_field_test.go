@@ -56,8 +56,8 @@ var _ = Describe("Objects field", func() {
 	})
 
 	It("can build meta with 'objects' field and filled 'throughLink'", func() {
-		aMetaDescription := GetBaseMetaData(utils.RandomString(8))
-		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
+		aMetaDescription := GetBaseMetaData(utils.RandomString(8) + "_a")
+		bMetaDescription := GetBaseMetaData(utils.RandomString(8) + "_b")
 
 		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
@@ -85,7 +85,7 @@ var _ = Describe("Objects field", func() {
 		Expect(updatedAMetaObj.Fields[1].LinkType).To(Equal(description.LinkTypeInner))
 
 		//create meta and check through meta was created
-		_, err = metaStore.Update(updatedAMetaObj.Name, updatedAMetaObj, true)
+		_, err = metaStore.Update(updatedAMetaObj.Name, updatedAMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		throughMeta, _, err := metaStore.Get(updatedAMetaObj.Fields[1].LinkThrough.Name, false)

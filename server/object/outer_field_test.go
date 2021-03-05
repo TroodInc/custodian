@@ -64,7 +64,7 @@ var _ = Describe("Outer field", func() {
 		(&description.NormalizationService{}).Normalize(aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
@@ -143,7 +143,7 @@ var _ = Describe("Outer field", func() {
 		(&description.NormalizationService{}).Normalize(aMetaDescription)
 		aMetaObj, err = metaStore.NewMeta(aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 
 		// A meta should contain only custom_b_set, b_set should be removed

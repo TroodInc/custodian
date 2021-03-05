@@ -114,7 +114,7 @@ var _ = Describe("Inner generic field", func() {
 		metaDescription = GetBaseMetaData(metaDescription.Name)
 		metaObj, err = metaStore.NewMeta(metaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true)
+		_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 		Expect(err).To(BeNil())
 
 		//check database columns
@@ -249,7 +249,7 @@ var _ = Describe("Inner generic field", func() {
 		})
 		metaObj, err = metaStore.NewMeta(cMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true)
+		_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 		Expect(err).To(BeNil())
 
 		//c_set field should be removed from object A

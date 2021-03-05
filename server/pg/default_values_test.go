@@ -76,7 +76,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -131,7 +131,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -186,7 +186,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -241,7 +241,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -296,7 +296,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -351,7 +351,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {
@@ -406,7 +406,7 @@ var _ = Describe("PG MetaStore test", func() {
 			}
 			metaObj, err = metaStore.NewMeta(&metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(metaObj.Name, metaObj, true)
+			_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 			Expect(err).To(BeNil())
 
 			Context("existing record`s value should equal to default value", func() {

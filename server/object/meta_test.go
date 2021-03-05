@@ -77,7 +77,7 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			aMeta, err = metaStore.NewMeta(aMetaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(aMeta.Name, aMeta, true)
+			_, err = metaStore.Update(aMeta.Name, aMeta, true, true)
 			Expect(err).To(BeNil())
 
 			Context("and 'remove' method is called for B meta", func() {
@@ -153,14 +153,14 @@ var _ = Describe("The PG MetaStore", func() {
 				OuterLinkField: "a_fk",
 			})
 			aMeta, err = metaStore.NewMeta(aMetaDescription)
-			metaStore.Update(aMeta.Name, aMeta, true)
+			metaStore.Update(aMeta.Name, aMeta, true, true)
 			Expect(err).To(BeNil())
 
 			Context("and inner link field was removed from object B", func() {
 				bMetaDescription := GetBaseMetaData(bMetaDescription.Name)
 				bMeta, err := metaStore.NewMeta(bMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(bMeta.Name, bMeta, true)
+				metaStore.Update(bMeta.Name, bMeta, true, true)
 
 				Context("outer link field should be removed from object A", func() {
 					aMeta, _, err = metaStore.Get(aMeta.Name, true)
@@ -254,7 +254,7 @@ var _ = Describe("The PG MetaStore", func() {
 				})
 				meta, err := metaStore.NewMeta(metaDescription)
 				Expect(err).To(BeNil())
-				_, err = metaStore.Update(meta.Name, meta, true)
+				_, err = metaStore.Update(meta.Name, meta, true, true)
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
@@ -294,7 +294,7 @@ var _ = Describe("The PG MetaStore", func() {
 			})
 			meta, err := metaStore.NewMeta(metaDescription)
 			Expect(err).To(BeNil())
-			_, err = metaStore.Update(meta.Name, meta, true)
+			_, err = metaStore.Update(meta.Name, meta, true, true)
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
@@ -552,7 +552,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 		updatedMetaDescription := GetBaseMetaData(childMeta.Name)
 		updatedMeta, _ := metaStore.NewMeta(updatedMetaDescription)
-		metaStore.Update(childMeta.Name, updatedMeta, true)
+		metaStore.Update(childMeta.Name, updatedMeta, true, true)
 
 		testMeta, _, _ := metaStore.Get(childMeta.Name, false)
 		Expect(testMeta.FindField(fmt.Sprintf("%s__%s_set", parentMeta.Name, childMeta.Name))).NotTo(BeNil())

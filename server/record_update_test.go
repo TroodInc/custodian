@@ -106,7 +106,7 @@ var _ = Describe("Server", func() {
 		(&description.NormalizationService{}).Normalize(&metaDescription)
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true)
+		_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
