@@ -23,8 +23,14 @@ var _ = Describe("PG meta test", func() {
 	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
+	AfterEach(func() {
+		err := metaStore.Flush()
+		Expect(err).To(BeNil())
+	})
+
 	testObjAName := utils.RandomString(8)
 	testObjBName := utils.RandomString(8)
+	testObjCName := utils.RandomString(8)
 
 	metaDescriptionA := description.MetaDescription{
 		Name: testObjAName,
@@ -137,5 +143,26 @@ var _ = Describe("PG meta test", func() {
 		Expect(err).To(BeNil())
 		Expect(metaList).To(HaveLen(2))
 
+	})
+
+	It("can rename meta object", func() {
+		createObjectA()
+		updatedMetaDescription := metaDescriptionA.Clone()
+		updatedMetaDescription.Name = testObjCName
+
+		_, err := metaDescriptionSyncer.Update(testObjAName, *updatedMetaDescription)
+		Expect(err).To(BeNil())
+
+		notExistingMetaDescription, _, err := metaDescriptionSyncer.Get(testObjAName)
+		Expect(err).NotTo(BeNil())
+		Expect(notExistingMetaDescription).To(BeNil())
+
+		retrievedMetaDescription, _, err := metaDescriptionSyncer.Get(testObjCName)
+		Expect(err).To(BeNil())
+		Expect(retrievedMetaDescription).NotTo(BeNil())
+
+		Expect(retrievedMetaDescription).NotTo(BeNil())
+		Expect(retrievedMetaDescription.Fields).To(HaveLen(2))
+		Expect(retrievedMetaDescription.Fields).To(Equal(metaDescriptionA.Fields))
 	})
 })
