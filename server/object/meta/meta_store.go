@@ -173,9 +173,15 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	}
 }
 
+// removeRelatedLinks removes all related links
+// keepMeta should be false to remove intermediate m2m table
+// targetMeta - meta of object that is about to be deleted
+// first related "object" link is removed than all other related links are removed
 func (metaStore *MetaStore) removeRelatedLinks(keepMeta bool, targetMeta *Meta) error {
+	// remove related object fields
 	metaDescriptionList, _, _ := metaStore.List()
 	for _, objectMeta := range metaDescriptionList {
+		// do not take m2m intermediate tables
 		if !strings.Contains(objectMeta.Name, "__") {
 			metaStore.updateRelatedObj(keepMeta, objectMeta.Name, targetMeta.Name, FieldTypeObject)
 		}
@@ -187,6 +193,8 @@ func (metaStore *MetaStore) removeRelatedLinks(keepMeta bool, targetMeta *Meta) 
 	return nil
 }
 
+// removeRelatedLinksOnUpdate removes related links on object update
+// if updateRelated is false no update actions on related links will occur
 func (metaStore *MetaStore) removeRelatedLinksOnUpdate(updateRelated bool, currentMeta *Meta, newMeta *Meta) error {
 	if updateRelated {
 		for _, currentFieldDescription := range currentMeta.Fields {
@@ -255,6 +263,9 @@ func (metaStore *MetaStore) removeRelatedLinksOnUpdate(updateRelated bool, curre
 	return nil
 }
 
+// processRelatedObjectUpdate is used to update related object and remove linked field from its meta
+// field is a field which is about to be deleted from linked object
+// targetMetaName name of object that is updating or removing (action on target object cause the related object update)
 func (metaStore *MetaStore) processRelatedObjectUpdate(keepMeta bool, field FieldDescription, targetMetaName string) error {
 	switch field.Type {
 	// remove related intermediate table a__b
@@ -266,32 +277,27 @@ func (metaStore *MetaStore) processRelatedObjectUpdate(keepMeta bool, field Fiel
 		}
 	// remove related objects filed (m2m)
 	case FieldTypeArray:
+		// process a__b_set field remove
 		if strings.Contains(field.LinkMeta.Name, "__") {
 			m2mIntermediateTable, _, _ := metaStore.Get(field.LinkMeta.Name, false)
 			if m2mIntermediateTable != nil {
 				var relatedObjName string
+				// find field of "objects" type
 				for _, f := range m2mIntermediateTable.Fields {
 					if f.Type == FieldTypeObject && f.Name != targetMetaName {
 						relatedObjName = f.Name
 					}
 				}
+				// should first remove a__b_set field in related object
 				metaStore.updateRelatedObj(keepMeta, relatedObjName, field.LinkMeta.Name, FieldTypeArray)
 				metaStore.updateRelatedObj(keepMeta, relatedObjName, targetMetaName, FieldTypeObjects)
 			}
-			// remove field related to object field
-			// } else if !strings.Contains(field.LinkMeta.Name, "__") {
-			// 	metaDescriptionList, _, _ := metaStore.List()
-			// 	for _, objectMeta := range metaDescriptionList {
-			// 		fmt.Println(objectMeta.Name)
-			// 		metaStore.updateRelatedObj(keepMeta, objectMeta.Name, targetMetaName, FieldTypeObject)
-			// 	}
 		}
 
 	// remove related outer field
 	case FieldTypeObject:
 		metaStore.updateRelatedObj(keepMeta, field.LinkMeta.Name, targetMetaName, FieldTypeArray)
 	case FieldTypeGeneric:
-		// if inner generic field remove related generic outer field or if outer pop from LinkMetaList
 		if field.LinkType == LinkTypeInner {
 			for _, linkedMeta := range field.LinkMetaList.GetAll() {
 				metaStore.updateRelatedObj(keepMeta, linkedMeta.Name, targetMetaName, FieldTypeGeneric)
@@ -304,9 +310,11 @@ func (metaStore *MetaStore) processRelatedObjectUpdate(keepMeta bool, field Fiel
 	return nil
 }
 
-// updateRelatedObj gathers all fields of related object except field which type is equal to relatedFieldType
-// and which fieldDescription.LinkMeta.Name is equal to targetMetaName (or contains in LinkMetaList for inner generic) into new meta  of related object
-// and updates related object with new meta
+// updateRelatedObj is used to update related object
+// keepMeta should be false to remove m2m intermediate table
+// relatedObjectName is a name of related object that is about to be updated
+// targetMetaName name of object that is updating or removing (action on target object cause the related object update)
+// relatedFieldType is the type of field that is about to be removed
 func (metaStore *MetaStore) updateRelatedObj(keepMeta bool, relatedObjectName string, targetMetaName string, relatedFieldType FieldType) error {
 	objectMeta, _, _ := metaStore.Get(relatedObjectName, false)
 	if objectMeta != nil {
