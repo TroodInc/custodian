@@ -452,12 +452,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		_, err := metaStore.Remove(metaObjA.Name, false)
 		Expect(err).To(BeNil())
 
-		bMeta, _, err := metaStore.Get(metaObjB.Name, false)
-		Expect(err).To(BeNil())
-		Expect(bMeta.Fields).To(HaveLen(2))
-		Expect(bMeta.Fields[0].Name).To(Equal("id"))
-		Expect(bMeta.Fields[1].Name).To(Equal("target"))
-		Expect(bMeta.Fields[1].LinkMetaList.GetAll()).To(BeNil())
+		checkNoOrphansLeft(metaObjB.Name)
 
 	})
 
@@ -526,16 +521,11 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		checkNoOrphansLeft(metaObjA.Name)
 
 		By("Flush LinkMetaList in related inner object")
-		cMeta, _, err := metaStore.Get(metaObjC.Name, true)
-		Expect(err).To(BeNil())
-		Expect(cMeta.Fields).To(HaveLen(2))
-		Expect(cMeta.Fields[0].Name).To(Equal("id"))
-		Expect(cMeta.Fields[1].Name).To(Equal("target"))
-		Expect(cMeta.Fields[1].LinkMetaList.GetAll()).To(BeNil())
+		checkNoOrphansLeft(metaObjC.Name)
 
 	})
 
-	It("Flush LinkMetaList if related outer generic object is removed on object update", func() {
+	It("Flush LinkMetaList if related inner generic object is removed on object update", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -559,6 +549,39 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		_, err = metaStore.Update(metaObjB.Name, updatedBMetaObj, false, true)
 		Expect(err).To(BeNil())
 		checkNoOrphansLeft(metaObjA.Name)
+
+	})
+
+	It("Should not flush LinkMetaList if related outer generic object is removed on object update", func() {
+		metaObjA := havingObjectA()
+		metaObjB := havingObjectB()
+
+		updatedAMetaDescription := description.MetaDescription{
+			Name: testObjAName,
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		updatedAMetaObj, err := metaStore.NewMeta(&updatedAMetaDescription)
+
+		_, err = metaStore.Update(metaObjA.Name, updatedAMetaObj, false, true)
+		Expect(err).To(BeNil())
+		bMeta, _, err := metaStore.Get(metaObjB.Name, true)
+		Expect(err).To(BeNil())
+		Expect(bMeta.Fields).To(HaveLen(2))
+		Expect(bMeta.Fields[0].Name).To(Equal("id"))
+		Expect(bMeta.Fields[1].Name).To(Equal("target"))
+		Expect(bMeta.Fields[1].LinkMetaList.GetAll()).To(HaveLen(1))
+		Expect(bMeta.Fields[1].LinkMetaList.GetAll()[0].Name).To(Equal(metaObjA.Name))
 
 	})
 
