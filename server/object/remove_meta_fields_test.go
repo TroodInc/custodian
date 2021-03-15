@@ -242,13 +242,6 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		Expect(cMeta.Fields[0].Name).To(Equal("id"))
 		Expect(cMeta.Fields[1].Name).To(Equal(testObjAName))
 
-		// delete this manualy beacause if this objects will be removed via metastore.Flush() method
-		// A object will be removed first and thus removing of B object will cause get_meta error
-		// while building the B object meta.
-		// TODO resolve it.
-		// metaStore.Remove(metaObjB.Name, true)
-		// metaStore.Remove(metaObjA.Name, true)
-
 	})
 
 })
@@ -701,7 +694,7 @@ var _ = Describe("Remove m2m fields", func() {
 
 	})
 
-	It("Does not leave orphan in related object on outer m2m obj update", func() {
+	It("Does not leave orphan in outer related object if inner m2m field is deleted on update", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
