@@ -63,13 +63,16 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 	if err != nil {
 		return nil, isFound, err
 	}
-	//assemble the new business object with the given metadata
-	metaObj, err := metaStore.NewMeta(metaData)
-	if err != nil {
-		return nil, isFound, err
-	}
 
-	return metaObj, isFound, nil
+	if isFound {
+		metaObj, err := metaStore.NewMeta(metaData)
+		if err != nil {
+			return nil, isFound, err
+		}
+		return metaObj, isFound, nil
+	}
+	//assemble the new business object with the given metadata
+	return nil, isFound, err
 
 	// @todo: Find another way of checking DB schema consistency
 	//transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
