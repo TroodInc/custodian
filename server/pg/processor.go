@@ -4,13 +4,12 @@ import (
 	"bytes"
 	"database/sql"
 	"fmt"
+	"github.com/jackc/pgconn"
 	"regexp"
 
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 
 	_ "github.com/jackc/pgx/v4/stdlib"
-	"github.com/lib/pq"
-
 	// _ "github.com/lib/pq"
 	"custodian/logger"
 	"custodian/server/data"
@@ -197,7 +196,7 @@ func (s *Stmt) Query(binds []interface{}) (*Rows, error) {
 	rows, err := s.Stmt.Query(binds...)
 	if err != nil {
 		logger.Error("Execution statement error: %s\nBinds: %s", err.Error(), binds)
-		if err, ok := err.(*pq.Error); ok {
+		if err, ok := err.(*pgconn.PgError); ok {
 			switch err.Code {
 			case "23502",
 				"23503":
