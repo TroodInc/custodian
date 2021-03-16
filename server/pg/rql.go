@@ -259,7 +259,7 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 		field := currentMeta.FindField(fieldPathParts[i])
 
 		if field == nil {
-			return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' field", currentMeta.Name, field.Name)
+			return nil, NewRqlError(ErrRQLWrongFieldName, "Object '%s' doesn't have '%s' field", currentMeta.Name, fieldPathParts[i])
 		}
 		// process related object`s table join
 		// do it only if the current iteration is not that last, because the target field for the query can have the
