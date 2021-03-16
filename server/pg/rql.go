@@ -502,8 +502,13 @@ func is_null(ctx *context, args []interface{}) (expr, error) {
 
 func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error) {
 	var b bytes.Buffer
-	sorts := st.rootNode.Sort()
-	sorts = append(sorts, rqlParser.Sort{By: root.Meta.Key.Name, Desc: false})
+	var sorts = make([]rqlParser.Sort, 0)
+
+	if st.rootNode.Sort() != nil {
+		sorts = st.rootNode.Sort()
+	}
+
+	sorts = append(sorts, rqlParser.Sort{By: root.Meta.MetaDescription.Key, Desc: false})
 	for i := range sorts {
 		fieldDescription := root.Meta.FindField(sorts[i].By)
 		if fieldDescription == nil {
