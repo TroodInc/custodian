@@ -3,10 +3,10 @@ package data_test
 import (
 	"custodian/server/auth"
 	"custodian/server/data"
+	object2 "custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/object/migrations/operations/object"
 	"custodian/server/transactions"
 	"custodian/utils"
 	"fmt"
@@ -18,13 +18,13 @@ import (
 
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 

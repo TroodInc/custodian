@@ -4,9 +4,9 @@ import (
 	"custodian/server/auth"
 	"custodian/server/data"
 	"custodian/server/data/record"
+	"custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
-	"custodian/server/pg"
 	"custodian/server/transactions"
 	"custodian/utils"
 
@@ -204,13 +204,13 @@ var _ = Describe("Abac Engine", func() {
 
 	Describe("Abac hierachical objects test", func() {
 		appConfig := utils.GetConfig()
-		syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+		syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 		dataManager, _ := syncer.NewDataManager()
 		//transaction managers
-		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+		dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 		globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-		metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 		metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 

@@ -10,10 +10,10 @@ import (
 	"custodian/server/data/record"
 	. "custodian/server/errors"
 	migrations_description "custodian/server/migrations/description"
+	"custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/pg/migrations/managers"
+	"custodian/server/object/migrations/managers"
 	"custodian/server/transactions"
 	"custodian/utils"
 	"encoding/json"
@@ -142,13 +142,13 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	app := GetApp(cs)
 
 	//MetaDescription routes
-	syncer, err := pg.NewSyncer(config.DbConnectionUrl)
+	syncer, err := object.NewSyncer(config.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
 	//transaction managers
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
@@ -160,7 +160,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	)
 
 	getDataProcessor := func() *data.Processor {
-		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+		dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 		processor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
 		return processor
 	}

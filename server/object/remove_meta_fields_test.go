@@ -3,7 +3,6 @@ package object
 import (
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
-	"custodian/server/pg"
 	"custodian/server/transactions"
 	"custodian/utils"
 	"database/sql"
@@ -15,13 +14,13 @@ import (
 
 var _ = Describe("Tests inner and outer objects update and removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
@@ -122,10 +121,10 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(name)
+		tableName := GetTableName(name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -225,10 +224,10 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(metaObjB.Name)
+		tableName := GetTableName(metaObjB.Name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -248,13 +247,13 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 
 var _ = Describe("Tests  generic inner and generic outer objects update and removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
@@ -411,10 +410,10 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(name)
+		tableName := GetTableName(name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -558,13 +557,13 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 })
 var _ = Describe("Remove m2m fields", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
@@ -633,10 +632,10 @@ var _ = Describe("Remove m2m fields", func() {
 		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(name)
+		tableName := GetTableName(name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
 		globalTransactionManager.CommitTransaction(globalTransaction)

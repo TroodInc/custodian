@@ -3,7 +3,6 @@ package object
 import (
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
-	"custodian/server/pg"
 	"custodian/server/transactions"
 	"custodian/utils"
 	"database/sql"
@@ -14,13 +13,13 @@ import (
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
@@ -61,10 +60,10 @@ var _ = Describe("Inner generic field", func() {
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 		Expect(err).To(BeNil())
 
-		tableName := pg.GetTableName(metaObj.Name)
+		tableName := GetTableName(metaObj.Name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
 		globalTransactionManager.CommitTransaction(globalTransaction)
@@ -122,10 +121,10 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(metaObj.Name)
+		tableName := GetTableName(metaObj.Name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
 		globalTransactionManager.CommitTransaction(globalTransaction)

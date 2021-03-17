@@ -3,12 +3,12 @@ package migrations_test
 import (
 	migrations_description "custodian/server/migrations/description"
 	. "custodian/server/migrations/migrations"
+	object2 "custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/pg/migrations/managers"
-	"custodian/server/pg/migrations/operations/field"
-	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/object/migrations/managers"
+	"custodian/server/object/migrations/operations/field"
+	"custodian/server/object/migrations/operations/object"
 	"custodian/server/transactions"
 	"custodian/utils"
 
@@ -18,12 +18,12 @@ import (
 
 var _ = Describe("Migration Factory", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(

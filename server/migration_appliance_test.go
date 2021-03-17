@@ -1,7 +1,7 @@
 package server_test
 
 import (
-	"custodian/server/pg"
+	object2 "custodian/server/object"
 	"custodian/utils"
 	"net/http"
 	"net/http/httptest"
@@ -13,8 +13,8 @@ import (
 	"custodian/server"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
-	"custodian/server/pg/migrations/managers"
-	"custodian/server/pg/migrations/operations/object"
+	"custodian/server/object/migrations/managers"
+	"custodian/server/object/migrations/operations/object"
 	"custodian/server/transactions"
 	"encoding/json"
 	"fmt"
@@ -22,16 +22,16 @@ import (
 
 var _ = Describe("Server 101", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 	migrationManager := managers.NewMigrationManager(

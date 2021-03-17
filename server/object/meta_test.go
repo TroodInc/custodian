@@ -3,7 +3,6 @@ package object
 import (
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
-	"custodian/server/pg"
 	"custodian/server/transactions"
 	"custodian/utils"
 	"database/sql"
@@ -15,13 +14,13 @@ import (
 
 var _ = Describe("The PG MetaStore", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
 
 	AfterEach(func() {
@@ -261,7 +260,7 @@ var _ = Describe("The PG MetaStore", func() {
 				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 				Expect(err).To(BeNil())
 
-				actualMeta, err := pg.MetaDDLFromDB(tx, meta.Name)
+				actualMeta, err := MetaDDLFromDB(tx, meta.Name)
 				Expect(err).To(BeNil())
 				err = globalTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
@@ -301,7 +300,7 @@ var _ = Describe("The PG MetaStore", func() {
 			tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
 			Expect(err).To(BeNil())
 
-			actualMeta, err := pg.MetaDDLFromDB(tx, meta.Name)
+			actualMeta, err := MetaDDLFromDB(tx, meta.Name)
 			Expect(err).To(BeNil())
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
@@ -339,7 +338,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
@@ -384,7 +383,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
@@ -428,7 +427,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
@@ -472,7 +471,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
@@ -516,7 +515,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			//assert schema
-			actualMeta, err := pg.MetaDDLFromDB(tx, bMeta.Name)
+			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
 			err = globalTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())

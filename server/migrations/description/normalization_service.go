@@ -2,14 +2,14 @@ package description
 
 import (
 	"custodian/server/errors"
-	"custodian/server/object/meta"
 	"custodian/server/object/description_manager"
+	"custodian/server/object/meta"
 
-	object_description "custodian/server/object/description"
-	"custodian/server/migrations/operations"
-	"custodian/server/pg/migrations/operations/object"
-	"custodian/server/pg/migrations/operations/field"
 	"custodian/server/migrations"
+	"custodian/server/migrations/operations"
+	object_description "custodian/server/object/description"
+	"custodian/server/object/migrations/operations/field"
+	"custodian/server/object/migrations/operations/object"
 )
 
 type NormalizationMigrationsFactory struct {
