@@ -2,22 +2,19 @@ package server_test
 
 import (
 	"custodian/server/abac"
-	"custodian/server/pg"
+	"custodian/server/object"
 	"net/http"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"custodian/server/object/meta"
 	"custodian/utils"
 
 	"bytes"
 	"custodian/server"
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/data/record"
 	"custodian/server/object/description"
-	"custodian/server/transactions"
+
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
@@ -41,19 +38,19 @@ func get_server(user *auth.User) *http.Server {
 
 var _ = Describe("ABAC rules handling", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	testObjName := utils.RandomString(8)
 
@@ -64,7 +61,7 @@ var _ = Describe("ABAC rules handling", func() {
 		Expect(err).To(BeNil())
 	}
 
-	factoryObjectA := func() *meta.Meta {
+	factoryObjectA := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjName,
 			Key:  "id",
@@ -467,8 +464,8 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And an A record belongs to managers", func() {
 			var err error
 			var url string
-			var aObject *meta.Meta
-			var aRecord *record.Record
+			var aObject *object.Meta
+			var aRecord *object.Record
 
 			JustBeforeEach(func() {
 				aObject = factoryObjectA()
@@ -520,8 +517,8 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And this user has the role 'admin'", func() {
 			var err error
 			var url string
-			var aObject *meta.Meta
-			var aRecord *record.Record
+			var aObject *object.Meta
+			var aRecord *object.Record
 
 			JustBeforeEach(func() {
 				aObject = factoryObjectA()

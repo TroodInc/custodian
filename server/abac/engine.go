@@ -1,7 +1,7 @@
 package abac
 
 import (
-	"custodian/server/data/record"
+	"custodian/server/object"
 	"custodian/server/object/description"
 	"strings"
 )
@@ -176,7 +176,7 @@ func (abac *TroodABAC) Check(resource string, action string) (bool, *RuleABAC) {
 }
 
 // CheckRecord : check record and action
-func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *RuleABAC) {
+func (abac *TroodABAC) CheckRecord(obj *object.Record, action string) (bool, *RuleABAC) {
 	passed, rule := abac.Check(obj.Meta.Name, action)
 
 	if rule != nil && rule.Filter != nil {
@@ -189,7 +189,7 @@ func (abac *TroodABAC) CheckRecord(obj *record.Record, action string) (bool, *Ru
 }
 
 // MaskRecord : maskarad object
-func (abac *TroodABAC) MaskRecord(obj *record.Record, action string) (bool, interface{}) {
+func (abac *TroodABAC) MaskRecord(obj *object.Record, action string) (bool, interface{}) {
 
 	ok, rule := abac.CheckRecord(obj, action)
 
@@ -206,18 +206,18 @@ func (abac *TroodABAC) MaskRecord(obj *record.Record, action string) (bool, inte
 					switch field.Type {
 					case description.FieldTypeObject:
 						// Then Apply masks for sub-object
-						if item, ok := val.(*record.Record); ok {
+						if item, ok := val.(*object.Record); ok {
 							_, obj.Data[key] = abac.MaskRecord(item, action)
 						}
 
 					case description.FieldTypeArray:
 						val := val.([]interface{})
-						var subSet []*record.Record
+						var subSet []*object.Record
 						// Skip records with no access and apply mask on remained
 						for i := range val {
-							if item, ok := val[i].(*record.Record); ok {
+							if item, ok := val[i].(*object.Record); ok {
 								if ok, sub := abac.MaskRecord(item, action); ok {
-									subSet = append(subSet, sub.(*record.Record))
+									subSet = append(subSet, sub.(*object.Record))
 								}
 							}
 						}

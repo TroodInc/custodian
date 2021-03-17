@@ -2,9 +2,7 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"encoding/json"
 	"fmt"
@@ -15,13 +13,13 @@ import (
 
 var _ = Describe("Objects field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

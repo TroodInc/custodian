@@ -2,9 +2,7 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"database/sql"
 
@@ -14,14 +12,14 @@ import (
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -57,17 +55,17 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		//check database columns
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
+		tx := globalTransaction.Transaction().(*sql.Tx)
 		Expect(err).To(BeNil())
 
-		tableName := pg.GetTableName(metaObj.Name)
+		tableName := GetTableName(metaObj.Name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(3))
 		// check meta fields
 		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
@@ -118,17 +116,17 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		//check database columns
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(metaObj.Name)
+		tableName := GetTableName(metaObj.Name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields

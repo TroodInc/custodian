@@ -1,7 +1,7 @@
 package field
 
 import (
-	"custodian/server/object/meta"
+	"custodian/server/object"
 	"custodian/server/object/description"
 )
 
@@ -10,7 +10,7 @@ type UpdateFieldOperation struct {
 	CurrentField *description.Field
 }
 
-func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, syncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+func (o *UpdateFieldOperation) SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, syncer object.MetaDescriptionSyncer) (*description.MetaDescription, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 
 	//replace field

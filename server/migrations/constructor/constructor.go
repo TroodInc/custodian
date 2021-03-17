@@ -2,12 +2,13 @@ package constructor
 
 import (
 	"custodian/server/errors"
+	"custodian/server/migrations"
 	. "custodian/server/migrations/description"
 	"custodian/server/object/description"
-	"custodian/utils"
-	"custodian/server/pg/migrations/managers"
+	"custodian/server/object/migrations/managers"
 	"custodian/server/transactions"
-	"custodian/server/migrations"
+
+	"custodian/utils"
 	"reflect"
 )
 
