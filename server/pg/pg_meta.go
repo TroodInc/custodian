@@ -250,16 +250,16 @@ func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescrip
 			md.globalTransactionManager.RollbackTransaction(globalTransaction)
 			return false, errors.NewFatalError(
 				"update_meta_obj",
-				fmt.Sprintf("Can't json.Marshal '%s' MetaDescription during update", m.Name),
+				fmt.Sprintf("Can't json.Marshal '%s' MetaDescription during update", name),
 				nil,
 			)
 		}
-		if _, err = tx.Exec(UPDATE_META_OBJ, string(b), m.Name); err != nil {
+		if _, err = tx.Exec(UPDATE_META_OBJ, string(b), name); err != nil {
 			md.globalTransactionManager.RollbackTransaction(globalTransaction)
-			logger.Error("Can't update MetaDescription '%s' : %s", m.Name, err.Error())
+			logger.Error("Can't update MetaDescription '%s' : %s", name, err.Error())
 			return false, errors.NewFatalError(
 				"update_meta_obj",
-				fmt.Sprintf("Can't update MetaDescription'%s'", m.Name),
+				fmt.Sprintf("Can't update MetaDescription'%s'", name),
 				nil,
 			)
 		}
