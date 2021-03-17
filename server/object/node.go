@@ -460,26 +460,6 @@ func (node *Node) FillRecordValues(record *Record, searchContext SearchContext) 
 	return record
 }
 
-//traverse values and prepare them for output
-func transformValues(values map[string]interface{}) map[string]interface{} {
-	for key, value := range values {
-		switch castValue := value.(type) {
-		case map[string]interface{}:
-			values[key] = transformValues(castValue)
-		case []interface{}:
-			for i := range castValue {
-				switch castValueItem := castValue[i].(type) {
-				case map[string]interface{}:
-					castValue[i] = transformValues(castValueItem)
-				}
-			}
-		case *GenericInnerLink:
-			values[key] = castValue.AsMap()
-		}
-	}
-	return values
-}
-
 func (node *Node) IsOfGenericType() bool {
 	return node.Type == NodeTypeGeneric
 }

@@ -36,7 +36,6 @@ func NewDataManager(db *sql.DB) (*DBManager, error) {
 }
 
 const (
-	ErrTrxFailed          = "transaction_failed"
 	ErrTemplateFailed     = "template_failed"
 	ErrInvalidArgument    = "invalid_argument"
 	ErrDMLFailed          = "dml_failed"
@@ -44,7 +43,6 @@ const (
 	ErrValueDuplication   = "duplicated_value_error"
 	ErrConvertationFailed = "convertation_failed"
 	ErrCommitFailed       = "commit_failed"
-	ErrPreconditionFailed = "precondition_failed"
 )
 
 //{{ if isLast $key .Cols}}{{else}},{{end}}

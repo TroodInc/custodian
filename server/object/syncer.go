@@ -223,7 +223,6 @@ func (syncer *Syncer) ValidateObj(transaction transactions.DbTransaction, metaDe
 			return false, &description.ValidationError{Message: "Inconsistent object state found."}
 		}
 	}
-	return len(ddlStatements) == 0, nil
 }
 
 //transaction related methods

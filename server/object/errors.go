@@ -7,7 +7,6 @@ import (
 
 // MetaDescription DDL errors
 const (
-	ErrUnsupportedColumnType = "unsuported_column_type"
 	ErrUnsupportedLinkType   = "unsuported_link_type"
 	ErrNotFound              = "not_found"
 	ErrTooManyFound          = "too_many_found"

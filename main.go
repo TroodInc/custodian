@@ -1,22 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"custodian/logger"
 	"custodian/server"
+	"custodian/utils"
+	"github.com/getsentry/raven-go"
 	"log"
 	"os"
-	"github.com/getsentry/raven-go"
-	"custodian/utils"
 )
-
-type OptsError struct {
-	arg, msg string
-}
-
-func (e *OptsError) Error() string {
-	return fmt.Sprintf("Wrong argument '%s': %s", e.arg, e.msg)
-}
 
 type OptsDesc struct {
 	prmsCnt int

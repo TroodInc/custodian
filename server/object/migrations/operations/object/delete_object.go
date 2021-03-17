@@ -9,7 +9,6 @@ import (
 
 	"database/sql"
 	"fmt"
-	"text/template"
 )
 
 type DeleteObjectOperation struct {
@@ -62,8 +61,6 @@ func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *description.M
 }
 
 const dropTableTemplate = `DROP TABLE "{{.Table}}" {{.Mode}};`
-
-var parsedDropTableTemplate = template.Must(template.New("drop_table").Funcs(ddlFuncs).Parse(dropTableTemplate))
 
 func NewDeleteObjectOperation() *DeleteObjectOperation {
 	return &DeleteObjectOperation{}

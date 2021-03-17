@@ -51,8 +51,6 @@ func (mdf *MetaDdlFactory) FactoryFieldProperties(field *description.Field, meta
 		return nil, nil, nil, nil, &DDLError{table: metaDescription.Name, code: ErrUnsupportedLinkType, msg: fmt.Sprintf("Unsupported link type lt = %v, ft = %v", string(rune(field.LinkType)), string(rune(field.LinkType)))}
 
 	}
-
-	return nil, nil, nil, nil, nil
 }
 
 func (mdf *MetaDdlFactory) factorySimpleFieldProperties(field *description.Field, metaName string) ([]Column, *IFK, *OFK, *Seq, error) {
