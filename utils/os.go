@@ -40,15 +40,3 @@ func RemoveContents(dir string) error {
 	}
 	return nil
 }
-
-func Intersection(a, b []string) []string {
-	intersection := make([]string, 0)
-	for _, aItem := range a {
-		for _, bItem := range b {
-			if aItem == bItem {
-				intersection = append(intersection, aItem)
-			}
-		}
-	}
-	return intersection
-}

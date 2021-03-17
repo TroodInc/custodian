@@ -3,8 +3,7 @@ package server_test
 import (
 	"bytes"
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/pg"
+	"custodian/server/object"
 	"custodian/utils"
 	"encoding/json"
 	"fmt"
@@ -15,26 +14,24 @@ import (
 	. "github.com/onsi/gomega"
 
 	"custodian/server"
-	"custodian/server/data/record"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 )
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)
@@ -46,7 +43,7 @@ var _ = Describe("Server", func() {
 		Expect(err).To(BeNil())
 	})
 
-	factoryObjectA := func() *meta.Meta {
+	factoryObjectA := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -74,7 +71,7 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
+	factoryObjectAWithManuallySetOuterLinkToB := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -111,7 +108,7 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectB := func() *meta.Meta {
+	factoryObjectB := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
@@ -145,7 +142,7 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectCWithObjectsLinkToA := func() *meta.Meta {
+	factoryObjectCWithObjectsLinkToA := func() *object.Meta {
 		cMetaDescription := description.MetaDescription{
 			Name: "c",
 			Key:  "id",
@@ -263,8 +260,8 @@ var _ = Describe("Server", func() {
 	})
 
 	Context("having a record of given object", func() {
-		var bRecord *record.Record
-		var objectB *meta.Meta
+		var bRecord *object.Record
+		var objectB *object.Meta
 
 		BeforeEach(func() {
 			objectA := factoryObjectA()
@@ -314,10 +311,10 @@ var _ = Describe("Server", func() {
 	})
 
 	Context("having a records of given object", func() {
-		var aRecord *record.Record
-		var bRecord *record.Record
-		var cRecord *record.Record
-		var objectB *meta.Meta
+		var aRecord *object.Record
+		var bRecord *object.Record
+		var cRecord *object.Record
+		var objectB *object.Meta
 		var err error
 
 		BeforeEach(func() {

@@ -3,11 +3,10 @@ package migrations_test
 import (
 	migrations_description "custodian/server/migrations/description"
 	. "custodian/server/migrations/migrations"
+	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/pg/migrations/managers"
-	"custodian/server/transactions"
+	"custodian/server/object/migrations/managers"
+
 	"custodian/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -16,16 +15,16 @@ import (
 
 var _ = Describe("Automated generic links` migrations` spawning", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -62,7 +61,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			},
 		}
 		//create MetaDescription
-		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		metaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
 		err = metaStore.Create(metaObj)
@@ -112,7 +111,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 			Expect(err).To(BeNil())
 			Expect(migration.RunAfter).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
-			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(testObjBName)))
+			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName(testObjBName)))
 		})
 
 		Context("having object B", func() {
@@ -134,7 +133,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					nil,
 					false,
 				)
-				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)
@@ -167,7 +166,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(err).To(BeNil())
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(testObjBName)))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName(testObjBName)))
 			})
 
 			It("removes and adds reverse generic outer links while inner generic field`s LinkMetaList is being updated", func() {
@@ -209,7 +208,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 					nil,
 					false,
 				)
-				cMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
+				cMetaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(cMetaObj)
@@ -242,12 +241,12 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(testObjBName)))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName(testObjBName)))
 
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Type).To(Equal(migrations_description.AddFieldOperation))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(testObjBName)))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName(testObjBName)))
 			})
 
 			It("renames reverse generic outer links if object which owns inner generic link is being renamed", func() {
@@ -295,7 +294,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Type).To(Equal(migrations_description.UpdateFieldOperation))
-				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName("bb")))
+				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName("bb")))
 			})
 
 			It("removes generic outer links if object which owns inner generic link is being deleted", func() {
@@ -340,7 +339,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(testObjBName)))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName(testObjBName)))
 			})
 
 			It("removes generic outer links if inner generic link is being removed", func() {
@@ -385,7 +384,7 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 				Expect(migration.RunBefore).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations).To(HaveLen(1))
 				Expect(migration.RunBefore[0].Operations[0].Type).To(Equal(migrations_description.RemoveFieldOperation))
-				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(meta.ReverseInnerLinkName(testObjBName)))
+				Expect(migration.RunBefore[0].Operations[0].Field.Name).To(Equal(object.ReverseInnerLinkName(testObjBName)))
 			})
 		})
 	})

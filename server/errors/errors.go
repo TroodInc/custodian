@@ -8,9 +8,7 @@ import (
 
 //Server errors description
 const (
-	ErrUnsupportedMediaType = "unsupported_media_type"
 	ErrBadRequest           = "bad_request"
-	ErrInternalServerError  = "internal_server_error"
 	ErrNotFound             = "not_found"
 )
 

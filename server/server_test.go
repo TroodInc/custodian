@@ -1,7 +1,7 @@
 package server_test
 
 import (
-	"custodian/server/pg"
+	"custodian/server/object"
 	"fmt"
 	"net/http"
 
@@ -9,32 +9,30 @@ import (
 	. "github.com/onsi/gomega"
 
 	"bytes"
-	"custodian/server/object/meta"
 	"custodian/utils"
 	"encoding/json"
 
 	"custodian/server"
 	"custodian/server/auth"
-	"custodian/server/data"
 	"custodian/server/object/description"
-	"custodian/server/transactions"
+
 	"net/http/httptest"
 )
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)

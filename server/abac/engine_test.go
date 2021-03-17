@@ -2,12 +2,9 @@ package abac
 
 import (
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/data/record"
+	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -204,15 +201,15 @@ var _ = Describe("Abac Engine", func() {
 
 	Describe("Abac hierachical objects test", func() {
 		appConfig := utils.GetConfig()
-		syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+		syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 		dataManager, _ := syncer.NewDataManager()
 		//transaction managers
-		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-		globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-		metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
-		metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+		dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+
+		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+		metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+		dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 		abacTree := JsonToObject(`{
 			"t_client": {
@@ -382,9 +379,9 @@ var _ = Describe("Abac Engine", func() {
 
 			Expect(ok).To(BeTrue())
 
-			Expect(filtered.(*record.Record).Data["employee"]).To(Equal(map[string]string{"access": "denied"}))
-			Expect(filtered.(*record.Record).Data["total"]).To(Equal(map[string]string{"access": "denied"}))
-			Expect(filtered.(*record.Record).Data["payments"]).To(HaveLen(1))
+			Expect(filtered.(*object.Record).Data["employee"]).To(Equal(map[string]string{"access": "denied"}))
+			Expect(filtered.(*object.Record).Data["total"]).To(Equal(map[string]string{"access": "denied"}))
+			Expect(filtered.(*object.Record).Data["payments"]).To(HaveLen(1))
 		})
 	})
 

@@ -2,9 +2,7 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"database/sql"
 	"fmt"
@@ -15,14 +13,14 @@ import (
 
 var _ = Describe("Tests inner and outer objects update and removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -33,7 +31,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 	testObjBName := fmt.Sprintf("%s_b", utils.RandomString(8))
 	testObjCName := fmt.Sprintf("%s_c", utils.RandomString(8))
 
-	havingObjectA := func() *meta.Meta {
+	havingObjectA := func() *Meta {
 		bMetaDescription := description.MetaDescription{
 			Name: testObjAName,
 			Key:  "id",
@@ -57,7 +55,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		return metaObj
 	}
 
-	havingObjectB := func() *meta.Meta {
+	havingObjectB := func() *Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjBName,
 			Key:  "id",
@@ -87,7 +85,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		return metaObj
 	}
 
-	havingObjectC := func() *meta.Meta {
+	havingObjectC := func() *Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjCName,
 			Key:  "id",
@@ -118,17 +116,17 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 	}
 
 	checkNoOrphansLeft := func(name string) {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(name)
+		tableName := GetTableName(name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
@@ -221,17 +219,17 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		_, err = metaStore.Update(metaObjA.Name, updatedBMetaObj, false)
 		Expect(err).To(BeNil())
 
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(metaObjB.Name)
+		tableName := GetTableName(metaObjB.Name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(2))
 		Expect(columns[0].Name).To(Equal("id"))
 		Expect(columns[1].Name).To(Equal(testObjAName))
@@ -248,14 +246,14 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 
 var _ = Describe("Tests  generic inner and generic outer objects update and removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -268,7 +266,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 	testObjEName := fmt.Sprintf("%s_e", utils.RandomString(8))
 	testObjDSetName := fmt.Sprintf("%s_set", testObjDName)
 
-	havingObjectA := func() *meta.Meta {
+	havingObjectA := func() *Meta {
 		bMetaDescription := description.MetaDescription{
 			Name: testObjAName,
 			Key:  "id",
@@ -292,7 +290,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		return metaObj
 	}
 
-	havingObjectB := func() *meta.Meta {
+	havingObjectB := func() *Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjBName,
 			Key:  "id",
@@ -322,7 +320,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		return metaObj
 	}
 
-	havingObjectE := func() *meta.Meta {
+	havingObjectE := func() *Meta {
 		bMetaDescription := description.MetaDescription{
 			Name: testObjEName,
 			Key:  "id",
@@ -346,7 +344,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		return metaObj
 	}
 
-	havingObjectC := func() *meta.Meta {
+	havingObjectC := func() *Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjCName,
 			Key:  "id",
@@ -376,7 +374,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		return metaObj
 	}
 
-	havingObjectD := func() *meta.Meta {
+	havingObjectD := func() *Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjDName,
 			Key:  "id",
@@ -407,17 +405,17 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 	}
 
 	checkNoOrphansLeft := func(name string) {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(name)
+		tableName := GetTableName(name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
@@ -558,14 +556,14 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 })
 var _ = Describe("Remove m2m fields", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -575,7 +573,7 @@ var _ = Describe("Remove m2m fields", func() {
 	testObjAName := fmt.Sprintf("%s_a", utils.RandomString(8))
 	testObjBName := fmt.Sprintf("%s_b", utils.RandomString(8))
 
-	havingObjectA := func() *meta.Meta {
+	havingObjectA := func() *Meta {
 		bMetaDescription := description.MetaDescription{
 			Name: testObjAName,
 			Key:  "id",
@@ -599,7 +597,7 @@ var _ = Describe("Remove m2m fields", func() {
 		return metaObj
 	}
 
-	havingObjectB := func() *meta.Meta {
+	havingObjectB := func() *Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjBName,
 			Key:  "id",
@@ -629,17 +627,17 @@ var _ = Describe("Remove m2m fields", func() {
 	}
 
 	checkNoOrphansLeft := func(name string) {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 
-		tableName := pg.GetTableName(name)
+		tableName := GetTableName(name)
 
-		reverser, err := pg.NewReverser(tx, tableName)
-		columns := make([]pg.Column, 0)
+		reverser, err := NewReverser(tx, tableName)
+		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields

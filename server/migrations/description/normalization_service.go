@@ -2,18 +2,17 @@ package description
 
 import (
 	"custodian/server/errors"
-	"custodian/server/object/meta"
-	"custodian/server/object/description_manager"
-
-	object_description "custodian/server/object/description"
-	"custodian/server/migrations/operations"
-	"custodian/server/pg/migrations/operations/object"
-	"custodian/server/pg/migrations/operations/field"
 	"custodian/server/migrations"
+	"custodian/server/migrations/operations"
+	object2 "custodian/server/object"
+	object_description "custodian/server/object/description"
+	"custodian/server/object/description_manager"
+	"custodian/server/object/migrations/operations/field"
+	"custodian/server/object/migrations/operations/object"
 )
 
 type NormalizationMigrationsFactory struct {
-	metaDescriptionSyncer meta.MetaDescriptionSyncer
+	metaDescriptionSyncer object2.MetaDescriptionSyncer
 }
 
 //Factories additional migration descriptions to handle links` changes
@@ -99,7 +98,7 @@ func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForNewFi
 		}
 
 		//add reverse outer
-		fieldName := meta.ReverseInnerLinkName(metaName)
+		fieldName := object2.ReverseInnerLinkName(metaName)
 		//automatically added outer field should only be available for querying
 		outerField := object_description.Field{
 			Name:           fieldName,
@@ -140,8 +139,8 @@ func (nmf *NormalizationMigrationsFactory) factoryUpdateOuterLinkMigrationsForMe
 			updatedField := outerField.Clone()
 			updatedField.LinkMeta = newMetaDescription.Name
 
-			if outerField.Name == meta.ReverseInnerLinkName(currentMetaDescription.Name) { //field is automatically generated
-				updatedField.Name = meta.ReverseInnerLinkName(newMetaDescription.Name)
+			if outerField.Name == object2.ReverseInnerLinkName(currentMetaDescription.Name) { //field is automatically generated
+				updatedField.Name = object2.ReverseInnerLinkName(newMetaDescription.Name)
 			}
 
 			updateFieldOperationDescription := MigrationOperationDescription{
@@ -232,7 +231,7 @@ func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsF
 	if field.Type == object_description.FieldTypeGeneric && field.LinkType == object_description.LinkTypeInner {
 		//add reverse outer link for each referenced meta
 		for _, linkMetaName := range field.LinkMetaList {
-			fieldName := meta.ReverseInnerLinkName(metaName)
+			fieldName := object2.ReverseInnerLinkName(metaName)
 			linkMetaDescription, _, err := nmf.metaDescriptionSyncer.Get(linkMetaName)
 			if err != nil {
 				return nil, err
@@ -279,8 +278,8 @@ func (nmf *NormalizationMigrationsFactory) factoryUpdateGenericOuterLinkMigratio
 				updatedField := outerField.Clone()
 				updatedField.LinkMeta = newMetaDescription.Name
 
-				if outerField.Name == meta.ReverseInnerLinkName(currentMetaDescription.Name) { //field is automatically generated
-					updatedField.Name = meta.ReverseInnerLinkName(newMetaDescription.Name)
+				if outerField.Name == object2.ReverseInnerLinkName(currentMetaDescription.Name) { //field is automatically generated
+					updatedField.Name = object2.ReverseInnerLinkName(newMetaDescription.Name)
 				}
 
 				updateFieldOperationDescription := MigrationOperationDescription{
@@ -312,7 +311,7 @@ func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsF
 
 			for _, excludedMetaName := range excludedMetaNames {
 				outerField := object_description.Field{
-					Name:           meta.ReverseInnerLinkName(metaName),
+					Name:           object2.ReverseInnerLinkName(metaName),
 					Type:           object_description.FieldTypeGeneric,
 					LinkType:       object_description.LinkTypeOuter,
 					LinkMeta:       metaName,
@@ -337,7 +336,7 @@ func (nmf *NormalizationMigrationsFactory) factoryAddGenericOuterLinkMigrationsF
 
 			for _, includedMetaName := range includedMetaNames {
 				outerField := object_description.Field{
-					Name:           meta.ReverseInnerLinkName(metaName),
+					Name:           object2.ReverseInnerLinkName(metaName),
 					Type:           object_description.FieldTypeGeneric,
 					LinkType:       object_description.LinkTypeOuter,
 					LinkMeta:       metaName,
@@ -395,6 +394,6 @@ func (nmf *NormalizationMigrationsFactory) factoryRemoveGenericOuterLinkMigratio
 	return spawnedMigrationDescriptions
 }
 
-func NewNormalizationMigrationsFactory(syncer meta.MetaDescriptionSyncer) *NormalizationMigrationsFactory {
+func NewNormalizationMigrationsFactory(syncer object2.MetaDescriptionSyncer) *NormalizationMigrationsFactory {
 	return &NormalizationMigrationsFactory{metaDescriptionSyncer: syncer}
 }
