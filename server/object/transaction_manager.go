@@ -1,13 +1,12 @@
 package object
 
 import (
-	"custodian/server/data"
 	"custodian/server/transactions"
 	"database/sql"
 )
 
 type PgDbTransactionManager struct {
-	dataManager data.DataManager
+	dataManager *DBManager
 	transaction *PgTransaction
 }
 
@@ -53,6 +52,6 @@ func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions
 	}
 }
 
-func NewPgDbTransactionManager(dataManager data.DataManager) *PgDbTransactionManager {
+func NewPgDbTransactionManager(dataManager *DBManager) *PgDbTransactionManager {
 	return &PgDbTransactionManager{dataManager: dataManager}
 }

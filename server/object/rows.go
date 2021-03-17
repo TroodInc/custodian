@@ -1,10 +1,10 @@
 package object
 
 import (
-	"custodian/server/data/types"
 	"custodian/server/errors"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
+	"custodian/server/object/types"
 	"database/sql"
 	"reflect"
 	"time"

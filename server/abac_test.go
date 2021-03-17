@@ -14,9 +14,8 @@ import (
 	"bytes"
 	"custodian/server"
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/data/record"
 	"custodian/server/object/description"
+	"custodian/server/object/record"
 	"custodian/server/transactions"
 	"encoding/json"
 	"fmt"
@@ -53,7 +52,7 @@ var _ = Describe("ABAC rules handling", func() {
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	testObjName := utils.RandomString(8)
 

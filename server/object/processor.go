@@ -12,14 +12,13 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib"
 	// _ "github.com/lib/pq"
 	"custodian/logger"
-	"custodian/server/data"
-	"custodian/server/data/notifications"
-	"custodian/server/data/record"
-	"custodian/server/data/types"
 	"custodian/server/errors"
 	"custodian/server/object/description"
 	"custodian/server/object/dml_info"
 	"custodian/server/object/meta"
+	"custodian/server/object/notifications"
+	"custodian/server/object/record"
+	"custodian/server/object/types"
 	"custodian/server/transactions"
 	"custodian/utils"
 	"strconv"
@@ -27,16 +26,16 @@ import (
 	"text/template"
 )
 
-type DataManager struct {
+type DBManager struct {
 	db *sql.DB
 }
 
-func (dm *DataManager) Db() interface{} {
+func (dm *DBManager) Db() interface{} {
 	return dm.db
 }
 
-func NewDataManager(db *sql.DB) (*DataManager, error) {
-	return &DataManager{db: db}, nil
+func NewDataManager(db *sql.DB) (*DBManager, error) {
+	return &DBManager{db: db}, nil
 }
 
 const (
@@ -161,7 +160,7 @@ func NewStmt(tx *sql.Tx, q string) (*Stmt, error) {
 	return &Stmt{statement}, nil
 }
 
-func (dm *DataManager) Prepare(q string, tx *sql.Tx) (*Stmt, error) {
+func (dm *DBManager) Prepare(q string, tx *sql.Tx) (*Stmt, error) {
 	return NewStmt(tx, q)
 }
 
@@ -334,7 +333,7 @@ func increaseCasVal(v interface{}) interface{} {
 	return cas + 1
 }
 
-func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (transactions.Operation, error) {
+func (dm *DBManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -468,7 +467,7 @@ func (dm *DataManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[s
 	}, nil
 }
 
-func (dm *DataManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (transactions.Operation, error) {
+func (dm *DBManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordsValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -550,7 +549,7 @@ func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 	return columns
 }
 
-func (dm *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error) {
+func (dm *DBManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error) {
 	objs, err := dm.GetAll(m, fields, map[string]interface{}{key: val}, dbTransaction)
 	if err != nil {
 		return nil, err
@@ -568,7 +567,7 @@ func (dm *DataManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key st
 	return objs[0], nil
 }
 
-func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
+func (dm *DBManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
 	tx := dbTransction.Transaction().(*sql.Tx)
 	if fields == nil {
 		fields = m.TableFields()
@@ -589,7 +588,7 @@ func (dm *DataManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, fil
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *data.Processor) error {
+func (dm *DBManager) PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *Processor) error {
 	var operation transactions.Operation
 	var err error
 	var onDeleteStrategy description.OnDeleteStrategy
@@ -649,7 +648,7 @@ func (dm *DataManager) PerformRemove(recordNode *data.RecordRemovalNode, dbTrans
 	}
 }
 
-func (dm *DataManager) PrepareRemoveOperation(record *record.Record) (transactions.Operation, error) {
+func (dm *DBManager) PrepareRemoveOperation(record *record.Record) (transactions.Operation, error) {
 	var query bytes.Buffer
 	deleteInfo := dml_info.NewDeleteInfo(GetTableName(record.Meta.Name), []string{dml_info.EscapeColumn(record.Meta.Key.Name) + " IN (" + dml_info.BindValues(1, 1) + ")"})
 	operation := func(dbTransaction transactions.DbTransaction) error {
@@ -670,7 +669,7 @@ func (dm *DataManager) PrepareRemoveOperation(record *record.Record) (transactio
 
 }
 
-func (dm *DataManager) GetRql(dataNode *data.Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
+func (dm *DBManager) GetRql(dataNode *Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
 	tx := dbTransaction.Transaction().(*sql.Tx)
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)

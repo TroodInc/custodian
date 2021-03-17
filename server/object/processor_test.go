@@ -8,7 +8,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"custodian/server/auth"
-	"custodian/server/data"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/transactions"
@@ -25,7 +24,7 @@ var _ = Describe("Store", func() {
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

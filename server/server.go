@@ -6,14 +6,13 @@ import (
 	"custodian/logger"
 	"custodian/server/abac"
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/data/record"
 	. "custodian/server/errors"
 	migrations_description "custodian/server/migrations/description"
 	"custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/object/migrations/managers"
+	"custodian/server/object/record"
 	"custodian/server/transactions"
 	"custodian/utils"
 	"encoding/json"
@@ -159,9 +158,9 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 		globalTransactionManager,
 	)
 
-	getDataProcessor := func() *data.Processor {
+	getDataProcessor := func() *object.Processor {
 		dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-		processor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+		processor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 		return processor
 	}
 

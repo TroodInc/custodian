@@ -3,10 +3,9 @@ package object
 import (
 	"bytes"
 	"custodian/logger"
-	"custodian/server/data"
-	"custodian/server/data/types"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
+	"custodian/server/object/types"
 	"encoding/json"
 	"fmt"
 	"github.com/Q-CIS-DEV/go-rql-parser"
@@ -65,7 +64,7 @@ func NewSqlTranslator(rqlRoot *rqlParser.RqlRootNode) *SqlTranslator {
 }
 
 type context struct {
-	root     *data.Node
+	root     *Node
 	tblAlias string
 	binds    []interface{}
 }
@@ -325,15 +324,15 @@ func (ctx *context) makeFieldExpression(args []interface{}, sqlOperator sqlOp) (
 				expectedNode, ok := currentNode.ChildNodes.Get(field.Name)
 				if field.Type == description.FieldTypeGeneric {
 					if field.LinkType == description.LinkTypeInner {
-						expectedNode = &data.Node{
-							KeyField:       linkedMeta.Key,
-							Meta:           linkedMeta,
-							ChildNodes:     *data.NewChildNodes(),
-							Depth:          1,
-							OnlyLink:       false,
-							Parent:         nil,
-							Type:           data.NodeTypeRegular,
-							SelectFields:   *data.NewSelectFields(linkedMeta.Key, linkedMeta.TableFields()),
+						expectedNode = &Node{
+							KeyField:     linkedMeta.Key,
+							Meta:         linkedMeta,
+							ChildNodes:   *NewChildNodes(),
+							Depth:        1,
+							OnlyLink:     false,
+							Parent:       nil,
+							Type:         NodeTypeRegular,
+							SelectFields: *NewSelectFields(linkedMeta.Key, linkedMeta.TableFields()),
 						}
 					}
 				}
@@ -500,7 +499,7 @@ func is_null(ctx *context, args []interface{}) (expr, error) {
 	})
 }
 
-func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error) {
+func (st *SqlTranslator) sort(tableAlias string, root *Node) (string, error) {
 	var b bytes.Buffer
 	var sorts = make([]rqlParser.Sort, 0)
 
@@ -530,7 +529,7 @@ func (st *SqlTranslator) sort(tableAlias string, root *data.Node) (string, error
 	return b.String(), nil
 }
 
-func (st *SqlTranslator) query(tableAlias string, root *data.Node) (*SqlQuery, error) {
+func (st *SqlTranslator) query(tableAlias string, root *Node) (*SqlQuery, error) {
 	ctx := &context{root: root, tblAlias: tableAlias, binds: make([]interface{}, 0)}
 	var whereStatement string
 	if st.rootNode.Node != nil {

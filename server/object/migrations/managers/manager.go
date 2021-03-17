@@ -2,8 +2,6 @@ package managers
 
 import (
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/data/record"
 	"custodian/server/errors"
 	_migrations "custodian/server/migrations"
 	migrations_description "custodian/server/migrations/description"
@@ -12,6 +10,7 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	"custodian/server/object/migrations/operations/object"
+	"custodian/server/object/record"
 	"custodian/server/transactions"
 	"database/sql"
 	"encoding/json"
@@ -26,8 +25,8 @@ const historyMetaName = "__custodian_objects_migration_history__"
 type MigrationManager struct {
 	metaStore             *meta.MetaStore
 	migrationStore        *meta.MetaStore
-	dataManager           *object2.DataManager
-	processor			  *data.Processor
+	dataManager           *object2.DBManager
+	processor			  *object2.Processor
 	globalTransactionManager *transactions.GlobalTransactionManager
 }
 
@@ -446,10 +445,10 @@ func (mm *MigrationManager) factoryHistoryMeta() (*meta.Meta, error) {
 	return meta.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func NewMigrationManager(metaStore *meta.MetaStore, manager *object2.DataManager,syncer meta.MetaDescriptionSyncer, migrationStoragePath string,  gtm *transactions.GlobalTransactionManager) *MigrationManager {
+func NewMigrationManager(metaStore *meta.MetaStore, manager *object2.DBManager,syncer meta.MetaDescriptionSyncer, migrationStoragePath string,  gtm *transactions.GlobalTransactionManager) *MigrationManager {
 	migrationDBDescriptionSyncer := object2.NewDbMetaDescriptionSyncer(gtm.DbTransactionManager)
 	migrationStore := meta.NewStore(migrationDBDescriptionSyncer, metaStore.Syncer, gtm)
-	processor, _ := data.NewProcessor(migrationStore, manager, gtm.DbTransactionManager)
+	processor, _ := object2.NewProcessor(migrationStore, manager, gtm.DbTransactionManager)
 
 	return &MigrationManager{metaStore, migrationStore, manager, processor, gtm}
 }

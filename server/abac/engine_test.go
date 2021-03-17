@@ -2,11 +2,10 @@ package abac
 
 import (
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/data/record"
 	"custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
+	"custodian/server/object/record"
 	"custodian/server/transactions"
 	"custodian/utils"
 
@@ -212,7 +211,7 @@ var _ = Describe("Abac Engine", func() {
 		globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
 		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 		metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-		dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+		dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 		abacTree := JsonToObject(`{
 			"t_client": {

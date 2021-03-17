@@ -10,8 +10,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
-
-	"custodian/server/data"
 )
 
 var _ = Describe("RQL test", func() {
@@ -51,14 +49,14 @@ var _ = Describe("RQL test", func() {
 	}
 	meta, _ := metaStore.NewMeta(&metaDescription)
 
-	dataNode := &data.Node{
+	dataNode := &Node{
 		KeyField:   meta.Key,
 		Meta:       meta,
-		ChildNodes: *data.NewChildNodes(),
+		ChildNodes: *NewChildNodes(),
 		Depth:      1,
 		OnlyLink:   false,
 		Parent:     nil,
-		Type:       data.NodeTypeRegular,
+		Type:       NodeTypeRegular,
 	}
 
 	It("handle is_null() operator", func() {

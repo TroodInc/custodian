@@ -2,9 +2,8 @@ package server_test
 
 import (
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/data/record"
 	"custodian/server/object"
+	"custodian/server/object/record"
 	"custodian/utils"
 	"fmt"
 	"net/http"
@@ -33,7 +32,7 @@ var _ = Describe("Server 101", func() {
 	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)

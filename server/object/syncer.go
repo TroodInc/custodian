@@ -59,7 +59,7 @@ func (syncer *Syncer) Close() error {
 	return syncer.db.Close()
 }
 
-func (syncer *Syncer) NewDataManager() (*DataManager, error) {
+func (syncer *Syncer) NewDataManager() (*DBManager, error) {
 	return NewDataManager(syncer.db)
 }
 

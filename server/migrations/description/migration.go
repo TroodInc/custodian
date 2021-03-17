@@ -1,12 +1,12 @@
 package description
 
 import (
-	"encoding/json"
-	"io"
-	"custodian/server/data/record"
 	"custodian/server/errors"
 	_migrations "custodian/server/migrations"
 	"custodian/server/object/description"
+	"custodian/server/object/record"
+	"encoding/json"
+	"io"
 	"strings"
 )
 
