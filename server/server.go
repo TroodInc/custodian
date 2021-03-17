@@ -196,27 +196,16 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
-		//metaDescriptionList, _, _ := metaStore.List()
-		//if globalTransaction, err := dbTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
-		//	js.pushError(err)
-		//} else {
-		//	//set transaction to the context
-		//	*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction))
-
-			metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
-			if err != nil {
-				js.pushError(err)
-				//dbTransactionManager.RollbackTransaction(globalTransaction)
-				return
-			}
-			if e := metaStore.Create(metaObj); e == nil {
-				//dbTransactionManager.CommitTransaction(globalTransaction)
-				js.pushObj(metaObj.ForExport())
-			} else {
-				//dbTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(e)
-			}
-		//}
+		metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
+		if err != nil {
+			js.pushError(err)
+			return
+		}
+		if e := metaStore.Create(metaObj); e == nil {
+			js.pushObj(metaObj.ForExport())
+		} else {
+			js.pushError(e)
+		}
 	}))
 
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
@@ -747,11 +736,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
 				}
-
-				//if globalTransaction := r.Context().Value("global_transaction"); globalTransaction != nil {
-				//	dbTransactionManager.RollbackTransaction(globalTransaction.(*transactions.GlobalTransaction))
-				//}
-				//
 
 				returnError(w, err.(error))
 			}
