@@ -3,8 +3,6 @@ package object
 import (
 	"custodian/server/noti"
 	. "custodian/server/object/description"
-	"custodian/server/transactions"
-
 	"custodian/utils"
 	"encoding/json"
 )
@@ -78,9 +76,4 @@ type MetaDbSyncer interface {
 	CreateObj(*PgDbTransactionManager, *MetaDescription, MetaDescriptionSyncer) error
 	RemoveObj(*PgDbTransactionManager, string, bool) error
 	UpdateObj(*PgDbTransactionManager, *MetaDescription, *MetaDescription, MetaDescriptionSyncer) error
-	UpdateObjTo(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
-	ValidateObj(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) (bool, error)
-	BeginTransaction() (transactions.DbTransaction, error)
-	CommitTransaction(transactions.DbTransaction) error
-	RollbackTransaction(transactions.DbTransaction) error
 }
