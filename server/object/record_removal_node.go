@@ -2,20 +2,18 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/record"
 )
 
 //Represents record and its dependent children
 type RecordRemovalNode struct {
 	Children         map[string][]*RecordRemovalNode
 	Parent           *RecordRemovalNode
-	LinkField        *meta.FieldDescription
-	Record           *record.Record
+	LinkField        *FieldDescription
+	Record           *Record
 	OnDeleteStrategy *description.OnDeleteStrategy
 }
 
-func NewRecordRemovalNode(record *record.Record, onDeleteStrategy *description.OnDeleteStrategy, parent *RecordRemovalNode, linkField *meta.FieldDescription) *RecordRemovalNode {
+func NewRecordRemovalNode(record *Record, onDeleteStrategy *description.OnDeleteStrategy, parent *RecordRemovalNode, linkField *FieldDescription) *RecordRemovalNode {
 	return &RecordRemovalNode{
 		Record:           record,
 		Children:         make(map[string][]*RecordRemovalNode),

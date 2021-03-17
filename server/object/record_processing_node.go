@@ -2,8 +2,6 @@ package object
 
 import (
 	"custodian/server/auth"
-	"custodian/server/object/meta"
-	. "custodian/server/object/record"
 )
 
 //represents list of RecordSetOperations which are queued on the same level
@@ -60,7 +58,7 @@ func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*Recor
 func (r *RecordProcessingNode) composeRecordSetOperations(recordOperations []*RecordOperation) (*RecordSet, []*RecordSetOperation) {
 	recordSetOperations := make([]*RecordSetOperation, 0)
 	rootRecordSet := new(RecordSet)
-	var currentMeta *meta.Meta
+	var currentMeta *Meta
 	var currentOperationType RecordOperationType
 	var currentMetaRecordSetOperationPool []*RecordSetOperation //pool represent a set of recordSetOperations, which belong to the same
 	// object, but should be processed separately dut to different sets of fields

@@ -4,8 +4,7 @@ import (
 	migrations_description "custodian/server/migrations/description"
 	obj "custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -17,11 +16,11 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	syncer, _ := obj.NewSyncer(appConfig.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := obj.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := obj.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
-	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager)
+	metaDescriptionSyncer := obj.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := obj.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	migrationManager := NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -37,7 +36,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	JustBeforeEach(func() {
 		metaDescription = obj.GetBaseMetaData(utils.RandomString(8))
 
-		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		metaObj, err := obj.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
 		err = metaStore.Create(metaObj)
@@ -85,8 +84,8 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 			Expect(err).To(BeNil())
 
 			aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
-			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b"))).NotTo(BeNil())
-			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
+			Expect(aMetaObj.FindField(obj.ReverseInnerLinkName("b"))).NotTo(BeNil())
+			Expect(aMetaObj.FindField(obj.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
 
 		})
 
@@ -94,7 +93,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 			var bMetaDescription *description.MetaDescription
 			BeforeEach(func() {
 				bMetaDescription = obj.GetBaseMetaData(utils.RandomString(8))
-				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaObj, err := obj.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)
@@ -127,8 +126,8 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 				aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
-				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
-				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
+				Expect(aMetaObj.FindField(obj.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
+				Expect(aMetaObj.FindField(obj.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
 			})
 
 			It("removes and adds reverse generic outer links while inner generic field`s LinkMetaList is being updated", func() {
@@ -156,7 +155,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				Expect(err).To(BeNil())
 
 				cMetaDescription := obj.GetBaseMetaData(utils.RandomString(8))
-				cMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
+				cMetaObj, err := obj.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(cMetaObj)
@@ -188,12 +187,12 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 				aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
-				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
+				Expect(aMetaObj.FindField(obj.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
 
 				cMetaObj, _, err = metaStore.Get(cMetaDescription.Name, false)
 				Expect(err).To(BeNil())
-				Expect(cMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
-				Expect(cMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
+				Expect(cMetaObj.FindField(obj.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
+				Expect(cMetaObj.FindField(obj.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
 
 			})
 
@@ -288,7 +287,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 				metaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
 
-				Expect(metaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
+				Expect(metaObj.FindField(obj.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
 
 			})
 
@@ -333,7 +332,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 				metaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
-				Expect(metaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
+				Expect(metaObj.FindField(obj.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
 			})
 		})
 	})

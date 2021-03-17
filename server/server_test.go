@@ -9,14 +9,13 @@ import (
 	. "github.com/onsi/gomega"
 
 	"bytes"
-	"custodian/server/object/meta"
 	"custodian/utils"
 	"encoding/json"
 
 	"custodian/server"
 	"custodian/server/auth"
 	"custodian/server/object/description"
-	"custodian/server/transactions"
+
 	"net/http/httptest"
 )
 
@@ -30,9 +29,9 @@ var _ = Describe("Server", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {

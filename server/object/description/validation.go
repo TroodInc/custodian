@@ -13,10 +13,10 @@ func (err *ValidationError) Error() string {
 	return err.Message
 }
 
-type ValidationService struct {
+type MetaValidationService struct {
 }
 
-func (validationService *ValidationService) Validate(metaDescription *MetaDescription) (bool, error) {
+func (validationService *MetaValidationService) Validate(metaDescription *MetaDescription) (bool, error) {
 	if ok, err := validationService.checkFieldsDoesNotContainDuplicates(metaDescription.Fields); !ok {
 		return false, err
 	}
@@ -24,7 +24,7 @@ func (validationService *ValidationService) Validate(metaDescription *MetaDescri
 }
 
 //check if meta contains fields with duplicated name
-func (validationService *ValidationService) checkFieldsDoesNotContainDuplicates(fields []Field) (bool, error) {
+func (validationService *MetaValidationService) checkFieldsDoesNotContainDuplicates(fields []Field) (bool, error) {
 	fieldNames := make([]string, 0)
 	for _, field := range fields {
 		if !utils.Contains(fieldNames, field.Name) {

@@ -4,8 +4,7 @@ import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"fmt"
 
@@ -20,9 +19,9 @@ var _ = Describe("Create test", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 	testObjName := utils.RandomString(8)
 
@@ -31,7 +30,7 @@ var _ = Describe("Create test", func() {
 		Expect(err).To(BeNil())
 	})
 
-	havingObjectA := func() *meta.Meta {
+	havingObjectA := func() *object.Meta {
 		aMetaDescription := description.MetaDescription{
 			Name: testObjName,
 			Key:  "id",
@@ -60,7 +59,7 @@ var _ = Describe("Create test", func() {
 		return aMetaObj
 	}
 
-	havingObjectB := func() *meta.Meta {
+	havingObjectB := func() *object.Meta {
 		bMetaDescription := description.MetaDescription{
 			Name: "b",
 			Key:  "id",
@@ -97,7 +96,7 @@ var _ = Describe("Create test", func() {
 		return bMetaObj
 	}
 
-	havingObjectC := func() *meta.Meta {
+	havingObjectC := func() *object.Meta {
 		cMetaDescription := description.MetaDescription{
 			Name: "c",
 			Key:  "id",
@@ -126,7 +125,7 @@ var _ = Describe("Create test", func() {
 		return cMetaObj
 	}
 
-	havingObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
+	havingObjectAWithManuallySetOuterLinkToB := func() *object.Meta {
 		aMetaDescription := description.MetaDescription{
 			Name: testObjName,
 			Key:  "id",
@@ -163,7 +162,7 @@ var _ = Describe("Create test", func() {
 		return aMetaObj
 	}
 
-	havingObjectAWithObjectsLinkToB := func() *meta.Meta {
+	havingObjectAWithObjectsLinkToB := func() *object.Meta {
 		aMetaDescription := description.MetaDescription{
 			Name: testObjName,
 			Key:  "id",

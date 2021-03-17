@@ -3,9 +3,8 @@ package object
 import (
 	"custodian/server/object/description"
 	"custodian/server/object/errors"
-	"custodian/server/object/meta"
-	"custodian/server/object/record"
 	"custodian/server/transactions"
+
 	"fmt"
 )
 
@@ -13,7 +12,7 @@ type RecordRemovalTreeBuilder struct {
 }
 
 //Extract record`s full tree consisting of depending records, which would be affected by root record removal
-func (r *RecordRemovalTreeBuilder) Extract(record *record.Record, processor *Processor, dbTransaction transactions.DbTransaction) (*RecordRemovalNode, error) {
+func (r *RecordRemovalTreeBuilder) Extract(record *Record, processor *Processor, dbTransaction transactions.DbTransaction) (*RecordRemovalNode, error) {
 	recordTree := NewRecordRemovalNode(record, nil, nil, nil)
 	if err := r.fillWithDependingRecords(recordTree, processor, dbTransaction); err != nil {
 		return nil, err
@@ -22,11 +21,11 @@ func (r *RecordRemovalTreeBuilder) Extract(record *record.Record, processor *Pro
 	}
 }
 
-func (r *RecordRemovalTreeBuilder) makeFilter(innerField *meta.FieldDescription, ownerId string) string {
+func (r *RecordRemovalTreeBuilder) makeFilter(innerField *FieldDescription, ownerId string) string {
 	return fmt.Sprintf("eq(%s,%s)", innerField.Name, ownerId)
 }
 
-func (r *RecordRemovalTreeBuilder) makeGenericFilter(innerField *meta.FieldDescription, ownerObjectName string, ownerId string) string {
+func (r *RecordRemovalTreeBuilder) makeGenericFilter(innerField *FieldDescription, ownerObjectName string, ownerId string) string {
 	return fmt.Sprintf("eq(%s.%s.%s,%s)", innerField.Name, ownerObjectName, innerField.LinkMetaList.GetByName(ownerObjectName).Key.Name, ownerId)
 }
 
@@ -34,7 +33,7 @@ func (r *RecordRemovalTreeBuilder) makeGenericFilter(innerField *meta.FieldDescr
 func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRemovalNode, processor *Processor, dbTransaction transactions.DbTransaction) error {
 	for _, field := range recordNode.Record.Meta.Fields {
 		if field.Type == description.FieldTypeArray || (field.Type == description.FieldTypeGeneric && field.LinkType == description.LinkTypeOuter) {
-			var relatedRecords []*record.Record
+			var relatedRecords []*Record
 
 			pkAsString, err := recordNode.Record.Meta.Key.ValueAsString(recordNode.Record.Pk())
 			if err != nil {
@@ -55,7 +54,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 				recordNode.Children[field.Name] = make([]*RecordRemovalNode, 0)
 				for _, relatedRecord := range relatedRecords {
 					newRecordNode := NewRecordRemovalNode(
-						record.NewRecord(field.LinkMeta, relatedRecord.Data),
+						NewRecord(field.LinkMeta, relatedRecord.Data),
 						field.OuterLinkField.OnDeleteStrategy(),
 						recordNode,
 						field.OuterLinkField,

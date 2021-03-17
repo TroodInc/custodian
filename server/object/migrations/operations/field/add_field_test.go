@@ -3,9 +3,8 @@ package field
 import (
 	object2 "custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/migrations/operations/object"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"database/sql"
 	"fmt"
@@ -20,9 +19,9 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -54,7 +53,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 	})
 
 	It("creates column for specified table in the database", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		operation := object.NewCreateObjectOperation(metaDescription)
@@ -62,19 +61,19 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//
 
 		field := description.Field{Name: "new_field", Type: description.FieldTypeString, Optional: true}
 		fieldOperation := NewAddFieldOperation(&field)
 
-		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
@@ -84,11 +83,11 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 		Expect(metaDdlFromDB.Columns[1].Name).To(Equal("new_field"))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("creates enum", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		operation := object.NewCreateObjectOperation(metaDescription)
@@ -96,7 +95,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = operation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//
 		enums := description.EnumChoices{"string", "ping", "CAMEL"}
@@ -108,12 +107,12 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 		fieldOperation := NewAddFieldOperation(&field)
 
-		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(metaDescription.Name).To(Equal("a"))
@@ -125,18 +124,18 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.Columns[1].Enum).To(HaveLen(3))
 		Expect(metaDdlFromDB.Columns[1].Enum[2]).To(Equal("CAMEL"))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("creates sequence for specified column in the database", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		operation := object.NewCreateObjectOperation(metaDescription)
 
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//sync MetaDescription with DB
 
@@ -151,12 +150,12 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		}
 
 		fieldOperation := NewAddFieldOperation(&field)
-		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
@@ -164,17 +163,17 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
 		Expect(metaDdlFromDB.Seqs[1].Name).To(Equal("o_a_new_field_seq"))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("creates constraint for specified column in the database", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		operation := object.NewCreateObjectOperation(metaDescription)
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		//create linked MetaDescription obj
@@ -197,7 +196,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		linkedMetaDescription, err = linkedMetaOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = linkedMetaOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = linkedMetaOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		//Run field operations
@@ -212,13 +211,13 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 		fieldOperation := NewAddFieldOperation(&field)
 
-		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		//Check constraint
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
@@ -229,6 +228,6 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("link_to_a"))
 		Expect(metaDdlFromDB.IFKs[0].OnDelete).To(Equal(description.OnDeleteCascadeDb))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 	})
 })

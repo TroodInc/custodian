@@ -5,10 +5,8 @@ import (
 	errors2 "custodian/server/errors"
 	"custodian/server/object/description"
 	"custodian/server/object/errors"
-	"custodian/server/object/meta"
-	"custodian/server/object/notifications"
-	. "custodian/server/object/record"
 	"custodian/server/transactions"
+
 	"fmt"
 
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
@@ -24,22 +22,22 @@ type ExecuteContext interface {
 
 type DataManager interface {
 	Db() interface{}
-	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
-	Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
-	GetAll(m *meta.Meta, fileds []*meta.FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
-	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *Processor) error
-	PrepareCreateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
-	PrepareUpdateOperation(m *meta.Meta, objs []map[string]interface{}) (transactions.Operation, error)
+	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
+	Get(m *Meta, fields []*FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
+	GetAll(m *Meta, fileds []*FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
+	PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *RecordSetNotificationPool, processor *Processor) error
+	PrepareCreateOperation(m *Meta, objs []map[string]interface{}) (transactions.Operation, error)
+	PrepareUpdateOperation(m *Meta, objs []map[string]interface{}) (transactions.Operation, error)
 }
 
 type Processor struct {
-	metaStore          *meta.MetaStore
+	metaStore          *MetaStore
 	dataManager        DataManager
 	transactionManager transactions.DbTransactionManager
 	vCache             map[string]objectClassValidator
 }
 
-func NewProcessor(m *meta.MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
+func NewProcessor(m *MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
 	return &Processor{m, d, t, make(map[string]objectClassValidator)}, nil
 }
 
@@ -51,7 +49,7 @@ type SearchContext struct {
 	DbTransaction transactions.DbTransaction
 }
 
-func IsBackLink(m *meta.Meta, f *meta.FieldDescription) bool {
+func IsBackLink(m *Meta, f *FieldDescription) bool {
 	for i, _ := range m.Fields {
 		if m.Fields[i].LinkType == description.LinkTypeOuter && m.Fields[i].OuterLinkField.Name == f.Name && m.Fields[i].LinkMeta.Name == f.Meta.Name {
 			return true
@@ -151,8 +149,8 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 }
 
 type DNode struct {
-	KeyField   *meta.FieldDescription
-	Meta       *meta.Meta
+	KeyField   *FieldDescription
+	Meta       *Meta
 	ChildNodes map[string]*DNode
 	Plural     bool
 }
@@ -180,7 +178,7 @@ func (dn *DNode) recursivelyFillOuterChildNodes() {
 	}
 }
 
-func (processor *Processor) GetMeta(objectName string) (*meta.Meta, error) {
+func (processor *Processor) GetMeta(objectName string) (*Meta, error) {
 	objectMeta, ok, err := processor.metaStore.Get(objectName, true)
 	if err != nil {
 		return nil, err
@@ -193,7 +191,7 @@ func (processor *Processor) GetMeta(objectName string) (*meta.Meta, error) {
 	return objectMeta, nil
 }
 
-func SetRecordOwner(objectMeta *meta.Meta, recordData map[string]interface{}, user auth.User) {
+func SetRecordOwner(objectMeta *Meta, recordData map[string]interface{}, user auth.User) {
 	for i, field := range objectMeta.Fields {
 		if field.Def != nil {
 			switch f := field.Def.(type) {
@@ -221,7 +219,7 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 	}
 
 	// create notification pool
-	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	recordSetNotificationPool := NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
@@ -296,7 +294,7 @@ func (processor *Processor) BulkCreateRecords(objectName string, recordData []ma
 	}
 
 	// create notification pool
-	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	recordSetNotificationPool := NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//assemble RecordSetOperations
@@ -395,7 +393,7 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 	}
 
 	// create notification pool
-	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	recordSetNotificationPool := NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//perform update
@@ -469,7 +467,7 @@ func (processor *Processor) BulkUpdateRecords(objectName string, next func() (ma
 	}
 
 	// create notification pool
-	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	recordSetNotificationPool := NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
@@ -564,7 +562,7 @@ func (processor *Processor) RemoveRecord(objectName string, key string, user aut
 	}
 
 	// create notification pool
-	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	recordSetNotificationPool := NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//fill node
@@ -600,7 +598,7 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 	//
 
 	// create notification pool
-	recordSetNotificationPool := notifications.NewRecordSetNotificationPool()
+	recordSetNotificationPool := NewRecordSetNotificationPool()
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	// collect records` data to update
@@ -653,7 +651,7 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 }
 
 //consume all records from callback function
-func (processor *Processor) consumeRecords(nextCallback func() (map[string]interface{}, error), objectMeta *meta.Meta, strictPkCheck bool) ([]*Record, error) {
+func (processor *Processor) consumeRecords(nextCallback func() (map[string]interface{}, error), objectMeta *Meta, strictPkCheck bool) ([]*Record, error) {
 	var records = make([]*Record, 0)
 	// collect records
 	for recordData, err := nextCallback(); err != nil || (recordData != nil); recordData, err = nextCallback() {
@@ -687,10 +685,10 @@ func (processor *Processor) feedRecordSets(recordSets []*RecordSet, sink func(ma
 }
 
 // perform update and return list of records
-func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
+func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, recordSetNotificationPool *RecordSetNotificationPool) (*RecordSet, error) {
 	recordSet.PrepareData(RecordOperationTypeUpdate)
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, description.MethodUpdate, processor.GetBulk, processor.Get)
+	recordSetNotification := NewRecordSetNotification(recordSet, isRoot, description.MethodUpdate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)
@@ -720,10 +718,10 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 }
 
 // perform create and return list of records
-func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, recordSetNotificationPool *notifications.RecordSetNotificationPool) (*RecordSet, error) {
+func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, recordSetNotificationPool *RecordSetNotificationPool) (*RecordSet, error) {
 	recordSet.PrepareData(RecordOperationTypeCreate)
 	// create notification, capture current recordData state and Add notification to notification pool
-	recordSetNotification := notifications.NewRecordSetNotification(recordSet, isRoot, description.MethodCreate, processor.GetBulk, processor.Get)
+	recordSetNotification := NewRecordSetNotification(recordSet, isRoot, description.MethodCreate, processor.GetBulk, processor.Get)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState()
 		recordSetNotificationPool.Add(recordSetNotification)

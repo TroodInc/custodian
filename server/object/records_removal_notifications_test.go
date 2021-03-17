@@ -1,13 +1,10 @@
-package notifications_test
+package object_test
 
 import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	. "custodian/server/object/notifications"
-	"custodian/server/object/record"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"strconv"
 
@@ -22,9 +19,9 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -37,7 +34,7 @@ var _ = Describe("Data", func() {
 		testObjAName := utils.RandomString(8)
 		testObjBName := utils.RandomString(8)
 
-		havingObjectA := func(onDeleteStrategy description.OnDeleteStrategy) *meta.Meta {
+		havingObjectA := func(onDeleteStrategy description.OnDeleteStrategy) *object.Meta {
 			By("Having object A with action for 'create' defined")
 			aMetaDescription := description.MetaDescription{
 				Name: testObjAName,
@@ -85,7 +82,7 @@ var _ = Describe("Data", func() {
 			return aMetaObj
 		}
 
-		havingObjectB := func() *meta.Meta {
+		havingObjectB := func() *object.Meta {
 			By("Having object B which")
 			bMetaDescription := description.MetaDescription{
 				Name: testObjBName,
@@ -118,7 +115,7 @@ var _ = Describe("Data", func() {
 			return bMetaObj
 		}
 
-		havingARecord := func(bRecordId float64) *record.Record {
+		havingARecord := func(bRecordId float64) *object.Record {
 			aMetaObj := havingObjectA(description.OnDeleteCascade)
 			By("Having a record of A object")
 			aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{testObjBName: bRecordId}, auth.User{})
@@ -126,7 +123,7 @@ var _ = Describe("Data", func() {
 			return aRecord
 		}
 
-		havingBRecord := func() *record.Record {
+		havingBRecord := func() *object.Record {
 			bMetaObj := havingObjectB()
 			By("Having a record of B object")
 			bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{}, auth.User{})
@@ -140,19 +137,19 @@ var _ = Describe("Data", func() {
 			Expect(bRecord).NotTo(BeNil())
 			aRecord := havingARecord(bRecord.Pk().(float64))
 
-			recordSetNotificationPool := NewRecordSetNotificationPool()
+			recordSetNotificationPool := object.NewRecordSetNotificationPool()
 
 			bRecord, err := dataProcessor.Get(bRecord.Meta.Name, bRecord.PkAsString(), nil, nil, 1, false)
 			Expect(err).To(BeNil())
 
 			//fill node
-			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction.DbTransaction)
+			globalTransaction, _ := dbTransactionManager.BeginTransaction()
+			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction)
 			Expect(err).To(BeNil())
 
-			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, recordSetNotificationPool, dataProcessor)
+			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
 			Expect(err).To(BeNil())
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			dbTransactionManager.CommitTransaction(globalTransaction)
 
 			notifications := recordSetNotificationPool.Notifications()
 
@@ -176,16 +173,16 @@ var _ = Describe("Data", func() {
 			aMetaObj := havingObjectA(description.OnDeleteSetNull)
 			dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{testObjBName: bRecord.Pk().(float64)}, auth.User{})
 
-			recordSetNotificationPool := NewRecordSetNotificationPool()
+			recordSetNotificationPool := object.NewRecordSetNotificationPool()
 
 			//fill node
-			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction.DbTransaction)
+			globalTransaction, _ := dbTransactionManager.BeginTransaction()
+			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction)
 			Expect(err).To(BeNil())
 
-			err = dataManager.PerformRemove(removalRootNode, globalTransaction.DbTransaction, recordSetNotificationPool, dataProcessor)
+			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
 			Expect(err).To(BeNil())
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			dbTransactionManager.CommitTransaction(globalTransaction)
 
 			dataProcessor.RemoveRecord(bRecord.Meta.Name, strconv.Itoa(int(bRecord.Pk().(float64))), auth.User{})
 			notifications := recordSetNotificationPool.Notifications()

@@ -1,4 +1,4 @@
-package notifications
+package object
 
 import "custodian/server/auth"
 

@@ -11,9 +11,7 @@ import (
 
 	"custodian/server"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/migrations/managers"
-	"custodian/server/transactions"
 
 	"bytes"
 	migrations_description "custodian/server/migrations/description"
@@ -30,11 +28,11 @@ var _ = Describe("Rollback migrations", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 	)
 
 	BeforeEach(func() {
@@ -60,7 +58,7 @@ var _ = Describe("Rollback migrations", func() {
 
 		BeforeEach(func() {
 			//Create object A by applying a migration
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 			testObjAName := utils.RandomString(8)
 
@@ -95,7 +93,7 @@ var _ = Describe("Rollback migrations", func() {
 			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
 
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			dbTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		Context("Having applied `addField` migration for object A", func() {
@@ -103,7 +101,7 @@ var _ = Describe("Rollback migrations", func() {
 
 			BeforeEach(func() {
 				//Create object A by applying a migration
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+				globalTransaction, err := dbTransactionManager.BeginTransaction()
 				Expect(err).To(BeNil())
 
 				field := description.Field{
@@ -127,7 +125,7 @@ var _ = Describe("Rollback migrations", func() {
 				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, true, false)
 				Expect(err).To(BeNil())
 
-				globalTransactionManager.CommitTransaction(globalTransaction)
+				dbTransactionManager.CommitTransaction(globalTransaction)
 			})
 
 			Context("Having applied `UpdateField` migration for object A", func() {
@@ -135,7 +133,7 @@ var _ = Describe("Rollback migrations", func() {
 
 				BeforeEach(func() {
 					//Create object A by applying a migration
-					globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+					globalTransaction, err := dbTransactionManager.BeginTransaction()
 					Expect(err).To(BeNil())
 
 					field := description.Field{
@@ -159,7 +157,7 @@ var _ = Describe("Rollback migrations", func() {
 					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, true, false)
 					Expect(err).To(BeNil())
 
-					globalTransactionManager.CommitTransaction(globalTransaction)
+					dbTransactionManager.CommitTransaction(globalTransaction)
 				})
 
 				It("It can rollback object`s state up to the first migration state", func() {

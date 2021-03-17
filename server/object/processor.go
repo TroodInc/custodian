@@ -2,6 +2,7 @@ package object
 
 import (
 	"bytes"
+	"custodian/server/transactions"
 	"database/sql"
 	"fmt"
 	"github.com/jackc/pgconn"
@@ -15,11 +16,7 @@ import (
 	"custodian/server/errors"
 	"custodian/server/object/description"
 	"custodian/server/object/dml_info"
-	"custodian/server/object/meta"
-	"custodian/server/object/notifications"
-	"custodian/server/object/record"
-	"custodian/server/object/types"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"strconv"
 	"strings"
@@ -80,7 +77,7 @@ func (selectInfo *SelectInfo) sql(sql *bytes.Buffer) error {
 	return parsedTemplSelect.Execute(sql, selectInfo)
 }
 
-func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filterKeys []string) *SelectInfo {
+func NewSelectInfo(objectMeta *Meta, fields []*FieldDescription, filterKeys []string) *SelectInfo {
 	whereExpression := ""
 	for i, key := range filterKeys {
 		if i > 0 {
@@ -91,13 +88,13 @@ func NewSelectInfo(objectMeta *meta.Meta, fields []*meta.FieldDescription, filte
 	return &SelectInfo{From: GetTableName(objectMeta.Name), Cols: dml_info.EscapeColumns(fieldsToCols(fields, "")), Where: whereExpression}
 }
 
-func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
+func getFieldsColumnsNames(fields []*FieldDescription) []string {
 	names := make([]string, 0)
 	for _, field := range fields {
 		switch field.Type {
 		case description.FieldTypeGeneric:
-			names = append(names, meta.GetGenericFieldTypeColumnName(field.Name))
-			names = append(names, meta.GetGenericFieldKeyColumnName(field.Name))
+			names = append(names, GetGenericFieldTypeColumnName(field.Name))
+			names = append(names, GetGenericFieldKeyColumnName(field.Name))
 		default:
 			names = append(names, field.Name)
 		}
@@ -105,7 +102,7 @@ func getFieldsColumnsNames(fields []*meta.FieldDescription) []string {
 	return names
 }
 
-func newFieldValue(f *meta.FieldDescription, isOptional bool) (interface{}, error) {
+func newFieldValue(f *FieldDescription, isOptional bool) (interface{}, error) {
 	switch f.Type {
 	case description.FieldTypeString, description.FieldTypeDate, description.FieldTypeDateTime, description.FieldTypeTime, description.FieldTypeEnum:
 		if isOptional {
@@ -164,7 +161,7 @@ func (dm *DBManager) Prepare(q string, tx *sql.Tx) (*Stmt, error) {
 	return NewStmt(tx, q)
 }
 
-func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
+func (s *Stmt) ParsedQuery(binds []interface{}, fields []*FieldDescription) ([]map[string]interface{}, error) {
 	rows, err := s.Query(binds)
 	if err != nil {
 		logger.Error("Query statement error: %s", err.Error())
@@ -174,7 +171,7 @@ func (s *Stmt) ParsedQuery(binds []interface{}, fields []*meta.FieldDescription)
 	return rows.Parse(fields)
 }
 
-func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*meta.FieldDescription) (map[string]interface{}, error) {
+func (s *Stmt) ParsedSingleQuery(binds []interface{}, fields []*FieldDescription) (map[string]interface{}, error) {
 	objs, err := s.ParsedQuery(binds, fields)
 	if err != nil {
 		return nil, err
@@ -235,13 +232,13 @@ func updateNodes(nodes map[string]interface{}, dbObj map[string]interface{}) {
 	for fieldName, rv := range dbObj {
 		if val, ok := nodes[fieldName]; ok {
 			switch val := val.(type) {
-			case types.LazyLink:
+			case LazyLink:
 				continue
-			case types.DLink:
+			case DLink:
 				val.Id = rv
-			case *types.GenericInnerLink:
+			case *GenericInnerLink:
 				if val.Pk != nil {
-					nodes[fieldName] = map[string]interface{}{val.PkName: val.Pk, types.GenericInnerLinkObjectKey: val.ObjectName}
+					nodes[fieldName] = map[string]interface{}{val.PkName: val.Pk, GenericInnerLinkObjectKey: val.ObjectName}
 				} else {
 					nodes[fieldName] = nil
 				}
@@ -258,9 +255,9 @@ func getColumnsToInsert(fieldNames []string, rawValues []interface{}) []string {
 	columns := make([]string, 0, 0)
 	for i, fieldName := range fieldNames {
 		switch rawValues[i].(type) {
-		case *types.GenericInnerLink:
-			columns = append(columns, meta.GetGenericFieldTypeColumnName(fieldName))
-			columns = append(columns, meta.GetGenericFieldKeyColumnName(fieldName))
+		case *GenericInnerLink:
+			columns = append(columns, GetGenericFieldTypeColumnName(fieldName))
+			columns = append(columns, GetGenericFieldKeyColumnName(fieldName))
 		default:
 			columns = append(columns, fieldName)
 		}
@@ -273,16 +270,16 @@ func getValuesToInsert(fieldNames []string, rawValues map[string]interface{}, ex
 	processedColumns := make([]string, 0)
 	for _, fieldName := range fieldNames {
 		switch castValue := rawValues[fieldName].(type) {
-		case *types.GenericInnerLink:
+		case *GenericInnerLink:
 			values = append(values, castValue.ObjectName)
 			castValuePk := fmt.Sprintf("%v", castValue.Pk)
 			values = append(values, castValuePk)
-			processedColumns = append(processedColumns, meta.GetGenericFieldTypeColumnName(fieldName))
-			processedColumns = append(processedColumns, meta.GetGenericFieldKeyColumnName(fieldName))
-		case types.LazyLink:
+			processedColumns = append(processedColumns, GetGenericFieldTypeColumnName(fieldName))
+			processedColumns = append(processedColumns, GetGenericFieldKeyColumnName(fieldName))
+		case LazyLink:
 			values = append(values, castValue.Obj[castValue.Field.Meta.Key.Name])
 			processedColumns = append(processedColumns, fieldName)
-		case types.DLink:
+		case DLink:
 			values = append(values, castValue.Id)
 			processedColumns = append(processedColumns, fieldName)
 		default:
@@ -306,16 +303,16 @@ func emptyOperation(dbTransaction transactions.DbTransaction) error {
 }
 
 func alinkVal(v interface{}) interface{} {
-	al := v.(types.LazyLink)
+	al := v.(LazyLink)
 	return al.Obj[al.Field.Meta.Key.Name]
 }
 
 func dlinkVal(v interface{}) interface{} {
-	return v.(types.DLink).Id
+	return v.(DLink).Id
 }
 
 func genericInnerLinkValue(value interface{}) interface{} {
-	castValue := value.(*types.GenericInnerLink)
+	castValue := value.(*GenericInnerLink)
 	if castValue.FieldDescription != nil {
 		pkValueAsString, _ := castValue.FieldDescription.ValueAsString(castValue.Pk)
 		return []string{castValue.ObjectName, pkValueAsString}
@@ -333,7 +330,7 @@ func increaseCasVal(v interface{}) interface{} {
 	return cas + 1
 }
 
-func (dm *DBManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[string]interface{}) (transactions.Operation, error) {
+func (dm *DBManager) PrepareUpdateOperation(m *Meta, recordValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -373,23 +370,23 @@ func (dm *DBManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[str
 
 		} else {
 			switch val.(type) {
-			case types.LazyLink:
+			case LazyLink:
 				currentColumnIndex++
 				updateFields = append(updateFields, fieldName)
 				updateInfo.Filters = append(updateInfo.Filters, newBind(fieldName, currentColumnIndex))
 				valueExtractors = append(valueExtractors, alinkVal)
-			case types.DLink:
+			case DLink:
 				currentColumnIndex++
 				updateFields = append(updateFields, fieldName)
 				updateInfo.Values = append(updateInfo.Values, newBind(fieldName, currentColumnIndex))
 				valueExtractors = append(valueExtractors, dlinkVal)
-			case *types.GenericInnerLink:
+			case *GenericInnerLink:
 
 				currentColumnIndex++
-				updateInfo.Values = append(updateInfo.Values, newBind(meta.GetGenericFieldTypeColumnName(fieldName), currentColumnIndex))
+				updateInfo.Values = append(updateInfo.Values, newBind(GetGenericFieldTypeColumnName(fieldName), currentColumnIndex))
 
 				currentColumnIndex++
-				updateInfo.Values = append(updateInfo.Values, newBind(meta.GetGenericFieldKeyColumnName(fieldName), currentColumnIndex))
+				updateInfo.Values = append(updateInfo.Values, newBind(GetGenericFieldKeyColumnName(fieldName), currentColumnIndex))
 
 				updateFields = append(updateFields, fieldName)
 
@@ -467,7 +464,7 @@ func (dm *DBManager) PrepareUpdateOperation(m *meta.Meta, recordValues []map[str
 	}, nil
 }
 
-func (dm *DBManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[string]interface{}) (transactions.Operation, error) {
+func (dm *DBManager) PrepareCreateOperation(m *Meta, recordsValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordsValues) == 0 {
 		return emptyOperation, nil
 	}
@@ -509,7 +506,7 @@ func (dm *DBManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[st
 				binds = append(binds, values...)
 			}
 		}
-		stmt, err := dbTransaction.(*PgTransaction).Prepare(insertDML.String())
+		stmt, err := NewStmt(dbTransaction.Transaction().(*sql.Tx), insertDML.String())
 		if err != nil {
 			return err
 		}
@@ -517,9 +514,9 @@ func (dm *DBManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[st
 		dbObjs, err := stmt.ParsedQuery(binds, fields)
 		if err != nil {
 			if err, ok := err.(*errors.ServerError); ok && err.Code == ErrValueDuplication {
-				dupTransaction, _ := dbTransaction.(*PgTransaction).Manager.BeginTransaction()
-				duplicates, dup_error := dm.GetAll(m, m.TableFields(), err.Data.(map[string]interface{}), dupTransaction)
-				dupTransaction.Close()
+				//dupTransaction, _ := dbTransaction.(*PgTransaction).Manager.BeginTransaction()
+				duplicates, dup_error := dm.GetAll(m, m.TableFields(), err.Data.(map[string]interface{}), dbTransaction)
+				//dupTransaction.Close()
 				if dup_error != nil {
 					logger.Error(dup_error.Error())
 				}
@@ -538,7 +535,7 @@ func (dm *DBManager) PrepareCreateOperation(m *meta.Meta, recordsValues []map[st
 	}, nil
 }
 
-func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
+func fieldsToCols(fields []*FieldDescription, alias string) []string {
 	columns := getFieldsColumnsNames(fields)
 	for i, column := range columns {
 		if alias != "" {
@@ -549,7 +546,7 @@ func fieldsToCols(fields []*meta.FieldDescription, alias string) []string {
 	return columns
 }
 
-func (dm *DBManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error) {
+func (dm *DBManager) Get(m *Meta, fields []*FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error) {
 	objs, err := dm.GetAll(m, fields, map[string]interface{}{key: val}, dbTransaction)
 	if err != nil {
 		return nil, err
@@ -567,7 +564,7 @@ func (dm *DBManager) Get(m *meta.Meta, fields []*meta.FieldDescription, key stri
 	return objs[0], nil
 }
 
-func (dm *DBManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
+func (dm *DBManager) GetAll(m *Meta, fields []*FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
 	tx := dbTransction.Transaction().(*sql.Tx)
 	if fields == nil {
 		fields = m.TableFields()
@@ -588,7 +585,7 @@ func (dm *DBManager) GetAll(m *meta.Meta, fields []*meta.FieldDescription, filte
 	return stmt.ParsedQuery(filterValues, fields)
 }
 
-func (dm *DBManager) PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *notifications.RecordSetNotificationPool, processor *Processor) error {
+func (dm *DBManager) PerformRemove(recordNode *RecordRemovalNode, dbTransaction transactions.DbTransaction, notificationPool *RecordSetNotificationPool, processor *Processor) error {
 	var operation transactions.Operation
 	var err error
 	var onDeleteStrategy description.OnDeleteStrategy
@@ -599,13 +596,13 @@ func (dm *DBManager) PerformRemove(recordNode *RecordRemovalNode, dbTransaction 
 	}
 
 	//make operation
-	var recordSetNotification *notifications.RecordSetNotification
+	var recordSetNotification *RecordSetNotification
 	switch onDeleteStrategy {
 	case description.OnDeleteSetNull:
 		//make corresponding null value
 		var nullValue interface{}
 		if recordNode.LinkField.Type == description.FieldTypeGeneric {
-			nullValue = new(types.GenericInnerLink)
+			nullValue = new(GenericInnerLink)
 		} else {
 			nullValue = nil
 		}
@@ -617,13 +614,13 @@ func (dm *DBManager) PerformRemove(recordNode *RecordRemovalNode, dbTransaction 
 		if err != nil {
 			return err
 		}
-		recordSetNotification = notifications.NewRecordSetNotification(&record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
+		recordSetNotification = NewRecordSetNotification(&RecordSet{Meta: recordNode.Record.Meta, Records: []*Record{recordNode.Record}}, false, description.MethodUpdate, processor.GetBulk, processor.Get)
 	default:
 		operation, err = dm.PrepareRemoveOperation(recordNode.Record)
 		if err != nil {
 			return err
 		}
-		recordSetNotification = notifications.NewRecordSetNotification(&record.RecordSet{Meta: recordNode.Record.Meta, Records: []*record.Record{recordNode.Record}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
+		recordSetNotification = NewRecordSetNotification(&RecordSet{Meta: recordNode.Record.Meta, Records: []*Record{recordNode.Record}}, false, description.MethodRemove, processor.GetBulk, processor.Get)
 	}
 	//process child records
 	for _, recordNodes := range recordNode.Children {
@@ -648,7 +645,7 @@ func (dm *DBManager) PerformRemove(recordNode *RecordRemovalNode, dbTransaction 
 	}
 }
 
-func (dm *DBManager) PrepareRemoveOperation(record *record.Record) (transactions.Operation, error) {
+func (dm *DBManager) PrepareRemoveOperation(record *Record) (transactions.Operation, error) {
 	var query bytes.Buffer
 	deleteInfo := dml_info.NewDeleteInfo(GetTableName(record.Meta.Name), []string{dml_info.EscapeColumn(record.Meta.Key.Name) + " IN (" + dml_info.BindValues(1, 1) + ")"})
 	operation := func(dbTransaction transactions.DbTransaction) error {
@@ -669,7 +666,7 @@ func (dm *DBManager) PrepareRemoveOperation(record *record.Record) (transactions
 
 }
 
-func (dm *DBManager) GetRql(dataNode *Node, rqlRoot *rqlParser.RqlRootNode, fields []*meta.FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
+func (dm *DBManager) GetRql(dataNode *Node, rqlRoot *rqlParser.RqlRootNode, fields []*FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
 	tx := dbTransaction.Transaction().(*sql.Tx)
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)

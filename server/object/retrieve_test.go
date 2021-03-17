@@ -4,9 +4,7 @@ import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/record"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -20,9 +18,9 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -208,8 +206,8 @@ var _ = Describe("Data", func() {
 			Expect(bRecord.Data).To(HaveKey("as"))
 			Expect(bRecord.Data["as"]).To(HaveLen(2))
 			Expect(bRecord.Data["as"].([]interface{})).To(HaveLen(2))
-			Expect(bRecord.Data["as"].([]interface{})[0].(*record.Record).Data["id"]).To(Equal(1.0))
-			Expect(bRecord.Data["as"].([]interface{})[1].(*record.Record).Data["id"]).To(Equal(2.0))
+			Expect(bRecord.Data["as"].([]interface{})[0].(*object.Record).Data["id"]).To(Equal(1.0))
+			Expect(bRecord.Data["as"].([]interface{})[1].(*object.Record).Data["id"]).To(Equal(2.0))
 		})
 	})
 })

@@ -1,12 +1,11 @@
-package record
+package object
 
 import (
-	"custodian/server/object/meta"
 	"custodian/utils"
 )
 
 type RecordSet struct {
-	Meta    *meta.Meta
+	Meta    *Meta
 	Records []*Record
 }
 
@@ -76,6 +75,6 @@ func (recordSet *RecordSet) CanAppendRecord(record *Record) bool {
 
 }
 
-func NewRecordSet(meta *meta.Meta) *RecordSet {
+func NewRecordSet(meta *Meta) *RecordSet {
 	return &RecordSet{Meta: meta, Records: make([]*Record, 0)}
 }

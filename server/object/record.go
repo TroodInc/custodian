@@ -1,17 +1,15 @@
-package record
+package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/types"
 	"time"
 )
 
 type Record struct {
-	Meta    *meta.Meta
+	Meta    *Meta
 	Data    map[string]interface{}
 	RawData map[string]interface{}
-	Links   []*types.LazyLink
+	Links   []*LazyLink
 }
 
 func (record *Record) GetData() map[string]interface{} {
@@ -21,8 +19,8 @@ func (record *Record) GetData() map[string]interface{} {
 			case *Record:
 				data[key] = val.(*Record).GetData()
 
-			case *types.GenericInnerLink:
-				data[key] = val.(*types.GenericInnerLink).AsMap()
+			case *GenericInnerLink:
+				data[key] = val.(*GenericInnerLink).AsMap()
 
 			case []interface{}:
 				list := make([]interface{}, 0)
@@ -30,8 +28,8 @@ func (record *Record) GetData() map[string]interface{} {
 					switch item.(type) {
 						case *Record:
 							list = append(list, item.(*Record).GetData())
-						case *types.GenericInnerLink:
-							list = append(list, item.(*types.GenericInnerLink).AsMap())
+						case *GenericInnerLink:
+							list = append(list, item.(*GenericInnerLink).AsMap())
 						default:
 							list = append(list, item)
 					}
@@ -57,7 +55,7 @@ func (record *Record) CollapseLinks() {
 	//TODO: all Links should be placed into Record.Links, links in Record`s data
 	for k, v := range record.Data {
 		switch link := v.(type) {
-		case types.LazyLink:
+		case LazyLink:
 			if link.IsOuter {
 				if link.Field.Type == description.FieldTypeArray {
 					if a, prs := link.Obj[link.Field.Name]; !prs || a == nil {
@@ -76,11 +74,11 @@ func (record *Record) CollapseLinks() {
 			} else {
 				record.Data[k] = link.Obj
 			}
-		case types.DLink:
+		case DLink:
 			if !link.IsOuter {
 				record.Data[k] = link.Id
 			}
-		case *types.AGenericInnerLink:
+		case *AGenericInnerLink:
 			if link.LinkType == description.LinkTypeOuter {
 				if _, ok := record.Data[link.Field.Name]; !ok {
 					link.RecordData[link.Field.Name] = make([]interface{}, link.NeighboursCount)
@@ -108,10 +106,10 @@ func (record *Record) CollapseLinks() {
 func (record *Record) MergeData() {
 	for k := range record.RawData {
 		if value, ok := record.Data[k]; ok {
-			if _, ok := value.(types.LazyLink); ok {
+			if _, ok := value.(LazyLink); ok {
 				continue
 			}
-			if _, ok := value.(*types.AGenericInnerLink); ok {
+			if _, ok := value.(*AGenericInnerLink); ok {
 				continue
 			}
 		}
@@ -124,13 +122,13 @@ func (record *Record) PrepareData(operationType RecordOperationType) {
 	record.RawData = map[string]interface{}{}
 	for k, v := range record.Data {
 		switch link := v.(type) {
-		case types.LazyLink:
+		case LazyLink:
 			if link.IsOuter {
 				record.RawData[k] = link.Obj[link.Field.LinkMeta.Key.Name]
 			} else {
 				record.RawData[k] = link.Obj[link.Field.Meta.Key.Name]
 			}
-		case *types.AGenericInnerLink:
+		case *AGenericInnerLink:
 			//fill PK if it is presented in RecordData stash, case of newly created record
 			if pkValue, ok := link.RecordData[link.GenericInnerLink.PkName]; ok {
 				link.GenericInnerLink.Pk = pkValue
@@ -177,6 +175,6 @@ func (record *Record) IsPhantom() bool {
 	return !pkIsSet
 }
 
-func NewRecord(meta *meta.Meta, data map[string]interface{}) *Record {
-	return  &Record{Meta: meta, Data: data, RawData: nil, Links: make([]*types.LazyLink, 0)}
+func NewRecord(meta *Meta, data map[string]interface{}) *Record {
+	return  &Record{Meta: meta, Data: data, RawData: nil, Links: make([]*LazyLink, 0)}
 }

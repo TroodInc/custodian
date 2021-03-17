@@ -3,8 +3,7 @@ package object
 import (
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"database/sql"
 
@@ -19,9 +18,9 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -33,7 +32,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 
 	//setup MetaDescription
 	BeforeEach(func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -50,10 +49,10 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		}
 		Expect(err).To(BeNil())
 		//sync its MetaDescription
-		err = syncer.CreateObj(globalTransactionManager, metaDescription, metaDescriptionSyncer)
+		err = syncer.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	//setup teardown
@@ -63,21 +62,21 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	})
 
 	It("removes MetaDescription`s file", func() {
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		//remove MetaDescription from DB
 		metaName := metaDescription.Name
-		err = new(DeleteObjectOperation).SyncDbDescription(metaDescription, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = new(DeleteObjectOperation).SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		//ensure table has been removed
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, metaName)
 		Expect(err).NotTo(BeNil())
 		Expect(metaDdlFromDB).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 
 		//	ensure meta file does not exist
 		metaDescription, _, err := metaDescriptionSyncer.Get(metaName)

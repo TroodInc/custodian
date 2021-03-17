@@ -1,7 +1,7 @@
 package action
 
 import (
-	"custodian/server/object/meta"
+	"custodian/server/object"
 	meta_description "custodian/server/object/description"
 	"custodian/server/transactions"
 )
@@ -11,7 +11,7 @@ type UpdateActionOperation struct {
 	CurrentAction *meta_description.Action
 }
 
-func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, syncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, syncer object.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 
 	//replace action
@@ -29,7 +29,7 @@ func (o *UpdateActionOperation) SyncMetaDescription(metaDescriptionToApply *meta
 	}
 }
 
-func (o *UpdateActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *UpdateActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
 	return nil
 }
 

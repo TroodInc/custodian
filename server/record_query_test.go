@@ -3,7 +3,6 @@ package server_test
 import (
 	"custodian/server/auth"
 	"custodian/server/object"
-	"custodian/server/object/record"
 	"custodian/utils"
 	"fmt"
 	"net/http"
@@ -14,8 +13,7 @@ import (
 
 	"custodian/server"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"encoding/json"
 )
 
@@ -29,9 +27,9 @@ var _ = Describe("Server 101", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -44,7 +42,7 @@ var _ = Describe("Server 101", func() {
 		Expect(err).To(BeNil())
 	})
 
-	makeObjectA := func() *meta.Meta {
+	makeObjectA := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a_lxsgk",
 			Key:  "id",
@@ -78,7 +76,7 @@ var _ = Describe("Server 101", func() {
 		return aMetaObj
 	}
 
-	makeObjectD := func() *meta.Meta {
+	makeObjectD := func() *object.Meta {
 		dMetaDescription := description.MetaDescription{
 			Name: "d_5frz7",
 			Key:  "id",
@@ -113,7 +111,7 @@ var _ = Describe("Server 101", func() {
 		return dMetaObj
 	}
 
-	updateObjctAWithDSet := func() *meta.Meta {
+	updateObjctAWithDSet := func() *object.Meta {
 		aMetaDescription := description.MetaDescription{
 			Name: "a_lxsgk",
 			Key:  "id",
@@ -151,7 +149,7 @@ var _ = Describe("Server 101", func() {
 	}
 
 	Context("Having object A", func() {
-		var aMetaObj *meta.Meta
+		var aMetaObj *object.Meta
 		BeforeEach(func() {
 			aMetaObj = makeObjectA()
 		})
@@ -256,7 +254,7 @@ var _ = Describe("Server 101", func() {
 	})
 
 	Context("Having records of objects A,B,C,D", func() {
-		var aRecord, bRecord, cRecord *record.Record
+		var aRecord, bRecord, cRecord *object.Record
 		BeforeEach(func() {
 			aMetaObj := makeObjectA()
 			bMetaDescription := description.MetaDescription{
@@ -487,7 +485,7 @@ var _ = Describe("Server 101", func() {
 	})
 
 	Context("Having an object E with a generic link to object A and a record of object E", func() {
-		var aRecord *record.Record
+		var aRecord *object.Record
 
 		BeforeEach(func() {
 			aMetaObj := makeObjectA()

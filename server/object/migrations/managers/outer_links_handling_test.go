@@ -4,8 +4,7 @@ import (
 	migrations_description "custodian/server/migrations/description"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -18,12 +17,12 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	migrationManager := NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 	)
 
 	var metaDescription *description.MetaDescription
@@ -41,7 +40,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 	JustBeforeEach(func() {
 		metaDescription = object.GetBaseMetaData(utils.RandomString(8))
 		//create MetaDescription
-		metaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		metaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
 		err = metaStore.Create(metaObj)
@@ -90,8 +89,8 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			Expect(err).To(BeNil())
 
 			aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
-			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b"))).NotTo(BeNil())
-			Expect(aMetaObj.FindField(meta.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
+			Expect(aMetaObj.FindField(object.ReverseInnerLinkName("b"))).NotTo(BeNil())
+			Expect(aMetaObj.FindField(object.ReverseInnerLinkName("b")).LinkMeta.Name).To(Equal("b"))
 		})
 
 		It("replaces automatically added reverse outer link with explicitly specified new one", func() {
@@ -170,7 +169,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			BeforeEach(func() {
 
 				bMetaDescription = object.GetBaseMetaData(utils.RandomString(8))
-				bMetaObj, err := meta.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)
@@ -205,8 +204,8 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 				aMetaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
-				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
-				Expect(aMetaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
+				Expect(aMetaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name))).NotTo(BeNil())
+				Expect(aMetaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name)).LinkMeta.Name).To(Equal(bMetaDescription.Name))
 
 			})
 
@@ -303,7 +302,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 				metaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
 
-				Expect(metaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
+				Expect(metaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
 
 			})
 
@@ -349,7 +348,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 				metaObj, _, err := metaStore.Get(metaDescription.Name, false)
 				Expect(err).To(BeNil())
-				Expect(metaObj.FindField(meta.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
+				Expect(metaObj.FindField(object.ReverseInnerLinkName(bMetaDescription.Name))).To(BeNil())
 			})
 		})
 	})

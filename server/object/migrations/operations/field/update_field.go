@@ -7,9 +7,9 @@ import (
 	"custodian/server/migrations/operations/field"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/migrations/operations/statement_factories"
 	"custodian/server/transactions"
+
 	"database/sql"
 	"fmt"
 )
@@ -18,7 +18,7 @@ type UpdateFieldOperation struct {
 	field.UpdateFieldOperation
 }
 
-func (o *UpdateFieldOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *UpdateFieldOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	newColumns, newIfk, _, newSequence, err := object.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.NewField, metaDescription)

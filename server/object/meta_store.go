@@ -1,10 +1,9 @@
-package meta
+package object
 
 import (
 	"custodian/logger"
 	"custodian/server/errors"
 	. "custodian/server/object/description"
-	"custodian/server/transactions"
 	"custodian/utils"
 	"encoding/json"
 	"io"
@@ -16,7 +15,7 @@ import (
 type MetaStore struct {
 	MetaDescriptionSyncer    MetaDescriptionSyncer
 	Syncer                   MetaDbSyncer
-	globalTransactionManager *transactions.GlobalTransactionManager
+	globalTransactionManager *PgDbTransactionManager
 }
 
 func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.Reader) (*Meta, error) {
@@ -567,6 +566,6 @@ func (metaStore *MetaStore) Flush() error {
 	return nil
 }
 
-func NewStore(md MetaDescriptionSyncer, mds MetaDbSyncer, gtm *transactions.GlobalTransactionManager) *MetaStore {
+func NewStore(md MetaDescriptionSyncer, mds MetaDbSyncer, gtm *PgDbTransactionManager) *MetaStore {
 	return &MetaStore{MetaDescriptionSyncer: md, Syncer: mds, globalTransactionManager: gtm}
 }

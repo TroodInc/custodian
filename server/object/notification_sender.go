@@ -1,10 +1,9 @@
-package notifications
+package object
 
 import (
 	"custodian/server/auth"
 	"custodian/server/noti"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"strconv"
 )
 
@@ -29,7 +28,7 @@ func (notificationSender *notificationSender) push(recordSetNotification *Record
 	}
 }
 
-func (notificationSender *notificationSender) getNotificationChannel(meta *meta.Meta, method description.Method, action *description.Action) chan *noti.Event {
+func (notificationSender *notificationSender) getNotificationChannel(meta *Meta, method description.Method, action *description.Action) chan *noti.Event {
 	key := meta.Name + method.AsString() + strconv.Itoa(action.Id())
 	notificationChannel, ok := notificationSender.notificationChannels[key]
 	if !ok {

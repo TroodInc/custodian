@@ -4,8 +4,7 @@ import (
 	"custodian/server/migrations/description"
 	"custodian/server/migrations/migrations"
 	"custodian/server/object"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"database/sql"
 
@@ -20,17 +19,17 @@ var _ = Describe("MigrationManager", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	It("Creates migration history table if it does not exists", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 		).ensureHistoryTableExists()
 		Expect(err).To(BeNil())
 
@@ -49,7 +48,7 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		migrationHistoryId, err := NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
@@ -61,12 +60,12 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		_, err := NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).NotTo(BeNil())
 	})

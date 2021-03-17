@@ -3,8 +3,6 @@ package object
 import (
 	"custodian/server/errors"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/types"
 	"database/sql"
 	"reflect"
 	"time"
@@ -14,7 +12,7 @@ type Rows struct {
 	*sql.Rows
 }
 
-func (rows *Rows) getDefaultValues(fields []*meta.FieldDescription) ([]interface{}, error) {
+func (rows *Rows) getDefaultValues(fields []*FieldDescription) ([]interface{}, error) {
 	values := make([]interface{}, 0)
 	for _, field := range fields {
 		if newValue, err := newFieldValue(field, field.Optional); err != nil {
@@ -69,7 +67,7 @@ func parseDateTime(t string) (string, error) {
 	return "", e
 }
 
-func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface{}, error) {
+func (rows *Rows) Parse(fields []*FieldDescription) ([]map[string]interface{}, error) {
 	cols, err := rows.Columns()
 	if err != nil {
 		return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
@@ -77,10 +75,10 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 
 	result := make([]map[string]interface{}, 0)
 	i := 0
-	fieldByColumnName := func(columnName string) *meta.FieldDescription {
+	fieldByColumnName := func(columnName string) *FieldDescription {
 		fieldName := columnName
-		if meta.IsGenericFieldColumn(columnName) {
-			fieldName = meta.ReverseGenericFieldName(fieldName)
+		if IsGenericFieldColumn(columnName) {
+			fieldName = ReverseGenericFieldName(fieldName)
 		}
 
 		for _, field := range fields {
@@ -162,16 +160,16 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 					//
 					value := values[j].(*sql.NullString)
 					assembledValue, ok := result[i][fieldDescription.Name]
-					var castAssembledValue *types.GenericInnerLink
+					var castAssembledValue *GenericInnerLink
 					if !ok || assembledValue == nil {
 						// create new otherwise
-						castAssembledValue = &types.GenericInnerLink{}
+						castAssembledValue = &GenericInnerLink{}
 					} else {
 						// get already assembled value if it exists
-						castAssembledValue = assembledValue.(*types.GenericInnerLink)
+						castAssembledValue = assembledValue.(*GenericInnerLink)
 					}
 					//fill corresponding value
-					if meta.IsGenericFieldTypeColumn(columnName) {
+					if IsGenericFieldTypeColumn(columnName) {
 						if value.String != "" {
 							castAssembledValue.ObjectName = value.String
 							if linkMeta := fieldDescription.LinkMetaList.GetByName(value.String); linkMeta == nil {
@@ -183,7 +181,7 @@ func (rows *Rows) Parse(fields []*meta.FieldDescription) ([]map[string]interface
 								castAssembledValue.PkName = linkMeta.Key.Name
 							}
 						}
-					} else if meta.IsGenericFieldKeyColumn(columnName) {
+					} else if IsGenericFieldKeyColumn(columnName) {
 						if value.String != "" {
 							if linkMeta := fieldDescription.LinkMetaList.GetByName(castAssembledValue.ObjectName); linkMeta == nil {
 								return nil, errors.NewFatalError(ErrDMLFailed, "Generic field %s references improper meta'%s'", map[string]string{

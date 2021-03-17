@@ -10,10 +10,9 @@ import (
 	migrations_description "custodian/server/migrations/description"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/migrations/managers"
-	"custodian/server/object/record"
 	"custodian/server/transactions"
+
 	"custodian/utils"
 	"encoding/json"
 	"fmt"
@@ -146,16 +145,16 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
 	//transaction managers
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	//dbTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager,
 		metaDescriptionSyncer,
 		config.MigrationStoragePath,
-		globalTransactionManager,
+		dbTransactionManager,
 	)
 
 	getDataProcessor := func() *object.Processor {
@@ -197,27 +196,27 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
-			js.pushError(err)
-		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction))
+		//metaDescriptionList, _, _ := metaStore.List()
+		//if globalTransaction, err := dbTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
+		//	js.pushError(err)
+		//} else {
+		//	//set transaction to the context
+		//	*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction))
 
 			metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
 			if err != nil {
 				js.pushError(err)
-				globalTransactionManager.RollbackTransaction(globalTransaction)
+				//dbTransactionManager.RollbackTransaction(globalTransaction)
 				return
 			}
 			if e := metaStore.Create(metaObj); e == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
+				//dbTransactionManager.CommitTransaction(globalTransaction)
 				js.pushObj(metaObj.ForExport())
 			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
+				//dbTransactionManager.RollbackTransaction(globalTransaction)
 				js.pushError(e)
 			}
-		}
+		//}
 	}))
 
 	app.router.DELETE(cs.root+"/meta/:name", CreateJsonAction(func(_ *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
@@ -341,7 +340,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					return
 				}
 
-				sink.pushObj(result.(*record.Record).GetData())
+				sink.pushObj(result.(*object.Record).GetData())
 			}
 		}
 
@@ -386,7 +385,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			for _, obj := range records {
 				pass, rec := abac_resolver.MaskRecord(obj, "data_GET")
 				if pass {
-					result = append(result, rec.(*record.Record).GetData())
+					result = append(result, rec.(*object.Record).GetData())
 				}
 			}
 
@@ -550,14 +549,14 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	// TODO  TB-421. migrations/cunstruct endpoint is commented due to router conflict conflict with, migrations/<id>/rollback endpoint.
 
 	// app.router.POST(cs.root+"/migrations/construct", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-	// 	if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
-	// 		globalTransactionManager.RollbackTransaction(globalTransaction)
+	// 	if globalTransaction, err := dbTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
+	// 		dbTransactionManager.RollbackTransaction(globalTransaction)
 	// 		js.pushError(err)
 	// 		return
 	// 	} else {
 	// 		migrationMetaDescription, err := migrations_description.MigrationMetaDescriptionFromJson(bytes.NewReader(r.body))
 	// 		if err != nil {
-	// 			globalTransactionManager.RollbackTransaction(globalTransaction)
+	// 			dbTransactionManager.RollbackTransaction(globalTransaction)
 	// 			js.pushError(err)
 	// 			return
 	// 		}
@@ -584,7 +583,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	// 			return
 	// 		}
 
-	// 		err = globalTransactionManager.CommitTransaction(globalTransaction)
+	// 		err = dbTransactionManager.CommitTransaction(globalTransaction)
 	// 		if err != nil {
 	// 			js.pushError(err)
 	// 			return
@@ -749,9 +748,9 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
 				}
 
-				if globalTransaction := r.Context().Value("global_transaction"); globalTransaction != nil {
-					globalTransactionManager.RollbackTransaction(globalTransaction.(*transactions.GlobalTransaction))
-				}
+				//if globalTransaction := r.Context().Value("global_transaction"); globalTransaction != nil {
+				//	dbTransactionManager.RollbackTransaction(globalTransaction.(*transactions.GlobalTransaction))
+				//}
 				//
 
 				returnError(w, err.(error))

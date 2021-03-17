@@ -4,10 +4,7 @@ import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/record"
-	"custodian/server/object/types"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"fmt"
 	"strconv"
@@ -23,9 +20,9 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -38,8 +35,8 @@ var _ = Describe("Data", func() {
 		testObjAName := utils.RandomString(8)
 		testObjBName := utils.RandomString(8)
 
-		var aRecord *record.Record
-		var bRecord *record.Record
+		var aRecord *object.Record
+		var bRecord *object.Record
 		var err error
 
 		havingObjectA := func() {
@@ -177,8 +174,8 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			bSet := aRecord.Data["b_set"].([]interface{})
 			Expect(bSet).To(HaveLen(1))
-			targetValue := bSet[0].(*record.Record).Data["target"].(*record.Record)
-			Expect(targetValue.Data[types.GenericInnerLinkObjectKey].(string)).To(Equal(testObjAName))
+			targetValue := bSet[0].(*object.Record).Data["target"].(*object.Record)
+			Expect(targetValue.Data[object.GenericInnerLinkObjectKey].(string)).To(Equal(testObjAName))
 		})
 
 		It("can create record with nested records referenced by outer generic link, referenced record does not exist", func() {

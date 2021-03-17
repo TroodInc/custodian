@@ -1,4 +1,4 @@
-package record
+package object
 
 type RecordOperationType int
 

@@ -1,14 +1,10 @@
 package object
 
-import (
-	"custodian/server/object/record"
-)
-
 type RecordProcessingTreeBuilder struct {
 }
 
 //Build record processing tree where each child node represents related record
-func (r *RecordProcessingTreeBuilder) Build(record *record.Record, processor *Processor) (*RecordProcessingNode, error) {
+func (r *RecordProcessingTreeBuilder) Build(record *Record, processor *Processor) (*RecordProcessingNode, error) {
 	rootProcessingNode := NewRecordProcessingNode(record)
 	if err := r.buildNode(rootProcessingNode, processor); err != nil {
 		return nil, err

@@ -4,10 +4,7 @@ import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/record"
-	"custodian/server/object/types"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"fmt"
 	"strconv"
@@ -23,9 +20,9 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -417,13 +414,13 @@ var _ = Describe("Data", func() {
 		bRecord, err = dataProcessor.UpdateRecord(bMetaObj.Name, strconv.Itoa(int(bRecord.Data["id"].(float64))), map[string]interface{}{"name": "Some other record B name"}, auth.User{})
 		Expect(err).To(BeNil())
 		data := bRecord.GetData()
-		Expect(data["target"]).To(HaveKey(types.GenericInnerLinkObjectKey))
+		Expect(data["target"]).To(HaveKey(object.GenericInnerLinkObjectKey))
 	})
 
 	Describe("Retrieving records with generic values and casts PK value into its object PK type", func() {
 
-		var aRecord *record.Record
-		var bRecord *record.Record
+		var aRecord *object.Record
+		var bRecord *object.Record
 		var err error
 
 		testObjAName := utils.RandomString(8)
@@ -626,7 +623,7 @@ var _ = Describe("Data", func() {
 
 			bRecord, err := dataProcessor.Get(testObjBName, strconv.Itoa(int(bRecord.Data["id"].(float64))), nil, nil, 3, false)
 			Expect(err).To(BeNil())
-			targetValue := bRecord.Data["target"].(*record.Record)
+			targetValue := bRecord.Data["target"].(*object.Record)
 			Expect(targetValue.Data["_object"]).To(Equal(testObjAName))
 			Expect(targetValue.Data["id"].(float64)).To(Equal(aRecord.Data["id"].(float64)))
 			Expect(targetValue.Data["name"].(string)).To(Equal(aRecord.Data["name"]))
@@ -691,7 +688,7 @@ var _ = Describe("Data", func() {
 			bRecord, err = dataProcessor.Get(testObjBName, strconv.Itoa(int(bRecord.Data["id"].(float64))), nil, nil, 2, false)
 			Expect(err).To(BeNil())
 
-			_, ok := bRecord.Data["target"].(*record.Record).Data[testObjDName+"_set"].([]interface{})
+			_, ok := bRecord.Data["target"].(*object.Record).Data[testObjDName+"_set"].([]interface{})
 			Expect(ok).To(BeTrue())
 		})
 	})
@@ -702,9 +699,9 @@ var _ = Describe("Data", func() {
 		testObjBName := utils.RandomString(8)
 		testObjCName := utils.RandomString(8)
 
-		var aRecord *record.Record
-		var bRecord *record.Record
-		var cRecord *record.Record
+		var aRecord *object.Record
+		var bRecord *object.Record
+		var cRecord *object.Record
 		var err error
 
 		havingObjectA := func() {
@@ -826,7 +823,7 @@ var _ = Describe("Data", func() {
 			)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
-			targetValue := matchedRecords[0].Data["target"].(*types.GenericInnerLink).AsMap()
+			targetValue := matchedRecords[0].Data["target"].(*object.GenericInnerLink).AsMap()
 			Expect(targetValue["_object"]).To(Equal(testObjAName))
 			Expect(targetValue["id"].(float64)).To(Equal(aRecord.Data["id"].(float64)))
 
@@ -848,7 +845,7 @@ var _ = Describe("Data", func() {
 			)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
-			targetValue := matchedRecords[0].Data["target"].(*record.Record)
+			targetValue := matchedRecords[0].Data["target"].(*object.Record)
 			Expect(targetValue.Data["_object"].(string)).To(Equal(testObjAName))
 			Expect(targetValue.Data["id"].(float64)).To(Equal(aRecord.Data["id"].(float64)))
 			Expect(targetValue.Data["name"].(string)).To(Equal(aRecord.Data["name"].(string)))
@@ -873,7 +870,7 @@ var _ = Describe("Data", func() {
 			)
 			Expect(err).To(BeNil())
 			Expect(matchedRecords).To(HaveLen(1))
-			targetValue := matchedRecords[0].Data["target"].(*record.Record)
+			targetValue := matchedRecords[0].Data["target"].(*object.Record)
 			Expect(targetValue.Data["_object"].(string)).To(Equal(testObjAName))
 			Expect(targetValue.Data["id"].(float64)).To(Equal(aRecord.Data["id"].(float64)))
 			Expect(targetValue.Data["name"].(string)).To(Equal(aRecord.Data["name"].(string)))

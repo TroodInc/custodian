@@ -1,13 +1,11 @@
-package notifications_test
+package object_test
 
 import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	. "custodian/server/object/notifications"
-	"custodian/server/object/record"
 	"custodian/server/transactions"
+
 	"custodian/utils"
 	"fmt"
 	"strconv"
@@ -23,10 +21,10 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -40,10 +38,10 @@ var _ = Describe("Data", func() {
 		testObjBName := utils.RandomString(8)
 
 		var err error
-		var aMetaObj *meta.Meta
-		var bMetaObj *meta.Meta
-		var aRecord *record.Record
-		var bRecord *record.Record
+		var aMetaObj *object.Meta
+		var bMetaObj *object.Meta
+		var aRecord *object.Record
+		var bRecord *object.Record
 
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
@@ -140,8 +138,8 @@ var _ = Describe("Data", func() {
 			havingObjectB()
 			havingObjectA()
 			//make recordSetNotification
-			recordSetNotification := NewRecordSetNotification(
-				&record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}},
+			recordSetNotification := object.NewRecordSetNotification(
+				&object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}},
 				true,
 				description.MethodCreate,
 				dataProcessor.GetBulk,
@@ -157,10 +155,10 @@ var _ = Describe("Data", func() {
 		It("can capture current record state on create", func() {
 			havingObjectB()
 			havingObjectA()
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}}
+			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}}
 
 			//make recordSetNotification
-			recordSetNotification := NewRecordSetNotification(
+			recordSetNotification := object.NewRecordSetNotification(
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -173,10 +171,10 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			// execute operation
-			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-			err = globalTransaction.DbTransaction.Execute([]transactions.Operation{operation})
+			globalTransaction, _ := dbTransactionManager.BeginTransaction()
+			err = globalTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			dbTransactionManager.CommitTransaction(globalTransaction)
 
 			recordSet.CollapseLinks()
 
@@ -194,10 +192,10 @@ var _ = Describe("Data", func() {
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Kozlova"})}}
+			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Kozlova"})}}
 
 			//make recordSetNotification
-			recordSetNotification := NewRecordSetNotification(
+			recordSetNotification := object.NewRecordSetNotification(
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -218,11 +216,11 @@ var _ = Describe("Data", func() {
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
+			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
 
-			recordSetNotification := NewRecordSetNotification(
+			recordSetNotification := object.NewRecordSetNotification(
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -235,10 +233,10 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			// execute operation
-			globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-			err = globalTransaction.DbTransaction.Execute([]transactions.Operation{operation})
+			globalTransaction, _ := dbTransactionManager.BeginTransaction()
+			err = globalTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			dbTransactionManager.CommitTransaction(globalTransaction)
 
 			recordSet.CollapseLinks()
 
@@ -255,10 +253,10 @@ var _ = Describe("Data", func() {
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
+			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
-			recordSetNotification := NewRecordSetNotification(
+			recordSetNotification := object.NewRecordSetNotification(
 				&recordSet,
 				true,
 				description.MethodCreate,
@@ -280,10 +278,10 @@ var _ = Describe("Data", func() {
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
+			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
 
 			//make recordSetNotification
-			recordSetNotification := NewRecordSetNotification(
+			recordSetNotification := object.NewRecordSetNotification(
 				&recordSet,
 				true,
 				description.MethodCreate,

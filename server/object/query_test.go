@@ -4,9 +4,8 @@ import (
 	"custodian/server/auth"
 	object2 "custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/migrations/operations/object"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"fmt"
 	"strconv"
@@ -22,9 +21,9 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object2.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -1171,10 +1170,10 @@ var _ = Describe("Data", func() {
 			metaDescription, err := operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//sync DB
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
-			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
+			dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 			//
 
@@ -1221,13 +1220,13 @@ var _ = Describe("Data", func() {
 			//create MetaDescription
 			operation := object.NewCreateObjectOperation(metaDescription)
 			//sync MetaDescription
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 			metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//sync DB
-			err = operation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
+			dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 			//
 

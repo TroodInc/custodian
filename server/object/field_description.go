@@ -1,11 +1,11 @@
-package meta
+package object
 
 import (
-	"fmt"
 	"custodian/server/errors"
-	"strconv"
-	"reflect"
 	. "custodian/server/object/description"
+	"fmt"
+	"reflect"
+	"strconv"
 )
 
 type FieldDescription struct {
@@ -60,7 +60,7 @@ func (field *FieldDescription) ValueFromString(v string) (interface{}, error) {
 	default:
 		return nil, errors.NewValidationError(
 			"pk_from_string_conversion",
-			fmt.Sprintf("Unsupported conversion from 'string' for the NewField type '%s'", field.Type),
+			fmt.Sprintf("Unsupported conversion from 'string' for the NewField type '%v'", field.Type),
 			nil,
 		)
 	}
@@ -123,7 +123,7 @@ func (f *FieldDescription) ValueAsString(v interface{}) (string, error) {
 	default:
 		return "", errors.NewValidationError(
 			"conversion",
-			fmt.Sprintf("Unknown NewField type '%s'", f.Type),
+			fmt.Sprintf("Unknown NewField type '%v'", f.Type),
 			nil,
 		)
 	}

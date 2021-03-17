@@ -4,9 +4,7 @@ import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/record"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"fmt"
 	"strconv"
@@ -22,9 +20,9 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -146,7 +144,7 @@ var _ = Describe("Data", func() {
 
 		By("and having two records of Person object")
 
-		records := make([]*record.Record, 2)
+		records := make([]*object.Record, 2)
 
 		records[0], err = dataProcessor.CreateRecord(metaDescription.Name, map[string]interface{}{"name": "Ivan", "position": positionRecord.Data["id"]}, auth.User{})
 		Expect(err).To(BeNil())
@@ -270,7 +268,7 @@ var _ = Describe("Data", func() {
 
 	})
 
-	havingObjectA := func() *meta.Meta {
+	havingObjectA := func() *object.Meta {
 		aMetaDescription := description.MetaDescription{
 			Name: testObjAName,
 			Key:  "id",
@@ -299,7 +297,7 @@ var _ = Describe("Data", func() {
 		return aMetaObj
 	}
 
-	havingObjectAWithObjectsLinkToD := func() *meta.Meta {
+	havingObjectAWithObjectsLinkToD := func() *object.Meta {
 		aMetaDescription := description.MetaDescription{
 			Name: testObjAName,
 			Key:  "id",
@@ -334,7 +332,7 @@ var _ = Describe("Data", func() {
 		return aMetaObj
 	}
 
-	havingObjectB := func(onDelete string) *meta.Meta {
+	havingObjectB := func(onDelete string) *object.Meta {
 		bMetaDescription := description.MetaDescription{
 			Name: testObjBName,
 			Key:  "id",
@@ -371,7 +369,7 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	havingObjectC := func() *meta.Meta {
+	havingObjectC := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjCName,
 			Key:  "id",
@@ -413,7 +411,7 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	havingObjectD := func() *meta.Meta {
+	havingObjectD := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjDName,
 			Key:  "id",
@@ -438,7 +436,7 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	havingObjectEnum := func() *meta.Meta {
+	havingObjectEnum := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjWithEnumName,
 			Key:  "id",
@@ -466,7 +464,7 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	factoryObjectBWithManuallySetOuterLinkToC := func() *meta.Meta {
+	factoryObjectBWithManuallySetOuterLinkToC := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjBName,
 			Key:  "id",
@@ -511,7 +509,7 @@ var _ = Describe("Data", func() {
 		return metaObj
 	}
 
-	havingObjectAWithManuallySetOuterLink := func() *meta.Meta {
+	havingObjectAWithManuallySetOuterLink := func() *object.Meta {
 
 		aMetaDescription := description.MetaDescription{
 			Name: testObjAName,
@@ -673,8 +671,8 @@ var _ = Describe("Data", func() {
 		Expect(obj.Data).To(HaveKey(testObjBSetName))
 		bSetData = obj.Data[testObjBSetName].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
-		Expect(bSetData[0].(*record.Record).Data["name"]).To(Equal("B record"))
-		Expect(bSetData[1].(*record.Record).Data["name"]).To(Equal("New B Record"))
+		Expect(bSetData[0].(*object.Record).Data["name"]).To(Equal("B record"))
+		Expect(bSetData[1].(*object.Record).Data["name"]).To(Equal("New B Record"))
 		//	check B record is deleted
 		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
 		obj, err = dataProcessor.Get(bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
@@ -727,8 +725,8 @@ var _ = Describe("Data", func() {
 		Expect(obj.Data).To(HaveKey(testObjBSetName))
 		bSetData = obj.Data[testObjBSetName].([]interface{})
 		Expect(bSetData).To(HaveLen(2))
-		Expect(bSetData[0].(*record.Record).Data["name"]).To(Equal("B record"))
-		Expect(bSetData[1].(*record.Record).Data["name"]).To(Equal("New B Record"))
+		Expect(bSetData[0].(*object.Record).Data["name"]).To(Equal("B record"))
+		Expect(bSetData[1].(*object.Record).Data["name"]).To(Equal("New B Record"))
 		//	check B record is not deleted
 		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(anotherBRecord.Data["id"])
 		obj, err = dataProcessor.Get(bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)

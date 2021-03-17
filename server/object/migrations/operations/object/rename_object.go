@@ -5,9 +5,9 @@ import (
 	"custodian/server/migrations/operations/object"
 	object2 "custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/migrations/operations/statement_factories"
 	"custodian/server/transactions"
+
 	"database/sql"
 	"fmt"
 )
@@ -16,7 +16,7 @@ type RenameObjectOperation struct {
 	object.RenameObjectOperation
 }
 
-func (o *RenameObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *RenameObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	//rename table

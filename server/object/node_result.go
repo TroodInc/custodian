@@ -2,14 +2,11 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/record"
-	"custodian/server/object/types"
 )
 
 type ResultNode struct {
 	node   *Node
-	values *record.Record
+	values *Record
 }
 
 //Replace link values with its objects` full extended value
@@ -32,7 +29,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 						resultNode.values.Data[childNode.LinkField.Name] = arr
 						for _, m := range arr {
 							if !childNode.OnlyLink {
-								childNodeResults = append(childNodeResults, ResultNode{childNode, m.(*record.Record)})
+								childNodeResults = append(childNodeResults, ResultNode{childNode, m.(*Record)})
 							}
 						}
 					} else {
@@ -45,7 +42,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 						resultNode.values.Data[childNode.LinkField.Name] = arr
 						if !childNode.OnlyLink {
 							for _, m := range arr {
-								childNodeResults = append(childNodeResults, ResultNode{childNode, m.(*record.Record)})
+								childNodeResults = append(childNodeResults, ResultNode{childNode, m.(*Record)})
 							}
 						}
 					} else {
@@ -64,7 +61,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 					//add node for resolving
 					if !childNode.OnlyLink && childNode.Depth < ctx.DepthLimit {
 						for _, m := range arr {
-							childNodeResults = append(childNodeResults, ResultNode{childNode, m.(*record.Record)})
+							childNodeResults = append(childNodeResults, ResultNode{childNode, m.(*Record)})
 						}
 					}
 				} else {
@@ -87,7 +84,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			if k == nil {
 				continue
 			}
-			if k, ok := k.(*types.GenericInnerLink); ok && k.ObjectName == ""{
+			if k, ok := k.(*GenericInnerLink); ok && k.ObjectName == ""{
 				continue
 			}
 			//retrieve policy for generic fields is specific for each record, so it should be build on the go
@@ -95,7 +92,7 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			if resultNode.node.RetrievePolicy != nil {
 				retrievePolicyForThisField := resultNode.node.RetrievePolicy.SubPolicyForNode(childNode.LinkField.Name)
 				if retrievePolicyForThisField != nil {
-					retrievePolicyForThisMeta = retrievePolicyForThisField.SubPolicyForNode(k.(*types.GenericInnerLink).ObjectName)
+					retrievePolicyForThisMeta = retrievePolicyForThisField.SubPolicyForNode(k.(*GenericInnerLink).ObjectName)
 				}
 			}
 			//OnlyLink should be determined on the go, because it depends on concrete record and its policies
@@ -104,12 +101,12 @@ func (resultNode ResultNode) getFilledChildNodes(ctx SearchContext) ([]ResultNod
 			childNode.ChildNodes = *NewChildNodes()
 			childNode.RetrievePolicy = retrievePolicyForThisMeta
 
-			var childNodeLinkMeta *meta.Meta
+			var childNodeLinkMeta *Meta
 			switch k.(type) {
-			case *types.GenericInnerLink:
-				childNodeLinkMeta = childNode.LinkField.LinkMetaList.GetByName(k.(*types.GenericInnerLink).ObjectName)
-			case *record.Record:
-				childNodeLinkMeta = childNode.LinkField.LinkMetaList.GetByName(k.(*record.Record).Meta.Name)
+			case *GenericInnerLink:
+				childNodeLinkMeta = childNode.LinkField.LinkMetaList.GetByName(k.(*GenericInnerLink).ObjectName)
+			case *Record:
+				childNodeLinkMeta = childNode.LinkField.LinkMetaList.GetByName(k.(*Record).Meta.Name)
 			}
 
 			childNode.SelectFields = *NewSelectFields(childNodeLinkMeta.Key, childNodeLinkMeta.TableFields())

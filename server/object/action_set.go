@@ -1,4 +1,4 @@
-package meta
+package object
 
 import (
 	"custodian/server/noti"

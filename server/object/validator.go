@@ -4,16 +4,12 @@ import (
 	errors2 "custodian/server/errors"
 	"custodian/server/object/description"
 	"custodian/server/object/errors"
-	"custodian/server/object/meta"
-	. "custodian/server/object/record"
-	. "custodian/server/object/types"
-	"custodian/server/object/validators"
 	"custodian/utils"
 	"fmt"
 )
 
 type ValidationService struct {
-	metaStore *meta.MetaStore
+	metaStore *MetaStore
 	processor *Processor
 }
 
@@ -131,7 +127,7 @@ func (vs *ValidationService) Validate(record *Record) ([]*RecordProcessingNode, 
 	return nodesToRetrieveBefore, nodesToProcessBefore, nodesToProcessAfter, nodesToRemoveBefore, nil
 }
 
-func (vs *ValidationService) validateArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, error) {
+func (vs *ValidationService) validateArray(value interface{}, fieldDescription *FieldDescription, record *Record) ([]*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, len(nestedRecordsData))
 	recordsToRemove := make([]*Record, 0)
@@ -191,7 +187,7 @@ func (vs *ValidationService) validateArray(value interface{}, fieldDescription *
 	return recordsToProcess, recordsToRemove, nil
 }
 
-func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, []*Record, error) {
+func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldDescription *FieldDescription, record *Record) ([]*Record, []*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, 0)
 	recordsToRemove := make([]*Record, 0)
@@ -316,7 +312,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 	return recordsToProcess, recordsToRemove, recordsToRetrieve, nil
 }
 
-func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescription *meta.FieldDescription, record *Record) ([]*Record, []*Record, error) {
+func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescription *FieldDescription, record *Record) ([]*Record, []*Record, error) {
 	var nestedRecordsData = value.([]interface{})
 	recordsToProcess := make([]*Record, len(nestedRecordsData))
 	recordsToRemove := make([]*Record, 0)
@@ -361,7 +357,7 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 	return recordsToProcess, recordsToRemove, nil
 }
 
-func (vs *ValidationService) validateInnerGenericLink(value interface{}, fieldDescription *meta.FieldDescription, record *Record) (*Record, error) {
+func (vs *ValidationService) validateInnerGenericLink(value interface{}, fieldDescription *FieldDescription, record *Record) (*Record, error) {
 	var err error
 	var recordToProcess *Record
 	if value != nil {
@@ -369,7 +365,7 @@ func (vs *ValidationService) validateInnerGenericLink(value interface{}, fieldDe
 		if _, ok := value.(*AGenericInnerLink); ok {
 			return nil, nil
 		}
-		if record.Data[fieldDescription.Name], err = validators.NewGenericInnerFieldValidator(vs.metaStore.Get, vs.processor.Get).Validate(fieldDescription, value); err != nil {
+		if record.Data[fieldDescription.Name], err = NewGenericInnerFieldValidator(vs.metaStore.Get, vs.processor.Get).Validate(fieldDescription, value); err != nil {
 			if _, ok := err.(errors.GenericFieldPkIsNullError); ok {
 				recordValuesAsMap := value.(map[string]interface{})
 				objMeta := fieldDescription.LinkMetaList.GetByName(recordValuesAsMap[GenericInnerLinkObjectKey].(string))
@@ -393,6 +389,6 @@ func (vs *ValidationService) validateInnerGenericLink(value interface{}, fieldDe
 	return recordToProcess, nil
 }
 
-func NewValidationService(metaStore *meta.MetaStore, processor *Processor) *ValidationService {
+func NewValidationService(metaStore *MetaStore, processor *Processor) *ValidationService {
 	return &ValidationService{metaStore: metaStore, processor: processor}
 }

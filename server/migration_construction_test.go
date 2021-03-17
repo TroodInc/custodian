@@ -13,9 +13,8 @@ import (
 	"custodian/server"
 	meta_description "custodian/server/migrations/description"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/migrations/managers"
-	"custodian/server/transactions"
+
 	"encoding/json"
 	"fmt"
 )
@@ -29,9 +28,9 @@ var _ = Describe("Migration`s construction", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	BeforeEach(func() {
 		//setup server
@@ -42,7 +41,7 @@ var _ = Describe("Migration`s construction", func() {
 	flushDb := func() {
 		// drop history
 		err := managers.NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 		).DropHistory()
 		Expect(err).To(BeNil())
 		//Flush meta/database
@@ -50,7 +49,7 @@ var _ = Describe("Migration`s construction", func() {
 		Expect(err).To(BeNil())
 	}
 
-	factoryObjectA := func(globalTransaction *transactions.GlobalTransaction) *meta.Meta {
+	factoryObjectA := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -89,10 +88,7 @@ var _ = Describe("Migration`s construction", func() {
 	It("Does not create migration if changes were not detected", func() {
 		Skip("Skiped unless TB-421 will be done.")
 
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
-
-		factoryObjectA(globalTransaction)
+		factoryObjectA()
 
 		migrationMetaDescription := map[string]interface{}{
 			"name":         "a",
@@ -136,14 +132,13 @@ var _ = Describe("Migration`s construction", func() {
 		Expect(body["status"]).To(Equal("FAIL"))
 		Expect(body["error"].(map[string]interface{})["Code"].(string)).To(Equal("no_changes_were_detected"))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	Describe("Objects` operations", func() {
 		It("Can create migration to create object", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 
 			migrationMetaDescription := map[string]interface{}{
@@ -194,16 +189,13 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.CreateObjectOperation))
 
-			globalTransactionManager.CommitTransaction(globalTransaction)
+			dbTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("Can create migration to rename object", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "b",
@@ -255,16 +247,12 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.RenameObjectOperation))
 
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("Can create migration to delete object", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "",
@@ -292,8 +280,6 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.DeleteObjectOperation))
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 	})
 
@@ -301,10 +287,7 @@ var _ = Describe("Migration`s construction", func() {
 		It("Can create migration to add a new field", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "a",
@@ -360,17 +343,12 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.AddFieldOperation))
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("Can create migration to remove a field", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "a",
@@ -415,17 +393,12 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.RemoveFieldOperation))
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("Can create migration to update a field", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "a",
@@ -476,8 +449,6 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.UpdateFieldOperation))
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 	})
 
@@ -485,10 +456,7 @@ var _ = Describe("Migration`s construction", func() {
 		It("Can create migration to add a new action", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "a",
@@ -545,17 +513,12 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.AddActionOperation))
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("Can create migration to add a new action", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "a",
@@ -613,16 +576,12 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.AddActionOperation))
 
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("Can create migration to remove an action", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "a",
@@ -667,16 +626,12 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.RemoveActionOperation))
 
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 
 		It("Can create migration to update an action", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
-			globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-			Expect(err).To(BeNil())
-
-			factoryObjectA(globalTransaction)
+			factoryObjectA()
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "a",
@@ -727,16 +682,11 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(0))
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.UpdateActionOperation))
-
-			globalTransactionManager.CommitTransaction(globalTransaction)
 		})
 	})
 
 	It("Creates migration with correct 'dependsOn' values", func() {
 		Skip("Skiped unless TB-421 will be done.")
-
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		Expect(err).To(BeNil())
 
 		//Step 1: create and apply a migration to create the object
 		migrationMetaDescription := map[string]interface{}{
@@ -767,7 +717,7 @@ var _ = Describe("Migration`s construction", func() {
 
 		responseBody := recorder.Body.String()
 		var body map[string]interface{}
-		err = json.Unmarshal([]byte(responseBody), &body)
+		err := json.Unmarshal([]byte(responseBody), &body)
 		Expect(err).To(BeNil())
 		recorder.Body.Reset()
 
@@ -832,7 +782,5 @@ var _ = Describe("Migration`s construction", func() {
 		migrationDescriptionData = body["data"].(map[string]interface{})
 		Expect(migrationDescriptionData["dependsOn"].([]interface{})).To(HaveLen(1))
 		Expect(migrationDescriptionData["dependsOn"].([]interface{})[0].(string)).To(Equal(migrationId))
-
-		globalTransactionManager.CommitTransaction(globalTransaction)
 	})
 })

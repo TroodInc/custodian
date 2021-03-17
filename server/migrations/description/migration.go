@@ -3,8 +3,8 @@ package description
 import (
 	"custodian/server/errors"
 	_migrations "custodian/server/migrations"
+	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/record"
 	"encoding/json"
 	"io"
 	"strings"
@@ -18,7 +18,7 @@ type MigrationDescription struct {
 	MetaDescription *description.MetaDescription    `json:"metaState,omitempty"`
 }
 
-func MigrationDescriptionFromRecord(record *record.Record) (*MigrationDescription){
+func MigrationDescriptionFromRecord(record *object.Record) (*MigrationDescription){
 	metaDescription, _ := MigrationMetaDescriptionFromJson(strings.NewReader(record.Data["meta_state"].(string)))
 	migrationDescription := MigrationDescription{
 		record.Data["id"].(string),

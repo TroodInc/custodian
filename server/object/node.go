@@ -2,9 +2,6 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	. "custodian/server/object/record"
-	"custodian/server/object/types"
 	"errors"
 	"fmt"
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
@@ -28,12 +25,12 @@ const (
 )
 
 type SelectFields struct {
-	KeyField  *meta.FieldDescription
-	FieldList []*meta.FieldDescription
+	KeyField  *FieldDescription
+	FieldList []*FieldDescription
 	Type      SelectType
 }
 
-func (sf *SelectFields) Exclude(field *meta.FieldDescription) error {
+func (sf *SelectFields) Exclude(field *FieldDescription) error {
 	if sf.Type == SelectFieldsTypeInclude {
 		return errors.New("attempted to exclude field from the node, which already has another included one")
 	}
@@ -49,11 +46,11 @@ func (sf *SelectFields) Exclude(field *meta.FieldDescription) error {
 	return nil
 }
 
-func (sf *SelectFields) Include(field *meta.FieldDescription) error {
+func (sf *SelectFields) Include(field *FieldDescription) error {
 	if sf.Type == SelectFieldsTypeExclude {
 		return errors.New("attempted to exclude field from the node, which already has another included one")
 	} else if sf.Type == SelectFieldsTypeFull {
-		sf.FieldList = []*meta.FieldDescription{sf.KeyField}
+		sf.FieldList = []*FieldDescription{sf.KeyField}
 	}
 
 	sf.Type = SelectFieldsTypeInclude
@@ -68,7 +65,7 @@ func (sf *SelectFields) Include(field *meta.FieldDescription) error {
 	return nil
 }
 
-func NewSelectFields(keyField *meta.FieldDescription, fieldList []*meta.FieldDescription) *SelectFields {
+func NewSelectFields(keyField *FieldDescription, fieldList []*FieldDescription) *SelectFields {
 	return &SelectFields{KeyField: keyField, FieldList: fieldList, Type: SelectFieldsTypeFull}
 }
 
@@ -116,28 +113,28 @@ func NewChildNodes() *ChildNodes {
 
 type Node struct {
 	//LinkField is a field which links to the target object
-	LinkField *meta.FieldDescription
+	LinkField *FieldDescription
 	//KeyField is a field of the target object which LinkField is linking to
-	KeyField       *meta.FieldDescription
-	Meta           *meta.Meta
+	KeyField       *FieldDescription
+	Meta           *Meta
 	ChildNodes     ChildNodes
 	Depth          int
 	OnlyLink       bool
 	Plural         bool
 	Parent         *Node
-	MetaList       *meta.MetaList
+	MetaList       *MetaList
 	Type           NodeType
 	SelectFields   SelectFields
 	RetrievePolicy *AggregatedRetrievePolicy
 }
 
-func (node *Node) keyAsString(recordValues map[string]interface{}, objectMeta *meta.Meta) (string, error) {
+func (node *Node) keyAsString(recordValues map[string]interface{}, objectMeta *Meta) (string, error) {
 	v := recordValues[objectMeta.Key.Name]
 	str, err := objectMeta.Key.ValueAsString(v)
 	return str, err
 }
 
-func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMeta *meta.Meta) (interface{}, error) {
+func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMeta *Meta) (interface{}, error) {
 	v := recordValues[objectMeta.Key.Name]
 	valueAsString, _ := objectMeta.Key.ValueAsString(v)
 	castValue, err := objectMeta.Key.ValueFromString(valueAsString)
@@ -158,15 +155,15 @@ func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode)
 }
 
 func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
-	var fields []*meta.FieldDescription = nil
-	var objectMeta *meta.Meta
+	var fields []*FieldDescription = nil
+	var objectMeta *Meta
 	var pkValue interface{}
 
 	switch key.(type) {
 	case *Record:
 		pkValue = key.(*Record).Pk()
-	case *types.GenericInnerLink:
-		pkValue = key.(*types.GenericInnerLink).Pk
+	case *GenericInnerLink:
+		pkValue = key.(*GenericInnerLink).Pk
 	default:
 		pkValue = key
 	}
@@ -181,8 +178,8 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 			switch key.(type) {
 			case *Record:
 				objectMeta = node.MetaList.GetByName(key.(*Record).Meta.Name)
-			case *types.GenericInnerLink:
-				objectMeta = node.MetaList.GetByName(key.(*types.GenericInnerLink).ObjectName)
+			case *GenericInnerLink:
+				objectMeta = node.MetaList.GetByName(key.(*GenericInnerLink).ObjectName)
 			}
 
 			if pkValue == "" {
@@ -193,7 +190,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 	}
 
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{objectMeta.Key}
+		fields = []*FieldDescription{objectMeta.Key}
 	} else {
 		fields = node.SelectFields.FieldList
 	}
@@ -204,7 +201,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 	}
 	//return full record
 	if node.IsOfGenericType() {
-		obj[types.GenericInnerLinkObjectKey] = objectMeta.Name
+		obj[GenericInnerLinkObjectKey] = objectMeta.Name
 	}
 
 	return node.FillRecordValues(NewRecord(objectMeta, obj), sc), nil
@@ -214,9 +211,9 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 
 func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]interface{}, error) {
 	// logger.Debug("Resolving plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
-	var fields []*meta.FieldDescription = nil
+	var fields []*FieldDescription = nil
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{node.Meta.Key}
+		fields = []*FieldDescription{node.Meta.Key}
 	} else {
 		fields = node.SelectFields.FieldList
 	}
@@ -242,15 +239,15 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 }
 
 //Resolve records referenced by generic outer field
-func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, objectMeta *meta.Meta) ([]interface{}, error) {
+func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, objectMeta *Meta) ([]interface{}, error) {
 	// logger.Debug("Resolving generic plural: node [meta=%s, depth=%s, plural=%s], sc=%s, key=%s", node.Meta.Name, node.Depth, node.plural, sc, key)
-	var fields []*meta.FieldDescription = nil
+	var fields []*FieldDescription = nil
 	if node.OnlyLink {
-		fields = []*meta.FieldDescription{node.Meta.Key}
+		fields = []*FieldDescription{node.Meta.Key}
 	}
 	if records, err := sc.Dm.GetAll(node.Meta, fields, map[string]interface{}{
-		meta.GetGenericFieldKeyColumnName(node.KeyField.Name):  key,
-		meta.GetGenericFieldTypeColumnName(node.KeyField.Name): objectMeta.Name,
+		GetGenericFieldKeyColumnName(node.KeyField.Name):  key,
+		GetGenericFieldTypeColumnName(node.KeyField.Name): objectMeta.Name,
 	}, sc.DbTransaction); err != nil {
 		return nil, err
 	} else {
@@ -277,7 +274,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 		//get a field which points to parent object
 		linkField := node.Meta.FindField(node.LinkField.Meta.Name)
 		//specify field, which value should be retrieved
-		fields := []*meta.FieldDescription{node.KeyField}
+		fields := []*FieldDescription{node.KeyField}
 		if records, err := sc.Dm.GetAll(node.Meta, fields, map[string]interface{}{linkField.Name: key}, sc.DbTransaction); err != nil {
 			return nil, err
 		} else {
@@ -337,7 +334,7 @@ func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.Fie
 	}
 }
 
-func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLink bool, fieldMode description.FieldMode, policy *AggregatedRetrievePolicy) *Node {
+func (node *Node) FillChildNode(fieldDescription *FieldDescription, onlyLink bool, fieldMode description.FieldMode, policy *AggregatedRetrievePolicy) *Node {
 	//process regular links, skip generic child nodes
 
 	//skip outer link which does not have retrieve mode set to true
@@ -476,7 +473,7 @@ func transformValues(values map[string]interface{}) map[string]interface{} {
 					castValue[i] = transformValues(castValueItem)
 				}
 			}
-		case *types.GenericInnerLink:
+		case *GenericInnerLink:
 			values[key] = castValue.AsMap()
 		}
 	}
@@ -502,6 +499,6 @@ func (node *Node) Clone() *Node {
 		Parent:       node.Parent,
 		MetaList:     node.MetaList,
 		Type:         node.Type,
-		SelectFields: SelectFields{FieldList: append([]*meta.FieldDescription(nil), node.SelectFields.FieldList...), Type: node.SelectFields.Type},
+		SelectFields: SelectFields{FieldList: append([]*FieldDescription(nil), node.SelectFields.FieldList...), Type: node.SelectFields.Type},
 	}
 }

@@ -1,4 +1,4 @@
-package meta
+package object
 
 import (
 	"custodian/server/errors"
@@ -17,7 +17,7 @@ func (metaFactory *MetaFactory) FactoryMeta(objectMetaDescription *MetaDescripti
 	metaFactory.reset()
 
 	// pre-validate description
-	if ok, err := (&ValidationService{}).Validate(objectMetaDescription); !ok {
+	if ok, err := (&MetaValidationService{}).Validate(objectMetaDescription); !ok {
 		return nil, err
 	}
 
@@ -107,14 +107,14 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) error {
 			if cas.Type != FieldTypeNumber {
 				return errors.NewValidationError(
 					"new_meta",
-					fmt.Sprintf("The filed 'cas' specified in the MetaDescription '%s' as CAS must be type of 'number'", currentMeta.MetaDescription.Cas, currentMeta.MetaDescription.Name),
+					fmt.Sprintf("The filed 'cas' specified in the MetaDescription '%s' as CAS must be type of 'number'", currentMeta.MetaDescription.Name),
 					nil,
 				)
 			}
 		} else {
 			return errors.NewValidationError(
 				"new_meta",
-				fmt.Sprintf("MetaDescription '%s' has CAS defined but the filed 'cas' it refers to is absent", currentMeta.MetaDescription.Name, currentMeta.MetaDescription.Cas),
+				fmt.Sprintf("MetaDescription '%s' has CAS defined but the filed 'cas' it refers to is absent", currentMeta.MetaDescription.Name),
 				nil,
 			)
 		}

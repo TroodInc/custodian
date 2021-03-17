@@ -2,19 +2,20 @@ package action
 
 import (
 	"custodian/server/errors"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
 	"custodian/server/migrations"
-	"fmt"
+	"custodian/server/object"
 	"custodian/server/object/description"
 	meta_description "custodian/server/object/description"
+	"custodian/server/transactions"
+
+	"fmt"
 )
 
 type RemoveActionOperation struct {
 	Action *description.Action
 }
 
-func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+func (o *RemoveActionOperation) SyncMetaDescription(metaDescription *description.MetaDescription, metaDescriptionSyncer object.MetaDescriptionSyncer) (*description.MetaDescription, error) {
 	updatedMetaDescription := metaDescription.Clone()
 	if err := o.validate(updatedMetaDescription); err != nil {
 		return nil, err
@@ -47,7 +48,7 @@ func (o *RemoveActionOperation) validate(metaDescription *description.MetaDescri
 	return nil
 }
 
-func (o *RemoveActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *RemoveActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
 	return nil
 }
 

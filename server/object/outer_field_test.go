@@ -2,8 +2,7 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"encoding/json"
 
@@ -18,16 +17,16 @@ var _ = Describe("Outer field", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
 
-	havingAMeta := func() *meta.Meta {
+	havingAMeta := func() *Meta {
 		aMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
@@ -35,7 +34,7 @@ var _ = Describe("Outer field", func() {
 		return aMetaObj
 	}
 
-	havingBMeta := func(A *meta.Meta) *meta.Meta {
+	havingBMeta := func(A *Meta) *Meta {
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
 			Name:     "a",
@@ -51,7 +50,7 @@ var _ = Describe("Outer field", func() {
 		return bMetaObj
 	}
 
-	havingAMetaWithManuallySetBSetLink := func(A, B *meta.Meta) *meta.Meta {
+	havingAMetaWithManuallySetBSetLink := func(A, B *Meta) *Meta {
 		aMetaDescription := GetBaseMetaData(A.Name)
 		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
 			Name:           "b_set",

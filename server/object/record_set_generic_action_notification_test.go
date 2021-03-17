@@ -1,13 +1,10 @@
-package notifications_test
+package object_test
 
 import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	. "custodian/server/object/notifications"
-	"custodian/server/object/record"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"strconv"
 
@@ -22,9 +19,9 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -38,12 +35,12 @@ var _ = Describe("Data", func() {
 		testObjCName := utils.RandomString(8)
 
 		var err error
-		var aMetaObj *meta.Meta
-		var bMetaObj *meta.Meta
-		var cMetaObj *meta.Meta
-		var aRecord *record.Record
-		var bRecord *record.Record
-		var cRecord *record.Record
+		var aMetaObj *object.Meta
+		var bMetaObj *object.Meta
+		var cMetaObj *object.Meta
+		var aRecord *object.Record
+		var bRecord *object.Record
+		var cRecord *object.Record
 
 		havingObjectA := func() {
 			By("Having object A with action for 'create' defined")
@@ -175,10 +172,10 @@ var _ = Describe("Data", func() {
 			havingCRecord()
 			havingARecord(cMetaObj.Name, cRecord.Pk().(float64))
 
-			recordSet := record.RecordSet{Meta: aMetaObj, Records: []*record.Record{record.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk()})}}
+			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk()})}}
 
 			//make recordSetNotification
-			recordSetNotification := NewRecordSetNotification(
+			recordSetNotification := object.NewRecordSetNotification(
 				&recordSet,
 				true,
 				description.MethodCreate,

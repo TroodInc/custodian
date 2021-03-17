@@ -2,8 +2,7 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 	"database/sql"
 
@@ -18,9 +17,9 @@ var _ = Describe("Inner generic field", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -56,8 +55,8 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		//check database columns
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
+		tx := globalTransaction.Transaction().(*sql.Tx)
 		Expect(err).To(BeNil())
 
 		tableName := GetTableName(metaObj.Name)
@@ -66,7 +65,7 @@ var _ = Describe("Inner generic field", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(3))
 		// check meta fields
 		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
@@ -117,9 +116,9 @@ var _ = Describe("Inner generic field", func() {
 		Expect(err).To(BeNil())
 
 		//check database columns
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		tableName := GetTableName(metaObj.Name)
 
@@ -127,7 +126,7 @@ var _ = Describe("Inner generic field", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields

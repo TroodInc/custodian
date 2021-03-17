@@ -2,12 +2,11 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"fmt"
 )
 
 type MetaDdlFactory struct {
-	metaDescriptionSyncer meta.MetaDescriptionSyncer
+	metaDescriptionSyncer MetaDescriptionSyncer
 }
 
 func (mdf *MetaDdlFactory) Factory(metaDescription *description.MetaDescription) (*MetaDDL, error) {
@@ -99,13 +98,13 @@ func (mdf *MetaDdlFactory) processOuterLinkField(field *description.Field, metaD
 
 func (mdf *MetaDdlFactory) processGenericInnerLinkField(metaName string, field *description.Field) ([]Column, *IFK, *OFK, *Seq, error) {
 	typeColumn := Column{}
-	typeColumn.Name = meta.GetGenericFieldTypeColumnName(field.Name)
+	typeColumn.Name = GetGenericFieldTypeColumnName(field.Name)
 	typeColumn.Typ = description.FieldTypeString
 	typeColumn.Optional = field.Optional
 	typeColumn.Unique = false
 
 	keyColumn := Column{}
-	keyColumn.Name = meta.GetGenericFieldKeyColumnName(field.Name)
+	keyColumn.Name = GetGenericFieldKeyColumnName(field.Name)
 	keyColumn.Typ = description.FieldTypeString
 	keyColumn.Optional = field.Optional
 	keyColumn.Unique = false
@@ -155,6 +154,6 @@ func (mdf *MetaDdlFactory) getDefaultValue(metaName string, field *description.F
 	return colDef.ddlVal()
 }
 
-func NewMetaDdlFactory(metaDescriptionSyncer meta.MetaDescriptionSyncer) *MetaDdlFactory {
+func NewMetaDdlFactory(metaDescriptionSyncer MetaDescriptionSyncer) *MetaDdlFactory {
 	return &MetaDdlFactory{metaDescriptionSyncer: metaDescriptionSyncer}
 }

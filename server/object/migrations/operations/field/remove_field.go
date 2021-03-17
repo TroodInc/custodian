@@ -5,9 +5,9 @@ import (
 	"custodian/server/migrations/operations/field"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/object/migrations/operations/statement_factories"
 	"custodian/server/transactions"
+
 	"database/sql"
 	"fmt"
 )
@@ -16,7 +16,7 @@ type RemoveFieldOperation struct {
 	field.RemoveFieldOperation
 }
 
-func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *RemoveFieldOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 
 	columns, ifk, _, seq, err := object.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescription)

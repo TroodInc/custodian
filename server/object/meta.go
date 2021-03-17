@@ -1,9 +1,10 @@
-package meta
+package object
 
 import (
 	"custodian/server/noti"
 	. "custodian/server/object/description"
 	"custodian/server/transactions"
+
 	"custodian/utils"
 	"encoding/json"
 )
@@ -74,9 +75,9 @@ type MetaDescriptionSyncer interface {
 }
 
 type MetaDbSyncer interface {
-	CreateObj(*transactions.GlobalTransactionManager, *MetaDescription, MetaDescriptionSyncer) error
-	RemoveObj(*transactions.GlobalTransactionManager, string, bool) error
-	UpdateObj(*transactions.GlobalTransactionManager, *MetaDescription, *MetaDescription, MetaDescriptionSyncer) error
+	CreateObj(*PgDbTransactionManager, *MetaDescription, MetaDescriptionSyncer) error
+	RemoveObj(*PgDbTransactionManager, string, bool) error
+	UpdateObj(*PgDbTransactionManager, *MetaDescription, *MetaDescription, MetaDescriptionSyncer) error
 	UpdateObjTo(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) error
 	ValidateObj(transactions.DbTransaction, *MetaDescription, MetaDescriptionSyncer) (bool, error)
 	BeginTransaction() (transactions.DbTransaction, error)

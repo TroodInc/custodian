@@ -2,8 +2,7 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -19,9 +18,9 @@ var _ = Describe("RQL test", func() {
 	dataManager, _ := syncer.NewDataManager()
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	metaDescription := description.MetaDescription{
 		Name: "test",

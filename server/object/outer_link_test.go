@@ -4,8 +4,7 @@ import (
 	"custodian/server/auth"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 	"custodian/utils"
 
 	. "github.com/onsi/ginkgo"
@@ -19,9 +18,9 @@ var _ = Describe("Data", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {
@@ -34,7 +33,7 @@ var _ = Describe("Data", func() {
 		testObjAName := utils.RandomString(8)
 		testObjBName := utils.RandomString(8)
 
-		havingObjectA := func() *meta.Meta {
+		havingObjectA := func() *object.Meta {
 			aMetaDescription := description.MetaDescription{
 				Name: testObjAName,
 				Key:  "id",
@@ -57,7 +56,7 @@ var _ = Describe("Data", func() {
 			return aMetaObj
 		}
 
-		havingObjectBLinkedToA := func() *meta.Meta {
+		havingObjectBLinkedToA := func() *object.Meta {
 			bMetaDescription := description.MetaDescription{
 				Name: testObjBName,
 				Key:  "id",
@@ -87,7 +86,7 @@ var _ = Describe("Data", func() {
 			return bMetaObj
 		}
 
-		havingObjectAWithManuallySpecifiedOuterLinkToB := func() *meta.Meta {
+		havingObjectAWithManuallySpecifiedOuterLinkToB := func() *object.Meta {
 			aMetaDescription := description.MetaDescription{
 				Name: testObjAName,
 				Key:  "id",

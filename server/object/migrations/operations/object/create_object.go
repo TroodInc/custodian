@@ -5,8 +5,8 @@ import (
 	"custodian/server/migrations/operations/object"
 	object2 "custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/transactions"
+
 	"database/sql"
 	"errors"
 	"fmt"
@@ -17,7 +17,7 @@ type CreateObjectOperation struct {
 	object.CreateObjectOperation
 }
 
-func (o *CreateObjectOperation) SyncDbDescription(_ *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *CreateObjectOperation) SyncDbDescription(_ *description.MetaDescription, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *object2.MetaDDL
 	var statementSet = object2.DdlStatementSet{}

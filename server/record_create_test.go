@@ -15,9 +15,7 @@ import (
 
 	"custodian/server"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/object/record"
-	"custodian/server/transactions"
+
 )
 
 var _ = Describe("Server", func() {
@@ -30,9 +28,9 @@ var _ = Describe("Server", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -45,7 +43,7 @@ var _ = Describe("Server", func() {
 		Expect(err).To(BeNil())
 	})
 
-	factoryObjectA := func() *meta.Meta {
+	factoryObjectA := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a_qbhbj",
 			Key:  "id",
@@ -76,7 +74,7 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectB := func() *meta.Meta {
+	factoryObjectB := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b_bezv9",
 			Key:  "id",
@@ -113,7 +111,7 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
+	factoryObjectAWithManuallySetOuterLinkToB := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a_qbhbj",
 			Key:  "id",
@@ -153,8 +151,8 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 	Context("having a record of given object", func() {
-		var aRecord *record.Record
-		var objectB *meta.Meta
+		var aRecord *object.Record
+		var objectB *object.Meta
 		BeforeEach(func() {
 			objectA := factoryObjectA()
 			objectB = factoryObjectB()

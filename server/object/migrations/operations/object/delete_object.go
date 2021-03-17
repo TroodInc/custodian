@@ -5,8 +5,8 @@ import (
 	"custodian/server/migrations/operations/object"
 	object2 "custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/transactions"
+
 	"database/sql"
 	"fmt"
 	"text/template"
@@ -16,7 +16,7 @@ type DeleteObjectOperation struct {
 	object.DeleteObjectOperation
 }
 
-func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
 	tx := transaction.Transaction().(*sql.Tx)
 	var metaDdl *object2.MetaDDL
 	if metaDdl, err = object2.NewMetaDdlFactory(syncer).Factory(metaDescription); err != nil {

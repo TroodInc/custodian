@@ -2,12 +2,12 @@ package migrations
 
 import (
 	"custodian/server/migrations/description"
-	"custodian/server/object/meta"
+	"custodian/server/object"
 	pg_operations "custodian/server/object/migrations/operations"
 )
 
 type MigrationFactory struct {
-	metaDescriptionSyncer          meta.MetaDescriptionSyncer
+	metaDescriptionSyncer          object.MetaDescriptionSyncer
 	normalizationMigrationsFactory *description.NormalizationMigrationsFactory
 }
 
@@ -64,6 +64,6 @@ func (mf *MigrationFactory) factory(migrationDescription *description.MigrationD
 	return migration, nil
 }
 
-func NewMigrationFactory(metaDescriptionSyncer meta.MetaDescriptionSyncer) *MigrationFactory {
+func NewMigrationFactory(metaDescriptionSyncer object.MetaDescriptionSyncer) *MigrationFactory {
 	return &MigrationFactory{metaDescriptionSyncer: metaDescriptionSyncer, normalizationMigrationsFactory: description.NewNormalizationMigrationsFactory(metaDescriptionSyncer)}
 }

@@ -1,34 +1,32 @@
-package notifications
+package object
 
 import (
 	"custodian/server/auth"
 	"custodian/server/object/description"
-	"custodian/server/object/record"
-	"custodian/server/object/types"
 	"custodian/utils"
 	"strconv"
 )
 
 type RecordSetNotification struct {
-	recordSet *record.RecordSet
+	recordSet *RecordSet
 	isRoot    bool
-	getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error)
-	getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)
+	getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*Record, error)
+	getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*Record, error)
 	Actions           []*description.Action
 	Method            description.Method
-	PreviousState     map[int]*record.RecordSet
-	CurrentState      map[int]*record.RecordSet
+	PreviousState     map[int]*RecordSet
+	CurrentState      map[int]*RecordSet
 }
 
-func NewRecordSetNotification(recordSet *record.RecordSet, isRoot bool, method description.Method, getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error), getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*record.Record, error)) *RecordSetNotification {
+func NewRecordSetNotification(recordSet *RecordSet, isRoot bool, method description.Method, getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*Record, error), getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*Record, error)) *RecordSetNotification {
 	actions := recordSet.Meta.ActionSet.FilterByMethod(method)
 	return &RecordSetNotification{
 		recordSet:          recordSet,
 		isRoot:             isRoot,
 		Method:             method,
 		Actions:            actions,
-		PreviousState:      make(map[int]*record.RecordSet, len(actions)), //for both arrays index is an corresponding
-		CurrentState:       make(map[int]*record.RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
+		PreviousState:      make(map[int]*RecordSet, len(actions)), //for both arrays index is an corresponding
+		CurrentState:       make(map[int]*RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
 		getRecordsCallback: getRecordsCallback,
 		getRecordCallback:  getRecordCallback,
 	}
@@ -47,7 +45,7 @@ func (notification *RecordSetNotification) ShouldBeProcessed() bool {
 }
 
 //Build notification object for each record in recordSet for given action
-func (notification *RecordSetNotification) BuildNotificationsData(previousState *record.RecordSet, currentState *record.RecordSet, user auth.User) []map[string]interface{} {
+func (notification *RecordSetNotification) BuildNotificationsData(previousState *RecordSet, currentState *RecordSet, user auth.User) []map[string]interface{} {
 	notifications := make([]map[string]interface{}, 0)
 	for i := range previousState.Records {
 		var previousStateData map[string]interface{}
@@ -73,11 +71,11 @@ func (notification *RecordSetNotification) BuildNotificationsData(previousState 
 	return notifications
 }
 
-func (notification *RecordSetNotification) captureState(state map[int]*record.RecordSet) {
+func (notification *RecordSetNotification) captureState(state map[int]*RecordSet) {
 	//capture state if recordSet has PKs defined, set empty map otherwise, because records cannot be retrieved
 	for _, action := range notification.Actions {
 
-		state[action.Id()] = &record.RecordSet{Meta: notification.recordSet.Meta, Records: make([]*record.Record, 0)}
+		state[action.Id()] = &RecordSet{Meta: notification.recordSet.Meta, Records: make([]*Record, 0)}
 
 		if recordsFilter := notification.getRecordsFilter(); recordsFilter != "" {
 			//get data within current transaction
@@ -86,13 +84,13 @@ func (notification *RecordSetNotification) captureState(state map[int]*record.Re
 			for _, obj := range objects {
 				state[action.Id()].Records = append(
 					state[action.Id()].Records,
-					record.NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(obj, action, notification.getRecordsCallback)),
+					NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(obj, action, notification.getRecordsCallback)),
 				)
 			}
 		}
 		//fill DataSet with empty values
 		if len(state[action.Id()].Records) == 0 {
-			state[action.Id()].Records = make([]*record.Record, len(notification.recordSet.Records))
+			state[action.Id()].Records = make([]*Record, len(notification.recordSet.Records))
 		}
 	}
 }
@@ -127,7 +125,7 @@ func (notification *RecordSetNotification) getRecordsFilter() string {
 }
 
 //Build object to use in notification
-func (notification *RecordSetNotification) buildRecordStateObject(recordData *record.Record, action *description.Action, getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*record.Record, error)) map[string]interface{} {
+func (notification *RecordSetNotification) buildRecordStateObject(recordData *Record, action *description.Action, getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*Record, error)) map[string]interface{} {
 
 	stateObject := make(map[string]interface{}, 0)
 
@@ -143,7 +141,7 @@ func (notification *RecordSetNotification) buildRecordStateObject(recordData *re
 		//copy entire record data if it is being removed
 		stateObject = utils.CloneMap(recordData.Data)
 	}
-	currentRecord := record.NewRecord(notification.recordSet.Meta, recordData.Data)
+	currentRecord := NewRecord(notification.recordSet.Meta, recordData.Data)
 	//include values listed in IncludeValues
 	for alias, getterConfig := range action.IncludeValues {
 		stateObject[alias] = currentRecord.GetValue(getterConfig, notification.getRecordCallback)
@@ -164,7 +162,7 @@ func adaptRecordData(recordData map[string]interface{}) map[string]interface{} {
 	adaptedRecordData := map[string]interface{}{}
 	for key, value := range recordData {
 		switch castValue := value.(type) {
-		case types.DLink:
+		case DLink:
 			adaptedRecordData[key] = castValue.Id
 		default:
 			adaptedRecordData[key] = castValue

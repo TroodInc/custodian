@@ -8,15 +8,13 @@ import (
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"custodian/server/object/meta"
 	"custodian/utils"
 
 	"bytes"
 	"custodian/server"
 	"custodian/server/auth"
 	"custodian/server/object/description"
-	"custodian/server/object/record"
-	"custodian/server/transactions"
+
 	"encoding/json"
 	"fmt"
 	"net/http/httptest"
@@ -48,10 +46,10 @@ var _ = Describe("ABAC rules handling", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	testObjName := utils.RandomString(8)
@@ -63,7 +61,7 @@ var _ = Describe("ABAC rules handling", func() {
 		Expect(err).To(BeNil())
 	}
 
-	factoryObjectA := func() *meta.Meta {
+	factoryObjectA := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: testObjName,
 			Key:  "id",
@@ -466,8 +464,8 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And an A record belongs to managers", func() {
 			var err error
 			var url string
-			var aObject *meta.Meta
-			var aRecord *record.Record
+			var aObject *object.Meta
+			var aRecord *object.Record
 
 			JustBeforeEach(func() {
 				aObject = factoryObjectA()
@@ -519,8 +517,8 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And this user has the role 'admin'", func() {
 			var err error
 			var url string
-			var aObject *meta.Meta
-			var aRecord *record.Record
+			var aObject *object.Meta
+			var aRecord *object.Record
 
 			JustBeforeEach(func() {
 				aObject = factoryObjectA()

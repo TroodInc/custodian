@@ -9,8 +9,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
+
 )
 
 var _ = Describe("Store", func() {
@@ -20,9 +19,9 @@ var _ = Describe("Store", func() {
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(globalTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -83,10 +82,10 @@ var _ = Describe("Store", func() {
 				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+				globalTransaction, err := dbTransactionManager.BeginTransaction()
+				tx := globalTransaction.Transaction().(*sql.Tx)
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
-				globalTransactionManager.CommitTransaction(globalTransaction)
+				dbTransactionManager.CommitTransaction(globalTransaction)
 
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeTrue())
@@ -118,10 +117,10 @@ var _ = Describe("Store", func() {
 				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+				globalTransaction, err := dbTransactionManager.BeginTransaction()
+				tx := globalTransaction.Transaction().(*sql.Tx)
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
-				globalTransactionManager.CommitTransaction(globalTransaction)
+				dbTransactionManager.CommitTransaction(globalTransaction)
 
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Name).To(Equal("Name"))
@@ -182,10 +181,10 @@ var _ = Describe("Store", func() {
 				_, err = metaStore.Update(objectMeta.Name, objectMeta, true)
 				Expect(err).To(BeNil())
 
-				globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
-				tx := globalTransaction.DbTransaction.Transaction().(*sql.Tx)
+				globalTransaction, err := dbTransactionManager.BeginTransaction()
+				tx := globalTransaction.Transaction().(*sql.Tx)
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
-				globalTransactionManager.CommitTransaction(globalTransaction)
+				dbTransactionManager.CommitTransaction(globalTransaction)
 
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeFalse())

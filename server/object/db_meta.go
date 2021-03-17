@@ -2,21 +2,21 @@ package object
 
 import (
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
 	"custodian/server/transactions"
+
 	"database/sql"
 )
 
 type DbMetaDescriptionSyncer struct {
 	DbTransactionManager transactions.DbTransactionManager
-	cache                *meta.MetaCache
+	cache                *MetaCache
 }
 
 func NewDbMetaDescriptionSyncer(transactionManager transactions.DbTransactionManager) *DbMetaDescriptionSyncer {
-	return &DbMetaDescriptionSyncer{transactionManager, meta.NewCache()}
+	return &DbMetaDescriptionSyncer{transactionManager, NewCache()}
 }
 
-func (dm *DbMetaDescriptionSyncer) Cache() *meta.MetaCache {
+func (dm *DbMetaDescriptionSyncer) Cache() *MetaCache {
 	return dm.cache
 }
 
