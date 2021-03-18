@@ -415,6 +415,38 @@ var _ = Describe("Server", func() {
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})["a"].(float64)).To(Equal(aRecord.Data["id"]))
 		})
 
+		It("Can include two fields", func() {
+			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.description&only=b.name", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
+			Expect(bData).To(HaveKey("name"))
+			Expect(bData).To(HaveKey("description"))
+		})
+
+		It("Can include object and two fields of different objects", func() {
+			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=c&only=b.name&only=a.name", appConfig.UrlPrefix)
+
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			aData := body["data"].([]interface{})[0].(map[string]interface{})["a"].(map[string]interface{})
+			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
+			Expect(bData).To(HaveKey("name"))
+			Expect(bData).NotTo(HaveKey("description"))
+			Expect(aData).To(HaveKey("name"))
+			Expect(aData).NotTo(HaveKey("d_set"))
+
+		})
 		It("Can include inner link`s field", func() {
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=1&only=b.name", appConfig.UrlPrefix)
 
