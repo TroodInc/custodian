@@ -159,8 +159,9 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	getDataProcessor := func() *object.Processor {
 		dataManager, _ := syncer.NewDataManager()
-		metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 		dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+		metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 		processor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 		return processor
 	}
