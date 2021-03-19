@@ -12,7 +12,6 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/object/migrations/managers"
 	"custodian/server/transactions"
-
 	"custodian/utils"
 	"encoding/json"
 	"fmt"
@@ -27,7 +26,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/getsentry/raven-go"
+	"github.com/getsentry/sentry-go"
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -729,11 +728,18 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	if !config.DisableSafePanicHandler {
 		app.router.PanicHandler = func(w http.ResponseWriter, r *http.Request, err interface{}) {
 			user := r.Context().Value("auth_user").(auth.User)
-			raven.SetUserContext(&raven.User{ID: strconv.Itoa(user.Id), Username: user.Login})
-			raven.SetHttpContext(raven.NewHttp(r))
+
+			sentry.ConfigureScope(func(scope *sentry.Scope) {
+				scope.SetUser(sentry.User{ID: strconv.Itoa(user.Id), Username: user.Login})
+			})
+			sentry.ConfigureScope(func(scope *sentry.Scope) {
+				scope.SetContext("Request", sentry.NewRequest(r))
+			})
 			if err, ok := err.(error); ok {
-				raven.CaptureErrorAndWait(err, nil)
-				raven.ClearContext()
+				sentry.CaptureException(err)
+				sentry.ConfigureScope(func(scope *sentry.Scope) {
+					scope.Clear()
+				})
 
 				//rollback set transactions
 				if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
