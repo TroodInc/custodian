@@ -2,10 +2,11 @@ package action
 
 import (
 	"custodian/server/errors"
-	"custodian/server/object/meta"
+	"custodian/server/migrations"
+	"custodian/server/object"
 	meta_description "custodian/server/object/description"
 	"custodian/server/transactions"
-	"custodian/server/migrations"
+
 	"fmt"
 )
 
@@ -13,7 +14,7 @@ type AddActionOperation struct {
 	Action *meta_description.Action
 }
 
-func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
+func (o *AddActionOperation) SyncMetaDescription(metaDescriptionToApply *meta_description.MetaDescription, metaDescriptionSyncer object.MetaDescriptionSyncer) (*meta_description.MetaDescription, error) {
 	metaDescriptionToApply = metaDescriptionToApply.Clone()
 	if err := o.validate(metaDescriptionToApply); err != nil {
 		return nil, err
@@ -42,7 +43,7 @@ func (o *AddActionOperation) validate(metaDescription *meta_description.MetaDesc
 	return nil
 }
 
-func (o *AddActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer meta.MetaDescriptionSyncer) (err error) {
+func (o *AddActionOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
 	return nil
 }
 

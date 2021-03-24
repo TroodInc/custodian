@@ -1,26 +1,10 @@
-#!/usr/bin/python
-import base64
-import hashlib
-import hmac
+#!/usr/bin/python3
 import os
 import glob
 import json
 import requests
 import sys
-
-
-def get_service_token():
-    domain = os.environ.get('SERVICE_DOMAIN')
-    secret = os.environ.get('SERVICE_AUTH_SECRET')
-
-    key = hashlib.sha1(b'trood.signer' + secret.encode('utf-8')).digest()
-
-    signature = hmac.new(key, msg=domain.encode('utf-8'), digestmod=hashlib.sha1).digest()
-    signature = base64.urlsafe_b64encode(signature).strip(b'=')
-
-    token = str('%s:%s' % (domain, signature))
-
-    return "Service {}".format(token)
+from trood.core.utils import get_service_token
 
 
 class CustodianMigrator:

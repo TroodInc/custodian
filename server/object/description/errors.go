@@ -31,10 +31,7 @@ func NewMetaDescriptionError(meta string, op string, code string, msg string, a 
 }
 
 const (
-	ErrDuplicated    = "duplicated"
-	ErrNotFound      = "not_found"
 	ErrNotValid      = "not_valid"
-	ErrInternal      = "internal"
 	ErrJsonUnmarshal = "json_unmarshal"
 	ErrJsonMarshal   = "json_marshal"
 )

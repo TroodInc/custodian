@@ -1,7 +1,7 @@
 package server_test
 
 import (
-	"custodian/server/pg"
+	object2 "custodian/server/object"
 	"custodian/utils"
 	"net/http"
 	"net/http/httptest"
@@ -12,30 +12,29 @@ import (
 	"bytes"
 	"custodian/server"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/pg/migrations/managers"
-	"custodian/server/pg/migrations/operations/object"
-	"custodian/server/transactions"
+	"custodian/server/object/migrations/managers"
+	"custodian/server/object/migrations/operations/object"
+
 	"encoding/json"
 	"fmt"
 )
 
 var _ = Describe("Server 101", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 	)
 
 	BeforeEach(func() {
@@ -164,21 +163,21 @@ var _ = Describe("Server 101", func() {
 		Expect(err).NotTo(BeNil())
 		Expect(aMeta).To(BeNil())
 
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		appliedMigrations, err := migrationManager.GetPrecedingMigrationsForObject(testObjAName)
 		Expect(err).To(BeNil())
 		Expect(appliedMigrations).To(HaveLen(1))
 		Expect(appliedMigrations[0].Data["id"]).To(Equal(migrationDescriptionData["id"]))
 
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		dbTransactionManager.CommitTransaction(globalTransaction)
 	})
 
 	It("Can rename object by application of migration", func() {
 		Skip("Repair flush db.")
 		testObjAName := utils.RandomString(8)
 		testObjDName := utils.RandomString(8)
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
@@ -199,10 +198,10 @@ var _ = Describe("Server 101", func() {
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -254,7 +253,7 @@ var _ = Describe("Server 101", func() {
 
 	It("Can delete object by application of migration", func() {
 		testObjAName := utils.RandomString(8)
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
@@ -275,10 +274,10 @@ var _ = Describe("Server 101", func() {
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -330,7 +329,7 @@ var _ = Describe("Server 101", func() {
 
 	It("Can add field by application of migration", func() {
 		testObjAName := utils.RandomString(8)
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
@@ -351,10 +350,10 @@ var _ = Describe("Server 101", func() {
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -398,7 +397,7 @@ var _ = Describe("Server 101", func() {
 
 	It("Can rename field by application of migration", func() {
 		testObjAName := utils.RandomString(8)
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
@@ -424,10 +423,10 @@ var _ = Describe("Server 101", func() {
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -473,7 +472,7 @@ var _ = Describe("Server 101", func() {
 
 	It("Can remove field by appliance of migration", func() {
 		testObjAName := utils.RandomString(8)
-		globalTransaction, err := globalTransactionManager.BeginTransaction(nil)
+		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
@@ -499,10 +498,10 @@ var _ = Describe("Server 101", func() {
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		err = createOperation.SyncDbDescription(nil, globalTransaction.DbTransaction, metaDescriptionSyncer)
+		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = globalTransactionManager.CommitTransaction(globalTransaction)
+		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
 		//apply migration
 

@@ -6,15 +6,13 @@ import (
 	"custodian/logger"
 	"custodian/server/abac"
 	"custodian/server/auth"
-	"custodian/server/data"
-	"custodian/server/data/record"
 	. "custodian/server/errors"
 	migrations_description "custodian/server/migrations/description"
+	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/pg"
-	"custodian/server/pg/migrations/managers"
+	"custodian/server/object/migrations/managers"
 	"custodian/server/transactions"
+
 	"custodian/utils"
 	"encoding/json"
 	"fmt"
@@ -142,26 +140,29 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	app := GetApp(cs)
 
 	//MetaDescription routes
-	syncer, err := pg.NewSyncer(config.DbConnectionUrl)
+	syncer, err := object.NewSyncer(config.DbConnectionUrl)
 	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
 	//transaction managers
-	globalTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := pg.NewPgMetaDescriptionSyncer(globalTransactionManager)
+	//dbTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager,
 		metaDescriptionSyncer,
 		config.MigrationStoragePath,
-		globalTransactionManager,
+		dbTransactionManager,
 	)
 
-	getDataProcessor := func() *data.Processor {
-		dbTransactionManager := pg.NewPgDbTransactionManager(dataManager)
-		processor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	getDataProcessor := func() *object.Processor {
+		dataManager, _ := syncer.NewDataManager()
+		dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+		metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+		processor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 		return processor
 	}
 
@@ -198,26 +199,15 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	}))
 
 	app.router.POST(cs.root+"/meta", CreateJsonAction(func(r *JsonSource, js *JsonSink, _ httprouter.Params, q url.Values, request *http.Request) {
-		metaDescriptionList, _, _ := metaStore.List()
-		if globalTransaction, err := globalTransactionManager.BeginTransaction(metaDescriptionList); err != nil {
+		metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
+		if err != nil {
 			js.pushError(err)
+			return
+		}
+		if e := metaStore.Create(metaObj); e == nil {
+			js.pushObj(metaObj.ForExport())
 		} else {
-			//set transaction to the context
-			*request = *request.WithContext(context.WithValue(request.Context(), "db_transaction", globalTransaction))
-
-			metaObj, err := metaStore.UnmarshalIncomingJSON(bytes.NewReader(r.body))
-			if err != nil {
-				js.pushError(err)
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				return
-			}
-			if e := metaStore.Create(metaObj); e == nil {
-				globalTransactionManager.CommitTransaction(globalTransaction)
-				js.pushObj(metaObj.ForExport())
-			} else {
-				globalTransactionManager.RollbackTransaction(globalTransaction)
-				js.pushError(e)
-			}
+			js.pushError(e)
 		}
 	}))
 
@@ -342,7 +332,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 					return
 				}
 
-				sink.pushObj(result.(*record.Record).GetData())
+				sink.pushObj(result.(*object.Record).GetData())
 			}
 		}
 
@@ -387,7 +377,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			for _, obj := range records {
 				pass, rec := abac_resolver.MaskRecord(obj, "data_GET")
 				if pass {
-					result = append(result, rec.(*record.Record).GetData())
+					result = append(result, rec.(*object.Record).GetData())
 				}
 			}
 
@@ -551,14 +541,14 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	// TODO  TB-421. migrations/cunstruct endpoint is commented due to router conflict conflict with, migrations/<id>/rollback endpoint.
 
 	// app.router.POST(cs.root+"/migrations/construct", CreateJsonAction(func(r *JsonSource, js *JsonSink, p httprouter.Params, q url.Values, request *http.Request) {
-	// 	if globalTransaction, err := globalTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
-	// 		globalTransactionManager.RollbackTransaction(globalTransaction)
+	// 	if globalTransaction, err := dbTransactionManager.BeginTransaction(make([]*description.MetaDescription, 0)); err != nil {
+	// 		dbTransactionManager.RollbackTransaction(globalTransaction)
 	// 		js.pushError(err)
 	// 		return
 	// 	} else {
 	// 		migrationMetaDescription, err := migrations_description.MigrationMetaDescriptionFromJson(bytes.NewReader(r.body))
 	// 		if err != nil {
-	// 			globalTransactionManager.RollbackTransaction(globalTransaction)
+	// 			dbTransactionManager.RollbackTransaction(globalTransaction)
 	// 			js.pushError(err)
 	// 			return
 	// 		}
@@ -585,7 +575,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	// 			return
 	// 		}
 
-	// 		err = globalTransactionManager.CommitTransaction(globalTransaction)
+	// 		err = dbTransactionManager.CommitTransaction(globalTransaction)
 	// 		if err != nil {
 	// 			js.pushError(err)
 	// 			return
@@ -749,11 +739,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
 					dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
 				}
-
-				if globalTransaction := r.Context().Value("global_transaction"); globalTransaction != nil {
-					globalTransactionManager.RollbackTransaction(globalTransaction.(*transactions.GlobalTransaction))
-				}
-				//
 
 				returnError(w, err.(error))
 			}
