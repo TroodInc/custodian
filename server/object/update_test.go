@@ -762,6 +762,188 @@ var _ = Describe("Data", func() {
 		Expect(err).NotTo(BeNil())
 	})
 
+	It("Updates _set record onDeleteSetNull. Set multiple records in _set field", func() {
+
+		By("Having objects with object-array link; On delete SetNull.")
+
+		havingObjectA()
+		bMetaObj := havingObjectB(description.OnDeleteSetNull.ToVerbose())
+		aMetaObj := havingObjectAWithManuallySetOuterLink()
+
+		By("Having one record a and three records b. Two b record are linked to a record.")
+
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord1, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 1", testObjAName: aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord2, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 2", testObjAName: aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord3, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 3"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		By("Update _set field in a record. Set two records linked to a.")
+		aUpdateData := map[string]interface{}{
+			"id":            aRecord.Pk(),
+			"name":          "Updated A name",
+			testObjBSetName: []interface{}{bRecord2.Pk(), bRecord3.Pk()},
+		}
+
+		aRecord, err = dataProcessor.UpdateRecord(aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+		Expect(err).To(BeNil())
+
+		By("Sets b.a = null")
+		bRecord1, err = dataProcessor.Get(bMetaObj.Name, bRecord1.PkAsString(), nil, nil, 1, false)
+		Expect(bRecord1.Data[testObjAName]).To(BeNil())
+
+		By("Sets sets propper value of b.a")
+		bRecord2, err = dataProcessor.Get(bMetaObj.Name, bRecord2.PkAsString(), nil, nil, 1, false)
+		Expect(bRecord2).NotTo(BeNil())
+		Expect(bRecord2.Data[testObjAName]).To(Equal(aRecord.Pk()))
+
+		bRecord3, err = dataProcessor.Get(bMetaObj.Name, bRecord3.PkAsString(), nil, nil, 1, false)
+		Expect(bRecord3).NotTo(BeNil())
+		Expect(bRecord3.Data[testObjAName]).To(Equal(aRecord.Pk()))
+
+	})
+
+	It("Updates _set record onDeleteRestrict. Set multiple records in _set field", func() {
+
+		By("Having objects with object-array link; On delete Restrict.")
+
+		havingObjectA()
+		bMetaObj := havingObjectB(description.OnDeleteRestrict.ToVerbose())
+		aMetaObj := havingObjectAWithManuallySetOuterLink()
+
+		By("Having one record a and three records b. Two b record are linked to a record.")
+
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		_, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 1", testObjAName: aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord2, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 2", testObjAName: aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord3, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 3"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		By("Try update _set field in a record. Set two records linked to a.")
+		aUpdateData := map[string]interface{}{
+			"id":            aRecord.Pk(),
+			"name":          "Updated A name",
+			testObjBSetName: []interface{}{bRecord2.Pk(), bRecord3.Pk()},
+		}
+
+		By("Can't update record due to restrict on delete policy")
+		aRecord, err = dataProcessor.UpdateRecord(aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+		Expect(err).NotTo(BeNil())
+		Expect(err.Error()).To(ContainSubstring("restrict_constraint_violation"))
+
+	})
+
+	It("Updates _set record. Set multiple records in _set field", func() {
+
+		By("Having objects with object-array link; On delete cascade.")
+
+		havingObjectA()
+		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		aMetaObj := havingObjectAWithManuallySetOuterLink()
+
+		By("Having one record a and three records b. Two b record are linked to a record.")
+
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord1, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 1", testObjAName: aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord2, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 2", testObjAName: aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord3, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 3"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		By("Update _set field in a record. Set two records linked to a.")
+		aUpdateData := map[string]interface{}{
+			"id":            aRecord.Pk(),
+			"name":          "Updated A name",
+			testObjBSetName: []interface{}{bRecord2.Pk(), bRecord3.Pk()},
+		}
+
+		aRecord, err = dataProcessor.UpdateRecord(aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+
+		aRecord, err = dataProcessor.Get(aMetaObj.Name, aRecord.PkAsString(), nil, nil, 1, false)
+
+		Expect(err).To(BeNil())
+		Expect(aRecord.Data).To(HaveKeyWithValue("name", "Updated A name"))
+		Expect(aRecord.Data[testObjBSetName].([]interface{})).To(HaveLen(2))
+
+		bRecord3, err = dataProcessor.Get(bMetaObj.Name, bRecord3.PkAsString(), nil, nil, 1, false)
+		Expect(bRecord1.Data[testObjAName]).To(Equal(aRecord.Pk()))
+
+		Expect(aRecord.Data[testObjBSetName].([]interface{})[0]).To(Equal(bRecord2.Pk()))
+		Expect(aRecord.Data[testObjBSetName].([]interface{})[1]).To(Equal(bRecord3.Pk()))
+
+		bRecord1, err = dataProcessor.Get(bMetaObj.Name, bRecord1.PkAsString(), nil, nil, 1, false)
+		Expect(bRecord1).To(BeNil())
+
+	})
+
+	It("Updates _set record. Change one record in _set field", func() {
+
+		By("Having objects with object-array link; On delete cascade.")
+
+		havingObjectA()
+		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		aMetaObj := havingObjectAWithManuallySetOuterLink()
+
+		By("Having one record a and three records b. One b record is linked to a record.")
+
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord1, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 1", testObjAName: aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord2, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 2"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord3, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record 3"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		By("Upadate a record, _set field should be linked to another b object.")
+
+		aUpdateData := map[string]interface{}{
+			"id":            aRecord.Pk(),
+			"name":          "Updated A name",
+			testObjBSetName: []interface{}{bRecord2.Pk()},
+		}
+
+		aRecord, err = dataProcessor.UpdateRecord(aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+
+		Expect(err).To(BeNil())
+		Expect(aRecord.Data).To(HaveKeyWithValue("name", "Updated A name"))
+		Expect(aRecord.Data[testObjBSetName].([]interface{})).To(HaveLen(1))
+
+		By("Should remove b record which was linked to a record.")
+		bRecord1, err = dataProcessor.Get(bMetaObj.Name, bRecord1.PkAsString(), nil, nil, 1, false)
+		Expect(bRecord1).To(BeNil())
+
+		By("Should set proper link in b record with id 2.")
+		bRecord2, err = dataProcessor.Get(bMetaObj.Name, bRecord2.PkAsString(), nil, nil, 1, false)
+		Expect(bRecord2).NotTo(BeNil())
+		Expect(bRecord2.Data[testObjAName]).To(Equal(aRecord.Pk()))
+
+		By("Should not affect other b record .")
+		bRecord3, err = dataProcessor.Get(bMetaObj.Name, bRecord3.PkAsString(), nil, nil, 1, false)
+		Expect(bRecord3).NotTo(BeNil())
+
+	})
+
 	It("Updates record with nested records with mixed values(both valuable and null)", func() {
 		aMetaObj := havingObjectA()
 		bMetaObj := havingObjectB(description.OnDeleteRestrict.ToVerbose())
