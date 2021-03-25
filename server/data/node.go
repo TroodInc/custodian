@@ -347,7 +347,68 @@ func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.Fie
 		oldFields := node.SelectFields.FieldList
 		node.SelectFields.FieldList = []*meta.FieldDescription{node.KeyField}
 		for i := range node.Meta.Fields {
-			node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+			//node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+			if len(cp) > 0 {
+				var nodeName string
+				if node.LinkField != nil {
+					nodeName = node.LinkField.Name
+				} else {
+					nodeName = node.Meta.Name
+				}
+				fieldName := node.Meta.Fields[i].Name
+				modified := false
+				for _, pathItem := range cp {
+					for n, _ := range pathItem.PathItems() {
+						if len(pathItem.PathItems()) == 1 {
+							if pathItem.PathItems()[n] == fieldName {
+								if reflect.TypeOf(pathItem).String() != "*data.excludeNodeRetrievePolicy" {
+									// Include field
+									node.SelectFields.FieldList = append(node.SelectFields.FieldList, &node.Meta.Fields[i]) // include field
+									oldFields = node.SelectFields.FieldList
+
+									node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+								} else {
+									// Delete from old fields
+									of := oldFields
+									oldFields = append(of[:i], of[i+1:]...)
+
+									node.SelectFields.FieldList = oldFields
+								}
+								modified = true
+								break
+							} else {
+								for _, item := range oldFields {
+									if item.Name == pathItem.PathItems()[n] {
+										modified = true
+									}
+								}
+							}
+						} else if pathItem.PathItems()[n] == nodeName && pathItem.PathItems()[n+1] == fieldName  {
+							if reflect.TypeOf(pathItem).String() != "*data.excludeNodeRetrievePolicy" {
+								// Include field
+								node.SelectFields.FieldList = append(node.SelectFields.FieldList, &node.Meta.Fields[i])
+								oldFields = node.SelectFields.FieldList
+
+								node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+							} else {
+								// Delete from old fields
+								of := oldFields
+								oldFields = append(of[:i], of[i+1:]...)
+								node.SelectFields.FieldList = oldFields
+
+							}
+							modified = true
+							break
+						} else if pathItem.PathItems()[n] == nodeName {
+							modified = true
+						}
+					}
+				}
+				if !modified && fieldName != "id" {
+					node.SelectFields.FieldList = append(node.SelectFields.FieldList, &node.Meta.Fields[i])
+					node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+				}
+			}
 		}
 
 	}
