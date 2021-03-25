@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
+	"reflect"
 )
 
 type NodeType int
@@ -324,16 +325,31 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 	}
 }
 
-func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode) {
+func contains(s []int, e int) bool {
+	for _, a := range s {
+		if a == e {
+			return true
+		}
+	}
+	return false
+}
+
+// TODO This is the func that we need to refactor. Add support for exclude and only
+
+func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode, rp *AggregatedRetrievePolicy) {
 	//process regular links, skip generic child nodes
+	cp := rp.childPolicies
 	onlyLink := false
-	if node.Depth >= depthLimit {
+	if node.Depth >= depthLimit && len(cp) <= 0 {
 		onlyLink = true
 	}
 	if node.Meta != nil {
+		oldFields := node.SelectFields.FieldList
+		node.SelectFields.FieldList = []*meta.FieldDescription{node.KeyField}
 		for i := range node.Meta.Fields {
 			node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
 		}
+
 	}
 }
 
@@ -427,7 +443,7 @@ func (node *Node) FillChildNode(fieldDescription *meta.FieldDescription, onlyLin
 }
 
 func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode description.FieldMode) error {
-	node.fillDirectChildNodes(depthLimit, fieldMode)
+	node.fillDirectChildNodes(depthLimit, fieldMode, node.RetrievePolicy)
 	if !node.IsOfGenericType() {
 		nodesToProcess := make([]*Node, 0)
 		for _, v := range node.ChildNodes.Nodes() {
@@ -438,7 +454,8 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode descriptio
 		for ; len(nodesToProcess) > 0; nodesToProcess = nodesToProcess[1:] {
 			if !nodesToProcess[0].OnlyLink {
 				if nodesToProcess[0].IsOfRegularType() || (nodesToProcess[0].IsOfGenericType() && nodesToProcess[0].plural) {
-					nodesToProcess[0].fillDirectChildNodes(depthLimit, fieldMode)
+					// TODO: This is where we fill in child nodes and maybe here we should also take care of only and exclude
+					nodesToProcess[0].fillDirectChildNodes(depthLimit, fieldMode, node.RetrievePolicy)
 					processedNodesNames[nodesToProcess[0].Meta.Name] = true
 					for _, childNode := range nodesToProcess[0].ChildNodes.Nodes() {
 						//generic fields` meta could not be resolved without fields value
@@ -450,7 +467,9 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode descriptio
 			}
 		}
 	}
-	return node.RetrievePolicy.Apply(node)
+	fmt.Println("HETRETE")
+	//return node.RetrievePolicy.Apply(node)
+	return nil
 }
 
 func (node *Node) FillRecordValues(record *Record, searchContext SearchContext) *Record {
