@@ -1,25 +1,25 @@
 package server_test
 
 import (
-	"fmt"
-	"net/http"
-	"net/http/httptest"
 	"custodian/server/auth"
 	"custodian/server/data"
 	"custodian/server/data/record"
 	"custodian/server/pg"
 	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
-	"encoding/json"
 	"custodian/server"
 	"custodian/server/object/description"
 	"custodian/server/object/meta"
 	pg_transactions "custodian/server/pg/transactions"
 	"custodian/server/transactions"
+	"encoding/json"
 )
 
 var _ = Describe("Server", func() {
@@ -160,7 +160,8 @@ var _ = Describe("Server", func() {
 			aMetaObj = makeObjectA()
 		})
 
-		It("returns all records including total count", func() {
+		XIt("returns all records including total count", func() {
+			fmt.Println("1")
 			for i := 0; i < 50; i++ {
 				_, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 				Expect(err).To(BeNil())
@@ -178,7 +179,8 @@ var _ = Describe("Server", func() {
 			Expect(body["total_count"].(float64)).To(Equal(float64(50)))
 		})
 
-		It("returns slice of records including total count", func() {
+		XIt("returns slice of records including total count", func() {
+			fmt.Println("2")
 			for i := 0; i < 50; i++ {
 				_, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
 				Expect(err).To(BeNil())
@@ -196,8 +198,9 @@ var _ = Describe("Server", func() {
 			Expect(body["total_count"].(float64)).To(Equal(float64(50)))
 		})
 
-		It("returns empty list including total count", func() {
+		XIt("returns empty list including total count", func() {
 
+			fmt.Println("3")
 			url := fmt.Sprintf("%s/data/%s?depth=1", appConfig.UrlPrefix, aMetaObj.Name)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -210,7 +213,8 @@ var _ = Describe("Server", func() {
 			Expect(body["total_count"].(float64)).To(Equal(float64(0)))
 		})
 
-		It("returns records by query including total count", func() {
+		XIt("returns records by query including total count", func() {
+			fmt.Println("4")
 			for i := 0; i < 20; i++ {
 				_, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A"}, auth.User{})
 				Expect(err).To(BeNil())
@@ -232,7 +236,8 @@ var _ = Describe("Server", func() {
 			Expect(body["total_count"].(float64)).To(Equal(float64(20)))
 		})
 
-		It("returns same records using different queries", func() {
+		XIt("returns same records using different queries", func() {
+			fmt.Println("5")
 			for i := 0; i < 20; i++ {
 				_, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A"}, auth.User{})
 				Expect(err).To(BeNil())
@@ -336,7 +341,7 @@ var _ = Describe("Server", func() {
 			aRecord, err = dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "a record"}, auth.User{})
 			Expect(err).To(BeNil())
 
-			bRecord, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "b record"}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "b record", "description": "b description"}, auth.User{})
 			Expect(err).To(BeNil())
 
 			cRecord, err = dataProcessor.CreateRecord(cMetaObj.Name, map[string]interface{}{"a": aRecord.Data["id"], "b": bRecord.Data["id"], "name": "c record"}, auth.User{})
@@ -347,7 +352,7 @@ var _ = Describe("Server", func() {
 
 		})
 
-		It("Can exclude inner link`s subtree", func() {
+		XIt("Can exclude inner link`s subtree", func() {
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&exclude=b", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -356,11 +361,12 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp body ", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})).NotTo(HaveKey("b"))
 		})
 
-		It("Can exclude regular field", func() {
+		XIt("Can exclude regular field", func() {
 			url := fmt.Sprintf("%s/data/a_lxsgk?depth=2&exclude=name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -369,12 +375,13 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp body", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})["id"].(float64)).To(Equal(aRecord.Data["id"]))
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})["d_set"]).NotTo(BeNil())
 		})
 
-		It("Can exclude regular field of inner link", func() {
+		XIt("Can exclude regular field of inner link", func() {
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&exclude=b.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -387,8 +394,9 @@ var _ = Describe("Server", func() {
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})).NotTo(HaveKey("name"))
 		})
 
-		It("Can exclude regular field of outer link", func() {
+		XIt("Can exclude regular field of outer link depth", func() {
 			url := fmt.Sprintf("%s/data/a_lxsgk?depth=2&exclude=d_set.name", appConfig.UrlPrefix)
+			//url := fmt.Sprintf("%s/data/a_lxsgk?depth=2", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
 			httpServer.Handler.ServeHTTP(recorder, request)
@@ -396,12 +404,14 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp data", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			dSet := body["data"].([]interface{})[0].(map[string]interface{})["d_set"].([]interface{})
 			Expect(dSet[0].(map[string]interface{})).NotTo(HaveKey("name"))
 		})
 
-		It("Can include inner link as key value", func() {
+		XIt("Can include inner link as key value", func() {
+			fmt.Println("6")
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=1&only=a", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -410,12 +420,16 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp body", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})).NotTo(HaveKey("b"))
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})["a"].(float64)).To(Equal(aRecord.Data["id"]))
 		})
 
-		It("Can include two fields", func() {
+		XIt("Can include two fields", func() {
+			fmt.Println("7")
+			//url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.name", appConfig.UrlPrefix)
+			//url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&exclude=a", appConfig.UrlPrefix)
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.description&only=b.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -424,13 +438,32 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp BODY", responseBody)
 			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
 			Expect(bData).To(HaveKey("name"))
 			Expect(bData).To(HaveKey("description"))
 		})
 
-		It("Can include object and two fields of different objects", func() {
-			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=c&only=b.name&only=a.name", appConfig.UrlPrefix)
+		XIt("Can include one field", func() {
+			fmt.Println("7")
+			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.description", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp BODY", responseBody)
+			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
+			Expect(bData).NotTo(HaveKey("name"))
+			Expect(bData).To(HaveKey("description"))
+		})
+
+		XIt("Can include object and two fields of different objects", func() {
+			fmt.Println("8")
+			//url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.name", appConfig.UrlPrefix)
+			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.name&only=a.name", appConfig.UrlPrefix)
 
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -439,6 +472,7 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp BODY", responseBody)
 			aData := body["data"].([]interface{})[0].(map[string]interface{})["a"].(map[string]interface{})
 			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
 			Expect(bData).To(HaveKey("name"))
@@ -447,7 +481,8 @@ var _ = Describe("Server", func() {
 			Expect(aData).NotTo(HaveKey("d_set"))
 
 		})
-		It("Can include inner link`s field", func() {
+		XIt("Can include inner link`s field", func() {
+			fmt.Println("9")
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=1&only=b.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -456,6 +491,7 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp data", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
 			Expect(bData["id"]).To(Equal(bRecord.Data["id"]))
@@ -463,7 +499,7 @@ var _ = Describe("Server", func() {
 			Expect(bData).NotTo(HaveKey("description"))
 		})
 
-		It("Can exclude regular field of outer link", func() {
+		XIt("Can exclude regular field of outer link", func() {
 			url := fmt.Sprintf("%s/data/a_lxsgk?depth=1&only=d_set.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -472,13 +508,15 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp data", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			dSet := body["data"].([]interface{})[0].(map[string]interface{})["d_set"].([]interface{})
 			Expect(dSet[0].(map[string]interface{})).To(HaveKey("name"))
 			Expect(dSet[0].(map[string]interface{})).To(HaveKey("id"))
 		})
 
-		It("Can include more than one inner link`s subtrees together", func() {
+		XIt("Can include more than one inner link`s subtrees together", func() {
+			fmt.Println("10")
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=1&only=a.id&only=b.id", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -493,7 +531,7 @@ var _ = Describe("Server", func() {
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})["name"].(string)).To(Equal(cRecord.Data["name"]))
 		})
 
-		It("Can include and exclude fields at once", func() {
+		XIt("Can include and exclude fields at once", func() {
 			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=a.id&exclude=b", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -502,13 +540,14 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp data ", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})).NotTo(HaveKey("b"))
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})["a"].(map[string]interface{})["id"]).To(Equal(aRecord.Data["id"]))
 			Expect(body["data"].([]interface{})[0].(map[string]interface{})["name"].(string)).To(Equal(cRecord.Data["name"]))
 		})
 
-		It("Can exclude outer link`s tree", func() {
+		XIt("Can exclude outer link`s tree", func() {
 			url := fmt.Sprintf("%s/data/a_lxsgk?depth=1&exclude=d_set", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -573,7 +612,7 @@ var _ = Describe("Server", func() {
 			Expect(err).To(BeNil())
 		})
 
-		It("Can exclude a field of a record which is linked by the generic relation", func() {
+		XIt("Can exclude a field of a record which is linked by the generic relation", func() {
 
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=2&exclude=target.a_lxsgk.name", appConfig.UrlPrefix)
 
@@ -583,13 +622,14 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp data", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			targetData := body["data"].([]interface{})[0].(map[string]interface{})["target"].(map[string]interface{})
 			Expect(targetData).NotTo(HaveKey("name"))
 
 		})
 
-		It("Can exclude a record which is linked by the generic relation", func() {
+		XIt("Can exclude a record which is linked by the generic relation", func() {
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=2&exclude=target", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -604,6 +644,7 @@ var _ = Describe("Server", func() {
 
 		It("Can include a field of a record which is linked by the generic relation", func() {
 
+			fmt.Println("11")
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a_lxsgk.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -612,6 +653,7 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp data", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 			targetData := body["data"].([]interface{})[0].(map[string]interface{})["target"].(map[string]interface{})
 			Expect(targetData).To(HaveKey("name"))
@@ -619,8 +661,9 @@ var _ = Describe("Server", func() {
 			Expect(targetData["name"].(string)).To(Equal(aRecord.Data["name"]))
 		})
 
-		It("Can include a field of a record which is linked by the generic relation and its nested item at once", func() {
+		XIt("Can include a field of a record which is linked by the generic relation and its nested item at once", func() {
 
+			fmt.Println("12")
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a_lxsgk.name&only=target.a_lxsgk.d_set", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -635,7 +678,7 @@ var _ = Describe("Server", func() {
 			Expect(targetData).To(HaveKey("d_set"))
 		})
 
-		It("Applies policies regardless of specification`s order in query", func() {
+		XIt("Applies policies regardless of specification`s order in query", func() {
 
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target&only=target.a", appConfig.UrlPrefix)
 			reversedOrderUrl := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target.a&only=target", appConfig.UrlPrefix)
@@ -652,8 +695,9 @@ var _ = Describe("Server", func() {
 			Expect(responseBody).To(Equal(reversedOrderResponseBody))
 		})
 
-		It("Can include a generic field", func() {
+		XIt("Can include a generic field", func() {
 
+			fmt.Println("14")
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -669,8 +713,9 @@ var _ = Describe("Server", func() {
 			Expect(recordData).NotTo(HaveKey("name"))
 		})
 
-		It("Can include a generic field and its subtree", func() {
+		XIt("Can include a generic field and its subtree", func() {
 
+			fmt.Println("15")
 			url := fmt.Sprintf("%s/data/e_m7o1b?depth=1&only=target&only=target.a_lxsgk.name", appConfig.UrlPrefix)
 
 			var request, _ = http.NewRequest("GET", url, nil)
@@ -679,6 +724,7 @@ var _ = Describe("Server", func() {
 
 			var body map[string]interface{}
 			json.Unmarshal([]byte(responseBody), &body)
+			fmt.Println("resp data", responseBody)
 			Expect(body["data"].([]interface{})).To(HaveLen(1))
 
 			recordData := body["data"].([]interface{})[0].(map[string]interface{})

@@ -9,6 +9,7 @@ import (
 	"fmt"
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 	"reflect"
+	"strings"
 )
 
 type NodeType int
@@ -325,92 +326,88 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 	}
 }
 
-func contains(s []int, e int) bool {
-	for _, a := range s {
-		if a == e {
-			return true
+func contains(s []*meta.FieldDescription, e string) (int, bool) {
+	for i, a := range s {
+		if a.Name == e {
+			return i, true
 		}
 	}
-	return false
+	return -1, false
 }
 
 // TODO This is the func that we need to refactor. Add support for exclude and only
 
 func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.FieldMode, rp *AggregatedRetrievePolicy) {
 	//process regular links, skip generic child nodes
-	cp := rp.childPolicies
+	fmt.Println(rp)
 	onlyLink := false
-	if node.Depth >= depthLimit && len(cp) <= 0 {
-		onlyLink = true
+	if node.Depth >= depthLimit {
+			onlyLink = true
 	}
 	if node.Meta != nil {
-		oldFields := node.SelectFields.FieldList
-		node.SelectFields.FieldList = []*meta.FieldDescription{node.KeyField}
-		for i := range node.Meta.Fields {
-			//node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
-			if len(cp) > 0 {
-				var nodeName string
-				if node.LinkField != nil {
-					nodeName = node.LinkField.Name
+		if node.RetrievePolicy == nil || len(node.RetrievePolicy.childPolicies) == 0 {
+			for i := range node.Meta.Fields {
+				node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+			}
+		} else {
+
+			for i := range node.Meta.Fields {
+				node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+			}
+			//node.handleIncludeExclude(onlyLink, fieldMode)
+		}
+	}
+}
+
+func (node *Node) handleIncludeExclude (onlyLink bool, fieldMode description.FieldMode) {
+	keyField := node.SelectFields.KeyField
+	node.SelectFields.FieldList = []*meta.FieldDescription{keyField}
+	for i := range node.Meta.Fields {
+		fieldName := node.Meta.Fields[i].Name
+		for _, pathItem := range node.RetrievePolicy.childPolicies {
+			if len(pathItem.PathItems()) == 1 {
+				if pathItem.PathItems()[0] == fieldName {
+					if reflect.TypeOf(pathItem).String() == "*data.includeNodeRetrievePolicy" {
+						// Handle include here.
+						node.addField(fieldName, i, onlyLink, fieldMode)
+					} else if reflect.TypeOf(pathItem).String() == "*data.excludeNodeRetrievePolicy" {
+						//	Handle exclude here. Delete field if it was added previously
+						fmt.Println("Handle exclude field")
+						node.deleteField(fieldName)
+					}
 				} else {
-					nodeName = node.Meta.Name
-				}
-				fieldName := node.Meta.Fields[i].Name
-				modified := false
-				for _, pathItem := range cp {
-					for n, _ := range pathItem.PathItems() {
-						if len(pathItem.PathItems()) == 1 {
-							if pathItem.PathItems()[n] == fieldName {
-								if reflect.TypeOf(pathItem).String() != "*data.excludeNodeRetrievePolicy" {
-									// Include field
-									node.SelectFields.FieldList = append(node.SelectFields.FieldList, &node.Meta.Fields[i]) // include field
-									oldFields = node.SelectFields.FieldList
-
-									node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
-								} else {
-									// Delete from old fields
-									of := oldFields
-									oldFields = append(of[:i], of[i+1:]...)
-
-									node.SelectFields.FieldList = oldFields
-								}
-								modified = true
-								break
-							} else {
-								for _, item := range oldFields {
-									if item.Name == pathItem.PathItems()[n] {
-										modified = true
-									}
-								}
-							}
-						} else if pathItem.PathItems()[n] == nodeName && pathItem.PathItems()[n+1] == fieldName  {
-							if reflect.TypeOf(pathItem).String() != "*data.excludeNodeRetrievePolicy" {
-								// Include field
-								node.SelectFields.FieldList = append(node.SelectFields.FieldList, &node.Meta.Fields[i])
-								oldFields = node.SelectFields.FieldList
-
-								node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
-							} else {
-								// Delete from old fields
-								of := oldFields
-								oldFields = append(of[:i], of[i+1:]...)
-								node.SelectFields.FieldList = oldFields
-
-							}
-							modified = true
-							break
-						} else if pathItem.PathItems()[n] == nodeName {
-							modified = true
-						}
+					fmt.Println("Do not include", fieldName)
+					//  Do not include field
+					if node.Meta.Fields[i].RetrieveMode == true  && reflect.TypeOf(pathItem).String() == "*data.excludeNodeRetrievePolicy" {
+						node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
 					}
 				}
-				if !modified && fieldName != "id" {
-					node.SelectFields.FieldList = append(node.SelectFields.FieldList, &node.Meta.Fields[i])
-					node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+			} else {
+				if pathItem.PathItems()[0] == fieldName {
+					onlyLink = false
 				}
+				node.addField(fieldName, i, onlyLink, fieldMode)
 			}
 		}
+	}
+}
 
+func (node *Node) addField(fieldName string, i int, onlyLink bool, fieldMode description.FieldMode) {
+	_, isIn := contains(node.SelectFields.FieldList, fieldName)
+	//if !contains(node.SelectFields.FieldList, fieldName) {
+	if !isIn {
+		if !strings.HasSuffix(fieldName, "_set") {
+			node.SelectFields.FieldList = append(node.SelectFields.FieldList, &node.Meta.Fields[i])
+		}
+		node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+	}
+}
+
+func (node *Node) deleteField(fieldName string) {
+	i, isIn := contains(node.SelectFields.FieldList, fieldName)
+	if isIn {
+		fl := node.SelectFields.FieldList
+		node.SelectFields.FieldList = append(fl[:i], fl[i+1:]...)
 	}
 }
 
@@ -529,6 +526,7 @@ func (node *Node) RecursivelyFillChildNodes(depthLimit int, fieldMode descriptio
 		}
 	}
 	fmt.Println("HETRETE")
+	node.handleIncludeExclude(false, fieldMode)
 	//return node.RetrievePolicy.Apply(node)
 	return nil
 }

@@ -205,22 +205,22 @@ func (*AggregatedRetrievePolicyFactory) Factory(includePaths, excludePaths []str
 	// It has been proven empirically that "only" will work correctly with includePath like "b.name", "b.description"
 	// only when they will be transformed to form b.name.description
 
-	var checkArr = make(map[string]bool)
-	var tmpIncludePaths = make(map[string]string)
-
-	for i, path := range includePaths {
-		splitPath := strings.Split(path, ".")
-		if len(splitPath) == 2 {
-			key := splitPath[0]
-			if checkArr[key] {
-				tmpIncludePaths[key] = tmpIncludePaths[key] + "."+ strings.Join(splitPath[1:], ".")
-				includePaths[i] = tmpIncludePaths[key]
-			} else{
-				tmpIncludePaths[key] = path
-				checkArr[key] = true
-			}
-		}
-	}
+	//var checkArr = make(map[string]bool)
+	//var tmpIncludePaths = make(map[string]string)
+	//
+	//for i, path := range includePaths {
+	//	splitPath := strings.Split(path, ".")
+	//	if len(splitPath) == 2 {
+	//		key := splitPath[0]
+	//		if checkArr[key] {
+	//			tmpIncludePaths[key] = tmpIncludePaths[key] + "."+ strings.Join(splitPath[1:], ".")
+	//			includePaths[i] = tmpIncludePaths[key]
+	//		} else{
+	//			tmpIncludePaths[key] = path
+	//			checkArr[key] = true
+	//		}
+	//	}
+	//}
 
 	for _, includePath := range includePaths {
 		childPolicies = append(childPolicies, newIncludeNodeRetrievePolicy(includePath))
