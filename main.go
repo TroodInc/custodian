@@ -4,7 +4,7 @@ import (
 	"custodian/logger"
 	"custodian/server"
 	"custodian/utils"
-	"github.com/getsentry/raven-go"
+	"github.com/getsentry/sentry-go"
 	"log"
 	"os"
 )
@@ -21,7 +21,13 @@ func init() {
 
 	appConfig := utils.GetConfig()
 	if len(appConfig.SentryDsn) > 0 {
-		raven.SetDSN(appConfig.SentryDsn)
+		err := sentry.Init(sentry.ClientOptions{
+			Dsn: appConfig.SentryDsn,
+			AttachStacktrace: true,
+		})
+		if err != nil {
+			log.Fatalf("sentry.Init: %s", err)
+		}
 	}
 }
 
