@@ -90,7 +90,7 @@ func (vs *ValidationService) Validate(record *Record) ([]*RecordProcessingNode, 
 							map[string]string{"field": fieldName})
 					}
 				}
-			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (fieldDescription.LinkMeta.Key.Type.AssertType(value) || fieldDescription.Optional && value == nil ):
+			case fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (fieldDescription.LinkMeta.Key.Type.AssertType(value) || fieldDescription.Optional && value == nil):
 				record.Data[fieldDescription.Name] = DLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Id: value}
 			case fieldDescription.Type == description.FieldTypeGeneric && fieldDescription.LinkType == description.LinkTypeInner:
 				if recordToProcess, err := vs.validateInnerGenericLink(value, fieldDescription, record); err != nil {
@@ -163,7 +163,7 @@ func (vs *ValidationService) validateArray(value interface{}, fieldDescription *
 			}
 		}
 		if len(idFilters) > 0 {
-			filter := fmt.Sprintf("eq(%s,%s),not(eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
+			filter := fmt.Sprintf("eq(%s,%s),not(in(%s,(%s)))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
 			_, records, _ := vs.processor.GetBulk(fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true)
 			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
 				recordsToRemove = records
@@ -288,7 +288,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 		filter := fmt.Sprintf("eq(%s,%s)", fieldDescription.Meta.Name, record.PkAsString())
 		if len(beingAddedIds) > 0 {
 			excludeFilter := fmt.Sprintf("not(in(%s,(%s)))", fieldDescription.LinkMeta.Name, beingAddedIds)
-			filter = fmt.Sprintf("%s,%s",filter,excludeFilter)
+			filter = fmt.Sprintf("%s,%s", filter, excludeFilter)
 		}
 		_, recordsToRemove, _ = vs.processor.GetBulk(fieldDescription.LinkThrough.Name, filter, nil, nil, 1, true)
 	}
