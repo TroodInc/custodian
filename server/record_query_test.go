@@ -425,6 +425,52 @@ var _ = Describe("Server 101", func() {
 			Expect(bData).NotTo(HaveKey("description"))
 		})
 
+		It("Can include two fields of one object", func() {
+			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.description&only=b.name", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
+			Expect(bData).To(HaveKey("name"))
+			Expect(bData).To(HaveKey("description"))
+		})
+
+		It("Can include one field", func() {
+			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.description", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
+			Expect(bData).NotTo(HaveKey("name"))
+			Expect(bData).To(HaveKey("description"))
+		})
+
+		It("Can include 123 object and two fields of different objects", func() {
+			url := fmt.Sprintf("%s/data/c_s7ohu?depth=2&only=b.name&only=a.name", appConfig.UrlPrefix)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			aData := body["data"].([]interface{})[0].(map[string]interface{})["a"].(map[string]interface{})
+			bData := body["data"].([]interface{})[0].(map[string]interface{})["b"].(map[string]interface{})
+			Expect(bData).To(HaveKey("name"))
+			Expect(bData).NotTo(HaveKey("description"))
+			Expect(aData).To(HaveKey("name"))
+			Expect(aData).NotTo(HaveKey("d_set"))
+
+		})
+
 		It("Can exclude regular field of outer link", func() {
 			url := fmt.Sprintf("%s/data/a_lxsgk?depth=1&only=d_set.name", appConfig.UrlPrefix)
 
@@ -653,5 +699,149 @@ var _ = Describe("Server 101", func() {
 			Expect(targetData).To(HaveKey("name"))
 			Expect(targetData).To(HaveKey("id"))
 		})
+	})
+	Context("Having an object with objects link", func() {
+		testObjAName := fmt.Sprintf("%s_a", utils.RandomString(8))
+		testObjBName := fmt.Sprintf("%s_b", utils.RandomString(8))
+		havingObjectA := func() *object.Meta {
+			bMetaDescription := description.MetaDescription{
+				Name: testObjAName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name: "id",
+						Type: description.FieldTypeNumber,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+						Optional: true,
+					},
+					{
+						Name:     "name",
+						Type:     description.FieldTypeString,
+						Optional: true,
+					},
+					{
+						Name:     "description",
+						Type:     description.FieldTypeString,
+						Optional: true,
+					},
+					{
+						Name:     "contact",
+						Type:     description.FieldTypeString,
+						Optional: true,
+					},
+				},
+			}
+			metaObj, err := metaStore.NewMeta(&bMetaDescription)
+			(&description.NormalizationService{}).Normalize(&bMetaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
+			return metaObj
+		}
+
+		havingObjectB := func() *object.Meta {
+			metaDescription := description.MetaDescription{
+				Name: testObjBName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+
+					{
+						Name:     "as",
+						Type:     description.FieldTypeObjects,
+						LinkMeta: testObjAName,
+						LinkType: description.LinkTypeInner,
+					},
+				},
+			}
+			metaObj, err := metaStore.NewMeta(&metaDescription)
+			Expect(err).To(BeNil())
+			err = metaStore.Create(metaObj)
+			Expect(err).To(BeNil())
+			return metaObj
+		}
+
+		BeforeEach(func() {
+			havingObjectA()
+			havingObjectB()
+
+			aRecord, err := dataProcessor.CreateRecord(testObjAName, map[string]interface{}{"name": "a record", "description": "a record description", "contact": "a record contact"}, auth.User{})
+			Expect(err).To(BeNil())
+
+			_, err = dataProcessor.CreateRecord(
+				testObjBName,
+				map[string]interface{}{"as": []interface{}{aRecord.Pk()}, "name": "b reord name"},
+				auth.User{},
+			)
+			Expect(err).To(BeNil())
+		})
+
+		It("Can include only m2m field", func() {
+			url := fmt.Sprintf("%s/data/%s?depth=1&only=as", appConfig.UrlPrefix, testObjBName)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			Expect(body["data"].([]interface{})).To(HaveLen(1))
+
+			recordData := body["data"].([]interface{})[0].(map[string]interface{})
+			Expect(recordData).To(HaveKey("as"))
+			Expect(recordData).To(HaveKey("id"))
+			Expect(recordData).NotTo(HaveKey("name"))
+		})
+
+		It("Can include two filelds of m2m object", func() {
+			url := fmt.Sprintf("%s/data/%s?depth=1&only=as.name&&only=as.description", appConfig.UrlPrefix, testObjBName)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			Expect(body["data"].([]interface{})).To(HaveLen(1))
+
+			recordData := body["data"].([]interface{})[0].(map[string]interface{})
+			Expect(recordData).To(HaveKey("as"))
+			Expect(recordData).To(HaveKey("id"))
+
+			m2mRecordData := recordData["as"].([]interface{})[0].(map[string]interface{})
+			Expect(m2mRecordData).To(HaveKey("name"))
+			Expect(m2mRecordData).To(HaveKey("description"))
+		})
+
+		It("Can exclude fileld of m2m object", func() {
+			url := fmt.Sprintf("%s/data/%s?depth=2&exclude=as.name", appConfig.UrlPrefix, testObjBName)
+
+			var request, _ = http.NewRequest("GET", url, nil)
+			httpServer.Handler.ServeHTTP(recorder, request)
+			responseBody := recorder.Body.String()
+
+			var body map[string]interface{}
+			json.Unmarshal([]byte(responseBody), &body)
+			Expect(body["data"].([]interface{})).To(HaveLen(1))
+
+			recordData := body["data"].([]interface{})[0].(map[string]interface{})
+			Expect(recordData).To(HaveKey("as"))
+			Expect(recordData).To(HaveKey("id"))
+
+			m2mRecordData := recordData["as"].([]interface{})[0].(map[string]interface{})
+			Expect(m2mRecordData).NotTo(HaveKey("name"))
+		})
+
 	})
 })
