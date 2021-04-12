@@ -4,6 +4,7 @@ import (
 	"custodian/server/object/description"
 	"errors"
 	"fmt"
+
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 )
 
@@ -49,20 +50,22 @@ func (sf *SelectFields) Exclude(field *FieldDescription) error {
 func (sf *SelectFields) Include(field *FieldDescription) error {
 	if sf.Type == SelectFieldsTypeExclude {
 		return errors.New("attempted to exclude field from the node, which already has another included one")
+	} else if sf.Type == SelectFieldsTypeInclude {
+		sf.FieldList = append(sf.FieldList, field)
 	} else if sf.Type == SelectFieldsTypeFull {
 		sf.FieldList = []*FieldDescription{sf.KeyField}
-	}
-
-	sf.Type = SelectFieldsTypeInclude
-	//do nothing if the field is already selected
-	for _, selectedField := range sf.FieldList {
-		if selectedField.Name == field.Name {
-			return nil
+		sf.Type = SelectFieldsTypeInclude
+		//do nothing if the field is already selected
+		for _, selectedField := range sf.FieldList {
+			if selectedField.Name == field.Name {
+				return nil
+			}
 		}
-	}
 
-	sf.FieldList = append(sf.FieldList, field)
+		sf.FieldList = append(sf.FieldList, field)
+	}
 	return nil
+
 }
 
 func NewSelectFields(keyField *FieldDescription, fieldList []*FieldDescription) *SelectFields {
@@ -329,12 +332,12 @@ func (node *Node) fillDirectChildNodes(depthLimit int, fieldMode description.Fie
 	}
 	if node.Meta != nil {
 		for i := range node.Meta.Fields {
-			node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name))
+			node.FillChildNode(&node.Meta.Fields[i], onlyLink, fieldMode, node.RetrievePolicy.SubPolicyForNode(node.Meta.Fields[i].Name), SelectFieldsTypeFull)
 		}
 	}
 }
 
-func (node *Node) FillChildNode(fieldDescription *FieldDescription, onlyLink bool, fieldMode description.FieldMode, policy *AggregatedRetrievePolicy) *Node {
+func (node *Node) FillChildNode(fieldDescription *FieldDescription, onlyLink bool, fieldMode description.FieldMode, policy *AggregatedRetrievePolicy, selectType SelectType) *Node {
 	//process regular links, skip generic child nodes
 
 	//skip outer link which does not have retrieve mode set to true
@@ -342,7 +345,16 @@ func (node *Node) FillChildNode(fieldDescription *FieldDescription, onlyLink boo
 		return nil
 	}
 	childNodes := *NewChildNodes()
-
+	if selectType == SelectFieldsTypeInclude {
+		//return existing node
+		if len(node.ChildNodes.nodes) > 0 {
+			if childNode, ok := node.ChildNodes.Get(fieldDescription.Name); !ok {
+				return nil
+			} else {
+				return childNode
+			}
+		}
+	}
 	if fieldDescription.Type == description.FieldTypeObject && fieldDescription.LinkType == description.LinkTypeInner && (node.Parent == nil || !IsBackLink(node.Parent.Meta, fieldDescription)) {
 		node.ChildNodes.Set(fieldDescription.Name, &Node{
 			LinkField:      fieldDescription,

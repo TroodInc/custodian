@@ -42,14 +42,14 @@ func (ip *includeNodeRetrievePolicy) Apply(node *Node, parentPolicy *AggregatedR
 				currentNode.ChildNodes.Empty()
 				currentNode.SelectFields.Include(fieldDescription)
 			} else {
-				currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
+				currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name), SelectFieldsTypeInclude)
 			}
 			return nil
 		}
 		if fieldDescription.Type == description.FieldTypeObjects {
 			currentNode.ChildNodes.Empty()
 			currentNode.SelectFields.Include(currentNode.KeyField)
-			currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
+			currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name), SelectFieldsTypeInclude)
 			return nil
 		}
 		if fieldDescription.IsLink() && (!isLeaf && fieldDescription.LinkType == description.LinkTypeInner || fieldDescription.LinkType == description.LinkTypeOuter) {
@@ -58,7 +58,7 @@ func (ip *includeNodeRetrievePolicy) Apply(node *Node, parentPolicy *AggregatedR
 				currentNode.SelectFields.Include(currentNode.KeyField)
 			}
 			currentNode.OnlyLink = false
-			currentNode = currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name))
+			currentNode = currentNode.FillChildNode(fieldDescription, isLeaf, description.FieldModeRetrieve, parentPolicy.SubPolicyForNode(fieldDescription.Name), SelectFieldsTypeInclude)
 		} else if fieldDescription.LinkType != description.LinkTypeOuter {
 			//exclude all child nodes, filled by default
 			currentNode.ChildNodes.Empty()

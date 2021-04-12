@@ -10,6 +10,7 @@ import (
 	"regexp"
 	"time"
 
+	"github.com/jackc/pgconn"
 	_ "github.com/jackc/pgx/v4/stdlib" // needed for proper driver work
 	"github.com/lib/pq"
 )
@@ -157,7 +158,7 @@ func (syncer *Syncer) UpdateObj(globalTransactionManager *PgDbTransactionManager
 			// TOFIX: https://github.com/postgres/postgres/blob/14751c340754af9f906a893eb87a894dea3adbc9/src/backend/commands/tablecmds.c#L10539
 			globalTransactionManager.RollbackTransaction(transaction)
 			var data map[string]interface{}
-			if e.(*pq.Error).Code == "42804" {
+			if e.(*pgconn.PgError).Code == "42804" {
 				matched := regexp.MustCompile(`column "(.*)"`).FindAllStringSubmatch(e.(*pq.Error).Message, -1)
 				if len(matched) > 0 {
 					data = map[string]interface{}{"column": matched[0][1]}
