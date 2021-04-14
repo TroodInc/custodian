@@ -162,8 +162,17 @@ func (vs *ValidationService) validateArray(value interface{}, fieldDescription *
 				idFilters += idAsString
 			}
 		}
+		var filter string
+
 		if len(idFilters) > 0 {
-			filter := fmt.Sprintf("eq(%s,%s),not(in(%s,(%s)))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
+			// update data with existing records
+			filter = fmt.Sprintf("eq(%s,%s),not(in(%s,(%s)))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
+		} else if len(recordsToProcess) > 0 && len(idFilters) == 0 {
+			// only new reocrds in update _set record
+			filter = fmt.Sprintf("eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString())
+		}
+
+		if len(filter) > 0 {
 			_, records, _ := vs.processor.GetBulk(fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true)
 			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
 				recordsToRemove = records
