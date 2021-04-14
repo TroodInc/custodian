@@ -1,42 +1,37 @@
 package server_test
 
 import (
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
+	"custodian/server/object"
+	"custodian/utils"
 	"net/http"
 	"net/http/httptest"
-	"custodian/server/object"
-	"custodian/server/pg"
-	"custodian/server/transactions/file_transaction"
-	"custodian/utils"
 
-	"encoding/json"
-	"fmt"
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
+
 	"custodian/server"
 	migrations_description "custodian/server/migrations/description"
 	"custodian/server/object/description"
-	"custodian/server/object/meta"
-	"custodian/server/pg/migrations/managers"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions"
+	"custodian/server/object/migrations/managers"
+
+	"encoding/json"
+	"fmt"
 )
 
 var _ = Describe("Migrations` listing", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
-
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, globalTransactionManager,
+		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 	)
 
 	BeforeEach(func() {
@@ -67,7 +62,7 @@ var _ = Describe("Migrations` listing", func() {
 				Id:        "some-unique-id",
 				ApplyTo:   "",
 				DependsOn: nil,
-				Operations: [] migrations_description.MigrationOperationDescription{
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
 						Type:            migrations_description.CreateObjectOperation,
 						MetaDescription: metaDescription,
@@ -75,15 +70,15 @@ var _ = Describe("Migrations` listing", func() {
 				},
 			}
 
-			_, err := migrationManager.Apply(migrationDescription,true, false)
+			_, err := migrationManager.Apply(migrationDescription, true, false)
 
 			migrationDescription2 := &migrations_description.MigrationDescription{
 				Id:        "with-depends",
 				ApplyTo:   metaDescription.Name,
 				DependsOn: []string{"some-unique-id"},
-				Operations: [] migrations_description.MigrationOperationDescription{
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
-						Type:   migrations_description.AddActionOperation,
+						Type: migrations_description.AddActionOperation,
 						Action: &migrations_description.MigrationActionDescription{
 							Action: description.Action{
 								Method:          description.MethodUpdate,
@@ -98,7 +93,7 @@ var _ = Describe("Migrations` listing", func() {
 				},
 			}
 
-			_, err = migrationManager.Apply(migrationDescription2,true, false)
+			_, err = migrationManager.Apply(migrationDescription2, true, false)
 			Expect(err).To(BeNil())
 		})
 

@@ -1,27 +1,24 @@
 package object
 
 import (
+	"custodian/server/object/description"
+
+	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
 )
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

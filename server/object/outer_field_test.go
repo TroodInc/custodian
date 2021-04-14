@@ -1,35 +1,32 @@
 package object
 
 import (
+	"custodian/server/object/description"
+
+	"custodian/utils"
+	"encoding/json"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
-	"encoding/json"
 )
 
 var _ = Describe("Outer field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
+	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
 		Expect(err).To(BeNil())
 	})
 
-	havingAMeta := func() *meta.Meta {
+	havingAMeta := func() *Meta {
 		aMetaObj, err := metaStore.NewMeta(GetBaseMetaData(utils.RandomString(8)))
 		Expect(err).To(BeNil())
 		err = metaStore.Create(aMetaObj)
@@ -37,7 +34,7 @@ var _ = Describe("Outer field", func() {
 		return aMetaObj
 	}
 
-	havingBMeta := func(A *meta.Meta) *meta.Meta {
+	havingBMeta := func(A *Meta) *Meta {
 		bMetaDescription := GetBaseMetaData(utils.RandomString(8))
 		bMetaDescription.Fields = append(bMetaDescription.Fields, description.Field{
 			Name:     "a",
@@ -53,7 +50,7 @@ var _ = Describe("Outer field", func() {
 		return bMetaObj
 	}
 
-	havingAMetaWithManuallySetBSetLink := func(A, B *meta.Meta) *meta.Meta {
+	havingAMetaWithManuallySetBSetLink := func(A, B *Meta) *Meta {
 		aMetaDescription := GetBaseMetaData(A.Name)
 		aMetaDescription.Fields = append(aMetaDescription.Fields, description.Field{
 			Name:           "b_set",

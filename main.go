@@ -1,22 +1,13 @@
 package main
 
 import (
-	"fmt"
 	"custodian/logger"
 	"custodian/server"
+	"custodian/utils"
+	"github.com/getsentry/sentry-go"
 	"log"
 	"os"
-	"github.com/getsentry/raven-go"
-	"custodian/utils"
 )
-
-type OptsError struct {
-	arg, msg string
-}
-
-func (e *OptsError) Error() string {
-	return fmt.Sprintf("Wrong argument '%s': %s", e.arg, e.msg)
-}
 
 type OptsDesc struct {
 	prmsCnt int
@@ -30,7 +21,13 @@ func init() {
 
 	appConfig := utils.GetConfig()
 	if len(appConfig.SentryDsn) > 0 {
-		raven.SetDSN(appConfig.SentryDsn)
+		err := sentry.Init(sentry.ClientOptions{
+			Dsn: appConfig.SentryDsn,
+			AttachStacktrace: true,
+		})
+		if err != nil {
+			log.Fatalf("sentry.Init: %s", err)
+		}
 	}
 }
 

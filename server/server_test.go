@@ -1,42 +1,38 @@
 package server_test
 
 import (
+	"custodian/server/object"
 	"fmt"
+	"net/http"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"custodian/server/pg"
 
 	"bytes"
-	"encoding/json"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
 	"custodian/utils"
+	"encoding/json"
 
-	"net/http/httptest"
 	"custodian/server"
 	"custodian/server/auth"
-	"custodian/server/data"
 	"custodian/server/object/description"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions"
+
+	"net/http/httptest"
 )
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)

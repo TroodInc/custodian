@@ -2,18 +2,17 @@ package object
 
 import (
 	"custodian/server/errors"
-	"custodian/server/object/meta"
-	"custodian/server/transactions"
 	"custodian/server/migrations"
-	"fmt"
+	"custodian/server/object"
 	"custodian/server/object/description"
+	"fmt"
 )
 
 type RenameObjectOperation struct {
 	MetaDescription *description.MetaDescription
 }
 
-func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, transaction transactions.MetaDescriptionTransaction, metaDescriptionSyncer meta.MetaDescriptionSyncer) (*description.MetaDescription, error) {
+func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *description.MetaDescription, metaDescriptionSyncer object.MetaDescriptionSyncer) (*description.MetaDescription, error) {
 	if err := o.validate(metaDescriptionToApply, metaDescriptionSyncer); err != nil {
 		return nil, err
 	}
@@ -27,12 +26,12 @@ func (o *RenameObjectOperation) SyncMetaDescription(metaDescriptionToApply *desc
 	o.MetaDescription = newMetaDescription
 	
 	//create new one
-	metaDescriptionSyncer.Create(transaction, *o.MetaDescription)
+	metaDescriptionSyncer.Create(*o.MetaDescription)
 
 	return o.MetaDescription, nil
 }
 
-func (o *RenameObjectOperation) validate(metaObj *description.MetaDescription, metaDescriptionSyncer meta.MetaDescriptionSyncer) error {
+func (o *RenameObjectOperation) validate(metaObj *description.MetaDescription, metaDescriptionSyncer object.MetaDescriptionSyncer) error {
 	metaDescription, _, _ := metaDescriptionSyncer.Get(o.MetaDescription.Name)
 	if metaDescription != nil {
 		return errors.NewValidationError(

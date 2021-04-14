@@ -1,28 +1,25 @@
 package object
 
 import (
+	"custodian/server/object"
+	"custodian/server/object/description"
+
+	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"custodian/server/pg"
-	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
 )
 
 var _ = Describe("'RenameObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
-	metaDescriptionSyncer := meta.NewFileMetaDescriptionSyncer("./")
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
-	metaStore := meta.NewStore(metaDescriptionSyncer, syncer, globalTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -32,10 +29,13 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 	})
 
+	testObjAName := utils.RandomString(8)
+	testObjBName := utils.RandomString(8)
+
 	//setup MetaDescription
 	BeforeEach(func() {
 		metaDescription = &description.MetaDescription{
-			Name: "a",
+			Name: testObjAName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -50,10 +50,8 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		}
 
 		operation := CreateObjectOperation{MetaDescription: metaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		metaDescription, err := operation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		metaDescription, err := operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(metaDescription).NotTo(BeNil())
 	})
 
@@ -65,13 +63,11 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 
 	It("renames metaDescription`s file", func() {
 		updatedMetaDescription := metaDescription.Clone()
-		updatedMetaDescription.Name = "b"
+		updatedMetaDescription.Name = testObjBName
 
 		operation := RenameObjectOperation{MetaDescription: updatedMetaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		updatedMetaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		updatedMetaDescription, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(updatedMetaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file
@@ -88,7 +84,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 
 	It("does not rename metaDescription if new name clashes with the existing one", func() {
 		bMetaDescription := &description.MetaDescription{
-			Name: "b",
+			Name: testObjBName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -102,15 +98,13 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 			},
 		}
 		createOperation := CreateObjectOperation{MetaDescription: bMetaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		bMetaDescription, err := createOperation.SyncMetaDescription(nil, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		bMetaDescription, err := createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		Expect(bMetaDescription).NotTo(BeNil())
 
 		//
 		renameOperation := RenameObjectOperation{bMetaDescription}
-		renamedMetaObj, err := renameOperation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
-		globalTransactionManager.CommitTransaction(globalTransaction)
+		renamedMetaObj, err := renameOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 
 		// Ensure migration has not been applied
 		Expect(err).NotTo(BeNil())
@@ -122,17 +116,15 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	})
 	It("renames metaDescription if only new name provided", func() {
 		bMetaDescription := &description.MetaDescription{
-			Name:   "b",
+			Name:   testObjBName,
 			Key:    "id",
 			Cas:    false,
 			Fields: []description.Field{},
 		}
 
 		operation := RenameObjectOperation{MetaDescription: bMetaDescription}
-		globalTransaction, _ := globalTransactionManager.BeginTransaction(nil)
-		bMetaDescription, err := operation.SyncMetaDescription(metaDescription, globalTransaction.MetaDescriptionTransaction, metaDescriptionSyncer)
+		bMetaDescription, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		globalTransactionManager.CommitTransaction(globalTransaction)
 		Expect(bMetaDescription).NotTo(BeNil())
 
 		//ensure MetaDescription has been save to file

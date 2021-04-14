@@ -1,42 +1,37 @@
 package server_test
 
 import (
+	"bytes"
+	"custodian/server/auth"
+	"custodian/server/object"
+	"custodian/utils"
+	"encoding/json"
+	"fmt"
+	"net/http"
+	"net/http/httptest"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"fmt"
-	"net/http/httptest"
-	"custodian/server/pg"
-	"custodian/server/data"
-	"custodian/server/auth"
-	"bytes"
-	"encoding/json"
-	"custodian/utils"
-	"custodian/server/transactions/file_transaction"
 
-	"custodian/server/object/meta"
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions"
-	"custodian/server/object/description"
 	"custodian/server"
-	"custodian/server/data/record"
+	"custodian/server/object/description"
+
 )
 
 var _ = Describe("Server", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	BeforeEach(func() {
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)
@@ -48,7 +43,7 @@ var _ = Describe("Server", func() {
 		Expect(err).To(BeNil())
 	})
 
-	factoryObjectA := func() *meta.Meta {
+	factoryObjectA := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a_qbhbj",
 			Key:  "id",
@@ -79,7 +74,7 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectB := func() *meta.Meta {
+	factoryObjectB := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "b_bezv9",
 			Key:  "id",
@@ -116,7 +111,7 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 
-	factoryObjectAWithManuallySetOuterLinkToB := func() *meta.Meta {
+	factoryObjectAWithManuallySetOuterLinkToB := func() *object.Meta {
 		metaDescription := description.MetaDescription{
 			Name: "a_qbhbj",
 			Key:  "id",
@@ -156,8 +151,8 @@ var _ = Describe("Server", func() {
 		return metaObj
 	}
 	Context("having a record of given object", func() {
-		var aRecord *record.Record
-		var objectB *meta.Meta
+		var aRecord *object.Record
+		var objectB *object.Meta
 		BeforeEach(func() {
 			objectA := factoryObjectA()
 			objectB = factoryObjectB()
@@ -206,7 +201,7 @@ var _ = Describe("Server", func() {
 
 		It("must set id sequence properly after creating records with forced Id's", func() {
 			createData := map[string]interface{}{
-				"id": 777,
+				"id":   777,
 				"name": "B record name",
 				"a":    aRecord.Data["id"],
 			}

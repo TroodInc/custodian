@@ -2,27 +2,23 @@ package server_test
 
 import (
 	"custodian/server/abac"
+	"custodian/server/object"
+	"net/http"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"net/http"
-	"custodian/server/pg"
 
 	"custodian/utils"
-	"custodian/server/object/meta"
-	"custodian/server/transactions/file_transaction"
 
-	pg_transactions "custodian/server/pg/transactions"
-	"custodian/server/transactions"
-	"net/http/httptest"
+	"bytes"
 	"custodian/server"
 	"custodian/server/auth"
-	"custodian/server/data"
 	"custodian/server/object/description"
+
 	"encoding/json"
 	"fmt"
+	"net/http/httptest"
 	"os"
-	"bytes"
-	"custodian/server/data/record"
 )
 
 const SERVICE_DOMAIN = "custodian"
@@ -42,19 +38,21 @@ func get_server(user *auth.User) *http.Server {
 
 var _ = Describe("ABAC rules handling", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := pg.NewSyncer(appConfig.DbConnectionUrl)
+	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
 	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	fileMetaTransactionManager := &file_transaction.FileMetaDescriptionTransactionManager{}
-	dbTransactionManager := pg_transactions.NewPgDbTransactionManager(dataManager)
-	globalTransactionManager := transactions.NewGlobalTransactionManager(fileMetaTransactionManager, dbTransactionManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
-	metaStore := meta.NewStore(meta.NewFileMetaDescriptionSyncer("./"), syncer, globalTransactionManager)
-	dataProcessor, _ := data.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+
+	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+
+	testObjName := utils.RandomString(8)
 
 	var user *auth.User
 
@@ -63,9 +61,9 @@ var _ = Describe("ABAC rules handling", func() {
 		Expect(err).To(BeNil())
 	}
 
-	factoryObjectA := func() *meta.Meta {
+	factoryObjectA := func() *object.Meta {
 		metaDescription := description.MetaDescription{
-			Name: "a",
+			Name: testObjName,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -88,10 +86,10 @@ var _ = Describe("ABAC rules handling", func() {
 					Optional: true,
 				},
 				{
-					Name:	  "color",
-					Type:	  description.FieldTypeString,
+					Name:     "color",
+					Type:     description.FieldTypeString,
 					Optional: true,
-					Def: 	  "red",
+					Def:      "red",
 				},
 			},
 		}
@@ -116,7 +114,7 @@ var _ = Describe("ABAC rules handling", func() {
 				ABAC: map[string]interface{}{
 					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
-						"a": map[string]interface{}{
+						testObjName: map[string]interface{}{
 							"data_GET": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
@@ -156,7 +154,7 @@ var _ = Describe("ABAC rules handling", func() {
 					ABAC: map[string]interface{}{
 						"_default_resolution": "allow",
 						SERVICE_DOMAIN: map[string]interface{}{
-							"a": map[string]interface{}{
+							testObjName: map[string]interface{}{
 								"*": []interface{}{
 									map[string]interface{}{
 										"result": "deny",
@@ -185,6 +183,129 @@ var _ = Describe("ABAC rules handling", func() {
 			})
 		})
 
+		Context("NOT IN can work together", func() {
+			It("NOT IN can work together", func() {
+				user = &auth.User{
+					Role: abac.JsonToObject(`{"id": "admin"}`),
+					ABAC: abac.JsonToObject(fmt.Sprintf(`
+					{
+						"_default_resolution": "allow",
+						"%s": {
+							"%s": {
+								"data_GET": [
+									{
+										"result": "deny",
+										"rule": {
+											"sbj.role.id": {
+												"not": {
+													"in": [
+														"manager",
+														"admin"
+													]
+												}
+											}
+										}
+									}
+								]
+							}
+						}
+					}`, SERVICE_DOMAIN, testObjName)),
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				url := fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, testObjName)
+
+				var request, _ = http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+			})
+		})
+
+		Context("NOT operator can work with numeric id allowed", func() {
+			It("NOT operator can work with numeric id", func() {
+				url := fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, testObjName)
+
+				user := &auth.User{
+					Role: abac.JsonToObject(`{"id": 20}`),
+					ABAC: abac.JsonToObject(fmt.Sprintf(`
+					{
+						"_default_resolution": "allow",
+						"%s": {
+							"%s": {
+								"data_GET": [
+									{
+										"result": "deny",
+										"rule": {
+											"sbj.role.id": {
+												"not": 21
+											}
+										}
+									}
+								]
+							}
+						}
+					}`, SERVICE_DOMAIN, testObjName)),
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				request, _ := http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("FAIL"))
+
+			})
+		})
+
+		Context("NOT operator can work with numeric id allowed", func() {
+			It("NOT operator can work with numeric id", func() {
+				url := fmt.Sprintf("%s/data/%s", appConfig.UrlPrefix, testObjName)
+
+				user := &auth.User{
+					Role: abac.JsonToObject(`{"id": 21}`),
+					ABAC: abac.JsonToObject(fmt.Sprintf(`
+					{
+						"_default_resolution": "allow",
+						"%s": {
+							"%s": {
+								"data_GET": [
+									{
+										"result": "deny",
+										"rule": {
+											"sbj.role.id": {
+												"not": 21
+											}
+										}
+									}
+								]
+							}
+						}
+					}`, SERVICE_DOMAIN, testObjName)),
+				}
+
+				httpServer = get_server(user)
+				factoryObjectA()
+
+				request, _ := http.NewRequest("GET", url, nil)
+				httpServer.Handler.ServeHTTP(recorder, request)
+				responseBody := recorder.Body.String()
+
+				var body map[string]interface{}
+				json.Unmarshal([]byte(responseBody), &body)
+				Expect(body["status"].(string)).To(Equal("OK"))
+
+			})
+		})
 		Context("Meta & Wildcard rules", func() {
 			It("Must allow meta list with ACTION rule set", func() {
 				user.Role = abac.JsonToObject(`{"id": "manager"}`)
@@ -286,6 +407,8 @@ var _ = Describe("ABAC rules handling", func() {
 				url := fmt.Sprintf("%s/data/%s/%s", appConfig.UrlPrefix, aObject.Name, aRecord.PkAsString())
 
 				var request, _ = http.NewRequest("GET", url, nil)
+				Expect(request.Response).To(BeNil())
+
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
@@ -303,7 +426,7 @@ var _ = Describe("ABAC rules handling", func() {
 				ABAC: map[string]interface{}{
 					"_default_resolution": "deny",
 					SERVICE_DOMAIN: map[string]interface{}{
-						"a": map[string]interface{}{
+						testObjName: map[string]interface{}{
 							"data_GET": []interface{}{
 								map[string]interface{}{
 									"result": "allow",
@@ -341,8 +464,8 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And an A record belongs to managers", func() {
 			var err error
 			var url string
-			var aObject *meta.Meta
-			var aRecord *record.Record
+			var aObject *object.Meta
+			var aRecord *object.Record
 
 			JustBeforeEach(func() {
 				aObject = factoryObjectA()
@@ -394,8 +517,8 @@ var _ = Describe("ABAC rules handling", func() {
 		Context("And this user has the role 'admin'", func() {
 			var err error
 			var url string
-			var aObject *meta.Meta
-			var aRecord *record.Record
+			var aObject *object.Meta
+			var aRecord *object.Record
 
 			JustBeforeEach(func() {
 				aObject = factoryObjectA()
@@ -463,23 +586,23 @@ var _ = Describe("ABAC rules handling", func() {
 			var abac_tree = map[string]interface{}{
 				"_default_resolution": "deny",
 				SERVICE_DOMAIN: map[string]interface{}{
-					"a": map[string]interface{}{
+					testObjName: map[string]interface{}{
 						"data_GET": []interface{}{
 							map[string]interface{}{
 								"result": "allow",
 								"rule": map[string]interface{}{
 									"sbj.role.id": "admin",
 								},
-							},map[string]interface{}{
+							}, map[string]interface{}{
 								"result": "deny",
 								"rule": map[string]interface{}{
 									"sbj.role.id": "disabled",
 								},
-							},map[string]interface{} {
+							}, map[string]interface{}{
 								"result": "deny",
 								"rule": map[string]interface{}{
 									"sbj.role.id": "restricted",
-									"obj.color": "red",
+									"obj.color":   "red",
 								},
 							},
 						},
@@ -553,7 +676,7 @@ var _ = Describe("ABAC rules handling", func() {
 				var abac_tree = map[string]interface{}{
 					"_default_resolution": "allow",
 					SERVICE_DOMAIN: map[string]interface{}{
-						"a": map[string]interface{}{
+						testObjName: map[string]interface{}{
 							"data_GET": []interface{}{
 								map[string]interface{}{
 									"result": "deny",
@@ -588,13 +711,13 @@ var _ = Describe("ABAC rules handling", func() {
 			var abac_tree = map[string]interface{}{
 				"_default_resolution": "allow",
 				SERVICE_DOMAIN: map[string]interface{}{
-					"a": map[string]interface{}{
+					testObjName: map[string]interface{}{
 						"data_GET": []interface{}{
 							map[string]interface{}{
 								"result": "deny",
 								"rule": map[string]interface{}{
 									"sbj.role.id": "user",
-									"obj.color": "red",
+									"obj.color":   "red",
 								},
 							},
 						},
@@ -602,7 +725,7 @@ var _ = Describe("ABAC rules handling", func() {
 				},
 			}
 
-			It("Must show only blue for users", func(){
+			It("Must show only blue for users", func() {
 				user = &auth.User{
 					Role: abac.JsonToObject(`{"id": "user"}`), ABAC: abac_tree,
 				}

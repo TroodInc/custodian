@@ -8,7 +8,10 @@ require (
 	github.com/fatih/structs v1.1.0
 	github.com/getlantern/deepcopy v0.0.0-20160317154340-7f45deb8130a
 	github.com/getsentry/raven-go v0.2.0
+	github.com/getsentry/sentry-go v0.10.0
 	github.com/go-redis/redis/v8 v8.0.0-beta.5
+	github.com/jackc/pgconn v1.8.0
+	github.com/jackc/pgx/v4 v4.10.1
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.7.0
 	github.com/mattn/go-colorable v0.1.7 // indirect
