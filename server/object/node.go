@@ -346,11 +346,9 @@ func (node *Node) FillChildNode(fieldDescription *FieldDescription, onlyLink boo
 	}
 	childNodes := *NewChildNodes()
 	if selectType == SelectFieldsTypeInclude {
-		//return existing node
+		//return existing node if no node exist create it
 		if len(node.ChildNodes.nodes) > 0 {
-			if childNode, ok := node.ChildNodes.Get(fieldDescription.Name); !ok {
-				return nil
-			} else {
+			if childNode, ok := node.ChildNodes.Get(fieldDescription.Name); ok {
 				return childNode
 			}
 		}
