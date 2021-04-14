@@ -680,6 +680,48 @@ var _ = Describe("Data", func() {
 		Expect(obj).To(BeNil())
 	})
 
+	It("Processes delete logic for outer records if no existing record presence in upd data. `Cascade` strategy case ", func() {
+		havingObjectA()
+		bMetaObj := havingObjectB(description.OnDeleteCascade.ToVerbose())
+		aMetaObj := havingObjectAWithManuallySetOuterLink()
+
+		aRecord, err := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"name": "A record"}, auth.User{})
+		Expect(err).To(BeNil())
+
+		bRecord, err := dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{"name": "B record", testObjAName: aRecord.Pk()}, auth.User{})
+		Expect(err).To(BeNil())
+
+		// no existing records in update data
+		aUpdateData := map[string]interface{}{
+			"id":   aRecord.PkAsString(),
+			"name": "Updated A name",
+			testObjBSetName: []interface{}{
+				map[string]interface{}{"name": "New B Record"}, //new record`s data
+			},
+		}
+
+		obj, err := dataProcessor.UpdateRecord(aMetaObj.Name, aRecord.PkAsString(), aUpdateData, auth.User{})
+		Expect(err).To(BeNil())
+
+		//check returned data
+		Expect(obj.Data).To(HaveKey(testObjBSetName))
+		bSetData := obj.Data[testObjBSetName].([]interface{})
+		Expect(bSetData).To(HaveLen(1))
+		Expect(bSetData[0].(map[string]interface{})["name"]).To(Equal("New B Record"))
+		//	check queried data
+		obj, err = dataProcessor.Get(aMetaObj.Name, aRecord.PkAsString(), nil, nil, 2, false)
+		Expect(err).To(BeNil())
+		Expect(obj.Data).To(HaveKey(testObjBSetName))
+		bSetData = obj.Data[testObjBSetName].([]interface{})
+		Expect(bSetData).To(HaveLen(1))
+		Expect(bSetData[0].(*object.Record).Data["name"]).To(Equal("New B Record"))
+		//	check B record is deleted
+		removedBRecordPk, _ := bMetaObj.Key.ValueAsString(bRecord.Data["id"])
+		obj, err = dataProcessor.Get(bMetaObj.Name, removedBRecordPk, nil, nil, 1, false)
+		Expect(err).To(BeNil())
+		Expect(obj).To(BeNil())
+	})
+
 	It("Processes delete logic for outer records which are not presented in update data. `SetNull` strategy case ", func() {
 		havingObjectA()
 		bMetaObj := havingObjectB(description.OnDeleteSetNull.ToVerbose())
