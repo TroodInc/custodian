@@ -349,7 +349,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			omitOuters = true
 		}
 
-		_, rule := abac_resolver.Check(p.ByName("name"), "data_GET") // ??
+		_, rule := abac_resolver.Check(p.ByName("name"), "data_LIST") // ??
 		user_filters := q.Get("q")
 
 		var filters []string
@@ -374,7 +374,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			sink.pushError(e)
 		} else {
 			for _, obj := range records {
-				pass, rec := abac_resolver.MaskRecord(obj, "data_GET")
+				pass, rec := abac_resolver.MaskRecord(obj, "data_LIST")
 				if pass {
 					result = append(result, rec.(*object.Record).GetData())
 				}
