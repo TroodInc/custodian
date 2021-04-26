@@ -37,7 +37,11 @@ Object Records actions:
 
 .. attribute:: data_GET
 
-    Access for getting both *list* or *single* object.
+    Access for getting *single* object.
+
+.. attribute:: data_LIST
+
+    Access for getting objects *list*.
 
 .. attribute:: data_POST
 
