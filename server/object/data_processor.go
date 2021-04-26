@@ -196,8 +196,16 @@ func SetRecordOwner(objectMeta *Meta, recordData map[string]interface{}, user au
 		if field.Def != nil {
 			switch f := field.Def.(type) {
 			case map[string]interface{}:
-				if f["func"] == "owner" {
-					recordData[objectMeta.Fields[i].Name] = user.Id
+				owner, ownerInData := recordData[objectMeta.Fields[i].Name]
+				if ownerInData {
+					recordData[objectMeta.Fields[i].Name] = owner
+				} else if !ownerInData && f["func"] == "owner" {
+					if user.Id == 0 {
+						recordData[objectMeta.Fields[i].Name] = nil
+					} else {
+						recordData[objectMeta.Fields[i].Name] = user.Id
+					}
+
 				}
 			}
 		}
