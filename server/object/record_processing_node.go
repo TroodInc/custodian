@@ -41,11 +41,12 @@ func (r *RecordProcessingNode) collectRecordOperations(recordOperations []*Recor
 	var operation RecordOperationType
 	if r.Record.IsPhantom() {
 		operation = RecordOperationTypeCreate
+		SetRecordOwner(r.Record.Meta, r.Record.Data, user)
+
 	} else {
 		operation = RecordOperationTypeUpdate
 	}
 
-	SetRecordOwner(r.Record.Meta, r.Record.Data, user)
 	recordOperations = append(recordOperations, &RecordOperation{Record: r.Record, Type: operation})
 
 	for _, recordProcessingNode := range r.ProcessAfter {
