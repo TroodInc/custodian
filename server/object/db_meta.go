@@ -27,9 +27,17 @@ func (dm *DbMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 
 func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescription, bool, error) {
 
-	transaction, _ := dm.DbTransactionManager.BeginTransaction()
+	transaction, err := dm.DbTransactionManager.BeginTransaction()
+	if err != nil {
+		dm.DbTransactionManager.RollbackTransaction(transaction)
+		return nil, false, err
+	}
 
-	ddl, _ := MetaDDLFromDB(transaction.Transaction().(*sql.Tx), name)
+	ddl, err := MetaDDLFromDB(transaction.Transaction().(*sql.Tx), name)
+	if err != nil {
+		dm.DbTransactionManager.RollbackTransaction(transaction)
+		return nil, false, err
+	}
 
 	var meta = description.MetaDescription{Name: name, Key: ddl.Pk}
 

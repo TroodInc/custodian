@@ -76,7 +76,7 @@ func (syncer *Syncer) CreateObj(globalTransactionManager *PgDbTransactionManager
 	transaction, err := globalTransactionManager.BeginTransaction()
 	if err != nil {
 		globalTransactionManager.RollbackTransaction(transaction)
-		return nil
+		return err
 	}
 	tx := transaction.Transaction().(*sql.Tx)
 	for _, st := range ds {

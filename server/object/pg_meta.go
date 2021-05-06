@@ -53,14 +53,19 @@ func getMetaObjFromDb(name string, tx *sql.Tx) (description.MetaDescription, err
 }
 
 func (md *PgMetaDescriptionSyncer) CreateMetaTableIfNotExists() {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
-	tx := globalTransaction.Transaction().(*sql.Tx)
-	_, err := tx.Exec(SQL_CREATE_META_TABLE)
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
 	if err != nil {
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-	} else {
-		md.globalTransactionManager.CommitTransaction(globalTransaction)
 	}
+
+	tx := globalTransaction.Transaction().(*sql.Tx)
+	_, err = tx.Exec(SQL_CREATE_META_TABLE)
+	if err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return
+	}
+	md.globalTransactionManager.CommitTransaction(globalTransaction)
+
 }
 
 type PgMetaDescriptionSyncer struct {
@@ -79,7 +84,11 @@ func (md *PgMetaDescriptionSyncer) Cache() *MetaCache {
 }
 
 func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescription, bool, error) {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return nil, false, err
+	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
 	if exists, err := checkMetaObjExists(name, tx); err != nil {
 		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())
@@ -111,7 +120,11 @@ func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 }
 
 func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool, error) {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return nil, false, err
+	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
 	rows, err := tx.Query(SQL_GET_META_LIST)
 	if err != nil {
@@ -142,7 +155,11 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 }
 
 func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return false, err
+	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
 	if exists, err := checkMetaObjExists(name, tx); err != nil {
 		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())
@@ -161,7 +178,7 @@ func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
 			nil,
 		)
 	}
-	_, err := tx.Exec(DELETE_META_OBJ, name)
+	_, err = tx.Exec(DELETE_META_OBJ, name)
 	if err != nil {
 		logger.Error("Can't delete MetaDescription '%s': %s", name, err.Error())
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -177,7 +194,11 @@ func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
 }
 
 func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return err
+	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
 	if exists, err := checkMetaObjExists(m.Name, tx); err != nil {
 		logger.Debug("Error while checking if object exists %s: %s", m.Name, err.Error())
@@ -223,7 +244,11 @@ func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
 }
 
 func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescription) (bool, error) {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return false, err
+	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
 	if exists, err := checkMetaObjExists(name, tx); err != nil {
 		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())

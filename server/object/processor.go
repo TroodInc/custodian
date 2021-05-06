@@ -5,8 +5,9 @@ import (
 	"custodian/server/transactions"
 	"database/sql"
 	"fmt"
-	"github.com/jackc/pgconn"
 	"regexp"
+
+	"github.com/jackc/pgconn"
 
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 
@@ -151,7 +152,7 @@ func NewStmt(tx *sql.Tx, q string) (*Stmt, error) {
 		logger.Error("Prepare statement error: %s %s", q, err.Error())
 		return nil, errors.NewFatalError(ErrDMLFailed, err.Error(), nil)
 	}
-	logger.Debug("Prepared sql: %s", q)
+	// logger.Debug("Prepared sql: %s", q)
 	return &Stmt{statement}, nil
 }
 
