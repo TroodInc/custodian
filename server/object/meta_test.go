@@ -256,15 +256,22 @@ var _ = Describe("The PG MetaStore", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 				tx := globalTransaction.Transaction().(*sql.Tx)
-				Expect(err).To(BeNil())
 
 				actualMeta, err := MetaDDLFromDB(tx, meta.Name)
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 				err = dbTransactionManager.CommitTransaction(globalTransaction)
 				Expect(err).To(BeNil())
 
-				Expect(err).To(BeNil())
 				Expect(actualMeta.Columns[1].Typ).To(Equal(description.FieldTypeString))
 			})
 		})
@@ -296,15 +303,21 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			tx := globalTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
 
 			actualMeta, err := MetaDDLFromDB(tx, meta.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 
-			Expect(err).To(BeNil())
 			Expect(actualMeta.Columns[1].Typ).To(Equal(description.FieldTypeString))
 		})
 	})
@@ -333,12 +346,20 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			tx := globalTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
 
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			err = dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 
@@ -377,13 +398,18 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			tx := globalTransaction.Transaction().(*sql.Tx)
-
-			Expect(err).To(BeNil())
 
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 
@@ -422,12 +448,18 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			tx := globalTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
 
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 
@@ -466,12 +498,19 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			tx := globalTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
 
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			err = dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 
@@ -510,12 +549,19 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			tx := globalTransaction.Transaction().(*sql.Tx)
-			Expect(err).To(BeNil())
 
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 

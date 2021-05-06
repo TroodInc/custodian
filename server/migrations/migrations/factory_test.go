@@ -65,16 +65,26 @@ var _ = Describe("Migration Factory", func() {
 		}
 		//create MetaDescription
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		//sync MetaDescription
 
 		operation := object.NewCreateObjectOperation(metaDescription)
 
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		//sync DB
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		//
 		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
@@ -82,7 +92,11 @@ var _ = Describe("Migration Factory", func() {
 
 	It("factories migration containing CreateObjectOperation", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
@@ -98,7 +112,11 @@ var _ = Describe("Migration Factory", func() {
 
 		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		Expect(migration.Operations).To(HaveLen(1))
 
 		_, ok := migration.Operations[0].(*object.CreateObjectOperation)
@@ -109,7 +127,11 @@ var _ = Describe("Migration Factory", func() {
 
 	It("factories migration containing RenameObjectOperation", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		updatedMetaDescription := metaDescription.Clone()
 		updatedMetaDescription.Name = "updatedA"
@@ -128,7 +150,11 @@ var _ = Describe("Migration Factory", func() {
 
 		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		Expect(migration.Operations).To(HaveLen(1))
 
 		_, ok := migration.Operations[0].(*object.RenameObjectOperation)
@@ -139,7 +165,10 @@ var _ = Describe("Migration Factory", func() {
 
 	It("factories migration containing RenameObjectOperation", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
@@ -155,7 +184,11 @@ var _ = Describe("Migration Factory", func() {
 
 		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		Expect(migration.Operations).To(HaveLen(1))
 
 		_, ok := migration.Operations[0].(*object.DeleteObjectOperation)
@@ -166,7 +199,11 @@ var _ = Describe("Migration Factory", func() {
 
 	It("factories migration containing AddFieldOperation", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
@@ -182,7 +219,11 @@ var _ = Describe("Migration Factory", func() {
 
 		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		Expect(migration.Operations).To(HaveLen(1))
 
 		_, ok := migration.Operations[0].(*field.AddFieldOperation)
@@ -193,7 +234,11 @@ var _ = Describe("Migration Factory", func() {
 
 	It("factories migration containing RemoveFieldOperation", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
@@ -209,7 +254,11 @@ var _ = Describe("Migration Factory", func() {
 
 		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		Expect(migration.Operations).To(HaveLen(1))
 
 		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
@@ -220,7 +269,11 @@ var _ = Describe("Migration Factory", func() {
 
 	It("factories migration containing UpdateFieldOperation", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		migrationDescription := &migrations_description.MigrationDescription{
 			Id:        "some-unique-id",
@@ -236,7 +289,11 @@ var _ = Describe("Migration Factory", func() {
 
 		migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		Expect(migration.Operations).To(HaveLen(1))
 
 		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
@@ -248,7 +305,11 @@ var _ = Describe("Migration Factory", func() {
 	Describe("Automated generic fields` migrations` spawning", func() {
 		It("adds reverse generic outer link while object is being created", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 
 			bMetaDescription := description.NewMetaDescription(
 				testObjBName,
@@ -287,7 +348,11 @@ var _ = Describe("Migration Factory", func() {
 
 			migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			Expect(migration.RunAfter).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object2.ReverseInnerLinkName(testObjBName)))
@@ -322,7 +387,11 @@ var _ = Describe("Migration Factory", func() {
 
 			It("adds a reverse generic outer link when a new inner generic field is being added to an object", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				field := description.Field{
 					Name:         "target_object",
@@ -346,7 +415,11 @@ var _ = Describe("Migration Factory", func() {
 
 				migration, err := NewMigrationFactory(metaDescriptionSyncer).FactoryForward(migrationDescription)
 
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 				Expect(migration.RunAfter).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object2.ReverseInnerLinkName(testObjBName)))

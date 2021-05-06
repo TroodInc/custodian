@@ -20,10 +20,10 @@ import (
 const historyMetaName = "__custodian_objects_migration_history__"
 
 type MigrationManager struct {
-	metaStore             *object2.MetaStore
-	migrationStore        *object2.MetaStore
-	dataManager           *object2.DBManager
-	processor			  *object2.Processor
+	metaStore                *object2.MetaStore
+	migrationStore           *object2.MetaStore
+	dataManager              *object2.DBManager
+	processor                *object2.Processor
 	globalTransactionManager *object2.PgDbTransactionManager
 }
 
@@ -37,7 +37,7 @@ func (mm *MigrationManager) List(filter string) (int, []*object2.Record, error) 
 	if err != nil {
 		return 0, nil, err
 	}
-	return  mm.processor.GetBulk(historyMeta.Name, filter, nil, nil, 1, true)
+	return mm.processor.GetBulk(historyMeta.Name, filter, nil, nil, 1, true)
 }
 
 func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool, fake bool) (updatedMetaDescription *description.MetaDescription, err error) {
@@ -133,12 +133,16 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 		}
 	}
 
-	globalTransaction, _ := mm.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := mm.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		mm.globalTransactionManager.RollbackTransaction(globalTransaction)
+	}
 	for _, operation := range migration.Operations {
 		//metaToApply should mutate only within iterations, not inside iteration
 		if !fake {
 			updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, mm.metaStore.MetaDescriptionSyncer)
 			if err != nil {
+				mm.globalTransactionManager.RollbackTransaction(globalTransaction)
 				return nil, err
 			} else {
 				err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction, mm.metaStore.MetaDescriptionSyncer)
@@ -179,6 +183,9 @@ func (mm *MigrationManager) DropHistory() error {
 	}
 
 	transaction, err := mm.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		mm.globalTransactionManager.RollbackTransaction(transaction)
+	}
 	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.migrationStore.MetaDescriptionSyncer)
 	if err != nil {
 		mm.globalTransactionManager.RollbackTransaction(transaction)
@@ -282,11 +289,11 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 	meta_state, _ := json.Marshal(migration.MigrationDescription.MetaDescription)
 
 	migrationData := map[string]interface{}{
-		"created": time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00"),
-		"id":   migration.Id,
-		"dependsOn": predecessorId,
-		"applyTo":         metaName,
-		"operations":  string(operations),
+		"created":    time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00"),
+		"id":         migration.Id,
+		"dependsOn":  predecessorId,
+		"applyTo":    metaName,
+		"operations": string(operations),
 		"meta_state": string(meta_state),
 	}
 
@@ -315,6 +322,10 @@ func (mm *MigrationManager) removeAppliedMigration(migration *migrations.Migrati
 
 func (mm *MigrationManager) ensureHistoryTableExists() (*object2.Meta, error) {
 	transaction, err := mm.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		mm.globalTransactionManager.RollbackTransaction(transaction)
+		return nil, err
+	}
 	_, err = object2.MetaDDLFromDB(transaction.Transaction().(*sql.Tx), historyMetaName)
 	doesNotExist := false
 	if err != nil {
@@ -419,7 +430,7 @@ func (mm *MigrationManager) factoryHistoryMeta() (*object2.Meta, error) {
 				Type:     description.FieldTypeString,
 				Optional: false,
 			}, {
-				Name:      "created",
+				Name:        "created",
 				Type:        description.FieldTypeDateTime,
 				NowOnCreate: true,
 			}, {
@@ -429,12 +440,12 @@ func (mm *MigrationManager) factoryHistoryMeta() (*object2.Meta, error) {
 					"func": "nextval",
 				},
 			}, {
-				Name: "operations",
-				Type: description.FieldTypeString,
+				Name:     "operations",
+				Type:     description.FieldTypeString,
 				Optional: false,
 			}, {
-				Name: "meta_state",
-				Type: description.FieldTypeString,
+				Name:     "meta_state",
+				Type:     description.FieldTypeString,
 				Optional: false,
 			},
 		},

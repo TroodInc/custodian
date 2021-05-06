@@ -54,29 +54,47 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	It("creates column for specified table in the database", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		operation := object.NewCreateObjectOperation(metaDescription)
 
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		//
 
 		field := description.Field{Name: "new_field", Type: description.FieldTypeString, Optional: true}
 		fieldOperation := NewAddFieldOperation(&field)
 
 		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		tx := globalTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Columns).To(HaveLen(2))
 		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
@@ -88,15 +106,24 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	It("creates enum", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		operation := object.NewCreateObjectOperation(metaDescription)
 
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		//
 		enums := description.EnumChoices{"string", "ping", "CAMEL"}
 		field := description.Field{
@@ -108,15 +135,24 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		fieldOperation := NewAddFieldOperation(&field)
 
 		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		tx := globalTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(metaDescription.Name).To(Equal("a"))
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Columns).To(HaveLen(2))
 		Expect(metaDdlFromDB.Columns[1].Optional).To(BeTrue())
@@ -129,14 +165,23 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	It("creates sequence for specified column in the database", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		operation := object.NewCreateObjectOperation(metaDescription)
 
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		//sync MetaDescription with DB
 
 		//
@@ -151,14 +196,23 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 		fieldOperation := NewAddFieldOperation(&field)
 		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		tx := globalTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
 		Expect(metaDdlFromDB.Seqs[1].Name).To(Equal("o_a_new_field_seq"))
@@ -168,13 +222,22 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	It("creates constraint for specified column in the database", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		operation := object.NewCreateObjectOperation(metaDescription)
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		//create linked MetaDescription obj
 		linkedMetaDescription := &description.MetaDescription{
@@ -194,10 +257,16 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 		linkedMetaOperation := object.NewCreateObjectOperation(linkedMetaDescription)
 		linkedMetaDescription, err = linkedMetaOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		err = linkedMetaOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		//Run field operations
 		field := description.Field{
@@ -212,15 +281,24 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		fieldOperation := NewAddFieldOperation(&field)
 
 		err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		//Check constraint
 		tx := globalTransaction.Transaction().(*sql.Tx)
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		Expect(metaDdlFromDB).NotTo(BeNil())
 		Expect(metaDdlFromDB.IFKs).To(HaveLen(1))
 		Expect(metaDdlFromDB.IFKs[0].ToTable).To(Equal(object2.GetTableName(linkedMetaDescription.Name)))

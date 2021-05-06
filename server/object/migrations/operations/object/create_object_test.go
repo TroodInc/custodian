@@ -55,20 +55,32 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 
 	It("creates corresponding table in the database", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		operation := NewCreateObjectOperation(metaDescription)
 		metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		//sync MetaDescription with DB
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		//ensure table has been created
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, metaDescription.Name)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		Expect(metaDdlFromDB).NotTo(BeNil())
 
 		dbTransactionManager.RollbackTransaction(globalTransaction)

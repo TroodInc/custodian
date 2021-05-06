@@ -66,21 +66,31 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			}
 			//create MetaDescription
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			operation := object.NewCreateObjectOperation(metaDescription)
 			//sync MetaDescription
 			metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			//sync DB
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
-			//
-
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			// clone a field
 			field := metaDescription.FindField("number")
 			err = deepcopy.Copy(&fieldToUpdate, *field)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(fieldToUpdate).NotTo(BeNil())
 
 			dbTransactionManager.CommitTransaction(globalTransaction)
@@ -88,7 +98,10 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 		It("changes column type", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//modify field
 			fieldToUpdate.Type = description.FieldTypeString
@@ -96,14 +109,23 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("number"), &fieldToUpdate)
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//check that field`s type has changed
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 
 			dbTransactionManager.CommitTransaction(globalTransaction)
@@ -111,7 +133,10 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 		It("changes nullability flag", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//modify field
 			fieldToUpdate.Optional = false
@@ -119,9 +144,15 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("number"), &fieldToUpdate)
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//check that field`s type has changed
 			tx := globalTransaction.Transaction().(*sql.Tx)
@@ -134,7 +165,10 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 		It("changes name", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//modify field
 			fieldToUpdate.Name = "updated-name"
@@ -142,14 +176,22 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("number"), &fieldToUpdate)
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
-
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			//check that field`s type has changed
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("updated-name"))
 
 			dbTransactionManager.CommitTransaction(globalTransaction)
@@ -157,23 +199,34 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 		It("drops default value", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//modify field
 			fieldToUpdate.Def = ""
-			Expect(err).To(BeNil())
 
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("number"), &fieldToUpdate)
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//check that field`s default value has been dropped
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal(""))
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(1))
@@ -183,7 +236,10 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 		It("does all things described above at once", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//
 			field := description.Field{Name: "new-number", Type: description.FieldTypeString, Optional: false, Def: nil}
@@ -191,14 +247,23 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("number"), &field)
 
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			//
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(metaDdlFromDB).NotTo(BeNil())
 			Expect(metaDdlFromDB.Columns).To(HaveLen(2))
 			//Optional has changed
@@ -215,16 +280,25 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 		It("creates default value and sequence", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//prepare field, set its default value to nil
 			fieldToUpdate.Def = ""
 
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("number"), &fieldToUpdate)
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			metaDescription, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			//
 
 			//modify field
@@ -235,14 +309,23 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//apply operation
 			fieldOperation = NewUpdateFieldOperation(metaDescription.FindField("number"), &fieldToUpdate)
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//check that field`s default value has been dropped
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal(fmt.Sprintf("nextval('o_%s_number_seq'::regclass)", testObjAName)))
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
@@ -255,6 +338,10 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 		//setup MetaObj
 		BeforeEach(func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			//MetaDescription B
 			bMetaDescription := &description.MetaDescription{
 				Name: testObjBName,
@@ -281,9 +368,15 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			operation := object.NewCreateObjectOperation(bMetaDescription)
 
 			bMetaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			//MetaDescription A
 			metaDescription = &description.MetaDescription{
 				Name: testObjAName,
@@ -310,16 +403,25 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 			//sync MetaDescription
 			metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			//sync DB
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			//
 
 			// clone a field
 			field := metaDescription.FindField("b")
 			err = deepcopy.Copy(&fieldToUpdate, *field)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(fieldToUpdate).NotTo(BeNil())
 
 			dbTransactionManager.CommitTransaction(globalTransaction)
@@ -327,7 +429,10 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 		It("changes IFK name if field is renamed", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//modify field
 			fieldToUpdate.Name = "b_link"
@@ -335,14 +440,23 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("b"), &fieldToUpdate)
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//check that field`s type has changed
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("b_link"))
 			Expect(metaDdlFromDB.IFKs).To(HaveLen(1))
 			Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("b_link"))
@@ -383,9 +497,15 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//sync DB
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 			//
@@ -406,15 +526,28 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//apply operation
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("enum"), &fieldToUpdate)
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			//check that field`s type has changed
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal(fmt.Sprintf("'val1'::o_%s_enum", testObjBName)))
@@ -450,11 +583,21 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			operation := object.NewCreateObjectOperation(metaDescription)
 			//sync MetaDescription
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			//sync DB
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 			//
@@ -471,16 +614,32 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 			//apply operation
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("enum_field"), &fieldToUpdate)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(len(metaDdlFromDB.Columns[1].Enum)).To(Equal(3))
 			Expect(metaDdlFromDB.Columns[1].Enum[2]).To(Equal("val3"))
 			dbTransactionManager.CommitTransaction(globalTransaction)
@@ -491,16 +650,32 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 			//apply operation
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			fieldOperation := NewUpdateFieldOperation(metaDescription.FindField("enum_field"), &fieldToUpdate)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = fieldOperation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			tx := globalTransaction.Transaction().(*sql.Tx)
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("enum_field_new"))
 			dbTransactionManager.CommitTransaction(globalTransaction)
 		})

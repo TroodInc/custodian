@@ -141,7 +141,15 @@ var _ = Describe("Record tree extractor", func() {
 
 		By("Building removal node for A record")
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		recordNode, err := new(object.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		dbTransactionManager.CommitTransaction(globalTransaction)
 
 		By("It should only contain B record marked with 'setNull' strategy")
@@ -176,6 +184,10 @@ var _ = Describe("Record tree extractor", func() {
 
 		By("Building removal node for A record")
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		_, err = new(object.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction)
 		if err != nil {
 			dbTransactionManager.RollbackTransaction(globalTransaction)
@@ -208,7 +220,15 @@ var _ = Describe("Record tree extractor", func() {
 
 		By("Building removal node for A record")
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		recordNode, err := new(object.RecordRemovalTreeBuilder).Extract(aRecord, dataProcessor, globalTransaction)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		dbTransactionManager.CommitTransaction(globalTransaction)
 
 		By("It should contain B record marked with 'cascade' strategy, which contains C record containing 'cascade' strategy")

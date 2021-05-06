@@ -31,6 +31,11 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	//setup MetaDescription
 	BeforeEach(func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -45,14 +50,19 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 				},
 			},
 		}
-		Expect(err).To(BeNil())
 
 		//sync its MetaDescription with MetaDescription storage
 		err = metaDescriptionSyncer.Create(*metaDescription)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		//sync its MetaDescription with DB
 		err = syncer.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		dbTransactionManager.CommitTransaction(globalTransaction)
 	})
@@ -70,17 +80,26 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		newMetaDescription.Name = "b"
 
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		//sync MetaDescription with DB
 		operation := NewRenameObjectOperation(newMetaDescription)
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		//ensure table has been renamed
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, newMetaDescription.Name)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		Expect(metaDdlFromDB).NotTo(BeNil())
 
 		//ensure table with old name does not exist

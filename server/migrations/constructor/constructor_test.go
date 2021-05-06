@@ -37,7 +37,11 @@ var _ = Describe("Migration Constructor", func() {
 	Describe("Separate operations` generation", func() {
 		It("generates empty migration if nothing has changed", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			testObjAName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
@@ -79,7 +83,11 @@ var _ = Describe("Migration Constructor", func() {
 
 		It("generates migration description with create operation if object is being created", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			testObjAName := utils.RandomString(8)
 
 			newMetaDescription := &migration_description.MigrationMetaDescription{
@@ -100,6 +108,10 @@ var _ = Describe("Migration Constructor", func() {
 			}
 			migrationDescription, err := migrationConstructor.Construct(nil, newMetaDescription, globalTransaction)
 			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				return
+			}
 
 			Expect(migrationDescription).NotTo(BeNil())
 			Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -111,7 +123,11 @@ var _ = Describe("Migration Constructor", func() {
 
 		It("generates operation if object is being renamed", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			testObjAName := utils.RandomString(8)
 			testObjBName := utils.RandomString(8)
 
@@ -146,6 +162,10 @@ var _ = Describe("Migration Constructor", func() {
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				return
+			}
 
 			Expect(migrationDescription).NotTo(BeNil())
 			Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -158,7 +178,11 @@ var _ = Describe("Migration Constructor", func() {
 
 		It("generates operation if object is being deleted", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			testObjAName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
@@ -176,6 +200,10 @@ var _ = Describe("Migration Constructor", func() {
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, nil, globalTransaction)
 			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				return
+			}
 
 			Expect(migrationDescription).NotTo(BeNil())
 			Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -188,7 +216,12 @@ var _ = Describe("Migration Constructor", func() {
 
 		It("generates operation if field is being added", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			testObjAName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
@@ -230,6 +263,10 @@ var _ = Describe("Migration Constructor", func() {
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				return
+			}
 
 			Expect(migrationDescription).NotTo(BeNil())
 			Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -241,7 +278,11 @@ var _ = Describe("Migration Constructor", func() {
 
 		It("generates operation if field is being removed", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			testObjAName := utils.RandomString(8)
 
 			currentMetaDescription := &description.MetaDescription{
@@ -279,7 +320,11 @@ var _ = Describe("Migration Constructor", func() {
 				Cas:     false,
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 
 			Expect(migrationDescription).NotTo(BeNil())
 			Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -328,7 +373,10 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if field is being renamed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -372,6 +420,10 @@ var _ = Describe("Migration Constructor", func() {
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -383,7 +435,12 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if field`s Optional value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -427,7 +484,12 @@ var _ = Describe("Migration Constructor", func() {
 					Cas:     false,
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
-				Expect(err).To(BeNil())
+
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -439,7 +501,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if field`s Def value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -483,6 +549,10 @@ var _ = Describe("Migration Constructor", func() {
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -494,7 +564,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if field`s NowOnCreate value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -538,6 +612,10 @@ var _ = Describe("Migration Constructor", func() {
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -549,7 +627,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if field`s NowOnUpdate value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -593,6 +675,10 @@ var _ = Describe("Migration Constructor", func() {
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -604,7 +690,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if field`s OnDelete value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -648,6 +738,10 @@ var _ = Describe("Migration Constructor", func() {
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -659,7 +753,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if field`s LinkMetaList value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -714,7 +812,11 @@ var _ = Describe("Migration Constructor", func() {
 
 		It("generates operation if action is being added", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 
 			currentMetaDescription := &description.MetaDescription{
 				Name: testObjAName,
@@ -754,6 +856,10 @@ var _ = Describe("Migration Constructor", func() {
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				return
+			}
 
 			Expect(migrationDescription).NotTo(BeNil())
 			Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -765,7 +871,11 @@ var _ = Describe("Migration Constructor", func() {
 
 		It("generates operation if action is being removed", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 
 			currentMetaDescription := &description.MetaDescription{
 				Name: testObjAName,
@@ -805,6 +915,10 @@ var _ = Describe("Migration Constructor", func() {
 			}
 			migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				return
+			}
 
 			Expect(migrationDescription).NotTo(BeNil())
 			Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -842,7 +956,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if action is being renamed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -872,6 +990,10 @@ var _ = Describe("Migration Constructor", func() {
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -883,7 +1005,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if action`s Method value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -912,6 +1038,10 @@ var _ = Describe("Migration Constructor", func() {
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
@@ -923,7 +1053,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if action`s Args value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -953,6 +1087,11 @@ var _ = Describe("Migration Constructor", func() {
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
 
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
+
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
@@ -963,7 +1102,11 @@ var _ = Describe("Migration Constructor", func() {
 
 			It("generates operation if action`s ActiveIfNotRoot value has changed", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				newMetaMigrationDescription := &migration_description.MigrationMetaDescription{
 					Name: testObjAName,
@@ -993,6 +1136,10 @@ var _ = Describe("Migration Constructor", func() {
 				}
 				migrationDescription, err := migrationConstructor.Construct(currentMetaDescription, newMetaMigrationDescription, globalTransaction)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				Expect(migrationDescription).NotTo(BeNil())
 				Expect(migrationDescription.Operations).To(HaveLen(1))

@@ -9,7 +9,6 @@ import (
 	. "github.com/onsi/gomega"
 
 	"custodian/server/object/description"
-
 )
 
 var _ = Describe("Store", func() {
@@ -83,9 +82,17 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+				}
 				tx := globalTransaction.Transaction().(*sql.Tx)
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
-				dbTransactionManager.CommitTransaction(globalTransaction)
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+				}
+				err = dbTransactionManager.CommitTransaction(globalTransaction)
 
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeTrue())
@@ -118,8 +125,16 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+				}
 				tx := globalTransaction.Transaction().(*sql.Tx)
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+				}
 				dbTransactionManager.CommitTransaction(globalTransaction)
 
 				Expect(err).To(BeNil())
@@ -182,8 +197,16 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+				}
 				tx := globalTransaction.Transaction().(*sql.Tx)
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+				}
 				dbTransactionManager.CommitTransaction(globalTransaction)
 
 				Expect(err).To(BeNil())

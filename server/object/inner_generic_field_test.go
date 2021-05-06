@@ -56,15 +56,27 @@ var _ = Describe("Inner generic field", func() {
 
 		//check database columns
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		tx := globalTransaction.Transaction().(*sql.Tx)
-		Expect(err).To(BeNil())
 
 		tableName := GetTableName(metaObj.Name)
 
 		reverser, err := NewReverser(tx, tableName)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		columns := make([]Column, 0)
 		pk := ""
-		reverser.Columns(&columns, &pk)
+		err = reverser.Columns(&columns, &pk)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(3))
 		// check meta fields
@@ -117,15 +129,28 @@ var _ = Describe("Inner generic field", func() {
 
 		//check database columns
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		tableName := GetTableName(metaObj.Name)
 
 		reverser, err := NewReverser(tx, tableName)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		columns := make([]Column, 0)
 		pk := ""
-		reverser.Columns(&columns, &pk)
+		err = reverser.Columns(&columns, &pk)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))

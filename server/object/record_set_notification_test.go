@@ -171,9 +171,16 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			// execute operation
-			globalTransaction, _ := dbTransactionManager.BeginTransaction()
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = globalTransaction.Execute([]transactions.Operation{operation})
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			dbTransactionManager.CommitTransaction(globalTransaction)
 
 			recordSet.CollapseLinks()
@@ -233,9 +240,16 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			// execute operation
-			globalTransaction, _ := dbTransactionManager.BeginTransaction()
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = globalTransaction.Execute([]transactions.Operation{operation})
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			dbTransactionManager.CommitTransaction(globalTransaction)
 
 			recordSet.CollapseLinks()

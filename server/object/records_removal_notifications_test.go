@@ -143,12 +143,22 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			//fill node
-			globalTransaction, _ := dbTransactionManager.BeginTransaction()
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			dbTransactionManager.CommitTransaction(globalTransaction)
 
 			notifications := recordSetNotificationPool.Notifications()
@@ -176,12 +186,22 @@ var _ = Describe("Data", func() {
 			recordSetNotificationPool := object.NewRecordSetNotificationPool()
 
 			//fill node
-			globalTransaction, _ := dbTransactionManager.BeginTransaction()
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			dbTransactionManager.CommitTransaction(globalTransaction)
 
 			dataProcessor.RemoveRecord(bRecord.Meta.Name, strconv.Itoa(int(bRecord.Pk().(float64))), auth.User{})

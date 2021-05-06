@@ -33,6 +33,10 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	//setup MetaDescription
 	BeforeEach(func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		metaDescription = &description.MetaDescription{
 			Name: "a",
 			Key:  "id",
@@ -47,10 +51,12 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 				},
 			},
 		}
-		Expect(err).To(BeNil())
 		//sync its MetaDescription
 		err = syncer.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		dbTransactionManager.CommitTransaction(globalTransaction)
 	})
@@ -63,12 +69,18 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 
 	It("removes MetaDescription`s file", func() {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		//remove MetaDescription from DB
 		metaName := metaDescription.Name
 		err = new(DeleteObjectOperation).SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		tx := globalTransaction.Transaction().(*sql.Tx)
 

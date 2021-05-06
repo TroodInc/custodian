@@ -164,9 +164,17 @@ var _ = Describe("Server 101", func() {
 		Expect(aMeta).To(BeNil())
 
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		appliedMigrations, err := migrationManager.GetPrecedingMigrationsForObject(testObjAName)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		Expect(appliedMigrations).To(HaveLen(1))
 		Expect(appliedMigrations[0].Data["id"]).To(Equal(migrationDescriptionData["id"]))
 
@@ -178,7 +186,11 @@ var _ = Describe("Server 101", func() {
 		testObjAName := utils.RandomString(8)
 		testObjDName := utils.RandomString(8)
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
 			Name: testObjAName,
@@ -197,9 +209,18 @@ var _ = Describe("Server 101", func() {
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
@@ -254,7 +275,11 @@ var _ = Describe("Server 101", func() {
 	It("Can delete object by application of migration", func() {
 		testObjAName := utils.RandomString(8)
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
 			Name: testObjAName,
@@ -273,9 +298,17 @@ var _ = Describe("Server 101", func() {
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
@@ -330,7 +363,11 @@ var _ = Describe("Server 101", func() {
 	It("Can add field by application of migration", func() {
 		testObjAName := utils.RandomString(8)
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
+
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
 			Name: testObjAName,
@@ -349,9 +386,16 @@ var _ = Describe("Server 101", func() {
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
@@ -398,7 +442,12 @@ var _ = Describe("Server 101", func() {
 	It("Can rename field by application of migration", func() {
 		testObjAName := utils.RandomString(8)
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
+
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
 			Name: testObjAName,
@@ -422,9 +471,18 @@ var _ = Describe("Server 101", func() {
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())
@@ -473,7 +531,12 @@ var _ = Describe("Server 101", func() {
 	It("Can remove field by appliance of migration", func() {
 		testObjAName := utils.RandomString(8)
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		//Create A object
 		aMetaDescription := &description.MetaDescription{
 			Name: testObjAName,
@@ -497,9 +560,19 @@ var _ = Describe("Server 101", func() {
 
 		createOperation := object.NewCreateObjectOperation(aMetaDescription)
 		aMetaDescription, err = createOperation.SyncMetaDescription(nil, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-		Expect(err).To(BeNil())
+
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+
+		}
 
 		err = dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(err).To(BeNil())

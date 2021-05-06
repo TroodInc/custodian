@@ -139,7 +139,11 @@ var _ = Describe("Migration`s construction", func() {
 			Skip("Skiped unless TB-421 will be done.")
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 
 			migrationMetaDescription := map[string]interface{}{
 				"name":         "a",

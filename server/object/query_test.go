@@ -1171,8 +1171,15 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			//sync DB
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
 			//
@@ -1221,7 +1228,10 @@ var _ = Describe("Data", func() {
 			operation := object.NewCreateObjectOperation(metaDescription)
 			//sync MetaDescription
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+			}
 			metaDescription, err = operation.SyncMetaDescription(nil, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//sync DB

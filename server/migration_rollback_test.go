@@ -59,7 +59,11 @@ var _ = Describe("Rollback migrations", func() {
 		BeforeEach(func() {
 			//Create object A by applying a migration
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				Expect(err).To(BeNil())
+
+			}
 			testObjAName := utils.RandomString(8)
 
 			aMetaDescription = description.NewMetaDescription(
@@ -92,6 +96,10 @@ var _ = Describe("Rollback migrations", func() {
 
 			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
+			if err != nil {
+				dbTransactionManager.RollbackTransaction(globalTransaction)
+				return
+			}
 
 			dbTransactionManager.CommitTransaction(globalTransaction)
 		})
@@ -102,7 +110,11 @@ var _ = Describe("Rollback migrations", func() {
 			BeforeEach(func() {
 				//Create object A by applying a migration
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					Expect(err).To(BeNil())
+
+				}
 
 				field := description.Field{
 					Name:     "title",
@@ -124,6 +136,10 @@ var _ = Describe("Rollback migrations", func() {
 
 				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, true, false)
 				Expect(err).To(BeNil())
+				if err != nil {
+					dbTransactionManager.RollbackTransaction(globalTransaction)
+					return
+				}
 
 				dbTransactionManager.CommitTransaction(globalTransaction)
 			})
@@ -134,7 +150,11 @@ var _ = Describe("Rollback migrations", func() {
 				BeforeEach(func() {
 					//Create object A by applying a migration
 					globalTransaction, err := dbTransactionManager.BeginTransaction()
-					Expect(err).To(BeNil())
+					if err != nil {
+						dbTransactionManager.RollbackTransaction(globalTransaction)
+						Expect(err).To(BeNil())
+
+					}
 
 					field := description.Field{
 						Name:     "new_title",
@@ -155,7 +175,11 @@ var _ = Describe("Rollback migrations", func() {
 					}
 
 					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, true, false)
-					Expect(err).To(BeNil())
+					if err != nil {
+						dbTransactionManager.RollbackTransaction(globalTransaction)
+						Expect(err).To(BeNil())
+
+					}
 
 					dbTransactionManager.CommitTransaction(globalTransaction)
 				})

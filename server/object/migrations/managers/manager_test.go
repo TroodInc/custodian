@@ -26,16 +26,25 @@ var _ = Describe("MigrationManager", func() {
 
 	It("Creates migration history table if it does not exists", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(dbTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		_, err = NewMigrationManager(
 			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
 		).ensureHistoryTableExists()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(dbTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		metaDdl, err := object.MetaDDLFromDB(dbTransaction.Transaction().(*sql.Tx), historyMetaName)
 
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(dbTransaction)
+			Expect(err).To(BeNil())
+		}
 
 		Expect(metaDdl.Table).To(Equal(object.GetTableName(historyMetaName)))
 		Expect(metaDdl.Columns).To(HaveLen(7))

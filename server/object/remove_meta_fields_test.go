@@ -117,15 +117,26 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		tableName := GetTableName(name)
 
 		reverser, err := NewReverser(tx, tableName)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		columns := make([]Column, 0)
 		pk := ""
-		reverser.Columns(&columns, &pk)
+		err = reverser.Columns(&columns, &pk)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
@@ -220,15 +231,26 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		Expect(err).To(BeNil())
 
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		tableName := GetTableName(metaObjB.Name)
 
 		reverser, err := NewReverser(tx, tableName)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		columns := make([]Column, 0)
 		pk := ""
-		reverser.Columns(&columns, &pk)
+		err = reverser.Columns(&columns, &pk)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(2))
 		Expect(columns[0].Name).To(Equal("id"))
@@ -406,15 +428,26 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		tableName := GetTableName(name)
 
 		reverser, err := NewReverser(tx, tableName)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		columns := make([]Column, 0)
 		pk := ""
-		reverser.Columns(&columns, &pk)
+		err = reverser.Columns(&columns, &pk)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
@@ -628,15 +661,26 @@ var _ = Describe("Remove m2m fields", func() {
 
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		tx := globalTransaction.Transaction().(*sql.Tx)
 
 		tableName := GetTableName(name)
 
 		reverser, err := NewReverser(tx, tableName)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		columns := make([]Column, 0)
 		pk := ""
-		reverser.Columns(&columns, &pk)
+		err = reverser.Columns(&columns, &pk)
+		if err != nil {
+			dbTransactionManager.RollbackTransaction(globalTransaction)
+			Expect(err).To(BeNil())
+		}
 		dbTransactionManager.CommitTransaction(globalTransaction)
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
