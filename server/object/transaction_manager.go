@@ -8,14 +8,17 @@ import (
 type PgDbTransactionManager struct {
 	dataManager *DBManager
 	transaction *PgTransaction
+	doneStream  chan bool
 }
 
 //transaction related methods
 func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction, error) {
 	if tm.transaction == nil {
 		if tx, err := tm.dataManager.Db().(*sql.DB).Begin(); err != nil {
+			go func() { tm.doneStream <- true }()
 			return nil, err
 		} else {
+			go func() { tm.doneStream <- true }()
 			tm.transaction = &PgTransaction{tx, tm, 0}
 		}
 	} else {
@@ -26,13 +29,14 @@ func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction
 	return tm.transaction, nil
 }
 
-func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) (error) {
+func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) error {
 	if tm.transaction.Counter == 0 {
 		tx := dbTransaction.Transaction().(*sql.Tx)
 		if err := tx.Commit(); err != nil {
+			<-tm.doneStream
 			return NewTransactionError(ErrCommitFailed, err.Error())
 		}
-
+		<-tm.doneStream
 		tm.transaction = nil
 	} else {
 		tm.transaction.Counter -= 1
@@ -41,8 +45,9 @@ func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.D
 	return nil
 }
 
-func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) (error) {
+func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) error {
 	if tm.transaction.Counter == 0 {
+		<-tm.doneStream
 		tm.transaction = nil
 		return dbTransaction.Transaction().(*sql.Tx).Rollback()
 	} else {
@@ -53,5 +58,6 @@ func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions
 }
 
 func NewPgDbTransactionManager(dataManager *DBManager) *PgDbTransactionManager {
-	return &PgDbTransactionManager{dataManager: dataManager}
+	done := make(chan bool)
+	return &PgDbTransactionManager{dataManager: dataManager, doneStream: done}
 }
