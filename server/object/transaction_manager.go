@@ -14,11 +14,10 @@ type PgDbTransactionManager struct {
 //transaction related methods
 func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction, error) {
 	if tm.transaction == nil {
+		go func() { tm.doneStream <- true }()
 		if tx, err := tm.dataManager.Db().(*sql.DB).Begin(); err != nil {
-			go func() { tm.doneStream <- true }()
 			return nil, err
 		} else {
-			go func() { tm.doneStream <- true }()
 			tm.transaction = &PgTransaction{tx, tm, 0}
 		}
 	} else {
