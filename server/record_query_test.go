@@ -143,7 +143,7 @@ var _ = Describe("Server 101", func() {
 			},
 		}
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}

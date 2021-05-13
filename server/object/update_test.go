@@ -327,7 +327,7 @@ var _ = Describe("Data", func() {
 		(&description.NormalizationService{}).Normalize(&aMetaDescription)
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
@@ -504,7 +504,7 @@ var _ = Describe("Data", func() {
 		(&description.NormalizationService{}).Normalize(&metaDescription)
 		metaObj, err := metaStore.NewMeta(&metaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(metaObj.Name, metaObj, true)
+		_, err = metaStore.Update(metaObj.Name, metaObj, true, true)
 		Expect(err).To(BeNil())
 		return metaObj
 	}
@@ -541,7 +541,7 @@ var _ = Describe("Data", func() {
 		aMetaObj, err := metaStore.NewMeta(&aMetaDescription)
 		(&description.NormalizationService{}).Normalize(&aMetaDescription)
 		Expect(err).To(BeNil())
-		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true)
+		_, err = metaStore.Update(aMetaObj.Name, aMetaObj, true, true)
 		Expect(err).To(BeNil())
 		return aMetaObj
 	}
