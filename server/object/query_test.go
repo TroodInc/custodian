@@ -417,7 +417,7 @@ var _ = Describe("Data", func() {
 			orderMetaObj, err = metaStore.NewMeta(&orderMetaDescription)
 			(&description.NormalizationService{}).Normalize(&orderMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(orderMetaObj.Name, orderMetaObj, true)
+			metaStore.Update(orderMetaObj.Name, orderMetaObj, true, true)
 			//
 
 			Context("record can contain numeric value for string field", func() {
@@ -991,7 +991,7 @@ var _ = Describe("Data", func() {
 			orderMetaObj, err = metaStore.NewMeta(&orderMetaDescription)
 			(&description.NormalizationService{}).Normalize(&orderMetaDescription)
 			Expect(err).To(BeNil())
-			metaStore.Update(orderMetaObj.Name, orderMetaObj, true)
+			metaStore.Update(orderMetaObj.Name, orderMetaObj, true, true)
 			//
 
 			_, err = dataProcessor.CreateRecord(orderMetaObj.Name, map[string]interface{}{}, auth.User{})
