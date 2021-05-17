@@ -128,8 +128,17 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 		return nil, false, err
 	}
 
+	defer rows.Close()
+
 	var metaList []*description.MetaDescription
 
+	for rows.Next() {
+		var content string
+		var meta = description.MetaDescription{}
+		rows.Scan(&content)
+		json.NewDecoder(strings.NewReader(content)).Decode(&meta)
+		metaList = append(metaList, &meta)
+	}
 	if err := rows.Err(); err != nil {
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
 		return nil, false, errors.NewFatalError(
@@ -137,13 +146,6 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 			fmt.Sprintf("Error during metaList retrive"),
 			nil,
 		)
-	}
-	for rows.Next() {
-		var content string
-		var meta = description.MetaDescription{}
-		rows.Scan(&content)
-		json.NewDecoder(strings.NewReader(content)).Decode(&meta)
-		metaList = append(metaList, &meta)
 	}
 	md.globalTransactionManager.CommitTransaction(globalTransaction)
 
