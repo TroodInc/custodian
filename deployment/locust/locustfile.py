@@ -1,6 +1,7 @@
 from locust import HttpUser, task, between, tag
 import uuid
 import random
+import logging
 
 
 def create_object_migration():
@@ -83,82 +84,117 @@ def remove_object_migration(obj_name):
     }
 
 
-class QuickstartUser(HttpUser):
-    wait_time = between(1, 2)
+class CustodianUser(HttpUser):
+    wait_time = between(1, 5)
 
     def on_start(self):
-        # created_objects is a dict where key is object name
-        # and value is crreated ids set
-        self.created_objects = dict()
-        # Create record for crud_simpler_record test
-        create_obj_migration_data = create_object_migration()
-        self.crud_simpler_record_obj_name = create_obj_migration_data["id"]
-        self.client.post("/custodian/migrations", json=create_obj_migration_data, name="create_simple_object")
+        self.created = dict()
 
     @tag('migrations')
+    @tag('create_obj')
     @task(1)
-    def crud_simple_meta_object(self):
+    def create_simple_obj(self):
         create_obj_migration_data = create_object_migration()
-        obj_name = create_obj_migration_data["id"]
-        self.client.post("/custodian/migrations", json=create_obj_migration_data, name="create_simple_object")
-        self.client.post("/custodian/migrations", json=update_object_migration(obj_name=obj_name), name="update_simple_object")
-        self.client.get("/custodian/meta", name="get_meta")
-        self.client.post("/custodian/migrations", json=remove_object_migration(obj_name=obj_name), name="remove_simple_objects")
+        self.created[create_obj_migration_data["id"]] = list()
+        self.client.post(
+            "/custodian/migrations",
+            json=create_obj_migration_data,
+            name="create_simple_object"
+            )
 
-    @tag('crud_simple_record')
-    @task(5)
-    def crud_simple_record(self):
-        record_id = random.randint(1, 10**6)
-        self.crud_simpler_record_obj_name
-        self.client.post(f"/custodian/data/{self.crud_simpler_record_obj_name}", json={"id": record_id, "name": "test"}, name="create_simple_record")
-        self.client.patch(f"/custodian/data/{self.crud_simpler_record_obj_name}/{record_id}", json={"name": "updated_test"}, name="update_simple_record")
-        self.client.get(f"/custodian/data/{self.crud_simpler_record_obj_name}/{record_id}", name="update_simple_record")
-        self.client.delete(f"/custodian/data/{self.crud_simpler_record_obj_name}/{record_id}", name="remove_simple_record")
-
-    @tag('create_simple_object')
+    @tag('migrations')
+    @tag('update_obj')
     @task(1)
-    def create_simple_object(self):
-        """
-        Creates simple object.
-        saves name to self.created_objects
-        """
-        create_obj_migration_data = create_object_migration()
-        obj_name = create_obj_migration_data["id"]
+    def update_simple_obj(self):
+        if self.created:
+            obj = random.choice(list(self.created))
+            self.client.post(
+                "/custodian/migrations",
+                json=update_object_migration(obj_name=obj),
+                name="update_simple_object"
+                )
 
-        # save name of created object for this user
-        self.created_objects[obj_name] = set()
-
-        self.client.post("/custodian/migrations", json=create_obj_migration_data, name="create_simple_object")
-        self.client.get("/custodian/meta", name="get_meta")
-
-    @tag('write_data_to_obj')
-    @task(5)
-    def write_data_to_object(self):
-        # get one of crated objects name
-        if self.created_objects:
-            obj_name = random.choice(list(self.created_objects))
-            record_id = random.randint(1, 10**6)
-            if record_id not in self.created_objects[obj_name]:
-                self.client.post(f"/custodian/data/{obj_name}", json={"id": record_id, "name": "test"}, name="create_simple_record")
-
-    @tag('delete_data_from_obj')
+    @tag('migrations')
+    @tag('delete_obj')
     @task(1)
-    def delete_simple_record(self):
-        # get one of crated objects name
-        for obj, ids in self.created_objects.items():
-            if len(ids) > 0:
-                record_to_delete = ids.pop()
-                self.client.delete(f"/custodian/data/{obj}/{record_to_delete}", name="remove_simple_record")
+    def delete_simple_obj(self):
+        if self.created:
+            obj = random.choice(list(self.created))
+            self.client.post(
+                "/custodian/migrations",
+                json=remove_object_migration(obj_name=obj),
+                name="remove_simple_objects"
+                )
+            del self.created[obj]
 
-                break
+    @tag('list_objects')
+    @task(1)
+    def list_objets(self):
+        self.client.get("/custodian/meta", name='list_objects')
 
-    @tag('update_data_from_obj')
-    @task(3)
-    def update_simple_record(self):
-        # get one of crated objects name
-        for obj, ids in self.created_objects.items():
-            if len(ids) > 0:
-                record_to_update = random.choice(list(ids))
-                self.client.patch(f"/custodian/data/{obj}/{record_to_update}", json={"name": "updated_test"}, name="update_simple_record")
-                break
+    @tag('records')
+    @tag('create_record')
+    @task(1)
+    def create_record(self):
+        if self.created:
+            obj = random.choice(list(self.created))
+            r = self.client.post(
+                f"/custodian/data/{obj}",
+                json={"name": "test"},
+                name="create_simple_record"
+                )
 
+            record = r.json().get('data')["id"]
+            self.created[obj].append(record)
+
+    @tag('records')
+    @tag('update_record')
+    @task(1)
+    def update_record(self):
+        if self.created:
+            obj = random.choice(list(self.created))
+            if self.created[obj]:
+                record_id = random.choice(self.created[obj])
+                self.client.patch(
+                    f"/custodian/data/{obj}/{record_id}",
+                    json={"name": "updated_test"},
+                    name="update_simple_record"
+                )
+
+    @tag('records')
+    @tag('delete_record')
+    @task(1)
+    def delete_record(self):
+        if self.created:
+            obj = random.choice(list(self.created))
+            if self.created[obj]:
+                record_id = random.choice(self.created[obj])
+                self.client.delete(
+                    f"/custodian/data/{obj}/{record_id}",
+                    name="remove_simple_record"
+                    )
+                self.created[obj].remove(record_id)
+
+    @tag('records')
+    @tag('get_record')
+    @task(1)
+    def retrieve_record(self):
+        if self.created:
+            obj = random.choice(list(self.created))
+            if self.created[obj]:
+                record_id = random.choice(self.created[obj])
+                self.client.get(
+                    f"/custodian/data/{obj}/{record_id}",
+                    name="retieve_simple_record"
+                    )
+
+    @tag('records')
+    @tag('get_records')
+    @task(1)
+    def retrieve_records(self):
+        if self.created:
+            obj = random.choice(list(self.created))
+            self.client.get(
+                f"/custodian/data/{obj}",
+                name="retieve_simple_records"
+                )
