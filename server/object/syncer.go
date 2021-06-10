@@ -75,8 +75,7 @@ func (syncer *Syncer) CreateObj(globalTransactionManager *PgDbTransactionManager
 	}
 	transaction, err := globalTransactionManager.BeginTransaction()
 	if err != nil {
-		globalTransactionManager.RollbackTransaction(transaction)
-		return nil
+		return err
 	}
 	tx := transaction.Transaction().(*sql.Tx)
 	for _, st := range ds {
@@ -93,7 +92,6 @@ func (syncer *Syncer) CreateObj(globalTransactionManager *PgDbTransactionManager
 func (syncer *Syncer) RemoveObj(globalTransactionManager *PgDbTransactionManager, name string, force bool) error {
 	transaction, err := globalTransactionManager.BeginTransaction()
 	if err != nil {
-		globalTransactionManager.RollbackTransaction(transaction)
 		return err
 	}
 	tx := transaction.Transaction().(*sql.Tx)
@@ -147,7 +145,6 @@ func (syncer *Syncer) UpdateObj(globalTransactionManager *PgDbTransactionManager
 	}
 	transaction, err := globalTransactionManager.BeginTransaction()
 	if err != nil {
-		globalTransactionManager.RollbackTransaction(transaction)
 		return err
 	}
 	tx := transaction.Transaction().(*sql.Tx)

@@ -23,25 +23,12 @@ const (
 	UPDATE_META_OBJ       string = `UPDATE o___meta__ SET meta_description=$1 WHERE meta_description ->> 'name'=$2;`
 )
 
-func checkMetaObjExists(name string, tx *sql.Tx) (bool, error) {
-	var exists bool
-	if err := tx.QueryRow(CHECK_META_OBJ_EXISTS, name).Scan(&exists); err != nil {
-		if err != sql.ErrNoRows {
-			return exists, err
-		}
-	}
-	return exists, nil
-}
-
 func getMetaObjFromDb(name string, tx *sql.Tx) (description.MetaDescription, error) {
 	var metaObj string
 	var meta = description.MetaDescription{}
 
 	if err := tx.QueryRow(GET_META_OBJ, name).Scan(&metaObj); err != nil {
-		if err != sql.ErrNoRows {
-			return meta, err
-		}
-
+		return meta, err
 	}
 
 	jd := json.NewDecoder(strings.NewReader(metaObj))
@@ -53,14 +40,17 @@ func getMetaObjFromDb(name string, tx *sql.Tx) (description.MetaDescription, err
 }
 
 func (md *PgMetaDescriptionSyncer) CreateMetaTableIfNotExists() {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return
+	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
-	_, err := tx.Exec(SQL_CREATE_META_TABLE)
+	_, err = tx.Exec(SQL_CREATE_META_TABLE)
 	if err != nil {
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-	} else {
-		md.globalTransactionManager.CommitTransaction(globalTransaction)
+		return
 	}
+	md.globalTransactionManager.CommitTransaction(globalTransaction)
 }
 
 type PgMetaDescriptionSyncer struct {
@@ -79,27 +69,23 @@ func (md *PgMetaDescriptionSyncer) Cache() *MetaCache {
 }
 
 func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescription, bool, error) {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
-	tx := globalTransaction.Transaction().(*sql.Tx)
-	if exists, err := checkMetaObjExists(name, tx); err != nil {
-		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())
-		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-		return nil, false, errors.NewFatalError(
-			"get_meta",
-			fmt.Sprintf("Error while checking if object exists %s: %s", name, err.Error()),
-			nil,
-		)
-	} else if !exists {
-		logger.Debug("Meta object %s does not exists.", name)
-		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-		return nil, false, errors.NewFatalError(
-			"get_meta",
-			fmt.Sprintf("Meta object %s does not exists .", name),
-			nil,
-		)
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return nil, false, err
 	}
+	tx := globalTransaction.Transaction().(*sql.Tx)
+
 	meta, err := getMetaObjFromDb(name, tx)
 	if err != nil {
+		if err == sql.ErrNoRows {
+			md.globalTransactionManager.RollbackTransaction(globalTransaction)
+			return nil, false, errors.NewFatalError(
+				"get_meta",
+				fmt.Sprintf("Meta object %s does not exists .", name),
+				nil,
+			)
+		}
+
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
 		logger.Error("Can't get MetaDescription from DB '%s': %s", name, err.Error())
 		return nil, false, nil
@@ -111,7 +97,10 @@ func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 }
 
 func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool, error) {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return nil, false, err
+	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
 	rows, err := tx.Query(SQL_GET_META_LIST)
 	if err != nil {
@@ -119,16 +108,10 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 		return nil, false, err
 	}
 
+	defer rows.Close()
+
 	var metaList []*description.MetaDescription
 
-	if err := rows.Err(); err != nil {
-		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-		return nil, false, errors.NewFatalError(
-			"get_meta_list",
-			fmt.Sprintf("Error during metaList retrive"),
-			nil,
-		)
-	}
 	for rows.Next() {
 		var content string
 		var meta = description.MetaDescription{}
@@ -136,32 +119,27 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 		json.NewDecoder(strings.NewReader(content)).Decode(&meta)
 		metaList = append(metaList, &meta)
 	}
+	if err := rows.Err(); err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return nil, false, errors.NewFatalError(
+			"get_meta_list",
+			"Error during metaList retrive",
+			nil,
+		)
+	}
 	md.globalTransactionManager.CommitTransaction(globalTransaction)
 
 	return metaList, true, nil
 }
 
 func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
-	tx := globalTransaction.Transaction().(*sql.Tx)
-	if exists, err := checkMetaObjExists(name, tx); err != nil {
-		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())
-		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-		return false, errors.NewFatalError(
-			"get_meta",
-			fmt.Sprintf("Error while checking if object exists %s: %s", name, err.Error()),
-			nil,
-		)
-	} else if !exists {
-		logger.Debug("Meta object %s does not exists.", name)
-		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-		return false, errors.NewFatalError(
-			"get_meta",
-			fmt.Sprintf("Meta object %s does not exists.", name),
-			nil,
-		)
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return false, err
 	}
-	_, err := tx.Exec(DELETE_META_OBJ, name)
+	tx := globalTransaction.Transaction().(*sql.Tx)
+
+	_, err = tx.Exec(DELETE_META_OBJ, name)
 	if err != nil {
 		logger.Error("Can't delete MetaDescription '%s': %s", name, err.Error())
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -177,91 +155,61 @@ func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
 }
 
 func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return err
+	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
-	if exists, err := checkMetaObjExists(m.Name, tx); err != nil {
-		logger.Debug("Error while checking if object exists %s: %s", m.Name, err.Error())
-		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-		return errors.NewFatalError(
-			"get_meta",
-			fmt.Sprintf("Error while checking if object exists %s: %s", m.Name, err.Error()),
-			nil,
-		)
 
-	} else if exists {
-		logger.Debug("MetaDescription '%s' already exists", m.Name)
+	b, err := json.Marshal(m)
+	if err != nil {
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
 		return errors.NewFatalError(
 			"create_meta_obj",
-			fmt.Sprintf("MetaDescription '%s' already exists", m.Name),
+			fmt.Sprintf("Can't json.Marshal '%s' MetaDescription", m.Name),
 			nil,
 		)
-	} else if exists == false {
-
-		b, err := json.Marshal(m)
-		if err != nil {
-			md.globalTransactionManager.RollbackTransaction(globalTransaction)
-			return errors.NewFatalError(
-				"create_meta_obj",
-				fmt.Sprintf("Can't json.Marshal '%s' MetaDescription", m.Name),
-				nil,
-			)
-		}
-		if _, err = tx.Exec(CREATE_META_OBJ, string(b)); err != nil {
-			md.globalTransactionManager.RollbackTransaction(globalTransaction)
-			logger.Error("Can't create MetaDescription '%s' : %s", m.Name, err.Error())
-			return errors.NewFatalError(
-				"create_meta_obj",
-				fmt.Sprintf("Can't save MetaDescription'%s'", m.Name),
-				nil,
-			)
-		}
-
 	}
+	if _, err = tx.Exec(CREATE_META_OBJ, string(b)); err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		logger.Error("Can't create MetaDescription '%s' : %s", m.Name, err.Error())
+		return errors.NewFatalError(
+			"create_meta_obj",
+			fmt.Sprintf("Can't save MetaDescription'%s'", m.Name),
+			nil,
+		)
+	}
+
 	md.globalTransactionManager.CommitTransaction(globalTransaction)
 	return nil
 }
 
 func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescription) (bool, error) {
-	globalTransaction, _ := md.globalTransactionManager.BeginTransaction()
-	tx := globalTransaction.Transaction().(*sql.Tx)
-	if exists, err := checkMetaObjExists(name, tx); err != nil {
-		logger.Debug("Error while checking if object exists %s: %s", name, err.Error())
-		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-		return false, errors.NewFatalError(
-			"get_meta",
-			fmt.Sprintf("Error while checking if object exists %s: %s", name, err.Error()),
-			nil,
-		)
-	} else if !exists {
-		logger.Debug("Meta object %s does not exists.", name)
-		md.globalTransactionManager.RollbackTransaction(globalTransaction)
-		return false, errors.NewFatalError(
-			"get_meta",
-			fmt.Sprintf("Meta object %s does not exists.", name),
-			nil,
-		)
-	} else if exists {
-
-		b, err := json.Marshal(m)
-		if err != nil {
-			md.globalTransactionManager.RollbackTransaction(globalTransaction)
-			return false, errors.NewFatalError(
-				"update_meta_obj",
-				fmt.Sprintf("Can't json.Marshal '%s' MetaDescription during update", name),
-				nil,
-			)
-		}
-		if _, err = tx.Exec(UPDATE_META_OBJ, string(b), name); err != nil {
-			md.globalTransactionManager.RollbackTransaction(globalTransaction)
-			logger.Error("Can't update MetaDescription '%s' : %s", name, err.Error())
-			return false, errors.NewFatalError(
-				"update_meta_obj",
-				fmt.Sprintf("Can't update MetaDescription'%s'", name),
-				nil,
-			)
-		}
+	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return false, err
 	}
+	tx := globalTransaction.Transaction().(*sql.Tx)
+
+	b, err := json.Marshal(m)
+	if err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		return false, errors.NewFatalError(
+			"update_meta_obj",
+			fmt.Sprintf("Can't json.Marshal '%s' MetaDescription during update", name),
+			nil,
+		)
+	}
+	if _, err = tx.Exec(UPDATE_META_OBJ, string(b), name); err != nil {
+		md.globalTransactionManager.RollbackTransaction(globalTransaction)
+		logger.Error("Can't update MetaDescription '%s' : %s", name, err.Error())
+		return false, errors.NewFatalError(
+			"update_meta_obj",
+			fmt.Sprintf("Can't update MetaDescription'%s'", name),
+			nil,
+		)
+	}
+
 	md.globalTransactionManager.CommitTransaction(globalTransaction)
 	return true, nil
 }

@@ -324,7 +324,7 @@ var _ = Describe("Abac Engine", func() {
 			metaClientNew, err := metaStore.NewMeta(&mdClientNew)
 			Expect(err).To(BeNil())
 
-			_, err = metaStore.Update(metaClient.Name, metaClientNew, true)
+			_, err = metaStore.Update(metaClient.Name, metaClientNew, true, true)
 			Expect(err).To(BeNil())
 
 			recordEmployee, err := dataProcessor.CreateRecord(metaEmployee.Name, map[string]interface{}{}, auth.User{})

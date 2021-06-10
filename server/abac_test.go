@@ -712,7 +712,7 @@ var _ = Describe("ABAC rules handling", func() {
 				"_default_resolution": "allow",
 				SERVICE_DOMAIN: map[string]interface{}{
 					testObjName: map[string]interface{}{
-						"data_GET": []interface{}{
+						"data_LIST": []interface{}{
 							map[string]interface{}{
 								"result": "deny",
 								"rule": map[string]interface{}{
@@ -738,7 +738,6 @@ var _ = Describe("ABAC rules handling", func() {
 				var body map[string]interface{}
 				json.Unmarshal([]byte(responseBody), &body)
 
-				Expect(body["status"].(string)).To(Equal("RESTRICTED"))
 				data := body["data"].([]interface{})
 				Expect(len(data)).To(Equal(1))
 				Expect(data[0].(map[string]interface{})["color"].(string)).To(Equal("blue"))

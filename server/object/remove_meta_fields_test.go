@@ -130,7 +130,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
-		objMeta, _, err := metaStore.Get(name, true)
+		objMeta, _, err := metaStore.Get(name, false)
 		Expect(err).To(BeNil())
 		Expect(objMeta.Fields).To(HaveLen(1))
 		Expect(objMeta.Fields[0].Name).To(Equal("id"))
@@ -152,7 +152,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
-		_, err := metaStore.Remove(metaObjB.Name, true)
+		_, err := metaStore.Remove(metaObjB.Name, false)
 		Expect(err).To(BeNil())
 		checkNoOrphansLeft(metaObjA.Name)
 
@@ -189,7 +189,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		}
 		updatedBMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
 
-		_, err = metaStore.Update(metaObjB.Name, updatedBMetaObj, false)
+		_, err = metaStore.Update(metaObjB.Name, updatedBMetaObj, false, true)
 		Expect(err).To(BeNil())
 		checkNoOrphansLeft(metaObjA.Name)
 
@@ -200,7 +200,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		metaObjB := havingObjectB()
 
 		updatedbMetaDescription := description.MetaDescription{
-			Name: testObjAName,
+			Name: metaObjA.Name,
 			Key:  "id",
 			Cas:  false,
 			Fields: []description.Field{
@@ -214,9 +214,9 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 				},
 			},
 		}
-		updatedBMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
+		updatedAMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
 
-		_, err = metaStore.Update(metaObjA.Name, updatedBMetaObj, false)
+		_, err = metaStore.Update(metaObjA.Name, updatedAMetaObj, false, true)
 		Expect(err).To(BeNil())
 
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
@@ -234,7 +234,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		Expect(columns[0].Name).To(Equal("id"))
 		Expect(columns[1].Name).To(Equal(testObjAName))
 		// check meta fields
-		cMeta, _, err := metaStore.Get(metaObjB.Name, true)
+		cMeta, _, err := metaStore.Get(metaObjB.Name, false)
 		Expect(err).To(BeNil())
 		Expect(cMeta.Fields).To(HaveLen(2))
 		Expect(cMeta.Fields[0].Name).To(Equal("id"))
@@ -425,7 +425,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		Expect(objMeta.Fields[0].Name).To(Equal("id"))
 	}
 
-	It("Removes outer _set field", func() {
+	It("Removes outer _set field generic", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -440,15 +440,10 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 		// havingObjectB()
-		_, err := metaStore.Remove(metaObjA.Name, true)
+		_, err := metaStore.Remove(metaObjA.Name, false)
 		Expect(err).To(BeNil())
 
-		bMeta, _, err := metaStore.Get(metaObjB.Name, true)
-		Expect(err).To(BeNil())
-		Expect(bMeta.Fields).To(HaveLen(2))
-		Expect(bMeta.Fields[0].Name).To(Equal("id"))
-		Expect(bMeta.Fields[1].Name).To(Equal("target"))
-		Expect(bMeta.Fields[1].LinkMetaList.GetAll()).To(BeNil())
+		checkNoOrphansLeft(metaObjB.Name)
 
 	})
 
@@ -482,7 +477,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		}
 		updatedBMetaObj, err := metaStore.NewMeta(&updatedbMetaDescriptionD)
 
-		_, err = metaStore.Update(metaObjD.Name, updatedBMetaObj, false)
+		_, err = metaStore.Update(metaObjD.Name, updatedBMetaObj, false, true)
 		Expect(err).To(BeNil())
 
 		By("Check only inner link to eObj is removed")
@@ -517,16 +512,11 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		checkNoOrphansLeft(metaObjA.Name)
 
 		By("Flush LinkMetaList in related inner object")
-		cMeta, _, err := metaStore.Get(metaObjC.Name, true)
-		Expect(err).To(BeNil())
-		Expect(cMeta.Fields).To(HaveLen(2))
-		Expect(cMeta.Fields[0].Name).To(Equal("id"))
-		Expect(cMeta.Fields[1].Name).To(Equal("target"))
-		Expect(cMeta.Fields[1].LinkMetaList.GetAll()).To(BeNil())
+		checkNoOrphansLeft(metaObjC.Name)
 
 	})
 
-	It("Flush LinkMetaList if related outer generic object is removed on object update", func() {
+	It("Flush LinkMetaList if related inner generic object is removed on object update", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -547,9 +537,42 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		}
 		updatedBMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
 
-		_, err = metaStore.Update(metaObjB.Name, updatedBMetaObj, false)
+		_, err = metaStore.Update(metaObjB.Name, updatedBMetaObj, false, true)
 		Expect(err).To(BeNil())
 		checkNoOrphansLeft(metaObjA.Name)
+
+	})
+
+	It("Should not flush LinkMetaList if related outer generic object is removed on object update", func() {
+		metaObjA := havingObjectA()
+		metaObjB := havingObjectB()
+
+		updatedAMetaDescription := description.MetaDescription{
+			Name: testObjAName,
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		updatedAMetaObj, err := metaStore.NewMeta(&updatedAMetaDescription)
+
+		_, err = metaStore.Update(metaObjA.Name, updatedAMetaObj, false, true)
+		Expect(err).To(BeNil())
+		bMeta, _, err := metaStore.Get(metaObjB.Name, true)
+		Expect(err).To(BeNil())
+		Expect(bMeta.Fields).To(HaveLen(2))
+		Expect(bMeta.Fields[0].Name).To(Equal("id"))
+		Expect(bMeta.Fields[1].Name).To(Equal("target"))
+		Expect(bMeta.Fields[1].LinkMetaList.GetAll()).To(HaveLen(1))
+		Expect(bMeta.Fields[1].LinkMetaList.GetAll()[0].Name).To(Equal(metaObjA.Name))
 
 	})
 
@@ -641,13 +664,14 @@ var _ = Describe("Remove m2m fields", func() {
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
-		aMeta, _, err := metaStore.Get(name, true)
+		aMeta, _, err := metaStore.Get(name, false)
 		Expect(err).To(BeNil())
 		Expect(aMeta.Fields).To(HaveLen(1))
 		Expect(aMeta.Fields[0].Name).To(Equal("id"))
 	}
 
-	XIt("Does not leave orphan in related object if m2m obj deleted", func() {
+	It("Does not leave orphan in related object if outer m2m obj deleted", func() {
+
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -657,7 +681,7 @@ var _ = Describe("Remove m2m fields", func() {
 		checkNoOrphansLeft(metaObjB.Name)
 	})
 
-	XIt("Does not leave orphan in related object if m2m obj deleted", func() {
+	It("Does not leave orphan in related object if inner m2m obj deleted", func() {
 		metaObjA := havingObjectA()
 		metaObjB := havingObjectB()
 
@@ -666,5 +690,31 @@ var _ = Describe("Remove m2m fields", func() {
 
 		checkNoOrphansLeft(metaObjA.Name)
 
+	})
+
+	It("Does not leave orphan in outer related object if inner m2m field is deleted on update", func() {
+		metaObjA := havingObjectA()
+		metaObjB := havingObjectB()
+
+		updatedbMetaDescription := description.MetaDescription{
+			Name: testObjBName,
+			Key:  "id",
+			Cas:  false,
+			Fields: []description.Field{
+				{
+					Name: "id",
+					Type: description.FieldTypeNumber,
+					Def: map[string]interface{}{
+						"func": "nextval",
+					},
+					Optional: true,
+				},
+			},
+		}
+		updatedBMetaObj, err := metaStore.NewMeta(&updatedbMetaDescription)
+
+		_, err = metaStore.Update(metaObjB.Name, updatedBMetaObj, false, true)
+		Expect(err).To(BeNil())
+		checkNoOrphansLeft(metaObjA.Name)
 	})
 })

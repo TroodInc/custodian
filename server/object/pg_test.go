@@ -138,7 +138,7 @@ var _ = Describe("PG MetaStore test", func() {
 					},
 				}
 				updatedMetaObj, _ := metaStore.NewMeta(&updatedMetaDescription)
-				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
+				_, err := metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true, true)
 				Expect(err).To(BeNil())
 				metaObj, _, err := metaStore.Get(metaDescription.Name, true)
 				Expect(err).To(BeNil())
@@ -192,7 +192,7 @@ var _ = Describe("PG MetaStore test", func() {
 				}
 				updatedMetaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 				Expect(err).To(BeNil())
-				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
+				metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true, true)
 				metaObj, _, err = metaStore.Get(metaDescription.Name, true)
 				Expect(err).To(BeNil())
 
@@ -359,7 +359,7 @@ var _ = Describe("PG MetaStore test", func() {
 					}
 					metaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 					Expect(err).To(BeNil())
-					ok, err := metaStore.Update(metaObj.Name, metaObj, true)
+					ok, err := metaStore.Update(metaObj.Name, metaObj, true, true)
 					Expect(ok).To(BeTrue())
 					Expect(err).To(BeNil())
 				})
@@ -487,7 +487,7 @@ var _ = Describe("PG MetaStore test", func() {
 				}
 				updatedMetaObj, err := metaStore.NewMeta(&updatedMetaDescription)
 				Expect(err).To(BeNil())
-				_, err = metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true)
+				_, err = metaStore.Update(updatedMetaDescription.Name, updatedMetaObj, true, true)
 				Expect(err).To(BeNil())
 				metaObj, _, err := metaStore.Get(metaDescription.Name, true)
 				Expect(err).To(BeNil())
