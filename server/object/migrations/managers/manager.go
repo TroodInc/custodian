@@ -22,7 +22,6 @@ const historyMetaName = "__custodian_objects_migration_history__"
 type MigrationManager struct {
 	metaStore                *object2.MetaStore
 	migrationStore           *object2.MetaStore
-	dataManager              *object2.DBManager
 	processor                *object2.Processor
 	globalTransactionManager *object2.PgDbTransactionManager
 }
@@ -91,7 +90,7 @@ func (mm *MigrationManager) RollBackTo(migrationId string, shouldRecord bool, fa
 }
 
 func (mm *MigrationManager) rollback(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool) (updatedMetaDescription *description.MetaDescription, err error) {
-	//Get a state which an object was in
+	// Get a state which an object was in
 	var previousMetaDescriptionState *description.MetaDescription
 	if len(migrationDescription.DependsOn) > 0 {
 		parentMigrationRecord, err := mm.Get(migrationDescription.DependsOn[0])
@@ -102,13 +101,13 @@ func (mm *MigrationManager) rollback(migrationDescription *migrations_descriptio
 		previousMetaDescriptionState = parentMigrationDescription.MetaDescription
 	}
 
-	//revert migrationDescription
+	// revert migrationDescription
 	migrationDescription, err = migrations_description.NewReversionMigrationDescriptionService().Revert(previousMetaDescriptionState, migrationDescription)
 	if err != nil {
 		return nil, err
 	}
 
-	//and run it
+	// and run it
 	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryBackward(migrationDescription)
 	if err != nil {
 		return nil, err
@@ -125,7 +124,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 
 	var metaDescriptionToApply *description.MetaDescription
 
-	//metaDescription should be retrieved again because it may mutate during runBefore migrations(eg automatically added outer link was removed)
+	// metaDescription should be retrieved again because it may mutate during runBefore migrations(eg automatically added outer link was removed)
 	if migration.ApplyTo != nil {
 		metaDescriptionToApply, _, err = mm.metaStore.MetaDescriptionSyncer.Get(migration.ApplyTo.Name)
 		if err != nil {
@@ -451,10 +450,10 @@ func (mm *MigrationManager) factoryHistoryMeta() (*object2.Meta, error) {
 	return object2.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func NewMigrationManager(metaStore *object2.MetaStore, manager *object2.DBManager, syncer object2.MetaDescriptionSyncer, migrationStoragePath string, gtm *object2.PgDbTransactionManager) *MigrationManager {
+func NewMigrationManager(metaStore *object2.MetaStore, manager *object2.DBManager, gtm *object2.PgDbTransactionManager) *MigrationManager {
 	migrationDBDescriptionSyncer := object2.NewDbMetaDescriptionSyncer(gtm)
 	migrationStore := object2.NewStore(migrationDBDescriptionSyncer, metaStore.Syncer, gtm)
 	processor, _ := object2.NewProcessor(migrationStore, manager, gtm)
 
-	return &MigrationManager{metaStore, migrationStore, manager, processor, gtm}
+	return &MigrationManager{metaStore, migrationStore, processor, gtm}
 }

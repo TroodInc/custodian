@@ -41,7 +41,7 @@ var _ = Describe("Migration`s construction", func() {
 	flushDb := func() {
 		// drop history
 		err := managers.NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
+			metaStore, dataManager, dbTransactionManager,
 		).DropHistory()
 		Expect(err).To(BeNil())
 		//Flush meta/database

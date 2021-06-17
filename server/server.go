@@ -151,8 +151,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager,
-		metaDescriptionSyncer,
-		config.MigrationStoragePath,
 		dbTransactionManager,
 	)
 
