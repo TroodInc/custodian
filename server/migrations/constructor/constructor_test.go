@@ -22,7 +22,7 @@ var _ = Describe("Migration Constructor", func() {
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, dbTransactionManager))
 

@@ -30,7 +30,7 @@ var _ = Describe("Migration`s construction", func() {
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	BeforeEach(func() {
 		//setup server

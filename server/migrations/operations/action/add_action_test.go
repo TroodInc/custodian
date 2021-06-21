@@ -19,7 +19,7 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 

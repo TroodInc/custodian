@@ -20,7 +20,7 @@ var _ = Describe("The PG MetaStore", func() {
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

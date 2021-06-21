@@ -452,7 +452,7 @@ func (mm *MigrationManager) factoryHistoryMeta() (*object2.Meta, error) {
 
 func NewMigrationManager(metaStore *object2.MetaStore, manager *object2.DBManager, gtm *object2.PgDbTransactionManager) *MigrationManager {
 	migrationDBDescriptionSyncer := object2.NewDbMetaDescriptionSyncer(gtm)
-	migrationStore := object2.NewStore(migrationDBDescriptionSyncer, metaStore.Syncer, gtm)
+	migrationStore := object2.NewStore(migrationDBDescriptionSyncer, gtm)
 	processor, _ := object2.NewProcessor(migrationStore, manager, gtm)
 
 	return &MigrationManager{metaStore, migrationStore, processor, gtm}

@@ -5,8 +5,13 @@ import (
 	"custodian/server/errors"
 	. "custodian/server/object/description"
 	"custodian/utils"
+	"database/sql"
 	"encoding/json"
+	"fmt"
+	"github.com/jackc/pgconn"
+	"github.com/lib/pq"
 	"io"
+	"regexp"
 	"strings"
 )
 
@@ -15,7 +20,6 @@ import (
 */
 type MetaStore struct {
 	MetaDescriptionSyncer    MetaDescriptionSyncer
-	Syncer                   MetaDbSyncer
 	globalTransactionManager *PgDbTransactionManager
 }
 
@@ -89,7 +93,7 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 
 // Creates a new object type described by passed metadata.
 func (metaStore *MetaStore) Create(objectMeta *Meta) error {
-	if e := metaStore.Syncer.CreateObj(metaStore.globalTransactionManager, objectMeta.MetaDescription, metaStore.MetaDescriptionSyncer); e == nil {
+	if e := metaStore.CreateObj(metaStore.globalTransactionManager, objectMeta.MetaDescription, metaStore.MetaDescriptionSyncer); e == nil {
 		if e := metaStore.MetaDescriptionSyncer.Create(*objectMeta.MetaDescription); e == nil {
 
 			//add corresponding outer generic fields
@@ -105,7 +109,7 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 			return nil
 		} else {
-			var e2 = metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, objectMeta.Name, false)
+			var e2 = metaStore.RemoveObj(metaStore.globalTransactionManager, objectMeta.Name, false)
 			logger.Error("Error while compenstaion of object '%s' metadata creation: %v", objectMeta.Name, e2)
 			return e
 		}
@@ -124,7 +128,7 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 		// remove possible outer links before main update processing
 		metaStore.removeRelatedLinksOnUpdate(upateRelated, currentMetaObj, newMetaObj)
 
-		if updateError := metaStore.Syncer.UpdateObj(metaStore.globalTransactionManager, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
+		if updateError := metaStore.UpdateObj(metaStore.globalTransactionManager, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(currentMetaObj, newMetaObj)
 
@@ -162,7 +166,7 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	metaStore.removeRelatedLinks(force, meta)
 
 	//remove object from the database
-	if e := metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, name, force); e == nil {
+	if e := metaStore.RemoveObj(metaStore.globalTransactionManager, name, force); e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
 
@@ -557,6 +561,115 @@ func (metaStore *MetaStore) Flush() error {
 	return nil
 }
 
-func NewStore(md MetaDescriptionSyncer, mds MetaDbSyncer, gtm *PgDbTransactionManager) *MetaStore {
-	return &MetaStore{MetaDescriptionSyncer: md, Syncer: mds, globalTransactionManager: gtm}
+func NewStore(md MetaDescriptionSyncer, gtm *PgDbTransactionManager) *MetaStore {
+	return &MetaStore{MetaDescriptionSyncer: md, globalTransactionManager: gtm}
+}
+
+
+//----
+
+func (metaStore *MetaStore) CreateObj(globalTransactionManager *PgDbTransactionManager, metaDescription *MetaDescription, descriptionSyncer MetaDescriptionSyncer) error {
+	var md *MetaDDL
+	var e error
+	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
+	if md, e = metaDdlFactory.Factory(metaDescription); e != nil {
+		return e
+	}
+	var ds DdlStatementSet
+	if ds, e = md.CreateScript(); e != nil {
+		return e
+	}
+	transaction, err := globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return err
+	}
+	tx := transaction.Transaction().(*sql.Tx)
+	for _, st := range ds {
+		logger.Debug("Creating object in DB: %syncer\n", st.Code)
+		if _, e := tx.Exec(st.Code); e != nil {
+			globalTransactionManager.RollbackTransaction(transaction)
+			return errors.NewValidationError(ErrExecutingDDL, e.Error(), nil)
+		}
+	}
+	globalTransactionManager.CommitTransaction(transaction)
+	return nil
+}
+
+func (metaStore *MetaStore) RemoveObj(globalTransactionManager *PgDbTransactionManager, name string, force bool) error {
+	transaction, err := globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return err
+	}
+	tx := transaction.Transaction().(*sql.Tx)
+	var metaDdlFromDb *MetaDDL
+	var e error
+	if metaDdlFromDb, e = MetaDDLFromDB(tx, name); e != nil {
+		if e.(*DDLError).code == ErrNotFound {
+			globalTransactionManager.RollbackTransaction(transaction)
+			return nil
+		}
+		globalTransactionManager.RollbackTransaction(transaction)
+		return e
+	}
+	var ds DdlStatementSet
+	if ds, e = metaDdlFromDb.DropScript(force); e != nil {
+		globalTransactionManager.RollbackTransaction(transaction)
+		return e
+	}
+	for _, st := range ds {
+		logger.Debug("Removing object from DB: %syncer\n", st.Code)
+		if _, e := tx.Exec(st.Code); e != nil {
+			globalTransactionManager.RollbackTransaction(transaction)
+			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
+		}
+	}
+	globalTransactionManager.CommitTransaction(transaction)
+
+	return nil
+}
+
+//UpdateRecord an existing business object
+func (metaStore *MetaStore) UpdateObj(globalTransactionManager *PgDbTransactionManager, currentMetaDescription *MetaDescription, newMetaDescription *MetaDescription, descriptionSyncer MetaDescriptionSyncer) error {
+	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
+	var err error
+
+	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
+	if currentBusinessObjMeta, err = metaDdlFactory.Factory(currentMetaDescription); err != nil {
+		return err
+	}
+
+	if newBusinessObjMeta, err = metaDdlFactory.Factory(newMetaDescription); err != nil {
+		return err
+	}
+	var metaDdlDiff *MetaDDLDiff
+	if metaDdlDiff, err = currentBusinessObjMeta.Diff(newBusinessObjMeta); err != nil {
+		return err
+	}
+	var ddlStatements DdlStatementSet
+	if ddlStatements, err = metaDdlDiff.Script(); err != nil {
+		return err
+	}
+	transaction, err := globalTransactionManager.BeginTransaction()
+	if err != nil {
+		return err
+	}
+	tx := transaction.Transaction().(*sql.Tx)
+	for _, ddlStatement := range ddlStatements {
+		logger.Debug("Updating object in DB: %s\n", ddlStatement.Code)
+		if _, e := tx.Exec(ddlStatement.Code); e != nil {
+			// TODO: Postgres error must return column field
+			// TOFIX: https://github.com/postgres/postgres/blob/14751c340754af9f906a893eb87a894dea3adbc9/src/backend/commands/tablecmds.c#L10539
+			globalTransactionManager.RollbackTransaction(transaction)
+			var data map[string]interface{}
+			if e.(*pgconn.PgError).Code == "42804" {
+				matched := regexp.MustCompile(`column "(.*)"`).FindAllStringSubmatch(e.(*pq.Error).Message, -1)
+				if len(matched) > 0 {
+					data = map[string]interface{}{"column": matched[0][1]}
+				}
+			}
+			return errors.NewValidationError(ErrExecutingDDL, e.Error(), data)
+		}
+	}
+	globalTransactionManager.CommitTransaction(transaction)
+	return nil
 }

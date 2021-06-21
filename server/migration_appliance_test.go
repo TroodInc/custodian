@@ -32,7 +32,7 @@ var _ = Describe("Server 101", func() {
 
 	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, dbTransactionManager,
 	)

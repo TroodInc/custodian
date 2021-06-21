@@ -20,7 +20,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -49,7 +49,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		}
 		Expect(err).To(BeNil())
 		//sync its MetaDescription
-		err = syncer.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
+		err = metaStore.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		dbTransactionManager.CommitTransaction(globalTransaction)
