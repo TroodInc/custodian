@@ -20,7 +20,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -253,7 +253,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -586,7 +586,7 @@ var _ = Describe("Remove m2m fields", func() {
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

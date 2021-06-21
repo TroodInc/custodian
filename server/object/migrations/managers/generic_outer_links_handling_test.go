@@ -19,7 +19,7 @@ var _ = Describe("Generic outer links spawned migrations appliance", func() {
 
 	metaDescriptionSyncer := obj.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := obj.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := obj.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	migrationManager := NewMigrationManager(metaStore, dataManager, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription

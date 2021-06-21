@@ -18,7 +18,7 @@ var _ = Describe("Outer generic field", func() {
 	dbTransactionManager := NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

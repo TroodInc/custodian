@@ -23,7 +23,7 @@ var _ = Describe("Data", func() {
 	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	dataProcessor, _ := object2.NewProcessor(metaStore, dataManager, dbTransactionManager)
 
 	AfterEach(func() {

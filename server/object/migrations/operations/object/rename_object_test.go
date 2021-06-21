@@ -19,7 +19,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 	//setup transaction
@@ -51,7 +51,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		err = metaDescriptionSyncer.Create(*metaDescription)
 		Expect(err).To(BeNil())
 		//sync its MetaDescription with DB
-		err = syncer.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
+		err = metaStore.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
 		dbTransactionManager.CommitTransaction(globalTransaction)

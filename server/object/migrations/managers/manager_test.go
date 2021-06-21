@@ -22,7 +22,7 @@ var _ = Describe("MigrationManager", func() {
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	It("Creates migration history table if it does not exists", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
