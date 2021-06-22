@@ -143,13 +143,14 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 
 			//fill node
-			globalTransaction, _ := dbTransactionManager.BeginTransaction()
-			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction)
+			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor)
 			Expect(err).To(BeNil())
-
+			globalTransaction, err := dbTransactionManager.BeginTransaction()
+			Expect(err).To(BeNil())
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
 			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			Expect(err).To(BeNil())
 
 			notifications := recordSetNotificationPool.Notifications()
 
@@ -177,7 +178,7 @@ var _ = Describe("Data", func() {
 
 			//fill node
 			globalTransaction, _ := dbTransactionManager.BeginTransaction()
-			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction)
+			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor)
 			Expect(err).To(BeNil())
 
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)

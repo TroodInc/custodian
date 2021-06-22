@@ -3,7 +3,6 @@ package object
 import (
 	"custodian/server/object/description"
 	"custodian/server/object/errors"
-	"custodian/server/transactions"
 
 	"fmt"
 )
@@ -12,9 +11,9 @@ type RecordRemovalTreeBuilder struct {
 }
 
 //Extract record`s full tree consisting of depending records, which would be affected by root record removal
-func (r *RecordRemovalTreeBuilder) Extract(record *Record, processor *Processor, dbTransaction transactions.DbTransaction) (*RecordRemovalNode, error) {
+func (r *RecordRemovalTreeBuilder) Extract(record *Record, processor *Processor) (*RecordRemovalNode, error) {
 	recordTree := NewRecordRemovalNode(record, nil, nil, nil)
-	if err := r.fillWithDependingRecords(recordTree, processor, dbTransaction); err != nil {
+	if err := r.fillWithDependingRecords(recordTree, processor); err != nil {
 		return nil, err
 	} else {
 		return recordTree, nil
@@ -30,7 +29,7 @@ func (r *RecordRemovalTreeBuilder) makeGenericFilter(innerField *FieldDescriptio
 }
 
 //iterate through record`s fields and process outer relations
-func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRemovalNode, processor *Processor, dbTransaction transactions.DbTransaction) error {
+func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRemovalNode, processor *Processor) error {
 	for _, field := range recordNode.Record.Meta.Fields {
 		if field.Type == description.FieldTypeArray || (field.Type == description.FieldTypeGeneric && field.LinkType == description.LinkTypeOuter) {
 			var relatedRecords []*Record
@@ -61,7 +60,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 					)
 					switch *newRecordNode.OnDeleteStrategy {
 					case description.OnDeleteCascade:
-						if err := r.fillWithDependingRecords(newRecordNode, processor, dbTransaction); err != nil {
+						if err := r.fillWithDependingRecords(newRecordNode, processor); err != nil {
 							return err
 						}
 						recordNode.Children[field.Name] = append(recordNode.Children[field.Name], newRecordNode)

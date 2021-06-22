@@ -5,8 +5,9 @@ import (
 	"custodian/server/transactions"
 	"database/sql"
 	"fmt"
-	"github.com/jackc/pgconn"
 	"regexp"
+
+	"github.com/jackc/pgconn"
 
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 

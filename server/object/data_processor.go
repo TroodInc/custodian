@@ -588,13 +588,14 @@ func (processor *Processor) RemoveRecord(objectName string, key string, user aut
 	defer func() { recordSetNotificationPool.CompleteSend(err) }()
 
 	//fill node
-	dbTransaction, err := processor.transactionManager.BeginTransaction()
+
+	removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor)
 	if err != nil {
 		return nil, err
 	}
-	removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
+
+	dbTransaction, err := processor.transactionManager.BeginTransaction()
 	if err != nil {
-		processor.transactionManager.RollbackTransaction(dbTransaction)
 		return nil, err
 	}
 
@@ -643,13 +644,14 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 		}
 
 		//fill node
-		dbTransaction, err := processor.transactionManager.BeginTransaction()
+
+		removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor)
 		if err != nil {
 			return err
 		}
-		removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
+
+		dbTransaction, err := processor.transactionManager.BeginTransaction()
 		if err != nil {
-			processor.transactionManager.RollbackTransaction(dbTransaction)
 			return err
 		}
 

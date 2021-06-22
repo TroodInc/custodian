@@ -8,14 +8,14 @@ import (
 )
 
 type RecordSetNotification struct {
-	recordSet *RecordSet
-	isRoot    bool
+	recordSet          *RecordSet
+	isRoot             bool
 	getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*Record, error)
-	getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*Record, error)
-	Actions           []*description.Action
-	Method            description.Method
-	PreviousState     map[int]*RecordSet
-	CurrentState      map[int]*RecordSet
+	getRecordCallback  func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*Record, error)
+	Actions            []*description.Action
+	Method             description.Method
+	PreviousState      map[int]*RecordSet
+	CurrentState       map[int]*RecordSet
 }
 
 func NewRecordSetNotification(recordSet *RecordSet, isRoot bool, method description.Method, getRecordsCallback func(objectName, filter string, ip []string, ep []string, depth int, omitOuters bool) (int, []*Record, error), getRecordCallback func(objectClass, key string, ip []string, ep []string, depth int, omitOuters bool) (*Record, error)) *RecordSetNotification {
