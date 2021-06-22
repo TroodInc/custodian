@@ -9,10 +9,6 @@ import (
 	_ "github.com/jackc/pgx/v4/stdlib" // needed for proper driver work
 )
 
-type Syncer struct {
-	db *sql.DB
-}
-
 func getDBConnection(dbInfo string) *sql.DB {
 	db, err := sql.Open("pgx", dbInfo)
 	db.SetConnMaxLifetime(0)
@@ -30,7 +26,7 @@ func getDBConnection(dbInfo string) *sql.DB {
 
 var activeDBConnection *sql.DB
 
-func NewSyncer(dbInfo string) (*Syncer, error) {
+func NewDbConnection(dbInfo string) (*sql.DB, error) {
 	if activeDBConnection == nil {
 		activeDBConnection = getDBConnection(dbInfo)
 	}
@@ -45,14 +41,5 @@ func NewSyncer(dbInfo string) (*Syncer, error) {
 		alive = activeDBConnection.Ping()
 	}
 
-	return &Syncer{db: activeDBConnection}, nil
+	return activeDBConnection, nil
 }
-
-func (syncer *Syncer) Close() error {
-	return syncer.db.Close()
-}
-
-func (syncer *Syncer) NewDataManager() (*DBManager, error) {
-	return NewDataManager(syncer.db)
-}
-

@@ -13,10 +13,9 @@ import (
 
 var _ = Describe("'CreateObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)

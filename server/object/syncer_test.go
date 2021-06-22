@@ -14,11 +14,10 @@ import (
 
 var _ = Describe("Store", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)

@@ -17,14 +17,14 @@ import (
 
 var _ = Describe("Migration Factory", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object2.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
+	dataManager, _ := object2.NewDataManager(db)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, dbTransactionManager,
 	)

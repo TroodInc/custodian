@@ -13,11 +13,9 @@ import (
 
 var _ = Describe("The PG MetaStore", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)

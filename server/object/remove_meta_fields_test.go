@@ -13,11 +13,9 @@ import (
 
 var _ = Describe("Tests inner and outer objects update and removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
@@ -246,11 +244,9 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 
 var _ = Describe("Tests  generic inner and generic outer objects update and removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
@@ -579,11 +575,9 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 })
 var _ = Describe("Remove m2m fields", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)

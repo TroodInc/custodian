@@ -6,14 +6,14 @@ import (
 )
 
 type PgDbTransactionManager struct {
-	dataManager *DBManager
+	db *sql.DB
 	transaction *PgTransaction
 }
 
 //transaction related methods
 func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction, error) {
 	if tm.transaction == nil {
-		if tx, err := tm.dataManager.Db().(*sql.DB).Begin(); err != nil {
+		if tx, err := tm.db.Begin(); err != nil {
 			return nil, err
 		} else {
 			tm.transaction = &PgTransaction{tx, tm, 0}
@@ -52,6 +52,6 @@ func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions
 	}
 }
 
-func NewPgDbTransactionManager(dataManager *DBManager) *PgDbTransactionManager {
-	return &PgDbTransactionManager{dataManager: dataManager}
+func NewPgDbTransactionManager(db *sql.DB) *PgDbTransactionManager {
+	return &PgDbTransactionManager{db: db}
 }

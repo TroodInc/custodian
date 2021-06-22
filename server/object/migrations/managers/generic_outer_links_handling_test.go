@@ -13,13 +13,13 @@ import (
 
 var _ = Describe("Generic outer links spawned migrations appliance", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := obj.NewSyncer(appConfig.DbConnectionUrl)
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := obj.NewPgDbTransactionManager(dataManager)
+	db, _ := obj.NewDbConnection(appConfig.DbConnectionUrl)
+	dbTransactionManager := obj.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := obj.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
 	metaStore := obj.NewStore(metaDescriptionSyncer, dbTransactionManager)
+	dataManager, _ := obj.NewDataManager(db)
 	migrationManager := NewMigrationManager(metaStore, dataManager, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription

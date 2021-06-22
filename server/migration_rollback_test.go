@@ -21,16 +21,16 @@ import (
 
 var _ = Describe("Rollback migrations", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
+	dataManager, _ := object.NewDataManager(db)
 	migrationManager := managers.NewMigrationManager(
 		metaStore, dataManager, dbTransactionManager,
 	)
