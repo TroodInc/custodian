@@ -43,14 +43,14 @@ var _ = Describe("ABAC rules handling", func() {
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := object.NewDataManager(db)
+	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
-	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	testObjName := utils.RandomString(8)
 

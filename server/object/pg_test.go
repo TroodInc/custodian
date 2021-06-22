@@ -17,13 +17,13 @@ var _ = Describe("PG MetaStore test", func() {
 	appConfig := utils.GetConfig()
 	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := object.NewDataManager(db)
+	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
-	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

@@ -24,14 +24,14 @@ var _ = Describe("Migrations` listing", func() {
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := object.NewDataManager(db)
+	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, dbTransactionManager,
+		metaStore, dbTransactionManager,
 	)
 
 	BeforeEach(func() {

@@ -450,10 +450,10 @@ func (mm *MigrationManager) factoryHistoryMeta() (*object2.Meta, error) {
 	return object2.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func NewMigrationManager(metaStore *object2.MetaStore, manager *object2.DBManager, gtm *object2.PgDbTransactionManager) *MigrationManager {
+func NewMigrationManager(metaStore *object2.MetaStore, gtm *object2.PgDbTransactionManager) *MigrationManager {
 	migrationDBDescriptionSyncer := object2.NewDbMetaDescriptionSyncer(gtm)
 	migrationStore := object2.NewStore(migrationDBDescriptionSyncer, gtm)
-	processor, _ := object2.NewProcessor(migrationStore, manager, gtm)
+	processor, _ := object2.NewProcessor(migrationStore, gtm)
 
 	return &MigrationManager{metaStore, migrationStore, processor, gtm}
 }

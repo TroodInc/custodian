@@ -25,7 +25,7 @@ var _ = Describe("Migration`s construction", func() {
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := object.NewDataManager(db)
+	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
@@ -41,7 +41,7 @@ var _ = Describe("Migration`s construction", func() {
 	flushDb := func() {
 		// drop history
 		err := managers.NewMigrationManager(
-			metaStore, dataManager, dbTransactionManager,
+			metaStore, dbTransactionManager,
 		).DropHistory()
 		Expect(err).To(BeNil())
 		//Flush meta/database

@@ -29,8 +29,8 @@ var _ = Describe("Server 101", func() {
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
-	dataManager, _ := object.NewDataManager(db)
-	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	
+	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	BeforeEach(func() {
 		httpServer = server.New("localhost", "8081", appConfig.UrlPrefix, appConfig.DbConnectionUrl).Setup(appConfig)

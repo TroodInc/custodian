@@ -16,7 +16,7 @@ var _ = Describe("MigrationManager", func() {
 	appConfig := utils.GetConfig()
 	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := object.NewDataManager(db)
+	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
@@ -29,7 +29,7 @@ var _ = Describe("MigrationManager", func() {
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
-			metaStore, dataManager, dbTransactionManager,
+			metaStore, dbTransactionManager,
 		).ensureHistoryTableExists()
 		Expect(err).To(BeNil())
 
@@ -48,7 +48,7 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		migrationHistoryId, err := NewMigrationManager(
-			metaStore, dataManager, dbTransactionManager,
+			metaStore, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
@@ -60,12 +60,12 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		_, err := NewMigrationManager(
-			metaStore, dataManager, dbTransactionManager,
+			metaStore, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
-			metaStore, dataManager, dbTransactionManager,
+			metaStore, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).NotTo(BeNil())
 	})

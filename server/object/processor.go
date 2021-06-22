@@ -23,17 +23,7 @@ import (
 	"text/template"
 )
 
-type DBManager struct {
-	db *sql.DB
-}
-
-func (dm *DBManager) Db() interface{} {
-	return dm.db
-}
-
-func NewDataManager(db *sql.DB) (*DBManager, error) {
-	return &DBManager{db: db}, nil
-}
+type DBManager struct {}
 
 const (
 	ErrTemplateFailed     = "template_failed"

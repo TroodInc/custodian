@@ -17,14 +17,14 @@ var _ = Describe("Automated generic links` migrations` spawning", func() {
 	appConfig := utils.GetConfig()
 	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := object.NewDataManager(db)
+	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
-	migrationManager := managers.NewMigrationManager(metaStore, dataManager, dbTransactionManager)
+	migrationManager := managers.NewMigrationManager(metaStore, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 

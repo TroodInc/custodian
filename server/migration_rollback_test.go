@@ -30,9 +30,9 @@ var _ = Describe("Rollback migrations", func() {
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
-	dataManager, _ := object.NewDataManager(db)
+	
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, dbTransactionManager,
+		metaStore, dbTransactionManager,
 	)
 
 	BeforeEach(func() {

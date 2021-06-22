@@ -147,19 +147,14 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
-	dataManager, _ := object.NewDataManager(db)
-	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager,
-		dbTransactionManager,
-	)
+	migrationManager := managers.NewMigrationManager(metaStore, dbTransactionManager)
 
 	getDataProcessor := func() *object.Processor {
 		dbTransactionManager := object.NewPgDbTransactionManager(db)
 		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 		metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
-		dataManager, _ := object.NewDataManager(db)
-		processor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+		processor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 		return processor
 	}
 
