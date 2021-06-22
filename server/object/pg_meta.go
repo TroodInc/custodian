@@ -99,13 +99,11 @@ func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool, error) {
 	globalTransaction, err := md.globalTransactionManager.BeginTransaction()
 	if err != nil {
-		fmt.Println(0, err)
 		return nil, false, err
 	}
 	tx := globalTransaction.Transaction().(*sql.Tx)
 	rows, err := tx.Query(SQL_GET_META_LIST)
 	if err != nil {
-		fmt.Println(1, err)
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
 		return nil, false, err
 	}
@@ -122,8 +120,6 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 		metaList = append(metaList, &meta)
 	}
 	if err := rows.Err(); err != nil {
-		fmt.Println(2, err)
-
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
 		return nil, false, errors.NewFatalError(
 			"get_meta_list",

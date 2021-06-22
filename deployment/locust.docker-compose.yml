@@ -1,0 +1,7 @@
+version: "2.2"
+
+services:
+  custodian:
+    cpus: '1'
+    mem_limit: 512M
+    mem_reservation: 512M
