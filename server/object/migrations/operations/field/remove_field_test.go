@@ -6,8 +6,6 @@ import (
 	"custodian/server/object/migrations/operations/object"
 
 	"custodian/utils"
-	"database/sql"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -84,7 +82,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			_, err = removeFieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns).To(HaveLen(1))
@@ -147,7 +145,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field has been removed
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns).To(HaveLen(1))
@@ -167,7 +165,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field`s default value has been dropped
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			//check sequence has been dropped
@@ -257,7 +255,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that IFK has been dropped
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			dbTransactionManager.CommitTransaction(globalTransaction)
 

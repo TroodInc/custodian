@@ -6,8 +6,6 @@ import (
 	"custodian/server/object"
 
 	"custodian/utils"
-	"database/sql"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -33,7 +31,7 @@ var _ = Describe("MigrationManager", func() {
 		).ensureHistoryTableExists()
 		Expect(err).To(BeNil())
 
-		metaDdl, err := object.MetaDDLFromDB(dbTransaction.Transaction().(*sql.Tx), historyMetaName)
+		metaDdl, err := object.MetaDDLFromDB(dbTransaction.Transaction(), historyMetaName)
 
 		Expect(err).To(BeNil())
 

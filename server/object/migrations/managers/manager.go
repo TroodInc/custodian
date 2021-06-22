@@ -9,7 +9,6 @@ import (
 	object2 "custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/migrations/operations/object"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -323,7 +322,7 @@ func (mm *MigrationManager) ensureHistoryTableExists() (*object2.Meta, error) {
 	if err != nil {
 		return nil, err
 	}
-	_, err = object2.MetaDDLFromDB(transaction.Transaction().(*sql.Tx), historyMetaName)
+	_, err = object2.MetaDDLFromDB(transaction.Transaction(), historyMetaName)
 	doesNotExist := false
 	if err != nil {
 		switch castError := err.(type) {

@@ -5,8 +5,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -69,7 +67,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		err = new(DeleteObjectOperation).SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		//ensure table has been removed
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, metaName)

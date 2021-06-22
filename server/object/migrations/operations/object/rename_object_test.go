@@ -5,8 +5,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -75,7 +73,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		operation := NewRenameObjectOperation(newMetaDescription)
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		//ensure table has been renamed
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, newMetaDescription.Name)

@@ -5,7 +5,6 @@ import (
 	"custodian/server/errors"
 	. "custodian/server/object/description"
 	"custodian/utils"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 	"github.com/jackc/pgconn"
@@ -583,7 +582,7 @@ func (metaStore *MetaStore) CreateObj(metaDescription *MetaDescription, descript
 	if err != nil {
 		return err
 	}
-	tx := transaction.Transaction().(*sql.Tx)
+	tx := transaction.Transaction()
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
@@ -600,7 +599,7 @@ func (metaStore *MetaStore) RemoveObj(name string, force bool) error {
 	if err != nil {
 		return err
 	}
-	tx := transaction.Transaction().(*sql.Tx)
+	tx := transaction.Transaction()
 	var metaDdlFromDb *MetaDDL
 	var e error
 	if metaDdlFromDb, e = MetaDDLFromDB(tx, name); e != nil {
@@ -653,7 +652,7 @@ func (metaStore *MetaStore) UpdateObj(currentMetaDescription *MetaDescription, n
 	if err != nil {
 		return err
 	}
-	tx := transaction.Transaction().(*sql.Tx)
+	tx := transaction.Transaction()
 	for _, ddlStatement := range ddlStatements {
 		logger.Debug("Updating object in DB: %s\n", ddlStatement.Code)
 		if _, e := tx.Exec(ddlStatement.Code); e != nil {

@@ -5,8 +5,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -63,7 +61,7 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		//sync MetaDescription with DB
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		//ensure table has been created
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, metaDescription.Name)

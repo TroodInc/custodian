@@ -6,7 +6,6 @@ import (
 	"custodian/server/object/migrations/operations/object"
 
 	"custodian/utils"
-	"database/sql"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -72,7 +71,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
@@ -111,7 +110,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(metaDescription.Name).To(Equal("a"))
@@ -154,7 +153,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
@@ -216,7 +215,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//Check constraint
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())

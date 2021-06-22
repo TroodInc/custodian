@@ -44,7 +44,7 @@ func (md *PgMetaDescriptionSyncer) CreateMetaTableIfNotExists() {
 	if err != nil {
 		return
 	}
-	tx := globalTransaction.Transaction().(*sql.Tx)
+	tx := globalTransaction.Transaction()
 	_, err = tx.Exec(SQL_CREATE_META_TABLE)
 	if err != nil {
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -73,7 +73,7 @@ func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 	if err != nil {
 		return nil, false, err
 	}
-	tx := globalTransaction.Transaction().(*sql.Tx)
+	tx := globalTransaction.Transaction()
 
 	meta, err := getMetaObjFromDb(name, tx)
 	if err != nil {
@@ -101,7 +101,7 @@ func (md *PgMetaDescriptionSyncer) List() ([]*description.MetaDescription, bool,
 	if err != nil {
 		return nil, false, err
 	}
-	tx := globalTransaction.Transaction().(*sql.Tx)
+	tx := globalTransaction.Transaction()
 	rows, err := tx.Query(SQL_GET_META_LIST)
 	if err != nil {
 		md.globalTransactionManager.RollbackTransaction(globalTransaction)
@@ -137,7 +137,7 @@ func (md *PgMetaDescriptionSyncer) Remove(name string) (bool, error) {
 	if err != nil {
 		return false, err
 	}
-	tx := globalTransaction.Transaction().(*sql.Tx)
+	tx := globalTransaction.Transaction()
 
 	_, err = tx.Exec(DELETE_META_OBJ, name)
 	if err != nil {
@@ -159,7 +159,7 @@ func (md *PgMetaDescriptionSyncer) Create(m description.MetaDescription) error {
 	if err != nil {
 		return err
 	}
-	tx := globalTransaction.Transaction().(*sql.Tx)
+	tx := globalTransaction.Transaction()
 
 	b, err := json.Marshal(m)
 	if err != nil {
@@ -189,7 +189,7 @@ func (md *PgMetaDescriptionSyncer) Update(name string, m description.MetaDescrip
 	if err != nil {
 		return false, err
 	}
-	tx := globalTransaction.Transaction().(*sql.Tx)
+	tx := globalTransaction.Transaction()
 
 	b, err := json.Marshal(m)
 	if err != nil {

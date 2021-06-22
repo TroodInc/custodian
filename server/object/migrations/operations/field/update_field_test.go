@@ -6,7 +6,6 @@ import (
 	"custodian/server/object/migrations/operations/object"
 
 	"custodian/utils"
-	"database/sql"
 	"fmt"
 
 	"github.com/getlantern/deepcopy"
@@ -100,7 +99,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field`s type has changed
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
@@ -123,7 +122,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field`s type has changed
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Optional).To(BeFalse())
@@ -146,7 +145,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field`s type has changed
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("updated-name"))
@@ -170,7 +169,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field`s default value has been dropped
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal(""))
@@ -194,7 +193,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			//
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
@@ -239,7 +238,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field`s default value has been dropped
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal(fmt.Sprintf("nextval('o_%s_number_seq'::regclass)", testObjAName)))
@@ -339,7 +338,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field`s type has changed
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("b_link"))
@@ -412,7 +411,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 
 			//check that field`s type has changed
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			dbTransactionManager.CommitTransaction(globalTransaction)
 			Expect(err).To(BeNil())
@@ -477,7 +476,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(len(metaDdlFromDB.Columns[1].Enum)).To(Equal(3))
@@ -497,7 +496,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("enum_field_new"))

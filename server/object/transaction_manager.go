@@ -28,7 +28,7 @@ func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction
 
 func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) (error) {
 	if tm.transaction.Counter == 0 {
-		tx := dbTransaction.Transaction().(*sql.Tx)
+		tx := dbTransaction.Transaction()
 		if err := tx.Commit(); err != nil {
 			return NewTransactionError(ErrCommitFailed, err.Error())
 		}
@@ -44,7 +44,7 @@ func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.D
 func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) (error) {
 	if tm.transaction.Counter == 0 {
 		tm.transaction = nil
-		return dbTransaction.Transaction().(*sql.Tx).Rollback()
+		return dbTransaction.Transaction().Rollback()
 	} else {
 		tm.transaction.Counter -= 1
 		//fmt.Println("Rollback DB transaction [", tm.transaction.Counter, "]")

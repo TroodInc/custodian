@@ -4,7 +4,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -116,7 +115,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(name)
 
@@ -219,7 +218,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(metaObjB.Name)
 
@@ -403,7 +402,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(name)
 
@@ -646,7 +645,7 @@ var _ = Describe("Remove m2m fields", func() {
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(name)
 

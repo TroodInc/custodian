@@ -3,13 +3,10 @@ package object_test
 import (
 	"custodian/server/object"
 	"custodian/utils"
-	"database/sql"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"custodian/server/object/description"
-
 )
 
 var _ = Describe("Store", func() {
@@ -82,7 +79,7 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				tx := globalTransaction.Transaction().(*sql.Tx)
+				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
 				dbTransactionManager.CommitTransaction(globalTransaction)
 
@@ -117,7 +114,7 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				tx := globalTransaction.Transaction().(*sql.Tx)
+				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
 				dbTransactionManager.CommitTransaction(globalTransaction)
 
@@ -181,7 +178,7 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				tx := globalTransaction.Transaction().(*sql.Tx)
+				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
 				dbTransactionManager.CommitTransaction(globalTransaction)
 
