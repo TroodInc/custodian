@@ -31,7 +31,7 @@ var _ = Describe("Migrations` listing", func() {
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager,
 	)
 
 	BeforeEach(func() {

@@ -34,7 +34,7 @@ var _ = Describe("Server 101", func() {
 	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager,
 	)
 
 	BeforeEach(func() {

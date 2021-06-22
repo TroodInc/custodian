@@ -20,14 +20,12 @@ var _ = Describe("MigrationManager", func() {
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
-
 	It("Creates migration history table if it does not exists", func() {
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
-			metaStore, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager,
 		).ensureHistoryTableExists()
 		Expect(err).To(BeNil())
 
@@ -46,7 +44,7 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		migrationHistoryId, err := NewMigrationManager(
-			metaStore, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
@@ -58,12 +56,12 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		_, err := NewMigrationManager(
-			metaStore, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
-			metaStore, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager,
 		).recordAppliedMigration(migration)
 		Expect(err).NotTo(BeNil())
 	})

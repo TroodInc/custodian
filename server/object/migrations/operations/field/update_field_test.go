@@ -18,7 +18,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 	db, _ := object2.NewDbConnection(appConfig.DbConnectionUrl)
 
 	dbTransactionManager := object2.NewPgDbTransactionManager(db)
-	// dbTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
+
 	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
 	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 

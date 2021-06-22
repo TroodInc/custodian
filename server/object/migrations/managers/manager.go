@@ -19,8 +19,8 @@ import (
 const historyMetaName = "__custodian_objects_migration_history__"
 
 type MigrationManager struct {
-	metaStore                *object2.MetaStore
-	migrationStore           *object2.MetaStore
+	metaSyncer                *object2.PgMetaDescriptionSyncer
+	migrationSyncer           *object2.DbMetaDescriptionSyncer
 	processor                *object2.Processor
 	globalTransactionManager *object2.PgDbTransactionManager
 }
@@ -39,7 +39,7 @@ func (mm *MigrationManager) List(filter string) (int, []*object2.Record, error) 
 }
 
 func (mm *MigrationManager) Apply(migrationDescription *migrations_description.MigrationDescription, shouldRecord bool, fake bool) (updatedMetaDescription *description.MetaDescription, err error) {
-	if migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryForward(migrationDescription); err == nil {
+	if migration, err := migrations.NewMigrationFactory(mm.metaSyncer).FactoryForward(migrationDescription); err == nil {
 		if err := mm.canApplyMigration(migration); err != nil {
 			return nil, err
 		}
@@ -74,7 +74,7 @@ func (mm *MigrationManager) RollBackTo(migrationId string, shouldRecord bool, fa
 				return nil, err
 			}
 		} else {
-			migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryBackward(subsequentMigration)
+			migration, err := migrations.NewMigrationFactory(mm.metaSyncer).FactoryBackward(subsequentMigration)
 			if err != nil {
 				return nil, err
 			}
@@ -107,7 +107,7 @@ func (mm *MigrationManager) rollback(migrationDescription *migrations_descriptio
 	}
 
 	// and run it
-	migration, err := migrations.NewMigrationFactory(mm.metaStore.MetaDescriptionSyncer).FactoryBackward(migrationDescription)
+	migration, err := migrations.NewMigrationFactory(mm.metaSyncer).FactoryBackward(migrationDescription)
 	if err != nil {
 		return nil, err
 	}
@@ -125,7 +125,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 
 	// metaDescription should be retrieved again because it may mutate during runBefore migrations(eg automatically added outer link was removed)
 	if migration.ApplyTo != nil {
-		metaDescriptionToApply, _, err = mm.metaStore.MetaDescriptionSyncer.Get(migration.ApplyTo.Name)
+		metaDescriptionToApply, _, err = mm.metaSyncer.Get(migration.ApplyTo.Name)
 		if err != nil {
 			return nil, err
 		}
@@ -138,11 +138,11 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 	for _, operation := range migration.Operations {
 		//metaToApply should mutate only within iterations, not inside iteration
 		if !fake {
-			updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, mm.metaStore.MetaDescriptionSyncer)
+			updatedMetaDescription, err = operation.SyncMetaDescription(metaDescriptionToApply, mm.metaSyncer)
 			if err != nil {
 				return nil, err
 			} else {
-				err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction, mm.metaStore.MetaDescriptionSyncer)
+				err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction, mm.metaSyncer)
 				if err != nil {
 					mm.globalTransactionManager.RollbackTransaction(globalTransaction)
 					return nil, err
@@ -183,7 +183,7 @@ func (mm *MigrationManager) DropHistory() error {
 	if err != nil {
 		return err
 	}
-	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.migrationStore.MetaDescriptionSyncer)
+	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.migrationSyncer)
 	if err != nil {
 		mm.globalTransactionManager.RollbackTransaction(transaction)
 		return err
@@ -346,7 +346,7 @@ func (mm *MigrationManager) ensureHistoryTableExists() (*object2.Meta, error) {
 	}
 
 	if doesNotExist {
-		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, transaction, mm.migrationStore.MetaDescriptionSyncer); err != nil {
+		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, transaction, mm.migrationSyncer); err != nil {
 			mm.globalTransactionManager.RollbackTransaction(transaction)
 			return nil, err
 		}
@@ -449,10 +449,10 @@ func (mm *MigrationManager) factoryHistoryMeta() (*object2.Meta, error) {
 	return object2.NewMetaFactory(nil).FactoryMeta(historyMetaDescription)
 }
 
-func NewMigrationManager(metaStore *object2.MetaStore, gtm *object2.PgDbTransactionManager) *MigrationManager {
-	migrationDBDescriptionSyncer := object2.NewDbMetaDescriptionSyncer(gtm)
-	migrationStore := object2.NewStore(migrationDBDescriptionSyncer, gtm)
+func NewMigrationManager(metaSyncer *object2.PgMetaDescriptionSyncer, gtm *object2.PgDbTransactionManager) *MigrationManager {
+	migrationSyncer := object2.NewDbMetaDescriptionSyncer(gtm)
+	migrationStore := object2.NewStore(migrationSyncer, gtm)
 	processor, _ := object2.NewProcessor(migrationStore, gtm)
 
-	return &MigrationManager{metaStore, migrationStore, processor, gtm}
+	return &MigrationManager{metaSyncer, migrationSyncer, processor, gtm}
 }

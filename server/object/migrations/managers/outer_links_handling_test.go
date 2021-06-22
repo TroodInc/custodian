@@ -22,7 +22,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	migrationManager := NewMigrationManager(
-		metaStore, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager,
 	)
 
 	var metaDescription *description.MetaDescription
