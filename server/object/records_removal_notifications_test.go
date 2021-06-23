@@ -149,7 +149,7 @@ var _ = Describe("Data", func() {
 
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
 			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 			notifications := recordSetNotificationPool.Notifications()
 
@@ -182,7 +182,7 @@ var _ = Describe("Data", func() {
 
 			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
 			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 			dataProcessor.RemoveRecord(bRecord.Meta.Name, strconv.Itoa(int(bRecord.Pk().(float64))), auth.User{})
 			notifications := recordSetNotificationPool.Notifications()

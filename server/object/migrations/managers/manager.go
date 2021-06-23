@@ -144,7 +144,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 			} else {
 				err := operation.SyncDbDescription(metaDescriptionToApply, globalTransaction, mm.metaSyncer)
 				if err != nil {
-					mm.globalTransactionManager.RollbackTransaction(globalTransaction)
+					globalTransaction.Rollback()
 					return nil, err
 				}
 			}
@@ -152,7 +152,7 @@ func (mm *MigrationManager) runMigration(migration *migrations.Migration, should
 		}
 		//mutate metaToApply
 	}
-	mm.globalTransactionManager.CommitTransaction(globalTransaction)
+	globalTransaction.Commit()
 
 	for _, spawnedMigrationDescription := range migration.RunAfter {
 		if _, err := mm.Apply(spawnedMigrationDescription, false, fake); err != nil { //do not record applied spawned migrations, because of their ephemeral nature
@@ -185,11 +185,12 @@ func (mm *MigrationManager) DropHistory() error {
 	}
 	err = object.NewDeleteObjectOperation().SyncDbDescription(historyMeta.MetaDescription, transaction, mm.migrationSyncer)
 	if err != nil {
-		mm.globalTransactionManager.RollbackTransaction(transaction)
+		
+		transaction.Rollback()
 		return err
 	}
 
-	mm.globalTransactionManager.CommitTransaction(transaction)
+	transaction.Commit()
 	return nil
 }
 
@@ -330,28 +331,33 @@ func (mm *MigrationManager) ensureHistoryTableExists() (*object2.Meta, error) {
 			if castError.Code() == object2.ErrNotFound {
 				doesNotExist = true
 			} else {
-				mm.globalTransactionManager.RollbackTransaction(transaction)
+				
+				transaction.Rollback()
 				return nil, err
 			}
 		default:
-			mm.globalTransactionManager.RollbackTransaction(transaction)
+			
+			transaction.Rollback()
 			return nil, err
 		}
 	}
 
 	historyMeta, err := mm.factoryHistoryMeta()
 	if err != nil {
-		mm.globalTransactionManager.RollbackTransaction(transaction)
+		
+		transaction.Rollback()
 		return nil, err
 	}
 
 	if doesNotExist {
 		if err = object.NewCreateObjectOperation(historyMeta.MetaDescription).SyncDbDescription(nil, transaction, mm.migrationSyncer); err != nil {
-			mm.globalTransactionManager.RollbackTransaction(transaction)
+			
+			transaction.Rollback()
 			return nil, err
 		}
 	}
-	mm.globalTransactionManager.CommitTransaction(transaction)
+
+	transaction.Commit()
 	return historyMeta, nil
 }
 

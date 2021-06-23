@@ -49,7 +49,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		err = metaStore.CreateObj(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	//setup teardown
@@ -73,7 +73,7 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, metaName)
 		Expect(err).NotTo(BeNil())
 		Expect(metaDdlFromDB).To(BeNil())
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 
 		//	ensure meta file does not exist
 		metaDescription, _, err := metaDescriptionSyncer.Get(metaName)

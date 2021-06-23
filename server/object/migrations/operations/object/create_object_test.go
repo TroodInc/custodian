@@ -68,6 +68,6 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 
-		dbTransactionManager.RollbackTransaction(globalTransaction)
+		globalTransaction.Rollback()
 	})
 })

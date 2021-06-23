@@ -86,18 +86,22 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 
 			err := root.RecursivelyFillChildNodes(ctx.DepthLimit, description.FieldModeRetrieve)
 			if err != nil {
-				processor.transactionManager.RollbackTransaction(transaction)
+				
+				transaction.Rollback()
 				return nil, err
 			}
 
 			if recordData, e := root.Resolve(ctx, pk); e != nil {
-				processor.transactionManager.RollbackTransaction(transaction)
+				
+				transaction.Rollback()
 				return nil, e
 			} else if recordData == nil {
-				processor.transactionManager.RollbackTransaction(transaction)
+				
+				transaction.Rollback()
 				return nil, nil
 			} else {
-				processor.transactionManager.CommitTransaction(transaction)
+				
+				transaction.Commit()
 				return recordData, nil
 			}
 		}
@@ -146,17 +150,20 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 
 		rqlNode, err := parser.Parse(filter)
 		if err != nil {
-			processor.transactionManager.RollbackTransaction(transaction)
+			
+			transaction.Rollback()
 			return 0, nil, errors2.NewValidationError(errors.ErrWrongRQL, err.Error(), nil)
 		}
 
 		records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
 
 		if e != nil {
-			processor.transactionManager.RollbackTransaction(transaction)
+			
+			transaction.Rollback()
 			return recordsCount, nil, e
 		}
-		processor.transactionManager.CommitTransaction(transaction)
+		
+		transaction.Commit()
 		return recordsCount, records, nil
 	}
 }
@@ -593,17 +600,20 @@ func (processor *Processor) RemoveRecord(objectName string, key string, user aut
 	}
 	removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
 	if err != nil {
-		processor.transactionManager.RollbackTransaction(dbTransaction)
+		
+		dbTransaction.Rollback()
 		return nil, err
 	}
 
 	err = processor.dataManager.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool, processor)
 	if err != nil {
-		processor.transactionManager.RollbackTransaction(dbTransaction)
+		
+		dbTransaction.Rollback()
 		return nil, err
 	}
 
-	processor.transactionManager.CommitTransaction(dbTransaction)
+	
+	dbTransaction.Commit()
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
 		//capture updated state of all records in the pool
@@ -648,17 +658,20 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 		}
 		removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
 		if err != nil {
-			processor.transactionManager.RollbackTransaction(dbTransaction)
+			
+			dbTransaction.Rollback()
 			return err
 		}
 
 		err = processor.dataManager.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool, processor)
 		if err != nil {
-			processor.transactionManager.RollbackTransaction(dbTransaction)
+			
+			dbTransaction.Rollback()
 			return err
 		}
 
-		processor.transactionManager.CommitTransaction(dbTransaction)
+		
+		dbTransaction.Commit()
 		// push notifications if needed
 		if recordSetNotificationPool.ShouldBeProcessed() {
 			//capture updated state of all records in the pool
@@ -734,10 +747,12 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 		return nil, err
 	}
 	if e := dbTransaction.Execute(operations); e != nil {
-		processor.transactionManager.RollbackTransaction(dbTransaction)
+		
+		dbTransaction.Rollback()
 		return nil, e
 	}
-	processor.transactionManager.CommitTransaction(dbTransaction)
+	
+	dbTransaction.Commit()
 
 	recordSet.MergeData()
 	return recordSet, nil
@@ -766,10 +781,12 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 		return nil, err
 	}
 	if e := dbTransaction.Execute(operations); e != nil {
-		processor.transactionManager.RollbackTransaction(dbTransaction)
+		
+		dbTransaction.Rollback()
 		return nil, e
 	}
-	processor.transactionManager.CommitTransaction(dbTransaction)
+	
+	dbTransaction.Commit()
 	recordSet.MergeData()
 	return recordSet, nil
 }

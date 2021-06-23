@@ -81,7 +81,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 		Expect(metaDdlFromDB.Columns[1].Name).To(Equal("new_field"))
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("creates enum", func() {
@@ -122,7 +122,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.Columns[1].Enum).To(HaveLen(3))
 		Expect(metaDdlFromDB.Columns[1].Enum[2]).To(Equal("CAMEL"))
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("creates sequence for specified column in the database", func() {
@@ -161,7 +161,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
 		Expect(metaDdlFromDB.Seqs[1].Name).To(Equal("o_a_new_field_seq"))
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("creates constraint for specified column in the database", func() {
@@ -226,6 +226,6 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("link_to_a"))
 		Expect(metaDdlFromDB.IFKs[0].OnDelete).To(Equal(description.OnDeleteCascadeDb))
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 })

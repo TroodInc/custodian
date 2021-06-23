@@ -75,7 +75,7 @@ var _ = Describe("Migration Factory", func() {
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 	})
 
@@ -103,7 +103,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*object.CreateObjectOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing RenameObjectOperation", func() {
@@ -133,7 +133,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*object.RenameObjectOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing RenameObjectOperation", func() {
@@ -160,7 +160,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*object.DeleteObjectOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing AddFieldOperation", func() {
@@ -187,7 +187,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*field.AddFieldOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing RemoveFieldOperation", func() {
@@ -214,7 +214,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing UpdateFieldOperation", func() {
@@ -241,7 +241,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	Describe("Automated generic fields` migrations` spawning", func() {
@@ -291,7 +291,7 @@ var _ = Describe("Migration Factory", func() {
 			Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object2.ReverseInnerLinkName(testObjBName)))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		Context("having object B", func() {
@@ -350,7 +350,7 @@ var _ = Describe("Migration Factory", func() {
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object2.ReverseInnerLinkName(testObjBName)))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 
 			})

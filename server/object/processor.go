@@ -504,7 +504,7 @@ func (dm *DBManager) PrepareCreateOperation(m *Meta, recordsValues []map[string]
 			if err, ok := err.(*errors.ServerError); ok && err.Code == ErrValueDuplication {
 				//dupTransaction, _ := dbTransaction.(*PgTransaction).Manager.BeginTransaction()
 				duplicates, dup_error := dm.GetAll(m, m.TableFields(), err.Data.(map[string]interface{}), dbTransaction)
-				//dupTransaction.Close()
+				//dupTransaction.Rollback()
 				if dup_error != nil {
 					logger.Error(dup_error.Error())
 				}

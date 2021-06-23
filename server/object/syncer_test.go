@@ -81,7 +81,7 @@ var _ = Describe("Store", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
 				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
-				dbTransactionManager.CommitTransaction(globalTransaction)
+				globalTransaction.Commit()
 
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeTrue())
@@ -116,7 +116,7 @@ var _ = Describe("Store", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
 				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
-				dbTransactionManager.CommitTransaction(globalTransaction)
+				globalTransaction.Commit()
 
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Name).To(Equal("Name"))
@@ -180,7 +180,7 @@ var _ = Describe("Store", func() {
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
 				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
-				dbTransactionManager.CommitTransaction(globalTransaction)
+				globalTransaction.Commit()
 
 				Expect(err).To(BeNil())
 				Expect(metaDdl.Columns[1].Optional).To(BeFalse())

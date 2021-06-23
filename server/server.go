@@ -567,7 +567,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	// 			return
 	// 		}
 
-	// 		err = dbTransactionManager.CommitTransaction(globalTransaction)
+	// 		err = globalTransaction.Commit()
 	// 		if err != nil {
 	// 			js.pushError(err)
 	// 			return
@@ -736,7 +736,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 				//rollback set transactions
 				if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
+					dbTransaction.(transactions.DbTransaction).Rollback()
 				}
 
 				returnError(w, err.(error))

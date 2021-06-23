@@ -174,7 +174,7 @@ var _ = Describe("Data", func() {
 			globalTransaction, _ := dbTransactionManager.BeginTransaction()
 			err = globalTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 			recordSet.CollapseLinks()
 
@@ -236,7 +236,7 @@ var _ = Describe("Data", func() {
 			globalTransaction, _ := dbTransactionManager.BeginTransaction()
 			err = globalTransaction.Execute([]transactions.Operation{operation})
 			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 			recordSet.CollapseLinks()
 

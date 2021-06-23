@@ -189,7 +189,7 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.CreateObjectOperation))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("Can create migration to rename object", func() {

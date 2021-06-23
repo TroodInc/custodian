@@ -93,7 +93,7 @@ var _ = Describe("Rollback migrations", func() {
 			aMetaDescription, err = migrationManager.Apply(firstAppliedMigrationDescription, true, false)
 			Expect(err).To(BeNil())
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		Context("Having applied `addField` migration for object A", func() {
@@ -125,7 +125,7 @@ var _ = Describe("Rollback migrations", func() {
 				aMetaDescription, err = migrationManager.Apply(secondAppliedMigrationDescription, true, false)
 				Expect(err).To(BeNil())
 
-				dbTransactionManager.CommitTransaction(globalTransaction)
+				globalTransaction.Commit()
 			})
 
 			Context("Having applied `UpdateField` migration for object A", func() {
@@ -157,7 +157,7 @@ var _ = Describe("Rollback migrations", func() {
 					aMetaDescription, err = migrationManager.Apply(thirdAppliedMigrationDescription, true, false)
 					Expect(err).To(BeNil())
 
-					dbTransactionManager.CommitTransaction(globalTransaction)
+					globalTransaction.Commit()
 				})
 
 				It("It can rollback object`s state up to the first migration state", func() {

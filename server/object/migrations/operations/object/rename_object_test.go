@@ -51,7 +51,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		err = metaStore.CreateObj(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	//setup teardown
@@ -85,6 +85,6 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		Expect(err).NotTo(BeNil())
 		Expect(oldMetaDdlFromDB).To(BeNil())
 
-		dbTransactionManager.RollbackTransaction(globalTransaction)
+		globalTransaction.Rollback()
 	})
 })
