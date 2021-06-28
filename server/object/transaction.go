@@ -15,7 +15,7 @@ func (pt *PgTransaction) Prepare(q string) (*Stmt, error) {
 	return NewStmt(pt.Tx, q)
 }
 
-func (pt *PgTransaction) Transaction() interface{} {
+func (pt *PgTransaction) Transaction() *sql.Tx {
 	return pt.Tx
 }
 

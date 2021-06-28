@@ -13,14 +13,13 @@ import (
 
 var _ = Describe("RQL test", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	metaDescription := description.MetaDescription{
 		Name: "test",

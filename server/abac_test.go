@@ -38,19 +38,19 @@ func get_server(user *auth.User) *http.Server {
 
 var _ = Describe("ABAC rules handling", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := syncer.NewDataManager()
+	
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
-	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	testObjName := utils.RandomString(8)
 

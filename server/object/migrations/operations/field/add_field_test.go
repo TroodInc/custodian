@@ -6,7 +6,6 @@ import (
 	"custodian/server/object/migrations/operations/object"
 
 	"custodian/utils"
-	"database/sql"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -15,13 +14,12 @@ import (
 
 var _ = Describe("'AddField' Migration Operation", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object2.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -73,7 +71,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
@@ -112,7 +110,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(metaDescription.Name).To(Equal("a"))
@@ -155,7 +153,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		_, err = fieldOperation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
@@ -217,7 +215,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 		Expect(err).To(BeNil())
 
 		//Check constraint
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		//
 		metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())

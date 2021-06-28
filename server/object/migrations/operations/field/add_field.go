@@ -8,7 +8,6 @@ import (
 	"custodian/server/object/migrations/operations/statement_factories"
 	"custodian/server/transactions"
 
-	"database/sql"
 	"fmt"
 )
 
@@ -17,7 +16,7 @@ type AddFieldOperation struct {
 }
 
 func (o *AddFieldOperation) SyncDbDescription(metaDescriptionToApply *meta_description.MetaDescription, transaction transactions.DbTransaction, syncer object.MetaDescriptionSyncer) (err error) {
-	tx := transaction.Transaction().(*sql.Tx)
+	tx := transaction.Transaction()
 
 	columns, ifk, _, seq, err := object.NewMetaDdlFactory(syncer).FactoryFieldProperties(o.Field, metaDescriptionToApply)
 	if err != nil {

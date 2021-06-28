@@ -15,16 +15,16 @@ import (
 
 var _ = Describe("Migration Constructor", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
+	
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
-	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager))
+	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaDescriptionSyncer, dbTransactionManager))
 
 	flushDb := func() {
 		err := metaStore.Flush()
