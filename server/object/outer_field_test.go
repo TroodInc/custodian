@@ -12,14 +12,13 @@ import (
 
 var _ = Describe("Outer field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

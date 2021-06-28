@@ -12,14 +12,12 @@ import (
 
 var _ = Describe("'AddField' Migration Operation", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 

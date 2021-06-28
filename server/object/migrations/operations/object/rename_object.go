@@ -8,7 +8,6 @@ import (
 	"custodian/server/object/migrations/operations/statement_factories"
 	"custodian/server/transactions"
 
-	"database/sql"
 	"fmt"
 )
 
@@ -17,7 +16,7 @@ type RenameObjectOperation struct {
 }
 
 func (o *RenameObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
-	tx := transaction.Transaction().(*sql.Tx)
+	tx := transaction.Transaction()
 
 	//rename table
 	var statementSet = object2.DdlStatementSet{}

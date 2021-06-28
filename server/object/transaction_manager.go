@@ -6,14 +6,14 @@ import (
 )
 
 type PgDbTransactionManager struct {
-	dataManager *DBManager
+	db *sql.DB
 	transaction *PgTransaction
 }
 
 //transaction related methods
 func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction, error) {
 	if tm.transaction == nil {
-		if tx, err := tm.dataManager.Db().(*sql.DB).Begin(); err != nil {
+		if tx, err := tm.db.Begin(); err != nil {
 			return nil, err
 		} else {
 			tm.transaction = &PgTransaction{tx, tm, 0}
@@ -28,7 +28,7 @@ func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction
 
 func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) (error) {
 	if tm.transaction.Counter == 0 {
-		tx := dbTransaction.Transaction().(*sql.Tx)
+		tx := dbTransaction.Transaction()
 		if err := tx.Commit(); err != nil {
 			return NewTransactionError(ErrCommitFailed, err.Error())
 		}
@@ -44,7 +44,7 @@ func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.D
 func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) (error) {
 	if tm.transaction.Counter == 0 {
 		tm.transaction = nil
-		return dbTransaction.Transaction().(*sql.Tx).Rollback()
+		return dbTransaction.Transaction().Rollback()
 	} else {
 		tm.transaction.Counter -= 1
 		//fmt.Println("Rollback DB transaction [", tm.transaction.Counter, "]")
@@ -52,6 +52,6 @@ func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions
 	}
 }
 
-func NewPgDbTransactionManager(dataManager *DBManager) *PgDbTransactionManager {
-	return &PgDbTransactionManager{dataManager: dataManager}
+func NewPgDbTransactionManager(db *sql.DB) *PgDbTransactionManager {
+	return &PgDbTransactionManager{db: db}
 }

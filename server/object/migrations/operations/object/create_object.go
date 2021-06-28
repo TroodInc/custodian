@@ -7,7 +7,6 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/transactions"
 
-	"database/sql"
 	"errors"
 	"fmt"
 	"text/template"
@@ -18,7 +17,7 @@ type CreateObjectOperation struct {
 }
 
 func (o *CreateObjectOperation) SyncDbDescription(_ *description.MetaDescription, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
-	tx := transaction.Transaction().(*sql.Tx)
+	tx := transaction.Transaction()
 	var metaDdl *object2.MetaDDL
 	var statementSet = object2.DdlStatementSet{}
 	if metaDdl, err = object2.NewMetaDdlFactory(syncer).Factory(o.MetaDescription); err != nil {

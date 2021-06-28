@@ -23,17 +23,7 @@ import (
 	"text/template"
 )
 
-type DBManager struct {
-	db *sql.DB
-}
-
-func (dm *DBManager) Db() interface{} {
-	return dm.db
-}
-
-func NewDataManager(db *sql.DB) (*DBManager, error) {
-	return &DBManager{db: db}, nil
-}
+type DBManager struct {}
 
 const (
 	ErrTemplateFailed     = "template_failed"
@@ -504,7 +494,7 @@ func (dm *DBManager) PrepareCreateOperation(m *Meta, recordsValues []map[string]
 				binds = append(binds, values...)
 			}
 		}
-		stmt, err := NewStmt(dbTransaction.Transaction().(*sql.Tx), insertDML.String())
+		stmt, err := NewStmt(dbTransaction.Transaction(), insertDML.String())
 		if err != nil {
 			return err
 		}
@@ -563,7 +553,7 @@ func (dm *DBManager) Get(m *Meta, fields []*FieldDescription, key string, val in
 }
 
 func (dm *DBManager) GetAll(m *Meta, fields []*FieldDescription, filters map[string]interface{}, dbTransction transactions.DbTransaction) ([]map[string]interface{}, error) {
-	tx := dbTransction.Transaction().(*sql.Tx)
+	tx := dbTransction.Transaction()
 	if fields == nil {
 		fields = m.TableFields()
 	}
@@ -665,7 +655,7 @@ func (dm *DBManager) PrepareRemoveOperation(record *Record) (transactions.Operat
 }
 
 func (dm *DBManager) GetRql(dataNode *Node, rqlRoot *rqlParser.RqlRootNode, fields []*FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error) {
-	tx := dbTransaction.Transaction().(*sql.Tx)
+	tx := dbTransaction.Transaction()
 	tableAlias := string(dataNode.Meta.Name[0])
 	translator := NewSqlTranslator(rqlRoot)
 	sqlQuery, err := translator.query(tableAlias, dataNode)

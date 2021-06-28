@@ -3,25 +3,21 @@ package object_test
 import (
 	"custodian/server/object"
 	"custodian/utils"
-	"database/sql"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 
 	"custodian/server/object/description"
-
 )
 
 var _ = Describe("Store", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -83,7 +79,7 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				tx := globalTransaction.Transaction().(*sql.Tx)
+				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
 				dbTransactionManager.CommitTransaction(globalTransaction)
 
@@ -118,7 +114,7 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				tx := globalTransaction.Transaction().(*sql.Tx)
+				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
 				dbTransactionManager.CommitTransaction(globalTransaction)
 
@@ -182,7 +178,7 @@ var _ = Describe("Store", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				tx := globalTransaction.Transaction().(*sql.Tx)
+				tx := globalTransaction.Transaction()
 				metaDdl, err := object.MetaDDLFromDB(tx, objectMeta.Name)
 				dbTransactionManager.CommitTransaction(globalTransaction)
 

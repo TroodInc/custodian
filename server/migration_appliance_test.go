@@ -21,20 +21,20 @@ import (
 
 var _ = Describe("Server 101", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object2.NewDbConnection(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
 
-	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
+
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager,
 	)
 
 	BeforeEach(func() {

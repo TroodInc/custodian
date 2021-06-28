@@ -4,22 +4,18 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -56,7 +52,7 @@ var _ = Describe("Inner generic field", func() {
 
 		//check database columns
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		Expect(err).To(BeNil())
 
 		tableName := GetTableName(metaObj.Name)
@@ -118,7 +114,7 @@ var _ = Describe("Inner generic field", func() {
 		//check database columns
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(metaObj.Name)
 

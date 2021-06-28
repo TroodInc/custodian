@@ -11,14 +11,12 @@ import (
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()

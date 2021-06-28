@@ -4,7 +4,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -13,14 +12,12 @@ import (
 
 var _ = Describe("The PG MetaStore", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -256,7 +253,7 @@ var _ = Describe("The PG MetaStore", func() {
 				Expect(err).To(BeNil())
 
 				globalTransaction, err := dbTransactionManager.BeginTransaction()
-				tx := globalTransaction.Transaction().(*sql.Tx)
+				tx := globalTransaction.Transaction()
 				Expect(err).To(BeNil())
 
 				actualMeta, err := MetaDDLFromDB(tx, meta.Name)
@@ -296,7 +293,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			Expect(err).To(BeNil())
 
 			actualMeta, err := MetaDDLFromDB(tx, meta.Name)
@@ -333,7 +330,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			Expect(err).To(BeNil())
 
 			//assert schema
@@ -377,7 +374,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 
 			Expect(err).To(BeNil())
 
@@ -422,7 +419,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			Expect(err).To(BeNil())
 
 			//assert schema
@@ -466,7 +463,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			Expect(err).To(BeNil())
 
 			//assert schema
@@ -510,7 +507,7 @@ var _ = Describe("The PG MetaStore", func() {
 			Expect(err).To(BeNil())
 
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
-			tx := globalTransaction.Transaction().(*sql.Tx)
+			tx := globalTransaction.Transaction()
 			Expect(err).To(BeNil())
 
 			//assert schema

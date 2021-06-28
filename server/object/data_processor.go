@@ -21,7 +21,6 @@ type ExecuteContext interface {
 }
 
 type DataManager interface {
-	Db() interface{}
 	GetRql(dataNode *Node, rqlNode *rqlParser.RqlRootNode, fields []*FieldDescription, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, int, error)
 	Get(m *Meta, fields []*FieldDescription, key string, val interface{}, dbTransaction transactions.DbTransaction) (map[string]interface{}, error)
 	GetAll(m *Meta, fileds []*FieldDescription, filters map[string]interface{}, dbTransaction transactions.DbTransaction) ([]map[string]interface{}, error)
@@ -37,8 +36,8 @@ type Processor struct {
 	vCache             map[string]objectClassValidator
 }
 
-func NewProcessor(m *MetaStore, d DataManager, t transactions.DbTransactionManager) (*Processor, error) {
-	return &Processor{m, d, t, make(map[string]objectClassValidator)}, nil
+func NewProcessor(m *MetaStore, t transactions.DbTransactionManager) (*Processor, error) {
+	return &Processor{m, &DBManager{}, t, make(map[string]objectClassValidator)}, nil
 }
 
 type SearchContext struct {

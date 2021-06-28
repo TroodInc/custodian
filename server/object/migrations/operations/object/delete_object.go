@@ -7,7 +7,6 @@ import (
 	"custodian/server/object/description"
 	"custodian/server/transactions"
 
-	"database/sql"
 	"fmt"
 )
 
@@ -16,7 +15,7 @@ type DeleteObjectOperation struct {
 }
 
 func (o *DeleteObjectOperation) SyncDbDescription(metaDescription *description.MetaDescription, transaction transactions.DbTransaction, syncer object2.MetaDescriptionSyncer) (err error) {
-	tx := transaction.Transaction().(*sql.Tx)
+	tx := transaction.Transaction()
 	var metaDdl *object2.MetaDDL
 	if metaDdl, err = object2.NewMetaDdlFactory(syncer).Factory(metaDescription); err != nil {
 		return err

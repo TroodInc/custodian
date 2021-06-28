@@ -16,14 +16,14 @@ import (
 
 var _ = Describe("Automated generic links` migrations` spawning", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
-	migrationManager := managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
+	migrationManager := managers.NewMigrationManager(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
