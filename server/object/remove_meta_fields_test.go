@@ -123,7 +123,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
@@ -226,7 +226,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(2))
 		Expect(columns[0].Name).To(Equal("id"))
 		Expect(columns[1].Name).To(Equal(testObjAName))
@@ -410,7 +410,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
@@ -653,7 +653,7 @@ var _ = Describe("Remove m2m fields", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields

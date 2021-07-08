@@ -1171,7 +1171,7 @@ var _ = Describe("Data", func() {
 			globalTransaction, err := dbTransactionManager.BeginTransaction()
 			Expect(err).To(BeNil())
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 			Expect(err).To(BeNil())
 			//
 
@@ -1224,7 +1224,7 @@ var _ = Describe("Data", func() {
 			Expect(err).To(BeNil())
 			//sync DB
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 			Expect(err).To(BeNil())
 			//
 

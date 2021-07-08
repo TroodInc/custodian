@@ -19,6 +19,11 @@ func (genericInnerLink *GenericInnerLink) AsMap() map[string]interface{} {
 	return map[string]interface{}{GenericInnerLinkObjectKey: genericInnerLink.ObjectName, genericInnerLink.PkName: genericInnerLink.Pk}
 }
 
+func (genericInnerLink *GenericInnerLink) PkAsString() string {
+	pkAsString, _ := genericInnerLink.FieldDescription.ValueAsString(genericInnerLink.Pk)
+	return pkAsString
+}
+
 type AGenericInnerLink struct {
 	GenericInnerLink *GenericInnerLink
 	Field           *FieldDescription

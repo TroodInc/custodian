@@ -32,7 +32,7 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 
 	ddl, err := MetaDDLFromDB(transaction.Transaction(), name)
 	if err != nil {
-		dm.DbTransactionManager.RollbackTransaction(transaction)
+		transaction.Rollback()
 		return nil, false, err
 	}
 
@@ -47,7 +47,7 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 		})
 	}
 
-	dm.DbTransactionManager.CommitTransaction(transaction)
+	transaction.Commit()
 	return &meta, true, nil
 }
 

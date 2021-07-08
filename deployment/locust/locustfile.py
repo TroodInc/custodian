@@ -9,7 +9,7 @@ def create_object_migration():
     Returns migration data.
     migration_name == migration_id
     """
-    migration_id = str(uuid.uuid4())[:8]
+    migration_id = "o" + str(uuid.uuid4())[:8]
     return {
         "id": migration_id,
         "applyTo": "",
@@ -128,13 +128,13 @@ class CustodianUser(HttpUser):
             del self.created[obj]
 
     @tag('list_objects')
-    @task(1)
+    @task(10)
     def list_objets(self):
         self.client.get("/custodian/meta", name='list_objects')
 
     @tag('records')
     @tag('create_record')
-    @task(1)
+    @task(10)
     def create_record(self):
         if self.created:
             obj = random.choice(list(self.created))
@@ -149,7 +149,7 @@ class CustodianUser(HttpUser):
 
     @tag('records')
     @tag('update_record')
-    @task(1)
+    @task(10)
     def update_record(self):
         if self.created:
             obj = random.choice(list(self.created))
@@ -163,7 +163,7 @@ class CustodianUser(HttpUser):
 
     @tag('records')
     @tag('delete_record')
-    @task(1)
+    @task(10)
     def delete_record(self):
         if self.created:
             obj = random.choice(list(self.created))
@@ -177,7 +177,7 @@ class CustodianUser(HttpUser):
 
     @tag('records')
     @tag('get_record')
-    @task(1)
+    @task(10)
     def retrieve_record(self):
         if self.created:
             obj = random.choice(list(self.created))
@@ -190,7 +190,7 @@ class CustodianUser(HttpUser):
 
     @tag('records')
     @tag('get_records')
-    @task(1)
+    @task(10)
     def retrieve_records(self):
         if self.created:
             obj = random.choice(list(self.created))

@@ -1,6 +1,7 @@
 package action
 
 import (
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/server/object/description"
 
@@ -41,7 +42,7 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 			Actions: []description.Action{
 				{Name: "new_action",
 					Method:   description.MethodCreate,
-					Protocol: description.REST,
+					Protocol: noti.REST,
 					Args:     []string{"http://localhost:3000/some-handler"},
 				},
 			},
@@ -62,7 +63,7 @@ var _ = Describe("'UpdateAction' Migration Operation", func() {
 		newAction := &description.Action{
 			Name:     "updated_action",
 			Method:   description.MethodCreate,
-			Protocol: description.REST,
+			Protocol: noti.REST,
 			Args:     []string{"http://localhost:3000/some-another-handler"},
 		}
 

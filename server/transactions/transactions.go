@@ -4,7 +4,7 @@ import "database/sql"
 
 type DbTransaction interface {
 	Execute([]Operation) error
-	Complete() error
-	Close() error
+	Commit() error
+	Rollback() error
 	Transaction() *sql.Tx
 }
