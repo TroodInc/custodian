@@ -170,7 +170,7 @@ var _ = Describe("Server 101", func() {
 		Expect(appliedMigrations).To(HaveLen(1))
 		Expect(appliedMigrations[0].Data["id"]).To(Equal(migrationDescriptionData["id"]))
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("Can rename object by application of migration", func() {
@@ -201,7 +201,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -277,7 +277,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -353,7 +353,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -426,7 +426,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -501,7 +501,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 

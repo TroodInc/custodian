@@ -4,7 +4,6 @@ import (
 	"custodian/server/object/description"
 	"errors"
 	"fmt"
-
 	rqlParser "github.com/Q-CIS-DEV/go-rql-parser"
 )
 
@@ -146,11 +145,11 @@ func (node *Node) keyAsNativeType(recordValues map[string]interface{}, objectMet
 
 func (node *Node) ResolveByRql(sc SearchContext, rqlNode *rqlParser.RqlRootNode) ([]*Record, int, error) {
 	var results []*Record
-	raw, count, err := sc.Dm.GetRql(node, rqlNode, node.SelectFields.FieldList, sc.DbTransaction)
+	raw, count, err := sc.processor.GetRql(node, rqlNode, node.SelectFields.FieldList, sc.DbTransaction)
 
 	if err == nil {
 		for _, obj := range raw {
-			results = append(results, node.FillRecordValues(NewRecord(node.Meta, obj), sc))
+			results = append(results, node.FillRecordValues(NewRecord(node.Meta, obj, sc.processor), sc))
 		}
 	}
 
@@ -185,11 +184,10 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 				objectMeta = node.MetaList.GetByName(key.(*GenericInnerLink).ObjectName)
 			}
 
-			if pkValue == "" {
-				return nil, nil
+				if pkValue == "" {
+					return nil, nil
+				}
 			}
-		}
-
 	}
 
 	if node.OnlyLink {
@@ -198,7 +196,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 		fields = node.SelectFields.FieldList
 	}
 
-	obj, err := sc.Dm.Get(objectMeta, fields, objectMeta.Key.Name, pkValue, sc.DbTransaction)
+	obj, err := sc.processor.GetSystem(objectMeta, fields, objectMeta.Key.Name, pkValue, sc.DbTransaction)
 	if err != nil || obj == nil {
 		return nil, err
 	}
@@ -207,7 +205,7 @@ func (node *Node) Resolve(sc SearchContext, key interface{}) (*Record, error) {
 		obj[GenericInnerLinkObjectKey] = objectMeta.Name
 	}
 
-	return node.FillRecordValues(NewRecord(objectMeta, obj), sc), nil
+	return node.FillRecordValues(NewRecord(objectMeta, obj, sc.processor), sc), nil
 
 	//return obj, nil
 }
@@ -220,7 +218,7 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 	} else {
 		fields = node.SelectFields.FieldList
 	}
-	if records, err := sc.Dm.GetAll(node.Meta, fields, map[string]interface{}{node.KeyField.Name: key}, sc.DbTransaction); err != nil {
+	if records, err := sc.processor.GetAll(node.Meta, fields, map[string]interface{}{node.KeyField.Name: key}, sc.DbTransaction); err != nil {
 		return nil, err
 	} else {
 		result := make([]interface{}, len(records), len(records))
@@ -234,7 +232,7 @@ func (node *Node) ResolveRegularPlural(sc SearchContext, key interface{}) ([]int
 			}
 		} else {
 			for i, obj := range records {
-				result[i] = NewRecord(node.Meta, obj)
+				result[i] = NewRecord(node.Meta, obj, sc.processor)
 			}
 		}
 		return result, nil
@@ -248,7 +246,7 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 	if node.OnlyLink {
 		fields = []*FieldDescription{node.Meta.Key}
 	}
-	if records, err := sc.Dm.GetAll(node.Meta, fields, map[string]interface{}{
+	if records, err := sc.processor.GetAll(node.Meta, fields, map[string]interface{}{
 		GetGenericFieldKeyColumnName(node.KeyField.Name):  key,
 		GetGenericFieldTypeColumnName(node.KeyField.Name): objectMeta.Name,
 	}, sc.DbTransaction); err != nil {
@@ -265,7 +263,7 @@ func (node *Node) ResolveGenericPlural(sc SearchContext, key interface{}, object
 			}
 		} else {
 			for i, obj := range records {
-				result[i] = NewRecord(objectMeta, obj)
+				result[i] = NewRecord(objectMeta, obj, sc.processor)
 			}
 		}
 		return result, nil
@@ -278,7 +276,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 		linkField := node.Meta.FindField(node.LinkField.Meta.Name)
 		//specify field, which value should be retrieved
 		fields := []*FieldDescription{node.KeyField}
-		if records, err := sc.Dm.GetAll(node.Meta, fields, map[string]interface{}{linkField.Name: key}, sc.DbTransaction); err != nil {
+		if records, err := sc.processor.GetAll(node.Meta, fields, map[string]interface{}{linkField.Name: key}, sc.DbTransaction); err != nil {
 			return nil, err
 		} else {
 			result := make([]interface{}, len(records), len(records))
@@ -294,7 +292,7 @@ func (node *Node) ResolvePluralObjects(sc SearchContext, key interface{}) ([]int
 		//eq(b__s_set.a,56)
 		//and querying is performed by B meta
 		filter := fmt.Sprintf("eq(%s.%s,%s)", node.LinkField.LinkThrough.FindField(node.LinkField.LinkMeta.Name).ReverseOuterField().Name, node.LinkField.Meta.Name, keyStr)
-		searchContext := SearchContext{DepthLimit: 1, Dm: sc.Dm, LazyPath: "/custodian/data/bulk", DbTransaction: sc.DbTransaction, OmitOuters: sc.OmitOuters}
+		searchContext := SearchContext{DepthLimit: 1, processor: sc.processor, LazyPath: "/custodian/data/bulk", DbTransaction: sc.DbTransaction, OmitOuters: sc.OmitOuters}
 		root := &Node{
 			KeyField:       node.LinkField.LinkMeta.Key,
 			Meta:           node.LinkField.LinkMeta,

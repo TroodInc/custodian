@@ -36,7 +36,7 @@ var _ = Describe("MigrationManager", func() {
 		Expect(metaDdl.Table).To(Equal(object.GetTableName(historyMetaName)))
 		Expect(metaDdl.Columns).To(HaveLen(7))
 
-		dbTransactionManager.RollbackTransaction(dbTransaction)
+		dbTransaction.Rollback()
 	})
 
 	It("Records migration", func() {

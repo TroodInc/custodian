@@ -86,7 +86,7 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 	//	metaStore.transactionManager.CommitTransaction(transaction)
 	//	return metaObj, isFound, nil
 	//}
-	//metaStore.transactionManager.RollbackTransaction(transaction)
+	
 	//return nil, false, err
 }
 
@@ -586,11 +586,13 @@ func (metaStore *MetaStore) CreateObj(metaDescription *MetaDescription, descript
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
-			metaStore.transactionManager.RollbackTransaction(transaction)
+			
+			transaction.Rollback()
 			return errors.NewValidationError(ErrExecutingDDL, e.Error(), nil)
 		}
 	}
-	metaStore.transactionManager.CommitTransaction(transaction)
+	
+	transaction.Commit()
 	return nil
 }
 
@@ -604,25 +606,30 @@ func (metaStore *MetaStore) RemoveObj(name string, force bool) error {
 	var e error
 	if metaDdlFromDb, e = MetaDDLFromDB(tx, name); e != nil {
 		if e.(*DDLError).code == ErrNotFound {
-			metaStore.transactionManager.RollbackTransaction(transaction)
+			
+			transaction.Rollback()
 			return nil
 		}
-		metaStore.transactionManager.RollbackTransaction(transaction)
+		
+		transaction.Rollback()
 		return e
 	}
 	var ds DdlStatementSet
 	if ds, e = metaDdlFromDb.DropScript(force); e != nil {
-		metaStore.transactionManager.RollbackTransaction(transaction)
+		
+		transaction.Rollback()
 		return e
 	}
 	for _, st := range ds {
 		logger.Debug("Removing object from DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
-			metaStore.transactionManager.RollbackTransaction(transaction)
+			
+			transaction.Rollback()
 			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
 		}
 	}
-	metaStore.transactionManager.CommitTransaction(transaction)
+	
+	transaction.Commit()
 
 	return nil
 }
@@ -658,7 +665,8 @@ func (metaStore *MetaStore) UpdateObj(currentMetaDescription *MetaDescription, n
 		if _, e := tx.Exec(ddlStatement.Code); e != nil {
 			// TODO: Postgres error must return column field
 			// TOFIX: https://github.com/postgres/postgres/blob/14751c340754af9f906a893eb87a894dea3adbc9/src/backend/commands/tablecmds.c#L10539
-			metaStore.transactionManager.RollbackTransaction(transaction)
+			
+			transaction.Rollback()
 			var data map[string]interface{}
 			if e.(*pgconn.PgError).Code == "42804" {
 				matched := regexp.MustCompile(`column "(.*)"`).FindAllStringSubmatch(e.(*pq.Error).Message, -1)
@@ -669,6 +677,7 @@ func (metaStore *MetaStore) UpdateObj(currentMetaDescription *MetaDescription, n
 			return errors.NewValidationError(ErrExecutingDDL, e.Error(), data)
 		}
 	}
-	metaStore.transactionManager.CommitTransaction(transaction)
+	
+	transaction.Commit()
 	return nil
 }

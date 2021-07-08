@@ -258,7 +258,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 				actualMeta, err := MetaDDLFromDB(tx, meta.Name)
 				Expect(err).To(BeNil())
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 
 				Expect(err).To(BeNil())
@@ -298,7 +298,7 @@ var _ = Describe("The PG MetaStore", func() {
 
 			actualMeta, err := MetaDDLFromDB(tx, meta.Name)
 			Expect(err).To(BeNil())
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 
 			Expect(err).To(BeNil())
@@ -336,7 +336,7 @@ var _ = Describe("The PG MetaStore", func() {
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 
 			Expect(actualMeta.IFKs).To(HaveLen(1))
@@ -381,7 +381,7 @@ var _ = Describe("The PG MetaStore", func() {
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 
 			Expect(actualMeta.IFKs).To(HaveLen(1))
@@ -425,7 +425,7 @@ var _ = Describe("The PG MetaStore", func() {
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 
 			Expect(actualMeta.IFKs).To(HaveLen(1))
@@ -469,7 +469,7 @@ var _ = Describe("The PG MetaStore", func() {
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 
 			Expect(actualMeta.IFKs).To(HaveLen(1))
@@ -513,7 +513,7 @@ var _ = Describe("The PG MetaStore", func() {
 			//assert schema
 			actualMeta, err := MetaDDLFromDB(tx, bMeta.Name)
 			Expect(err).To(BeNil())
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 
 			Expect(actualMeta.IFKs).To(HaveLen(1))

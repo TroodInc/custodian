@@ -1,23 +1,17 @@
 package object
 
 import (
-	"custodian/server/noti"
 	. "custodian/server/object/description"
 	"custodian/utils"
 	"encoding/json"
 )
-
-var notifierFactories = map[Protocol]noti.Factory{
-	REST: noti.NewRestNotifier,
-	TEST: noti.NewTestNotifier,
-}
 
 //Object metadata description.
 type Meta struct {
 	*MetaDescription
 	Key       *FieldDescription
 	Fields    []FieldDescription
-	ActionSet *ActionSet
+	Actions   []*Action
 }
 
 func (m *Meta) FindField(name string) *FieldDescription {

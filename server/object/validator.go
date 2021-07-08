@@ -62,7 +62,7 @@ func (vs *ValidationService) Validate(record *Record) ([]*RecordProcessingNode, 
 					//TODO: move to separate method
 					var of = value.(map[string]interface{})
 					record.Data[fieldDescription.Name] = LazyLink{Field: fieldDescription.LinkMeta.Key, IsOuter: false, Obj: of}
-					nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(NewRecord(fieldDescription.LinkMeta, of)))
+					nodesToProcessBefore = append(nodesToProcessBefore, NewRecordProcessingNode(NewRecord(fieldDescription.LinkMeta, of, vs.processor)))
 				} else if fieldDescription.Type == description.FieldTypeObjects {
 					//validate outer links
 					if childRecordsToProcess, childRecordsToRemove, childRecordsToRetrieve, err := vs.validateObjectsFieldArray(value, fieldDescription, record); err != nil {
@@ -135,12 +135,12 @@ func (vs *ValidationService) validateArray(value interface{}, fieldDescription *
 		if recordDataAsMap, ok := recordData.(map[string]interface{}); ok {
 			//new record`s data case
 			recordDataAsMap[fieldDescription.OuterLinkField.Name] = LazyLink{Field: fieldDescription, IsOuter: true, Obj: record.Data, Index: i, NeighboursCount: len(nestedRecordsData)}
-			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, recordDataAsMap)
+			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, recordDataAsMap, vs.processor)
 		} else if pkValue, ok := recordData.(interface{}); ok {
 			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, map[string]interface{}{
 				fieldDescription.OuterLinkField.Name: LazyLink{Field: fieldDescription, IsOuter: true, Obj: record.Data, Index: i, NeighboursCount: len(nestedRecordsData)},
 				fieldDescription.LinkMeta.Key.Name:   pkValue,
-			})
+			}, vs.processor)
 		} else {
 			return nil, nil, errors2.NewValidationError(
 				errors.ErrWrongFiledType,
@@ -205,7 +205,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 		//new record`s data case
 		if recordDataAsMap, ok := recordData.(map[string]interface{}); ok {
 			//create a record of specified object with LazyLink to a parent record
-			linkedRecord := NewRecord(fieldDescription.LinkMeta, recordDataAsMap)
+			linkedRecord := NewRecord(fieldDescription.LinkMeta, recordDataAsMap, vs.processor)
 			linkedRecord.Links = append(linkedRecord.Links, &LazyLink{
 				Field:           fieldDescription,
 				IsOuter:         true,
@@ -231,8 +231,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 						Index:           i,
 						NeighboursCount: len(nestedRecordsData),
 					},
-				},
-			)
+				}, vs.processor)
 			recordsToProcess = append(recordsToProcess, linkThroughRecord)
 		} else if pkValue, ok := recordData.(interface{}); ok {
 			//existing record`s ID case
@@ -249,8 +248,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 						NeighboursCount: len(nestedRecordsData),
 					},
 					fieldDescription.LinkMeta.Name: pkValue,
-				},
-			)
+				}, vs.processor)
 			recordsToProcess = append(recordsToProcess, linkThroughRecord)
 
 			// add a referenced record into retrieve queue
@@ -258,8 +256,7 @@ func (vs *ValidationService) validateObjectsFieldArray(value interface{}, fieldD
 				fieldDescription.LinkMeta,
 				map[string]interface{}{
 					fieldDescription.LinkMeta.Key.Name: pkValue,
-				},
-			)
+				}, vs.processor)
 			referencedRecord.Links = append(referencedRecord.Links, &LazyLink{
 				Field:           fieldDescription,
 				IsOuter:         true,
@@ -340,7 +337,7 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 					PkName:           fieldDescription.Meta.Key.Name,
 				},
 			}
-			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, recordDataAsMap)
+			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, recordDataAsMap, vs.processor)
 		} else if pkValue, ok := recordData.(interface{}); ok {
 			recordsToProcess[i] = NewRecord(fieldDescription.LinkMeta, map[string]interface{}{fieldDescription.OuterLinkField.Name: &AGenericInnerLink{
 				Field:           fieldDescription,
@@ -354,7 +351,7 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 					FieldDescription: fieldDescription,
 					PkName:           fieldDescription.Meta.Key.Name,
 				},
-			}, fieldDescription.LinkMeta.Key.Name: pkValue})
+			}, fieldDescription.LinkMeta.Key.Name: pkValue}, vs.processor)
 		} else {
 			return nil, nil, errors2.NewValidationError(
 				errors.ErrWrongFiledType, fmt.Sprintf("Value in field '%s' has invalid value", fieldDescription.Name),
@@ -387,7 +384,7 @@ func (vs *ValidationService) validateInnerGenericLink(value interface{}, fieldDe
 					NeighboursCount:  1,
 					LinkType:         description.LinkTypeInner,
 				}
-				recordToProcess = NewRecord(objMeta, recordValuesAsMap)
+				recordToProcess = NewRecord(objMeta, recordValuesAsMap, vs.processor)
 			} else {
 				return nil, err
 			}

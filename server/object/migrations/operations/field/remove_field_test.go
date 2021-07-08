@@ -67,7 +67,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 		})
 
@@ -86,7 +86,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns).To(HaveLen(1))
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 	})
 
@@ -129,7 +129,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
 			//
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 		})
 
@@ -150,7 +150,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns).To(HaveLen(1))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("drops sequence", func() {
@@ -171,7 +171,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(1))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 	})
 
@@ -240,7 +240,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			//
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("Drops IFK if field is being dropped", func() {
@@ -257,7 +257,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 			//check that IFK has been dropped
 			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.IFKs).To(HaveLen(0))

@@ -105,8 +105,8 @@ var _ = Describe("Server", func() {
 
 				meta, _, err := metaStore.Get("person", true)
 				Expect(err).To(BeNil())
-				Expect(meta.ActionSet.Original[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
-				Expect(meta.ActionSet.Original[0].IncludeValues["amount"]).To(Equal("amount"))
+				Expect(meta.Actions[0].IncludeValues["account__plan"]).To(Equal("accountPlan"))
+				Expect(meta.Actions[0].IncludeValues["amount"]).To(Equal("amount"))
 			})
 		})
 	})
@@ -145,7 +145,12 @@ var _ = Describe("Server", func() {
 				httpServer.Handler.ServeHTTP(recorder, request)
 				responseBody := recorder.Body.String()
 
-				Expect(responseBody).To(Equal(`{"data":{"id":1},"status":"OK"}`))
+				var body map[string]interface{}
+				err := json.Unmarshal([]byte(responseBody), &body)
+				Expect(err).To(BeNil())
+
+				Expect(body["status"].(string)).To(Equal("OK"))
+				Expect(body["data"].(map[string]interface{})["id"]).To(Equal(1.0))
 
 				Context("and the number of records should be equal to 1 and existing record is not deleted one", func() {
 					_, matchedRecords, _ := dataProcessor.GetBulk(metaObj.Name, "", nil, nil, 1, false)

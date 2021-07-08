@@ -61,7 +61,7 @@ var _ = Describe("Inner generic field", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(3))
 		// check meta fields
 		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
@@ -122,7 +122,7 @@ var _ = Describe("Inner generic field", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields

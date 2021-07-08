@@ -17,7 +17,7 @@ func newNotificationSender() *notificationSender {
 
 func (notificationSender *notificationSender) push(recordSetNotification *RecordSetNotification, user auth.User) {
 	for _, action := range recordSetNotification.Actions {
-		notificationChannel := notificationSender.getNotificationChannel(recordSetNotification.recordSet.Meta, recordSetNotification.Method, action)
+		notificationChannel := action.NewNotificationChannel()
 		for _, notificationObject := range recordSetNotification.BuildNotificationsData(
 			recordSetNotification.PreviousState[action.Id()],
 			recordSetNotification.CurrentState[action.Id()],
@@ -32,7 +32,7 @@ func (notificationSender *notificationSender) getNotificationChannel(meta *Meta,
 	key := meta.Name + method.AsString() + strconv.Itoa(action.Id())
 	notificationChannel, ok := notificationSender.notificationChannels[key]
 	if !ok {
-		notificationChannel = meta.ActionSet.NewNotificationChannel(method, action)
+		notificationChannel = action.NewNotificationChannel()
 		notificationSender.notificationChannels[key] = notificationChannel
 	}
 	return notificationChannel

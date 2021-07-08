@@ -81,7 +81,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(fieldToUpdate).NotTo(BeNil())
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("changes column type", func() {
@@ -104,7 +104,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Typ).To(Equal(description.FieldTypeString))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("changes nullability flag", func() {
@@ -127,7 +127,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Optional).To(BeFalse())
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("changes name", func() {
@@ -150,7 +150,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("updated-name"))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("drops default value", func() {
@@ -176,7 +176,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(1))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("does all things described above at once", func() {
@@ -208,7 +208,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//Default has been dropped
 			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal(""))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("creates default value and sequence", func() {
@@ -245,7 +245,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//check sequence has been dropped
 			Expect(metaDdlFromDB.Seqs).To(HaveLen(2))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 	})
 
@@ -320,7 +320,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(fieldToUpdate).NotTo(BeNil())
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("changes IFK name if field is renamed", func() {
@@ -345,7 +345,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(metaDdlFromDB.IFKs).To(HaveLen(1))
 			Expect(metaDdlFromDB.IFKs[0].FromColumn).To(Equal("b_link"))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 	})
 
@@ -384,7 +384,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 			Expect(err).To(BeNil())
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 			//
 
@@ -413,7 +413,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			//check that field`s type has changed
 			tx := globalTransaction.Transaction()
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Defval).To(Equal(fmt.Sprintf("'val1'::o_%s_enum", testObjBName)))
 
@@ -453,7 +453,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			//sync DB
 			err = operation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 			Expect(err).To(BeNil())
 			//
 
@@ -481,7 +481,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			Expect(err).To(BeNil())
 			Expect(len(metaDdlFromDB.Columns[1].Enum)).To(Equal(3))
 			Expect(metaDdlFromDB.Columns[1].Enum[2]).To(Equal("val3"))
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("rename enum column", func() {
@@ -500,7 +500,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 			metaDdlFromDB, err := object2.MetaDDLFromDB(tx, metaDescription.Name)
 			Expect(err).To(BeNil())
 			Expect(metaDdlFromDB.Columns[1].Name).To(Equal("enum_field_new"))
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 	})
 })
