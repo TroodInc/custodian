@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/utils"
 	"net/http"
@@ -70,7 +71,7 @@ var _ = Describe("Migration`s construction", func() {
 				{
 					Name:     "some-action",
 					Method:   description.MethodUpdate,
-					Protocol: description.REST,
+					Protocol: noti.REST,
 					Args:     []string{"http://localhost:5555/some-endpoint/"},
 				},
 			},

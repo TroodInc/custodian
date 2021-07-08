@@ -404,7 +404,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				sink.pushError(e)
 			} else {
 
-				sink.pushObj(removedData)
+				sink.pushObj(removedData.GetData())
 			}
 		}
 	}))

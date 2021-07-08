@@ -1,6 +1,7 @@
 package action
 
 import (
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/server/object/description"
 
@@ -57,7 +58,7 @@ var _ = Describe("'AddAction' Migration Operation", func() {
 
 	It("adds an action into metaDescription`s file", func() {
 
-		action := description.Action{Name: "new_action", Method: description.MethodCreate, Protocol: description.REST, Args: []string{"http://localhost:3000/some-handler"}}
+		action := description.Action{Name: "new_action", Method: description.MethodCreate, Protocol: noti.REST, Args: []string{"http://localhost:3000/some-handler"}}
 
 		operation := NewAddActionOperation(&action)
 		objectMeta, err := operation.SyncMetaDescription(metaDescription, metaDescriptionSyncer)

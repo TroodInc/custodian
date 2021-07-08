@@ -79,11 +79,12 @@ func (metaFactory *MetaFactory) resolveMeta(currentMeta *Meta) error {
 		}
 	}
 
-	//factory actionSet
-	if actionSet, err := newActionSet(currentMeta.MetaDescription.Actions); err == nil {
-		currentMeta.ActionSet = actionSet
-	} else {
-		return err
+	//factory actions
+	for _, action := range currentMeta.MetaDescription.Actions {
+		a, err := InitAction(&action)
+		if err == nil {
+			currentMeta.Actions = append(currentMeta.Actions, a)
+		}
 	}
 
 	//check PK field

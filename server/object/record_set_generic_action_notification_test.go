@@ -2,6 +2,7 @@ package object_test
 
 import (
 	"custodian/server/auth"
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/server/object/description"
 
@@ -68,7 +69,7 @@ var _ = Describe("Data", func() {
 				Actions: []description.Action{
 					{
 						Method:          description.MethodCreate,
-						Protocol:        description.TEST,
+						Protocol:        noti.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues: map[string]interface{}{"target_value": map[string]interface{}{
@@ -172,18 +173,20 @@ var _ = Describe("Data", func() {
 			havingCRecord()
 			havingARecord(cMetaObj.Name, cRecord.Pk().(float64))
 
-			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk()})}}
+			recordSet := object.RecordSet{
+				Meta: aMetaObj,
+				Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk()}, dataProcessor)},
+			}
+			//Expect(recordSet).NotTo(BeNil())
 
 			//make recordSetNotification
 			recordSetNotification := object.NewRecordSetNotification(
 				&recordSet,
 				true,
 				description.MethodCreate,
-				dataProcessor.GetBulk,
-				dataProcessor.Get,
 			)
 
-			recordSetNotification.CaptureCurrentState()
+			recordSetNotification.CaptureCurrentState(recordSet.Records)
 
 			//only last_name specified for recordSet, thus first_name should not be included in notification message
 			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))

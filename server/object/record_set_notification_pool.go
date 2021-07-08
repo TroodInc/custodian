@@ -15,12 +15,6 @@ func (notificationPool *RecordSetNotificationPool) CompleteSend(err error) {
 	notificationPool.notificationSender.complete(err)
 }
 
-func (notificationPool *RecordSetNotificationPool) CaptureCurrentState() {
-	for _, notification := range notificationPool.notifications {
-		notification.CaptureCurrentState()
-	}
-}
-
 func (notificationPool *RecordSetNotificationPool) Push(user auth.User) {
 	for _, notification := range notificationPool.notifications {
 		notificationPool.notificationSender.push(notification, user)

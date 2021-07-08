@@ -10,6 +10,7 @@ type Record struct {
 	Data    map[string]interface{}
 	RawData map[string]interface{}
 	Links   []*LazyLink
+	processor *Processor
 }
 
 func (record *Record) GetData() map[string]interface{} {
@@ -175,6 +176,6 @@ func (record *Record) IsPhantom() bool {
 	return !pkIsSet
 }
 
-func NewRecord(meta *Meta, data map[string]interface{}) *Record {
-	return  &Record{Meta: meta, Data: data, RawData: nil, Links: make([]*LazyLink, 0)}
+func NewRecord(meta *Meta, data map[string]interface{}, processor *Processor) *Record {
+	return  &Record{meta, data, nil, make([]*LazyLink, 0), processor}
 }

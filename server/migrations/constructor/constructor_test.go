@@ -4,6 +4,7 @@ import (
 	"custodian/server/errors"
 	"custodian/server/migrations"
 	migration_description "custodian/server/migrations/description"
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/migrations/managers"
@@ -746,7 +747,7 @@ var _ = Describe("Migration Constructor", func() {
 					Action: description.Action{
 						Name:     "new_action",
 						Method:   description.MethodCreate,
-						Protocol: description.REST,
+						Protocol: noti.REST,
 						Args:     []string{"http://localhost:3000/some-handler"},
 					},
 				}},
@@ -781,7 +782,7 @@ var _ = Describe("Migration Constructor", func() {
 					{
 						Name:     "new_action",
 						Method:   description.MethodCreate,
-						Protocol: description.REST,
+						Protocol: noti.REST,
 						Args:     []string{"http://localhost:3000/some-handler"},
 					},
 				},
@@ -832,7 +833,7 @@ var _ = Describe("Migration Constructor", func() {
 						{
 							Name:     "new_action",
 							Method:   description.MethodCreate,
-							Protocol: description.REST,
+							Protocol: noti.REST,
 							Args:     []string{"http://localhost:3000/some-handler"},
 						},
 					},
@@ -862,7 +863,7 @@ var _ = Describe("Migration Constructor", func() {
 							Action: description.Action{
 								Name:     "updated_action",
 								Method:   description.MethodCreate,
-								Protocol: description.REST,
+								Protocol: noti.REST,
 								Args:     []string{"http://localhost:3000/some-handler"},
 							},
 							PreviousName: "new_action",
@@ -903,7 +904,7 @@ var _ = Describe("Migration Constructor", func() {
 							Action: description.Action{
 								Name:     "new_action",
 								Method:   description.MethodCreate,
-								Protocol: description.TEST,
+								Protocol: noti.TEST,
 								Args:     []string{"http://localhost:3000/some-handler"},
 							},
 						},
@@ -943,7 +944,7 @@ var _ = Describe("Migration Constructor", func() {
 							Action: description.Action{
 								Name:     "new_action",
 								Method:   description.MethodCreate,
-								Protocol: description.REST,
+								Protocol: noti.REST,
 								Args:     []string{"http://localhost:3000/some-another-handler"},
 							},
 						},
@@ -983,7 +984,7 @@ var _ = Describe("Migration Constructor", func() {
 							Action: description.Action{
 								Name:            "new_action",
 								Method:          description.MethodCreate,
-								Protocol:        description.REST,
+								Protocol:        noti.REST,
 								Args:            []string{"http://localhost:3000/some-handler"},
 								ActiveIfNotRoot: true,
 							},
