@@ -11,7 +11,6 @@ import (
 	"time"
 )
 
-var REST_MAX_REDELIVERY_BUF_SIZE int = 1024 * 1024 //0 - turn off redilivery
 var REST_REDELIVERY_PAUSE_IN_SEC time.Duration = 10
 var REST_MAX_REDILIVERY_ATTEMPTS byte = 3
 
@@ -38,76 +37,6 @@ func NewRestNotifier(args []string, activeIfNotRoot bool) (Notifier, error) {
 		return nil, NewNotiError(ErrRESTFailedURL, "Build a rest notifier failed. Specified URL '%s' is bad: %s", args[0], err.Error())
 	}
 	return &restNotifier{url: args[0], activeIfNotRoot: activeIfNotRoot}, nil
-}
-
-type bufSilentWriter struct {
-	cap   int
-	buf   bytes.Buffer
-	total int
-}
-
-func (bw *bufSilentWriter) isExceeded() bool {
-	return bw.total > bw.cap
-}
-
-func (bw *bufSilentWriter) Write(data []byte) (int, error) {
-	bw.total = bw.total + len(data)
-	if bw.isExceeded() {
-		return len(data), nil
-	} else {
-		return bw.buf.Write(data)
-	}
-}
-
-func (bw *bufSilentWriter) Close() error {
-	return nil
-}
-
-func newBufSilentWriter(cap int) *bufSilentWriter {
-	return &bufSilentWriter{cap: cap}
-}
-
-type atLeastOneWriteCloser struct {
-	writers []io.WriteCloser
-}
-
-func (t *atLeastOneWriteCloser) Write(p []byte) (int, error) {
-	lastError := io.ErrClosedPipe
-	survivors := t.writers[:0]
-	for _, w := range t.writers {
-		if _, err := w.Write(p); err != nil {
-			logger.Error("Failed write to one of the writers: %s", err.Error())
-			lastError = err
-		} else {
-			survivors = append(survivors, w)
-		}
-	}
-
-	if len(survivors) == 0 {
-		return 0, lastError
-	}
-
-	t.writers = survivors
-	return len(p), nil
-}
-
-func (t *atLeastOneWriteCloser) Close() error {
-	allFailed := true
-	lastError := io.ErrClosedPipe
-	for _, w := range t.writers {
-		if err := w.Close(); err != nil {
-			logger.Error("Failed to close one of the writers: %s", err.Error())
-			lastError = err
-		} else {
-			allFailed = false
-		}
-	}
-
-	if allFailed {
-		return lastError
-	}
-
-	return nil
 }
 
 func (rn *restNotifier) redelivery(body []byte, attempt byte) {
