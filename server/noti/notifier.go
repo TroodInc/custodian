@@ -105,19 +105,3 @@ type Notifier interface {
 }
 
 type Factory func(args []string, activeIfNotRoot bool) (Notifier, error)
-
-func fan_out(in chan *Event, out chan *Event) {
-	defer func() {
-		close(out)
-	}()
-	for obj := range in {
-		out <- obj
-	}
-}
-
-func Broadcast(notifier Notifier) chan *Event {
-	in := make(chan *Event, 100)
-	out := notifier.NewNotification()
-	go fan_out(in, out)
-	return in
-}
