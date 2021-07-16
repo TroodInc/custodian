@@ -727,7 +727,6 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 	if recordSetNotification.ShouldBeProcessed() {
 		previous, _ := processor.Get(recordSet.Meta.Name, recordSet.Records[0].PkAsString(), nil, nil, 1, true)
 		recordSetNotification.CapturePreviousState([]*Record{previous})
-		recordSetNotificationPool.Add(recordSetNotification)
 	}
 
 	var operations = make([]transactions.Operation, 0)
@@ -767,7 +766,6 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 	recordSetNotification := NewRecordSetNotification(recordSet, isRoot, description.MethodCreate)
 	if recordSetNotification.ShouldBeProcessed() {
 		recordSetNotification.CapturePreviousState(make([]*Record, len(recordSet.Records)))
-		recordSetNotificationPool.Add(recordSetNotification)
 	}
 
 	var operations = make([]transactions.Operation, 0)
