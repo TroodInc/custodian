@@ -641,9 +641,13 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				var operations []migrations_description.MigrationOperationDescription
 
 				// TODO: Replace base types with related objects to enable filtering
-				if migrationData["dependsOn"].(string) != "" {
-					migrationData["dependsOn"] = []string{migrationData["dependsOn"].(string)}
-				} else {
+				switch dependsOn := migrationData["dependsOn"].(type) {
+				case string:
+					if dependsOn != "" {
+						migrationData["dependsOn"] = []string{migrationData["dependsOn"].(string)}
+
+					}
+				default:
 					migrationData["dependsOn"] = make([]string, 0)
 				}
 				json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["meta_state"])), &meta_state)
