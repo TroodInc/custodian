@@ -17,8 +17,7 @@ var _ = Describe("RQL test", func() {
 
 	dbTransactionManager := NewPgDbTransactionManager(db)
 
-
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache())
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	metaDescription := description.MetaDescription{

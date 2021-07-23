@@ -20,7 +20,7 @@ var _ = Describe("Data", func() {
 	//transaction managers
 	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache())
 	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	dataProcessor, _ := object2.NewProcessor(metaStore, dbTransactionManager)
 
@@ -1060,7 +1060,7 @@ var _ = Describe("Data", func() {
 			aRecordName := "Some-A-record"
 			//create B record with A record
 			bRecord, err := dataProcessor.CreateRecord(
-				bMetaObject.Name,
+				testObjBName,
 				map[string]interface{}{
 					"as": []interface{}{
 						map[string]interface{}{
@@ -1072,15 +1072,18 @@ var _ = Describe("Data", func() {
 			)
 			Expect(err).To(BeNil())
 
-			//create B record which should not be in query result
+			// //create B record which should not be in query result
 			_, err = dataProcessor.CreateRecord(
-				bMetaObject.Name,
+				testObjBName,
 				map[string]interface{}{},
 				auth.User{},
 			)
 			Expect(err).To(BeNil())
+			reverseOuterThroughField := fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)
+			bMeta, _, _ := metaStore.Get(testObjBName, false)
+			Expect(bMeta.FindField(reverseOuterThroughField)).NotTo(BeNil())
 
-			_, matchedRecords, err := dataProcessor.GetBulk(bMetaObject.Name, fmt.Sprintf("eq(as.name,%s)", aRecordName), nil, nil, 2, true)
+			_, matchedRecords, err := dataProcessor.GetBulk(testObjBName, fmt.Sprintf("eq(as.name,%s)", aRecordName), nil, nil, 2, true)
 			Expect(err).To(BeNil())
 
 			Expect(matchedRecords).To(HaveLen(1))

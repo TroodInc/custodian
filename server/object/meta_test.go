@@ -16,7 +16,7 @@ var _ = Describe("The PG MetaStore", func() {
 	//transaction managers
 	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache())
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {

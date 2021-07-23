@@ -6,6 +6,7 @@ import (
 	"custodian/server/object"
 
 	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -14,19 +15,15 @@ var _ = Describe("MigrationManager", func() {
 	appConfig := utils.GetConfig()
 	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
 
 	It("Creates migration history table if it does not exists", func() {
-		dbTransaction, err := dbTransactionManager.BeginTransaction()
-		Expect(err).To(BeNil())
 
-		_, err = NewMigrationManager(
-			metaDescriptionSyncer, dbTransactionManager,
-		).ensureHistoryTableExists()
+		NewMigrationManager(metaDescriptionSyncer, dbTransactionManager)
+		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
 		metaDdl, err := object.MetaDDLFromDB(dbTransaction.Transaction(), historyMetaName)
