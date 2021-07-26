@@ -17,11 +17,10 @@ var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
 	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 	AfterEach(func() {
@@ -174,7 +173,7 @@ var _ = Describe("Data", func() {
 			havingARecord(cMetaObj.Name, cRecord.Pk().(float64))
 
 			recordSet := object.RecordSet{
-				Meta: aMetaObj,
+				Meta:    aMetaObj,
 				Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk()}, dataProcessor)},
 			}
 			//Expect(recordSet).NotTo(BeNil())

@@ -15,7 +15,6 @@ import (
 
 	"custodian/server"
 	"custodian/server/object/description"
-
 )
 
 var _ = Describe("Server", func() {
@@ -28,10 +27,9 @@ var _ = Describe("Server", func() {
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
-	
 	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	BeforeEach(func() {

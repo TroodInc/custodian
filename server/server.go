@@ -143,7 +143,8 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	//transaction managers
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
+	metaCache := metaDescriptionSyncer.Cache()
 
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
@@ -151,7 +152,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 	getDataProcessor := func() *object.Processor {
 		dbTransactionManager := object.NewPgDbTransactionManager(db)
-		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, metaCache)
 		metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 		processor, _ := object.NewProcessor(metaStore, dbTransactionManager)
@@ -590,8 +591,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
 
-			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
-
 			if err != nil {
 				js.pushError(err)
 				return
@@ -612,7 +611,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			var appliedMigrations []description.MetaDescription
 			for _, migrationDescription := range bulkMigrationDescription {
 				updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
-				metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 				if err != nil {
 					js.pushError(err)
 					return

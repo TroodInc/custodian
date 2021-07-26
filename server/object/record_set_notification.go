@@ -7,23 +7,23 @@ import (
 )
 
 type RecordSetNotification struct {
-	recordSet *RecordSet
-	isRoot    bool
-	Actions           []*description.Action
-	Method            description.Method
-	PreviousState     map[int]*RecordSet
-	CurrentState      map[int]*RecordSet
+	recordSet     *RecordSet
+	isRoot        bool
+	Actions       []*description.Action
+	Method        description.Method
+	PreviousState map[int]*RecordSet
+	CurrentState  map[int]*RecordSet
 }
 
 func NewRecordSetNotification(recordSet *RecordSet, isRoot bool, method description.Method) *RecordSetNotification {
 	actions := recordSet.Meta.Actions
 	return &RecordSetNotification{
-		recordSet:          recordSet,
-		isRoot:             isRoot,
-		Method:             method,
-		Actions:            actions,
-		PreviousState:      make(map[int]*RecordSet, len(actions)), //for both arrays index is an corresponding
-		CurrentState:       make(map[int]*RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
+		recordSet:     recordSet,
+		isRoot:        isRoot,
+		Method:        method,
+		Actions:       actions,
+		PreviousState: make(map[int]*RecordSet, len(actions)), //for both arrays index is an corresponding
+		CurrentState:  make(map[int]*RecordSet, len(actions)), //action's index, states are action-specific due to actions's own fields configuration(IncludeValues)
 	}
 }
 
@@ -36,7 +36,14 @@ func (notification *RecordSetNotification) CaptureCurrentState(objects []*Record
 }
 
 func (notification *RecordSetNotification) ShouldBeProcessed() bool {
-	return len(notification.recordSet.Meta.Actions) > 0
+
+	for _, a := range notification.recordSet.Meta.Actions {
+		if a.Method.AsString() == notification.Method.AsString() {
+			return true
+		}
+	}
+
+	return false
 }
 
 //Build notification object for each record in recordSet for given action

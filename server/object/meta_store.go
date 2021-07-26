@@ -7,11 +7,12 @@ import (
 	"custodian/utils"
 	"encoding/json"
 	"fmt"
-	"github.com/jackc/pgconn"
-	"github.com/lib/pq"
 	"io"
 	"regexp"
 	"strings"
+
+	"github.com/jackc/pgconn"
+	"github.com/lib/pq"
 )
 
 /*
@@ -32,7 +33,7 @@ func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.Reader) (*Meta, error) {
 }
 
 func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
-	return NewMetaFactory(metaStore.MetaDescriptionSyncer).FactoryMeta(metaObj)
+	return metaStore.MetaDescriptionSyncer.Cache().FactoryMeta(metaObj)
 }
 
 /*
@@ -86,7 +87,7 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 	//	metaStore.transactionManager.CommitTransaction(transaction)
 	//	return metaObj, isFound, nil
 	//}
-	
+
 	//return nil, false, err
 }
 
@@ -104,8 +105,6 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 				return err
 			}
 
-			//invalidate cache
-			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 			return nil
 		} else {
 			var e2 = metaStore.RemoveObj(objectMeta.Name, false)
@@ -143,9 +142,6 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 			if err := metaStore.createThroughMeta(newMetaObj); err != nil {
 				return false, err
 			}
-
-			//invalidate cache
-			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 			return true, nil
 		} else {
 			return false, updateError
@@ -168,9 +164,6 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	if e := metaStore.RemoveObj(name, force); e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
-
-		//invalidate cache
-		metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 
 		return ok, err
 	} else {
@@ -564,7 +557,6 @@ func NewStore(md MetaDescriptionSyncer, gtm *PgDbTransactionManager) *MetaStore 
 	return &MetaStore{MetaDescriptionSyncer: md, transactionManager: gtm}
 }
 
-
 //----
 
 func (metaStore *MetaStore) CreateObj(metaDescription *MetaDescription, descriptionSyncer MetaDescriptionSyncer) error {
@@ -586,12 +578,12 @@ func (metaStore *MetaStore) CreateObj(metaDescription *MetaDescription, descript
 	for _, st := range ds {
 		logger.Debug("Creating object in DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
-			
+
 			transaction.Rollback()
 			return errors.NewValidationError(ErrExecutingDDL, e.Error(), nil)
 		}
 	}
-	
+
 	transaction.Commit()
 	return nil
 }
@@ -606,29 +598,29 @@ func (metaStore *MetaStore) RemoveObj(name string, force bool) error {
 	var e error
 	if metaDdlFromDb, e = MetaDDLFromDB(tx, name); e != nil {
 		if e.(*DDLError).code == ErrNotFound {
-			
+
 			transaction.Rollback()
 			return nil
 		}
-		
+
 		transaction.Rollback()
 		return e
 	}
 	var ds DdlStatementSet
 	if ds, e = metaDdlFromDb.DropScript(force); e != nil {
-		
+
 		transaction.Rollback()
 		return e
 	}
 	for _, st := range ds {
 		logger.Debug("Removing object from DB: %syncer\n", st.Code)
 		if _, e := tx.Exec(st.Code); e != nil {
-			
+
 			transaction.Rollback()
 			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
 		}
 	}
-	
+
 	transaction.Commit()
 
 	return nil
@@ -665,7 +657,7 @@ func (metaStore *MetaStore) UpdateObj(currentMetaDescription *MetaDescription, n
 		if _, e := tx.Exec(ddlStatement.Code); e != nil {
 			// TODO: Postgres error must return column field
 			// TOFIX: https://github.com/postgres/postgres/blob/14751c340754af9f906a893eb87a894dea3adbc9/src/backend/commands/tablecmds.c#L10539
-			
+
 			transaction.Rollback()
 			var data map[string]interface{}
 			if e.(*pgconn.PgError).Code == "42804" {
@@ -677,7 +669,7 @@ func (metaStore *MetaStore) UpdateObj(currentMetaDescription *MetaDescription, n
 			return errors.NewValidationError(ErrExecutingDDL, e.Error(), data)
 		}
 	}
-	
+
 	transaction.Commit()
 	return nil
 }
