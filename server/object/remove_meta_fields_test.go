@@ -16,7 +16,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 	//transaction managers
 	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache())
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
@@ -247,7 +247,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 	//transaction managers
 	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache())
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
@@ -578,7 +578,7 @@ var _ = Describe("Remove m2m fields", func() {
 	//transaction managers
 	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache())
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {

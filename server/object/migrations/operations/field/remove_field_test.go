@@ -6,6 +6,7 @@ import (
 	"custodian/server/object/migrations/operations/object"
 
 	"custodian/utils"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
 )
@@ -16,7 +17,7 @@ var _ = Describe("'AddField' Migration Operation", func() {
 
 	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache())
 	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription

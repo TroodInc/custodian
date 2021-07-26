@@ -25,11 +25,10 @@ var _ = Describe("Migrations` listing", func() {
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	migrationManager := managers.NewMigrationManager(
 		metaDescriptionSyncer, dbTransactionManager,
@@ -44,7 +43,7 @@ var _ = Describe("Migrations` listing", func() {
 	flushDb := func() {
 		//Flush meta/database
 		// drop history
-		err := migrationManager.DropHistory()
+		err := dbTransactionManager.ExecStmt(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
 		Expect(err).To(BeNil())
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())

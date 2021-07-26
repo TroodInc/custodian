@@ -2,24 +2,29 @@ package object_test
 
 import (
 	"custodian/server/auth"
+	migrations_description "custodian/server/migrations/description"
 	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/server/object/description"
+	"custodian/server/object/migrations/managers"
 	"custodian/utils"
 	"fmt"
+	"strconv"
+
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
-	"strconv"
 )
 
-var _ = Describe("Data", func() {
+var _ = Describe("Data 101", func() {
 	appConfig := utils.GetConfig()
 	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
+	migrationManager := managers.NewMigrationManager(
+		metaDescriptionSyncer, dbTransactionManager,
+	)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
@@ -34,57 +39,64 @@ var _ = Describe("Data", func() {
 		testObjBName := utils.RandomString(8)
 
 		var err error
-		var aMetaObj *object.Meta
-		var bMetaObj *object.Meta
 		var aRecord *object.Record
 		var bRecord *object.Record
-
-		havingObjectA := func() {
-			By("Having object A with action for 'create' defined")
-			aMetaDescription := description.MetaDescription{
-				Name: testObjAName,
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:     "first_name",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-					{
-						Name:     "last_name",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-					{
-						Name:     testObjBName,
-						LinkType: description.LinkTypeInner,
-						Type:     description.FieldTypeObject,
-						LinkMeta: testObjBName,
-						Optional: true,
-					},
+		aFields := []description.Field{
+			{
+				Name: "id",
+				Type: description.FieldTypeNumber,
+				Def: map[string]interface{}{
+					"func": "nextval",
 				},
-				Actions: []description.Action{
+				Optional: true,
+			},
+			{
+				Name:     "first_name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			},
+			{
+				Name:     "last_name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			},
+			{
+				Name:     testObjBName,
+				LinkType: description.LinkTypeInner,
+				Type:     description.FieldTypeObject,
+				LinkMeta: testObjBName,
+				Optional: true,
+			},
+		}
+		getActionForObjectA := func(method description.Method) []description.Action {
+			return []description.Action{
+				{
+					Method:          method,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+					IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
+				},
+			}
+		}
+
+		havingObjectA := func(method description.Method) {
+			By("Having object A with action for 'create' defined")
+
+			aMetaDescription := description.NewMetaDescription(testObjAName, "id", aFields, getActionForObjectA(method), false)
+			migrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
-						Method:          description.MethodCreate,
-						Protocol:        noti.TEST,
-						Args:            []string{"http://example.com"},
-						ActiveIfNotRoot: true,
-						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: aMetaDescription,
 					},
 				},
 			}
-			aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
-			Expect(err).To(BeNil())
-			err = metaStore.Create(aMetaObj)
+
+			_, err := migrationManager.Apply(migrationDescription, true, false)
 			Expect(err).To(BeNil())
 		}
 
@@ -105,29 +117,40 @@ var _ = Describe("Data", func() {
 					},
 				},
 			}
-			bMetaObj, err = metaStore.NewMeta(&bMetaDescription)
-			Expect(err).To(BeNil())
-			err = metaStore.Create(bMetaObj)
+
+			migrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
+					{
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: &bMetaDescription,
+					},
+				},
+			}
+
+			_, err := migrationManager.Apply(migrationDescription, true, false)
 			Expect(err).To(BeNil())
 		}
 
 		havingARecord := func(bRecordId float64) {
 			By("Having a record of A object")
-			aRecord, err = dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", testObjBName: bRecordId}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(testObjAName, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", testObjBName: bRecordId}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecord, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(testObjBName, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		It("can capture previous record state on create", func() {
 			havingObjectB()
-			havingObjectA()
+			havingObjectA(description.MethodCreate)
 
-			record, _ := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{
+			record, _ := dataProcessor.CreateRecord(testObjAName, map[string]interface{}{
 				"first_name": "Veronika", "last_name": "Petrova",
 			}, auth.User{})
 
@@ -141,9 +164,9 @@ var _ = Describe("Data", func() {
 
 		It("can capture current record state on create", func() {
 			havingObjectB()
-			havingObjectA()
+			havingObjectA(description.MethodCreate)
 
-			record, _ := dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{
+			record, _ := dataProcessor.CreateRecord(testObjAName, map[string]interface{}{
 				"first_name": "Veronika", "last_name": "Petrova",
 			}, auth.User{})
 
@@ -158,14 +181,13 @@ var _ = Describe("Data", func() {
 
 		It("can capture state on update", func() {
 			havingObjectB()
-			havingObjectA()
+			havingObjectA(description.MethodUpdate)
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
-			record, _ := dataProcessor.UpdateRecord(aMetaObj.Name, aRecord.PkAsString(), map[string]interface{}{
+			record, _ := dataProcessor.UpdateRecord(testObjAName, aRecord.PkAsString(), map[string]interface{}{
 				"last_name": "Ivanova",
 			}, auth.User{})
-
 			notifier := record.Meta.Actions[0].Notifier.(*noti.TestNotifier)
 
 			var received *noti.Event
@@ -182,11 +204,11 @@ var _ = Describe("Data", func() {
 
 		It("can capture empty state of removed record after remove", func() {
 			havingObjectB()
-			havingObjectA()
+			havingObjectA(description.MethodRemove)
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
-			removed, _ := dataProcessor.RemoveRecord(aMetaObj.Name, strconv.Itoa(int(aRecord.Data["id"].(float64))), auth.User{})
+			removed, _ := dataProcessor.RemoveRecord(testObjAName, strconv.Itoa(int(aRecord.Data["id"].(float64))), auth.User{})
 
 			notifier := removed.Meta.Actions[0].Notifier.(*noti.TestNotifier)
 			//

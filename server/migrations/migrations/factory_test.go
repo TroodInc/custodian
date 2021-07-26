@@ -21,7 +21,7 @@ var _ = Describe("Migration Factory", func() {
 
 	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache())
 	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
@@ -312,7 +312,7 @@ var _ = Describe("Migration Factory", func() {
 					nil,
 					false,
 				)
-				bMetaObj, err := object2.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaObj, err := metaStore.MetaDescriptionSyncer.Cache().FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)
@@ -394,7 +394,7 @@ var _ = Describe("Migration Factory", func() {
 					nil,
 					false,
 				)
-				cMetaObj, err := object2.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
+				cMetaObj, err := metaStore.MetaDescriptionSyncer.Cache().FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(cMetaObj)

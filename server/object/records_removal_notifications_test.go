@@ -19,7 +19,7 @@ var _ = Describe("Data", func() {
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
