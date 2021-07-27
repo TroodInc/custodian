@@ -3,11 +3,10 @@ package server_test
 import (
 	object2 "custodian/server/object"
 	"custodian/utils"
-	"net/http"
-	"net/http/httptest"
-
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
+	"net/http"
+	"net/http/httptest"
 
 	"bytes"
 	"custodian/server"
@@ -593,5 +592,61 @@ var _ = Describe("Server 101", func() {
 		//check response status
 		Expect(body["status"]).To(Equal("FAIL"))
 		//ensure meta has been renamed
+	})
+	It("Can apply migration with description field", func() {
+		testObjAName := utils.RandomString(8)
+		migrationDescriptionData := map[string]interface{}{
+			"id":        "b5df723r",
+			"applyTo":   "",
+			"dependsOn": []string{},
+			"description": "This is description test",
+			"operations": []map[string]interface{}{
+				{
+					"type": "createObject",
+					"object": map[string]interface{}{
+						"name": testObjAName,
+						"key":  "id",
+						"fields": []map[string]interface{}{
+							{
+								"name":     "id",
+								"type":     "string",
+								"optional": false,
+							},
+							{
+								"name":     "name",
+								"type":     "string",
+								"optional": false,
+							},
+						},
+						"cas": false,
+					},
+				},
+			},
+		}
+
+		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
+
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+		Expect(body["status"]).To(Equal("OK"))
+
+		newRecorder := httptest.NewRecorder()
+		var newRequest, _ = http.NewRequest("GET", url, nil)
+		httpServer.Handler.ServeHTTP(newRecorder, newRequest)
+
+		newResponse := newRecorder.Body.String()
+		var newBody map[string]interface{}
+		json.Unmarshal([]byte(newResponse), &newBody)
+
+		Expect(newBody["data"].([]interface{})[0].(map [string]interface{})["description"]).To(Equal("This is description test"))
+		Expect(body["status"]).To(Equal("OK"))
+
 	})
 })
