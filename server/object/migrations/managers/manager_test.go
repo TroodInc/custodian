@@ -31,7 +31,7 @@ var _ = Describe("MigrationManager", func() {
 		Expect(err).To(BeNil())
 
 		Expect(metaDdl.Table).To(Equal(object.GetTableName(historyMetaName)))
-		Expect(metaDdl.Columns).To(HaveLen(7))
+		Expect(metaDdl.Columns).To(HaveLen(8))
 
 		dbTransaction.Rollback()
 	})
