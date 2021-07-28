@@ -5,10 +5,12 @@ import (
 	"custodian/server/migrations"
 	"custodian/server/migrations/operations"
 	object2 "custodian/server/object"
+	"custodian/server/object/description"
 	object_description "custodian/server/object/description"
 	"custodian/server/object/description_manager"
 	"custodian/server/object/migrations/operations/field"
 	"custodian/server/object/migrations/operations/object"
+	"fmt"
 )
 
 type NormalizationMigrationsFactory struct {
@@ -32,6 +34,12 @@ func (nmf *NormalizationMigrationsFactory) Factory(metaDescription *object_descr
 		} else {
 			runAfter = append(runAfter, childRunAfter...)
 		}
+
+		if childRunAfter, err := nmf.factoryAddObjectsFieldOnObjectCreate(concreteOperation.MetaDescription); err != nil {
+			return nil, nil, err
+		} else {
+			runAfter = append(runAfter, childRunAfter...)
+		}
 		return runBefore, runAfter, nil
 	case *field.AddFieldOperation:
 		if childRunAfter, err := nmf.factoryAddGenericOuterLinkMigrationsForNewField(metaDescription.Name, concreteOperation.Field); err != nil {
@@ -41,6 +49,11 @@ func (nmf *NormalizationMigrationsFactory) Factory(metaDescription *object_descr
 		}
 
 		if childRunAfter, err := nmf.factoryAddOuterLinkMigrationsForNewField(metaDescription.Name, concreteOperation.Field); err != nil {
+			return nil, nil, err
+		} else {
+			runAfter = append(runAfter, childRunAfter...)
+		}
+		if childRunAfter, err := nmf.factoryAddObjectsLinkMigrationsForNewField(metaDescription.Name, concreteOperation.Field); err != nil {
 			return nil, nil, err
 		} else {
 			runAfter = append(runAfter, childRunAfter...)
@@ -88,8 +101,38 @@ func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForMeta(
 	return spawnedMigrations, nil
 }
 
+func (nmf *NormalizationMigrationsFactory) factoryAddObjectsFieldOnObjectCreate(metaDescription *object_description.MetaDescription) ([]*MigrationDescription, error) {
+	spawnedMigrations := make([]*MigrationDescription, 0)
+	for i := range metaDescription.Fields {
+		if metaDescription.Fields[i].Type == object_description.FieldTypeObjects {
+			throughMetaName := fmt.Sprintf("%s__%s", metaDescription.Name, metaDescription.Fields[i].LinkMeta)
+
+			if childRunAfter, err := nmf.factoryAddOuterLinkMigrationsForNewField(throughMetaName, &metaDescription.Fields[i]); err != nil {
+				return nil, err
+			} else {
+				spawnedMigrations = append(spawnedMigrations, childRunAfter...)
+			}
+
+			if childRunAfter, err := nmf.factoryAddOuterLinkMigrationsForNewFieldIfNotCreatedYet(throughMetaName, &metaDescription.Fields[i], metaDescription); err != nil {
+				return nil, err
+			} else {
+				spawnedMigrations = append(spawnedMigrations, childRunAfter...)
+			}
+
+			if childRunAfter, err := CreateThroughMetaMigration(metaDescription.Name, &metaDescription.Fields[i]); err != nil {
+				return nil, err
+			} else {
+				spawnedMigrations = append(spawnedMigrations, childRunAfter...)
+			}
+
+		}
+	}
+
+	return spawnedMigrations, nil
+}
+
 //check meta for inner links and spawn a migrations to create an outer link
-func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForNewField(metaName string, field *object_description.Field, ) ([]*MigrationDescription, error) {
+func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForNewField(metaName string, field *object_description.Field) ([]*MigrationDescription, error) {
 	spawnedMigrations := make([]*MigrationDescription, 0)
 	if field.Type == object_description.FieldTypeObject && field.LinkType == object_description.LinkTypeInner {
 		linkMetaDescription, _, err := nmf.metaDescriptionSyncer.Get(field.LinkMeta)
@@ -126,6 +169,113 @@ func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForNewFi
 		)
 	}
 
+	return spawnedMigrations, nil
+}
+
+func (nmf *NormalizationMigrationsFactory) factoryAddOuterLinkMigrationsForNewFieldIfNotCreatedYet(metaName string, field *object_description.Field, metaDescription *object_description.MetaDescription) ([]*MigrationDescription, error) {
+	spawnedMigrations := make([]*MigrationDescription, 0)
+	if field.Type == object_description.FieldTypeObject && field.LinkType == object_description.LinkTypeInner {
+
+		//add reverse outer
+		fieldName := object2.ReverseInnerLinkName(metaName)
+		//automatically added outer field should only be available for querying
+		outerField := object_description.Field{
+			Name:           fieldName,
+			Type:           object_description.FieldTypeArray,
+			LinkType:       object_description.LinkTypeOuter,
+			LinkMeta:       metaName,
+			OuterLinkField: field.Name,
+			Optional:       true,
+			QueryMode:      true,
+			RetrieveMode:   false,
+		}
+
+		addFieldOperationDescription := MigrationOperationDescription{
+			Type:            AddFieldOperation,
+			Field:           &MigrationFieldDescription{Field: outerField, PreviousName: ""},
+			MetaDescription: metaDescription,
+		}
+
+		spawnedMigrations = append(
+			spawnedMigrations,
+			&MigrationDescription{
+				ApplyTo:    metaDescription.Name,
+				Operations: []MigrationOperationDescription{addFieldOperationDescription},
+			},
+		)
+	}
+
+	return spawnedMigrations, nil
+}
+
+func (nmf *NormalizationMigrationsFactory) factoryAddObjectsLinkMigrationsForNewField(metaName string, field *object_description.Field) ([]*MigrationDescription, error) {
+	spawnedMigrations := make([]*MigrationDescription, 0)
+	if field.Type == object_description.FieldTypeObjects {
+		throughMetaName := fmt.Sprintf("%s__%s", metaName, field.LinkMeta)
+
+		secondM2Mfield := description.Field{
+			Name:     metaName,
+			Type:     description.FieldTypeObject,
+			LinkMeta: metaName,
+			LinkType: description.LinkTypeInner,
+			Optional: false,
+		}
+		for _, f := range []*object_description.Field{field, &secondM2Mfield} {
+			if childRunAfter, err := nmf.factoryAddOuterLinkMigrationsForNewField(throughMetaName, f); err != nil {
+				return nil, err
+			} else {
+				spawnedMigrations = append(spawnedMigrations, childRunAfter...)
+			}
+		}
+		if childRunAfter, err := CreateThroughMetaMigration(metaName, field); err != nil {
+			return nil, err
+		} else {
+			spawnedMigrations = append(spawnedMigrations, childRunAfter...)
+		}
+
+	}
+
+	return spawnedMigrations, nil
+}
+
+func CreateThroughMetaMigration(metaName string, field *object_description.Field) ([]*MigrationDescription, error) {
+	spawnedMigrations := make([]*MigrationDescription, 0)
+
+	throughMetaName := fmt.Sprintf("%s__%s", metaName, field.LinkMeta)
+
+	fields := []description.Field{
+		{
+			Name: "id",
+			Type: description.FieldTypeNumber,
+			Def: map[string]interface{}{
+				"func": "nextval",
+			},
+			Optional: true,
+		},
+		{
+			Name:     metaName,
+			Type:     description.FieldTypeObject,
+			LinkMeta: metaName,
+			LinkType: description.LinkTypeInner,
+			Optional: false,
+		},
+		{
+			Name:     field.LinkMeta,
+			Type:     description.FieldTypeObject,
+			LinkMeta: field.LinkMeta,
+			LinkType: description.LinkTypeInner,
+			Optional: false,
+		},
+	}
+	throughMetaDescription := description.NewMetaDescription(throughMetaName, "id", fields, []description.Action{}, false)
+	throughMigrationDescription := NewMigrationOperationDescription(CreateObjectOperation, nil, throughMetaDescription, nil)
+	spawnedMigrations = append(
+		spawnedMigrations,
+		&MigrationDescription{
+			ApplyTo:    "",
+			Operations: []MigrationOperationDescription{*throughMigrationDescription},
+		},
+	)
 	return spawnedMigrations, nil
 }
 
