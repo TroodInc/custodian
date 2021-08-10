@@ -19,20 +19,6 @@ func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction
 	}
 }
 
-func (tm *PgDbTransactionManager) ExecStmt(statement string) error {
-	globalTransaction, err := tm.BeginTransaction()
-	if err != nil {
-		return err
-	}
-	tx := globalTransaction.Transaction()
-	_, err = tx.Exec(statement)
-	if err != nil {
-		globalTransaction.Rollback()
-		return err
-	}
-	globalTransaction.Commit()
-	return nil
-}
 func NewPgDbTransactionManager(db *sql.DB) *PgDbTransactionManager {
 	return &PgDbTransactionManager{db: db}
 }

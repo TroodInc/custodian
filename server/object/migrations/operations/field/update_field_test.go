@@ -19,7 +19,7 @@ var _ = Describe("'UpdateField' Migration Operation", func() {
 
 	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache())
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache(), db)
 	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
