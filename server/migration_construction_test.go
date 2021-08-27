@@ -29,7 +29,7 @@ var _ = Describe("Migration`s construction", func() {
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	BeforeEach(func() {
@@ -40,7 +40,7 @@ var _ = Describe("Migration`s construction", func() {
 
 	flushDb := func() {
 		// drop history
-		err := dbTransactionManager.ExecStmt(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
+		_, err := db.Exec(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
 
 		Expect(err).To(BeNil())
 		//Flush meta/database

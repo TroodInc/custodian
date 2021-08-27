@@ -18,11 +18,11 @@ var _ = Describe("MigrationManager", func() {
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
 
 	It("Creates migration history table if it does not exists", func() {
 
-		NewMigrationManager(metaDescriptionSyncer, dbTransactionManager)
+		NewMigrationManager(metaDescriptionSyncer, dbTransactionManager, db)
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
@@ -41,7 +41,7 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		migrationHistoryId, err := NewMigrationManager(
-			metaDescriptionSyncer, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager, db,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
@@ -53,12 +53,12 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		_, err := NewMigrationManager(
-			metaDescriptionSyncer, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager, db,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
-			metaDescriptionSyncer, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager, db,
 		).recordAppliedMigration(migration)
 		Expect(err).NotTo(BeNil())
 	})

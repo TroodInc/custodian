@@ -8,6 +8,7 @@ import (
 	"custodian/server/migrations/migrations"
 	object2 "custodian/server/object"
 	"custodian/server/object/description"
+	"database/sql"
 	"encoding/json"
 	"fmt"
 	"net/url"
@@ -249,12 +250,12 @@ func (mm *MigrationManager) recordAppliedMigration(migration *migrations.Migrati
 	meta_state, _ := json.Marshal(migration.MigrationDescription.MetaDescription)
 
 	migrationData := map[string]interface{}{
-		"created":    time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00"),
-		"id":         migration.Id,
-		"dependsOn":  predecessorId,
-		"applyTo":    metaName,
-		"operations": string(operations),
-		"meta_state": string(meta_state),
+		"created":     time.Now().UTC().Format("2006-01-02T15:04:05.123456789Z07:00"),
+		"id":          migration.Id,
+		"dependsOn":   predecessorId,
+		"applyTo":     metaName,
+		"operations":  string(operations),
+		"meta_state":  string(meta_state),
 		"description": migration.Description,
 	}
 
@@ -327,12 +328,12 @@ func (mm *MigrationManager) migrationParentIsValid(migration *migrations.Migrati
 	return nil
 }
 
-func NewMigrationManager(metaSyncer *object2.PgMetaDescriptionSyncer, gtm *object2.PgDbTransactionManager) *MigrationManager {
+func NewMigrationManager(metaSyncer *object2.PgMetaDescriptionSyncer, gtm *object2.PgDbTransactionManager, db *sql.DB) *MigrationManager {
 	migrationSyncer := object2.NewDbMetaDescriptionSyncer(gtm)
 	migrationStore := object2.NewStore(migrationSyncer, gtm)
 	processor, _ := object2.NewProcessor(migrationStore, gtm)
 
-	gtm.ExecStmt(CREATE_MIGRATION_HISTORY_TABLE)
+	db.Exec(CREATE_MIGRATION_HISTORY_TABLE)
 
 	return &MigrationManager{metaSyncer, migrationSyncer, processor, gtm}
 }

@@ -3,10 +3,11 @@ package server_test
 import (
 	object2 "custodian/server/object"
 	"custodian/utils"
-	. "github.com/onsi/ginkgo"
-	. "github.com/onsi/gomega"
 	"net/http"
 	"net/http/httptest"
+
+	. "github.com/onsi/ginkgo"
+	. "github.com/onsi/gomega"
 
 	"bytes"
 	"custodian/server"
@@ -28,12 +29,12 @@ var _ = Describe("Server 101", func() {
 	//transaction managers
 	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache())
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache(), db)
 
 	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
-		metaDescriptionSyncer, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager, db,
 	)
 
 	BeforeEach(func() {
@@ -44,7 +45,7 @@ var _ = Describe("Server 101", func() {
 
 	flushDb := func() {
 		// drop history
-		err := dbTransactionManager.ExecStmt(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
+		_, err := db.Exec(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
 		Expect(err).To(BeNil())
 		//Flush meta/database
 		err = metaStore.Flush()
@@ -596,9 +597,9 @@ var _ = Describe("Server 101", func() {
 	It("Can apply migration with description field", func() {
 		testObjAName := utils.RandomString(8)
 		migrationDescriptionData := map[string]interface{}{
-			"id":        "b5df723r",
-			"applyTo":   "",
-			"dependsOn": []string{},
+			"id":          "b5df723r",
+			"applyTo":     "",
+			"dependsOn":   []string{},
 			"description": "This is description test",
 			"operations": []map[string]interface{}{
 				{
@@ -645,7 +646,7 @@ var _ = Describe("Server 101", func() {
 		var newBody map[string]interface{}
 		json.Unmarshal([]byte(newResponse), &newBody)
 
-		Expect(newBody["data"].([]interface{})[0].(map [string]interface{})["description"]).To(Equal("This is description test"))
+		Expect(newBody["data"].([]interface{})[0].(map[string]interface{})["description"]).To(Equal("This is description test"))
 		Expect(body["status"]).To(Equal("OK"))
 
 	})

@@ -19,15 +19,12 @@ var _ = Describe("Test cache", func() {
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
-	migrationManager := managers.NewMigrationManager(
-		metaDescriptionSyncer, dbTransactionManager,
-	)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	migrationManager := managers.NewMigrationManager(metaDescriptionSyncer, dbTransactionManager, db)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	flushDb := func() {
-
-		err := dbTransactionManager.ExecStmt(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
+		_, err := db.Exec(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
 		Expect(err).To(BeNil())
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
