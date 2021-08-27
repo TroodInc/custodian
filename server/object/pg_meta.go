@@ -44,10 +44,10 @@ type PgMetaDescriptionSyncer struct {
 	cache                    *MetaCache
 }
 
-func NewPgMetaDescriptionSyncer(globalTransactionManager *PgDbTransactionManager, mc *MetaCache) *PgMetaDescriptionSyncer {
+func NewPgMetaDescriptionSyncer(globalTransactionManager *PgDbTransactionManager, mc *MetaCache, db *sql.DB) *PgMetaDescriptionSyncer {
 	if len(mc.metaList) == 0 {
 		md := PgMetaDescriptionSyncer{globalTransactionManager, mc}
-		globalTransactionManager.ExecStmt(SQL_CREATE_META_TABLE)
+		db.Exec(SQL_CREATE_META_TABLE)
 
 		metaDescriptionList, _, _ := md.List()
 		mc.Fill(metaDescriptionList)

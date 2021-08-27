@@ -15,7 +15,7 @@ var _ = Describe("Outer generic field", func() {
 	//transaction managers
 	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache())
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache(), db)
 	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {

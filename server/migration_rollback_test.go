@@ -28,11 +28,11 @@ var _ = Describe("Rollback migrations", func() {
 	//transaction managers
 	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache())
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
 	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
-		metaDescriptionSyncer, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager, db,
 	)
 
 	BeforeEach(func() {
@@ -43,7 +43,7 @@ var _ = Describe("Rollback migrations", func() {
 
 	flushDb := func() {
 		// drop history
-		err := dbTransactionManager.ExecStmt(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
+		_, err := db.Exec(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
 		Expect(err).To(BeNil())
 		//Flush meta/database
 		err = metaStore.Flush()
