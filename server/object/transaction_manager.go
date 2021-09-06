@@ -6,52 +6,19 @@ import (
 )
 
 type PgDbTransactionManager struct {
-	dataManager *DBManager
+	db          *sql.DB
 	transaction *PgTransaction
 }
 
 //transaction related methods
 func (tm *PgDbTransactionManager) BeginTransaction() (transactions.DbTransaction, error) {
-	if tm.transaction == nil {
-		if tx, err := tm.dataManager.Db().(*sql.DB).Begin(); err != nil {
-			return nil, err
-		} else {
-			tm.transaction = &PgTransaction{tx, tm, 0}
-		}
+	if tx, err := tm.db.Begin(); err != nil {
+		return nil, err
 	} else {
-		tm.transaction.Counter += 1
-		//fmt.Println("Get DB transaction [", tm.transaction.Counter, "]")
-	}
-
-	return tm.transaction, nil
-}
-
-func (tm *PgDbTransactionManager) CommitTransaction(dbTransaction transactions.DbTransaction) (error) {
-	if tm.transaction.Counter == 0 {
-		tx := dbTransaction.Transaction().(*sql.Tx)
-		if err := tx.Commit(); err != nil {
-			return NewTransactionError(ErrCommitFailed, err.Error())
-		}
-
-		tm.transaction = nil
-	} else {
-		tm.transaction.Counter -= 1
-		//fmt.Println("Commit DB transaction [", tm.transaction.Counter, "]")
-	}
-	return nil
-}
-
-func (tm *PgDbTransactionManager) RollbackTransaction(dbTransaction transactions.DbTransaction) (error) {
-	if tm.transaction.Counter == 0 {
-		tm.transaction = nil
-		return dbTransaction.Transaction().(*sql.Tx).Rollback()
-	} else {
-		tm.transaction.Counter -= 1
-		//fmt.Println("Rollback DB transaction [", tm.transaction.Counter, "]")
-		return nil
+		return &PgTransaction{tx, tm, 0}, nil
 	}
 }
 
-func NewPgDbTransactionManager(dataManager *DBManager) *PgDbTransactionManager {
-	return &PgDbTransactionManager{dataManager: dataManager}
+func NewPgDbTransactionManager(db *sql.DB) *PgDbTransactionManager {
+	return &PgDbTransactionManager{db: db}
 }

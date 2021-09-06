@@ -54,7 +54,7 @@ func (r *RecordRemovalTreeBuilder) fillWithDependingRecords(recordNode *RecordRe
 				recordNode.Children[field.Name] = make([]*RecordRemovalNode, 0)
 				for _, relatedRecord := range relatedRecords {
 					newRecordNode := NewRecordRemovalNode(
-						NewRecord(field.LinkMeta, relatedRecord.Data),
+						NewRecord(field.LinkMeta, relatedRecord.Data, processor),
 						field.OuterLinkField.OnDeleteStrategy(),
 						recordNode,
 						field.OuterLinkField,

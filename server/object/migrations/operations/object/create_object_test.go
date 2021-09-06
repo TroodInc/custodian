@@ -5,7 +5,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -13,13 +12,12 @@ import (
 
 var _ = Describe("'CreateObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -64,13 +62,13 @@ var _ = Describe("'CreateObject' Migration Operation", func() {
 		//sync MetaDescription with DB
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		//ensure table has been created
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, metaDescription.Name)
 		Expect(err).To(BeNil())
 		Expect(metaDdlFromDB).NotTo(BeNil())
 
-		dbTransactionManager.RollbackTransaction(globalTransaction)
+		globalTransaction.Rollback()
 	})
 })

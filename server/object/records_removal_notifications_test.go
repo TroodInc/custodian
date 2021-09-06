@@ -2,9 +2,9 @@ package object_test
 
 import (
 	"custodian/server/auth"
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/server/object/description"
-
 	"custodian/utils"
 	"strconv"
 
@@ -14,15 +14,14 @@ import (
 
 var _ = Describe("Data", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
-	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -35,7 +34,7 @@ var _ = Describe("Data", func() {
 		testObjBName := utils.RandomString(8)
 
 		havingObjectA := func(onDeleteStrategy description.OnDeleteStrategy) *object.Meta {
-			By("Having object A with action for 'create' defined")
+			By("Having object A with action for 'remove' defined")
 			aMetaDescription := description.MetaDescription{
 				Name: testObjAName,
 				Key:  "id",
@@ -61,14 +60,7 @@ var _ = Describe("Data", func() {
 				Actions: []description.Action{
 					{
 						Method:          description.MethodRemove,
-						Protocol:        description.TEST,
-						Args:            []string{"http://example.com"},
-						ActiveIfNotRoot: true,
-						IncludeValues:   map[string]interface{}{},
-					},
-					{
-						Method:          description.MethodUpdate,
-						Protocol:        description.TEST,
+						Protocol:        noti.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{},
@@ -101,7 +93,7 @@ var _ = Describe("Data", func() {
 				Actions: []description.Action{
 					{
 						Method:          description.MethodRemove,
-						Protocol:        description.TEST,
+						Protocol:        noti.TEST,
 						Args:            []string{"http://example.com"},
 						ActiveIfNotRoot: true,
 						IncludeValues:   map[string]interface{}{},
@@ -131,7 +123,7 @@ var _ = Describe("Data", func() {
 			return bRecord
 		}
 
-		It("makes correct notification messages on record removal with `cascade` remove", func() {
+		XIt("makes correct notification messages on record removal with `cascade` remove", func() {
 
 			bRecord := havingBRecord()
 			Expect(bRecord).NotTo(BeNil())
@@ -147,9 +139,9 @@ var _ = Describe("Data", func() {
 			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction)
 			Expect(err).To(BeNil())
 
-			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
+			err = dataProcessor.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool)
 			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 			notifications := recordSetNotificationPool.Notifications()
 
@@ -180,9 +172,9 @@ var _ = Describe("Data", func() {
 			removalRootNode, err := new(object.RecordRemovalTreeBuilder).Extract(bRecord, dataProcessor, globalTransaction)
 			Expect(err).To(BeNil())
 
-			err = dataManager.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool, dataProcessor)
+			err = dataProcessor.PerformRemove(removalRootNode, globalTransaction, recordSetNotificationPool)
 			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 
 			dataProcessor.RemoveRecord(bRecord.Meta.Name, strconv.Itoa(int(bRecord.Pk().(float64))), auth.User{})
 			notifications := recordSetNotificationPool.Notifications()

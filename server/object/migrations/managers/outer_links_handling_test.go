@@ -13,16 +13,15 @@ import (
 
 var _ = Describe("Outer links spawned migrations appliance", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	migrationManager := NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager, db,
 	)
 
 	var metaDescription *description.MetaDescription
@@ -40,7 +39,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 	JustBeforeEach(func() {
 		metaDescription = object.GetBaseMetaData(utils.RandomString(8))
 		//create MetaDescription
-		metaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(metaDescription)
+		metaObj, err := metaStore.MetaDescriptionSyncer.Cache().FactoryMeta(metaDescription)
 		Expect(err).To(BeNil())
 
 		err = metaStore.Create(metaObj)
@@ -169,7 +168,7 @@ var _ = Describe("Outer links spawned migrations appliance", func() {
 			BeforeEach(func() {
 
 				bMetaDescription = object.GetBaseMetaData(utils.RandomString(8))
-				bMetaObj, err := object.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaObj, err := metaStore.MetaDescriptionSyncer.Cache().FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)

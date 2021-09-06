@@ -6,17 +6,21 @@ import (
 	. "custodian/server/object/description"
 	"custodian/utils"
 	"encoding/json"
+	"fmt"
 	"io"
+	"regexp"
 	"strings"
+
+	"github.com/jackc/pgconn"
+	"github.com/lib/pq"
 )
 
 /*
    Metadata store of objects persisted in DB.
 */
 type MetaStore struct {
-	MetaDescriptionSyncer    MetaDescriptionSyncer
-	Syncer                   MetaDbSyncer
-	globalTransactionManager *PgDbTransactionManager
+	MetaDescriptionSyncer MetaDescriptionSyncer
+	transactionManager    *PgDbTransactionManager
 }
 
 func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.Reader) (*Meta, error) {
@@ -29,7 +33,7 @@ func (metaStore *MetaStore) UnmarshalIncomingJSON(r io.Reader) (*Meta, error) {
 }
 
 func (metaStore *MetaStore) NewMeta(metaObj *MetaDescription) (*Meta, error) {
-	return NewMetaFactory(metaStore.MetaDescriptionSyncer).FactoryMeta(metaObj)
+	return metaStore.MetaDescriptionSyncer.Cache().FactoryMeta(metaObj)
 }
 
 /*
@@ -75,21 +79,21 @@ func (metaStore *MetaStore) Get(name string, useCache bool) (*Meta, bool, error)
 	return nil, isFound, err
 
 	// @todo: Find another way of checking DB schema consistency
-	//transaction, _ := metaStore.globalTransactionManager.BeginTransaction(nil)
+	//transaction, _ := metaStore.transactionManager.BeginTransaction(nil)
 	//validate the newly created business object against existing one in the database
 	//ok, err := metaStore.Syncer.ValidateObj(transaction.DbTransaction, metaObj.MetaDescription, metaStore.MetaDescriptionSyncer)
 	//if ok {
 	//	metaStore.cache.Set(metaObj)
-	//	metaStore.globalTransactionManager.CommitTransaction(transaction)
+	//	metaStore.transactionManager.CommitTransaction(transaction)
 	//	return metaObj, isFound, nil
 	//}
-	//metaStore.globalTransactionManager.RollbackTransaction(transaction)
+
 	//return nil, false, err
 }
 
 // Creates a new object type described by passed metadata.
 func (metaStore *MetaStore) Create(objectMeta *Meta) error {
-	if e := metaStore.Syncer.CreateObj(metaStore.globalTransactionManager, objectMeta.MetaDescription, metaStore.MetaDescriptionSyncer); e == nil {
+	if e := metaStore.CreateObj(objectMeta.MetaDescription, metaStore.MetaDescriptionSyncer); e == nil {
 		if e := metaStore.MetaDescriptionSyncer.Create(*objectMeta.MetaDescription); e == nil {
 
 			//add corresponding outer generic fields
@@ -101,11 +105,9 @@ func (metaStore *MetaStore) Create(objectMeta *Meta) error {
 				return err
 			}
 
-			//invalidate cache
-			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 			return nil
 		} else {
-			var e2 = metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, objectMeta.Name, false)
+			var e2 = metaStore.RemoveObj(objectMeta.Name, false)
 			logger.Error("Error while compenstaion of object '%s' metadata creation: %v", objectMeta.Name, e2)
 			return e
 		}
@@ -124,7 +126,7 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 		// remove possible outer links before main update processing
 		metaStore.removeRelatedLinksOnUpdate(upateRelated, currentMetaObj, newMetaObj)
 
-		if updateError := metaStore.Syncer.UpdateObj(metaStore.globalTransactionManager, currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
+		if updateError := metaStore.UpdateObj(currentMetaObj.MetaDescription, newMetaObj.MetaDescription, metaStore.MetaDescriptionSyncer); updateError == nil {
 			//add corresponding outer generic fields
 			metaStore.addReversedOuterGenericFields(currentMetaObj, newMetaObj)
 
@@ -140,9 +142,6 @@ func (metaStore *MetaStore) Update(name string, newMetaObj *Meta, keepOuter bool
 			if err := metaStore.createThroughMeta(newMetaObj); err != nil {
 				return false, err
 			}
-
-			//invalidate cache
-			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 			return true, nil
 		} else {
 			return false, updateError
@@ -162,12 +161,9 @@ func (metaStore *MetaStore) Remove(name string, force bool) (bool, error) {
 	metaStore.removeRelatedLinks(force, meta)
 
 	//remove object from the database
-	if e := metaStore.Syncer.RemoveObj(metaStore.globalTransactionManager, name, force); e == nil {
+	if e := metaStore.RemoveObj(name, force); e == nil {
 		//remove object`s description *.json file
 		ok, err := metaStore.MetaDescriptionSyncer.Remove(name)
-
-		//invalidate cache
-		metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 
 		return ok, err
 	} else {
@@ -557,6 +553,123 @@ func (metaStore *MetaStore) Flush() error {
 	return nil
 }
 
-func NewStore(md MetaDescriptionSyncer, mds MetaDbSyncer, gtm *PgDbTransactionManager) *MetaStore {
-	return &MetaStore{MetaDescriptionSyncer: md, Syncer: mds, globalTransactionManager: gtm}
+func NewStore(md MetaDescriptionSyncer, gtm *PgDbTransactionManager) *MetaStore {
+	return &MetaStore{MetaDescriptionSyncer: md, transactionManager: gtm}
+}
+
+//----
+
+func (metaStore *MetaStore) CreateObj(metaDescription *MetaDescription, descriptionSyncer MetaDescriptionSyncer) error {
+	var md *MetaDDL
+	var e error
+	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
+	if md, e = metaDdlFactory.Factory(metaDescription); e != nil {
+		return e
+	}
+	var ds DdlStatementSet
+	if ds, e = md.CreateScript(); e != nil {
+		return e
+	}
+	transaction, err := metaStore.transactionManager.BeginTransaction()
+	if err != nil {
+		return err
+	}
+	tx := transaction.Transaction()
+	for _, st := range ds {
+		logger.Debug("Creating object in DB: %syncer\n", st.Code)
+		if _, e := tx.Exec(st.Code); e != nil {
+
+			transaction.Rollback()
+			return errors.NewValidationError(ErrExecutingDDL, e.Error(), nil)
+		}
+	}
+
+	transaction.Commit()
+	return nil
+}
+
+func (metaStore *MetaStore) RemoveObj(name string, force bool) error {
+	transaction, err := metaStore.transactionManager.BeginTransaction()
+	if err != nil {
+		return err
+	}
+	tx := transaction.Transaction()
+	var metaDdlFromDb *MetaDDL
+	var e error
+	if metaDdlFromDb, e = MetaDDLFromDB(tx, name); e != nil {
+		if e.(*DDLError).code == ErrNotFound {
+
+			transaction.Rollback()
+			return nil
+		}
+
+		transaction.Rollback()
+		return e
+	}
+	var ds DdlStatementSet
+	if ds, e = metaDdlFromDb.DropScript(force); e != nil {
+
+		transaction.Rollback()
+		return e
+	}
+	for _, st := range ds {
+		logger.Debug("Removing object from DB: %syncer\n", st.Code)
+		if _, e := tx.Exec(st.Code); e != nil {
+
+			transaction.Rollback()
+			return &DDLError{table: name, code: ErrExecutingDDL, msg: fmt.Sprintf("Error while executing statement '%s': %s", st.Name, e.Error())}
+		}
+	}
+
+	transaction.Commit()
+
+	return nil
+}
+
+//UpdateRecord an existing business object
+func (metaStore *MetaStore) UpdateObj(currentMetaDescription *MetaDescription, newMetaDescription *MetaDescription, descriptionSyncer MetaDescriptionSyncer) error {
+	var currentBusinessObjMeta, newBusinessObjMeta *MetaDDL
+	var err error
+
+	metaDdlFactory := NewMetaDdlFactory(descriptionSyncer)
+	if currentBusinessObjMeta, err = metaDdlFactory.Factory(currentMetaDescription); err != nil {
+		return err
+	}
+
+	if newBusinessObjMeta, err = metaDdlFactory.Factory(newMetaDescription); err != nil {
+		return err
+	}
+	var metaDdlDiff *MetaDDLDiff
+	if metaDdlDiff, err = currentBusinessObjMeta.Diff(newBusinessObjMeta); err != nil {
+		return err
+	}
+	var ddlStatements DdlStatementSet
+	if ddlStatements, err = metaDdlDiff.Script(); err != nil {
+		return err
+	}
+	transaction, err := metaStore.transactionManager.BeginTransaction()
+	if err != nil {
+		return err
+	}
+	tx := transaction.Transaction()
+	for _, ddlStatement := range ddlStatements {
+		logger.Debug("Updating object in DB: %s\n", ddlStatement.Code)
+		if _, e := tx.Exec(ddlStatement.Code); e != nil {
+			// TODO: Postgres error must return column field
+			// TOFIX: https://github.com/postgres/postgres/blob/14751c340754af9f906a893eb87a894dea3adbc9/src/backend/commands/tablecmds.c#L10539
+
+			transaction.Rollback()
+			var data map[string]interface{}
+			if e.(*pgconn.PgError).Code == "42804" {
+				matched := regexp.MustCompile(`column "(.*)"`).FindAllStringSubmatch(e.(*pq.Error).Message, -1)
+				if len(matched) > 0 {
+					data = map[string]interface{}{"column": matched[0][1]}
+				}
+			}
+			return errors.NewValidationError(ErrExecutingDDL, e.Error(), data)
+		}
+	}
+
+	transaction.Commit()
+	return nil
 }

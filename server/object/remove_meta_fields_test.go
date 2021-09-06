@@ -4,7 +4,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
 	"fmt"
 
 	. "github.com/onsi/ginkgo"
@@ -13,14 +12,12 @@ import (
 
 var _ = Describe("Tests inner and outer objects update and removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache(), db)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -118,7 +115,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(name)
 
@@ -126,7 +123,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
@@ -221,7 +218,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(metaObjB.Name)
 
@@ -229,7 +226,7 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(2))
 		Expect(columns[0].Name).To(Equal("id"))
 		Expect(columns[1].Name).To(Equal(testObjAName))
@@ -246,14 +243,12 @@ var _ = Describe("Tests inner and outer objects update and removal", func() {
 
 var _ = Describe("Tests  generic inner and generic outer objects update and removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache(), db)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -407,7 +402,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(name)
 
@@ -415,7 +410,7 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields
@@ -579,14 +574,12 @@ var _ = Describe("Tests  generic inner and generic outer objects update and remo
 })
 var _ = Describe("Remove m2m fields", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache(), db)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -652,7 +645,7 @@ var _ = Describe("Remove m2m fields", func() {
 	checkNoOrphansLeft := func(name string) {
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(name)
 
@@ -660,7 +653,7 @@ var _ = Describe("Remove m2m fields", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields

@@ -3,8 +3,6 @@ package object
 import (
 	"custodian/server/object/description"
 	"custodian/server/transactions"
-
-	"database/sql"
 )
 
 type DbMetaDescriptionSyncer struct {
@@ -32,9 +30,9 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 		return nil, false, err
 	}
 
-	ddl, err := MetaDDLFromDB(transaction.Transaction().(*sql.Tx), name)
+	ddl, err := MetaDDLFromDB(transaction.Transaction(), name)
 	if err != nil {
-		dm.DbTransactionManager.RollbackTransaction(transaction)
+		transaction.Rollback()
 		return nil, false, err
 	}
 
@@ -49,7 +47,7 @@ func (dm *DbMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 		})
 	}
 
-	dm.DbTransactionManager.CommitTransaction(transaction)
+	transaction.Commit()
 	return &meta, true, nil
 }
 

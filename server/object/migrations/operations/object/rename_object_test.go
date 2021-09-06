@@ -5,7 +5,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -13,13 +12,12 @@ import (
 
 var _ = Describe("'RenameObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 	//setup transaction
@@ -51,10 +49,10 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		err = metaDescriptionSyncer.Create(*metaDescription)
 		Expect(err).To(BeNil())
 		//sync its MetaDescription with DB
-		err = syncer.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
+		err = metaStore.CreateObj(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	//setup teardown
@@ -76,7 +74,7 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		operation := NewRenameObjectOperation(newMetaDescription)
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		//ensure table has been renamed
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, newMetaDescription.Name)
@@ -88,6 +86,6 @@ var _ = Describe("'RenameObject' Migration Operation", func() {
 		Expect(err).NotTo(BeNil())
 		Expect(oldMetaDdlFromDB).To(BeNil())
 
-		dbTransactionManager.RollbackTransaction(globalTransaction)
+		globalTransaction.Rollback()
 	})
 })

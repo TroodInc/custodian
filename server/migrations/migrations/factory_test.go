@@ -8,6 +8,7 @@ import (
 	"custodian/server/object/migrations/managers"
 	"custodian/server/object/migrations/operations/field"
 	"custodian/server/object/migrations/operations/object"
+	"fmt"
 
 	"custodian/utils"
 
@@ -17,16 +18,15 @@ import (
 
 var _ = Describe("Migration Factory", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object2.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache(), db)
+	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, "./", dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager, db,
 	)
 
 	var metaDescription *description.MetaDescription
@@ -76,7 +76,7 @@ var _ = Describe("Migration Factory", func() {
 		err = operation.SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 		//
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 	})
 
@@ -104,7 +104,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*object.CreateObjectOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing RenameObjectOperation", func() {
@@ -134,7 +134,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*object.RenameObjectOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing RenameObjectOperation", func() {
@@ -161,7 +161,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*object.DeleteObjectOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing AddFieldOperation", func() {
@@ -188,7 +188,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*field.AddFieldOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing RemoveFieldOperation", func() {
@@ -215,7 +215,7 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("factories migration containing UpdateFieldOperation", func() {
@@ -242,7 +242,214 @@ var _ = Describe("Migration Factory", func() {
 		_, ok := migration.Operations[0].(*field.RemoveFieldOperation)
 		Expect(ok).To(BeTrue())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
+	})
+
+	Describe("Can create m2m field from migrations", func() {
+		It("Can create m2m field when field added", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
+
+			aMetaDescription := description.MetaDescription{
+				Name: testObjAName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			createObjectAMigrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
+					{
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: &aMetaDescription,
+					},
+				},
+			}
+			_, err := migrationManager.Apply(createObjectAMigrationDescription, true, false)
+			Expect(err).To(BeNil())
+
+			bMetaDescription := description.MetaDescription{
+				Name: testObjBName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			createObjectBMigrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
+					{
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: &bMetaDescription,
+					},
+				},
+			}
+			_, err = migrationManager.Apply(createObjectBMigrationDescription, true, false)
+			Expect(err).To(BeNil())
+
+			field := description.Field{
+				Name:     "as",
+				Type:     description.FieldTypeObjects,
+				LinkType: description.LinkTypeInner,
+				LinkMeta: testObjAName,
+				Optional: true,
+			}
+
+			addObjectsFieldMigrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   testObjBName,
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
+					{
+						Type:  migrations_description.AddFieldOperation,
+						Field: &migrations_description.MigrationFieldDescription{Field: field},
+					},
+				},
+			}
+			_, err = migrationManager.Apply(addObjectsFieldMigrationDescription, true, false)
+			Expect(err).To(BeNil())
+
+			descFromDbA, _, err := metaDescriptionSyncer.Get(testObjAName)
+			Expect(err).To(BeNil())
+
+			Expect(descFromDbA.Fields).To(HaveLen(2))
+			Expect(descFromDbA.Fields[1].Name).To(Equal(fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)))
+
+			descFromCacheA := metaDescriptionSyncer.Cache().Get(testObjAName)
+			Expect(descFromCacheA.Fields).To(HaveLen(2))
+			Expect(descFromCacheA.Fields[1].Name).To(Equal(fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)))
+
+			descFromDbB, _, err := metaDescriptionSyncer.Get(testObjBName)
+			Expect(err).To(BeNil())
+
+			Expect(descFromDbB.Fields).To(HaveLen(3))
+			Expect(descFromDbB.Fields[2].Name).To(Equal(fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)))
+
+			descFromCacheB := metaDescriptionSyncer.Cache().Get(testObjBName)
+			Expect(descFromCacheB.Fields).To(HaveLen(3))
+			Expect(descFromCacheB.Fields[2].Name).To(Equal(fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)))
+
+			descFromDbThrough, _, err := metaDescriptionSyncer.Get(fmt.Sprintf("%s__%s", testObjBName, testObjAName))
+			Expect(err).To(BeNil())
+			Expect(descFromDbThrough).NotTo(BeNil())
+
+		})
+
+		It("Can create m2m field when object with m2m created", func() {
+			testObjAName := utils.RandomString(8)
+			testObjBName := utils.RandomString(8)
+
+			aMetaDescription := description.MetaDescription{
+				Name: testObjAName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+				},
+			}
+			createObjectAMigrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
+					{
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: &aMetaDescription,
+					},
+				},
+			}
+			_, err := migrationManager.Apply(createObjectAMigrationDescription, true, false)
+			Expect(err).To(BeNil())
+
+			bMetaDescription := description.MetaDescription{
+				Name: testObjBName,
+				Key:  "id",
+				Cas:  false,
+				Fields: []description.Field{
+					{
+						Name:     "id",
+						Type:     description.FieldTypeNumber,
+						Optional: true,
+						Def: map[string]interface{}{
+							"func": "nextval",
+						},
+					},
+					{
+						Name:     "as",
+						Type:     description.FieldTypeObjects,
+						LinkType: description.LinkTypeInner,
+						LinkMeta: testObjAName,
+						Optional: true,
+					},
+				},
+			}
+			createObjectBMigrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
+					{
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: &bMetaDescription,
+					},
+				},
+			}
+			_, err = migrationManager.Apply(createObjectBMigrationDescription, true, false)
+			Expect(err).To(BeNil())
+
+			descFromDbA, _, err := metaDescriptionSyncer.Get(testObjAName)
+			Expect(err).To(BeNil())
+
+			Expect(descFromDbA.Fields).To(HaveLen(2))
+			Expect(descFromDbA.Fields[1].Name).To(Equal(fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)))
+
+			descFromCacheA := metaDescriptionSyncer.Cache().Get(testObjAName)
+			Expect(descFromCacheA.Fields).To(HaveLen(2))
+			Expect(descFromCacheA.Fields[1].Name).To(Equal(fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)))
+
+			descFromDbB, _, err := metaDescriptionSyncer.Get(testObjBName)
+			Expect(err).To(BeNil())
+
+			Expect(descFromDbB.Fields).To(HaveLen(3))
+			Expect(descFromDbB.Fields[2].Name).To(Equal(fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)))
+
+			descFromCacheB := metaDescriptionSyncer.Cache().Get(testObjBName)
+			Expect(descFromCacheB.Fields).To(HaveLen(3))
+			Expect(descFromCacheB.Fields[2].Name).To(Equal(fmt.Sprintf("%s__%s_set", testObjBName, testObjAName)))
+
+			descFromDbThrough, _, err := metaDescriptionSyncer.Get(fmt.Sprintf("%s__%s", testObjBName, testObjAName))
+			Expect(err).To(BeNil())
+			Expect(descFromDbThrough).NotTo(BeNil())
+
+		})
 	})
 
 	Describe("Automated generic fields` migrations` spawning", func() {
@@ -292,7 +499,7 @@ var _ = Describe("Migration Factory", func() {
 			Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 			Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object2.ReverseInnerLinkName(testObjBName)))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		Context("having object B", func() {
@@ -313,7 +520,7 @@ var _ = Describe("Migration Factory", func() {
 					nil,
 					false,
 				)
-				bMetaObj, err := object2.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(bMetaDescription)
+				bMetaObj, err := metaStore.MetaDescriptionSyncer.Cache().FactoryMeta(bMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(bMetaObj)
@@ -351,7 +558,7 @@ var _ = Describe("Migration Factory", func() {
 				Expect(migration.RunAfter[0].Operations).To(HaveLen(1))
 				Expect(migration.RunAfter[0].Operations[0].Field.Name).To(Equal(object2.ReverseInnerLinkName(testObjBName)))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 
 			})
@@ -395,7 +602,7 @@ var _ = Describe("Migration Factory", func() {
 					nil,
 					false,
 				)
-				cMetaObj, err := object2.NewMetaFactory(metaDescriptionSyncer).FactoryMeta(cMetaDescription)
+				cMetaObj, err := metaStore.MetaDescriptionSyncer.Cache().FactoryMeta(cMetaDescription)
 				Expect(err).To(BeNil())
 
 				err = metaStore.Create(cMetaObj)

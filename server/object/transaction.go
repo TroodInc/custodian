@@ -15,7 +15,7 @@ func (pt *PgTransaction) Prepare(q string) (*Stmt, error) {
 	return NewStmt(pt.Tx, q)
 }
 
-func (pt *PgTransaction) Transaction() interface{} {
+func (pt *PgTransaction) Transaction() *sql.Tx {
 	return pt.Tx
 }
 
@@ -28,10 +28,20 @@ func (pt *PgTransaction) Execute(ops []transactions.Operation) error {
 	return nil
 }
 
-func (pt *PgTransaction) Complete() error {
-	return pt.Tx.Commit()
+func (pt *PgTransaction) Commit() error {
+	if pt.Counter == 0 {
+		return pt.Tx.Commit()
+	} else {
+		pt.Counter -= 1
+	}
+	return nil
 }
 
-func (pt *PgTransaction) Close() error {
-	return pt.Tx.Rollback()
+func (pt *PgTransaction) Rollback() error {
+	if pt.Counter == 0 {
+		return pt.Tx.Rollback()
+	} else {
+		pt.Counter -= 1
+	}
+	return nil
 }

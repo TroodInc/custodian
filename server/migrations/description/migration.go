@@ -16,6 +16,7 @@ type MigrationDescription struct {
 	DependsOn       []string                        `json:"dependsOn"`
 	Operations      []MigrationOperationDescription `json:"operations"`
 	MetaDescription *description.MetaDescription    `json:"metaState,omitempty"`
+	Description     string                          `json:"description"`
 }
 
 func MigrationDescriptionFromRecord(record *object.Record) (*MigrationDescription){
@@ -26,6 +27,7 @@ func MigrationDescriptionFromRecord(record *object.Record) (*MigrationDescriptio
 		[]string{record.Data["dependsOn"].(string)},
 		[]MigrationOperationDescription{},
 		metaDescription.MetaDescription(),
+		record.Data["description"].(string),
 	}
 
 	json.Unmarshal([]byte(record.Data["operations"].(string)), &migrationDescription.Operations)

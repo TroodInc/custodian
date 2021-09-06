@@ -4,7 +4,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -12,14 +11,12 @@ import (
 
 var _ = Describe("Inner generic field", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := NewPgMetaDescriptionSyncer(dbTransactionManager, NewCache(), db)
+	metaStore := NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -56,7 +53,7 @@ var _ = Describe("Inner generic field", func() {
 
 		//check database columns
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 		Expect(err).To(BeNil())
 
 		tableName := GetTableName(metaObj.Name)
@@ -65,7 +62,7 @@ var _ = Describe("Inner generic field", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(3))
 		// check meta fields
 		cMeta, _, err := metaStore.Get(cMetaDescription.Name, true)
@@ -118,7 +115,7 @@ var _ = Describe("Inner generic field", func() {
 		//check database columns
 		globalTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		tableName := GetTableName(metaObj.Name)
 
@@ -126,7 +123,7 @@ var _ = Describe("Inner generic field", func() {
 		columns := make([]Column, 0)
 		pk := ""
 		reverser.Columns(&columns, &pk)
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 		Expect(columns).To(HaveLen(1))
 		Expect(columns[0].Name).To(Equal("id"))
 		// check meta fields

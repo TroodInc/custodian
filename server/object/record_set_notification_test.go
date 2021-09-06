@@ -2,10 +2,11 @@ package object_test
 
 import (
 	"custodian/server/auth"
+	migrations_description "custodian/server/migrations/description"
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/server/object/description"
-	"custodian/server/transactions"
-
+	"custodian/server/object/migrations/managers"
 	"custodian/utils"
 	"fmt"
 	"strconv"
@@ -14,18 +15,18 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("Data", func() {
+var _ = Describe("Data 101", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
-
-	dataManager, _ := syncer.NewDataManager()
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
-	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	migrationManager := managers.NewMigrationManager(
+		metaDescriptionSyncer, dbTransactionManager, db,
+	)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -38,64 +39,64 @@ var _ = Describe("Data", func() {
 		testObjBName := utils.RandomString(8)
 
 		var err error
-		var aMetaObj *object.Meta
-		var bMetaObj *object.Meta
 		var aRecord *object.Record
 		var bRecord *object.Record
-
-		havingObjectA := func() {
-			By("Having object A with action for 'create' defined")
-			aMetaDescription := description.MetaDescription{
-				Name: testObjAName,
-				Key:  "id",
-				Cas:  false,
-				Fields: []description.Field{
-					{
-						Name: "id",
-						Type: description.FieldTypeNumber,
-						Def: map[string]interface{}{
-							"func": "nextval",
-						},
-						Optional: true,
-					},
-					{
-						Name:     "first_name",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-					{
-						Name:     "last_name",
-						Type:     description.FieldTypeString,
-						Optional: false,
-					},
-					{
-						Name:     testObjBName,
-						LinkType: description.LinkTypeInner,
-						Type:     description.FieldTypeObject,
-						LinkMeta: testObjBName,
-						Optional: true,
-					},
+		aFields := []description.Field{
+			{
+				Name: "id",
+				Type: description.FieldTypeNumber,
+				Def: map[string]interface{}{
+					"func": "nextval",
 				},
-				Actions: []description.Action{
+				Optional: true,
+			},
+			{
+				Name:     "first_name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			},
+			{
+				Name:     "last_name",
+				Type:     description.FieldTypeString,
+				Optional: false,
+			},
+			{
+				Name:     testObjBName,
+				LinkType: description.LinkTypeInner,
+				Type:     description.FieldTypeObject,
+				LinkMeta: testObjBName,
+				Optional: true,
+			},
+		}
+		getActionForObjectA := func(method description.Method) []description.Action {
+			return []description.Action{
+				{
+					Method:          method,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+					IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
+				},
+			}
+		}
+
+		havingObjectA := func(method description.Method) {
+			By("Having object A with action for 'create' defined")
+
+			aMetaDescription := description.NewMetaDescription(testObjAName, "id", aFields, getActionForObjectA(method), false)
+			migrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
 					{
-						Method:          description.MethodCreate,
-						Protocol:        description.TEST,
-						Args:            []string{"http://example.com"},
-						ActiveIfNotRoot: true,
-						IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
-					},
-					{
-						Method:          description.MethodCreate,
-						Protocol:        description.TEST,
-						Args:            []string{"http://example1.com"},
-						ActiveIfNotRoot: true,
-						IncludeValues:   map[string]interface{}{},
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: aMetaDescription,
 					},
 				},
 			}
-			aMetaObj, err = metaStore.NewMeta(&aMetaDescription)
-			Expect(err).To(BeNil())
-			err = metaStore.Create(aMetaObj)
+
+			_, err := migrationManager.Apply(migrationDescription, true, false)
 			Expect(err).To(BeNil())
 		}
 
@@ -116,190 +117,113 @@ var _ = Describe("Data", func() {
 					},
 				},
 			}
-			bMetaObj, err = metaStore.NewMeta(&bMetaDescription)
-			Expect(err).To(BeNil())
-			err = metaStore.Create(bMetaObj)
+
+			migrationDescription := &migrations_description.MigrationDescription{
+				Id:        utils.RandomString(8),
+				ApplyTo:   "",
+				DependsOn: nil,
+				Operations: []migrations_description.MigrationOperationDescription{
+					{
+						Type:            migrations_description.CreateObjectOperation,
+						MetaDescription: &bMetaDescription,
+					},
+				},
+			}
+
+			_, err := migrationManager.Apply(migrationDescription, true, false)
 			Expect(err).To(BeNil())
 		}
 
 		havingARecord := func(bRecordId float64) {
 			By("Having a record of A object")
-			aRecord, err = dataProcessor.CreateRecord(aMetaObj.Name, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", testObjBName: bRecordId}, auth.User{})
+			aRecord, err = dataProcessor.CreateRecord(testObjAName, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova", testObjBName: bRecordId}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		havingBRecord := func() {
 			By("Having a record of B object")
-			bRecord, err = dataProcessor.CreateRecord(bMetaObj.Name, map[string]interface{}{}, auth.User{})
+			bRecord, err = dataProcessor.CreateRecord(testObjBName, map[string]interface{}{}, auth.User{})
 			Expect(err).To(BeNil())
 		}
 
 		It("can capture previous record state on create", func() {
 			havingObjectB()
-			havingObjectA()
-			//make recordSetNotification
-			recordSetNotification := object.NewRecordSetNotification(
-				&object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}},
-				true,
-				description.MethodCreate,
-				dataProcessor.GetBulk,
-				dataProcessor.Get,
-			)
-			recordSetNotification.CapturePreviousState()
+			havingObjectA(description.MethodCreate)
 
-			//previous state for create operation should contain empty objects
-			Expect(recordSetNotification.PreviousState[0].Records).To(HaveLen(1))
-			Expect(recordSetNotification.PreviousState[0].Records[0]).To(BeNil())
+			record, _ := dataProcessor.CreateRecord(testObjAName, map[string]interface{}{
+				"first_name": "Veronika", "last_name": "Petrova",
+			}, auth.User{})
+
+			notifier := record.Meta.Actions[0].Notifier.(*noti.TestNotifier)
+
+			var received *noti.Event
+			Eventually(notifier.Events).Should(Receive(&received))
+
+			Expect(received.Obj()["previous"]).To(BeEmpty())
 		})
 
 		It("can capture current record state on create", func() {
 			havingObjectB()
-			havingObjectA()
-			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"first_name": "Veronika", "last_name": "Petrova"})}}
+			havingObjectA(description.MethodCreate)
 
-			//make recordSetNotification
-			recordSetNotification := object.NewRecordSetNotification(
-				&recordSet,
-				true,
-				description.MethodCreate,
-				dataProcessor.GetBulk,
-				dataProcessor.Get,
-			)
+			record, _ := dataProcessor.CreateRecord(testObjAName, map[string]interface{}{
+				"first_name": "Veronika", "last_name": "Petrova",
+			}, auth.User{})
 
-			//assemble operations
-			operation, err := dataManager.PrepareCreateOperation(recordSet.Meta, recordSet.Data())
-			Expect(err).To(BeNil())
+			notifier := record.Meta.Actions[0].Notifier.(*noti.TestNotifier)
 
-			// execute operation
-			globalTransaction, _ := dbTransactionManager.BeginTransaction()
-			err = globalTransaction.Execute([]transactions.Operation{operation})
-			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			var received *noti.Event
+			Eventually(notifier.Events).Should(Receive(&received))
+			Expect(received.Obj()["action"]).To(Equal("create"))
 
-			recordSet.CollapseLinks()
-
-			recordSetNotification.CaptureCurrentState()
-
-			//previous state for create operation should contain empty objects
-			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(4))
+			Expect(received.Obj()["current"]).To(HaveLen(4))
 		})
 
-		It("can capture current state of existing record", func() {
-
+		It("can capture state on update", func() {
 			havingObjectB()
-			havingObjectA()
+			havingObjectA(description.MethodUpdate)
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Kozlova"})}}
+			record, _ := dataProcessor.UpdateRecord(testObjAName, aRecord.PkAsString(), map[string]interface{}{
+				"last_name": "Ivanova",
+			}, auth.User{})
+			notifier := record.Meta.Actions[0].Notifier.(*noti.TestNotifier)
 
-			//make recordSetNotification
-			recordSetNotification := object.NewRecordSetNotification(
-				&recordSet,
-				true,
-				description.MethodCreate,
-				dataProcessor.GetBulk,
-				dataProcessor.Get,
-			)
+			var received *noti.Event
+			Eventually(notifier.Events).Should(Receive(&received))
+			Expect(received.Obj()["action"]).To(Equal("update"))
 
-			recordSetNotification.CaptureCurrentState()
 			//only last_name specified for recordSet, thus first_name should not be included in notification message
-			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(3))
-			Expect(recordSetNotification.CurrentState[0].Records[0].Data["a_last_name"].(string)).To(Equal("Petrova"))
-		})
+			previous := received.Obj()["previous"].(map[string]interface{})
+			Expect(previous["a_last_name"]).To(Equal("Petrova"))
 
-		It("can capture current state of existing record after update", func() {
-			havingObjectB()
-			havingObjectA()
-			havingBRecord()
-			havingARecord(bRecord.Pk().(float64))
-
-			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
-
-			//make recordSetNotification
-
-			recordSetNotification := object.NewRecordSetNotification(
-				&recordSet,
-				true,
-				description.MethodCreate,
-				dataProcessor.GetBulk,
-				dataProcessor.Get,
-			)
-
-			//assemble operations
-			operation, err := dataManager.PrepareUpdateOperation(recordSet.Meta, recordSet.Data())
-			Expect(err).To(BeNil())
-
-			// execute operation
-			globalTransaction, _ := dbTransactionManager.BeginTransaction()
-			err = globalTransaction.Execute([]transactions.Operation{operation})
-			Expect(err).To(BeNil())
-			dbTransactionManager.CommitTransaction(globalTransaction)
-
-			recordSet.CollapseLinks()
-
-			recordSetNotification.CaptureCurrentState()
-			//only last_name specified for update, thus first_name should not be included in notification message
-			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].Records[0].Data).To(HaveLen(4))
-			Expect(recordSetNotification.CurrentState[0].Records[0].Data["a_last_name"].(string)).To(Equal("Ivanova"))
+			current := received.Obj()["current"].(map[string]interface{})
+			Expect(current["a_last_name"]).To(Equal("Ivanova"))
 		})
 
 		It("can capture empty state of removed record after remove", func() {
 			havingObjectB()
-			havingObjectA()
+			havingObjectA(description.MethodRemove)
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
-			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
+			removed, _ := dataProcessor.RemoveRecord(testObjAName, strconv.Itoa(int(aRecord.Data["id"].(float64))), auth.User{})
 
-			//make recordSetNotification
-			recordSetNotification := object.NewRecordSetNotification(
-				&recordSet,
-				true,
-				description.MethodCreate,
-				dataProcessor.GetBulk,
-				dataProcessor.Get,
-			)
-
-			dataProcessor.RemoveRecord(aMetaObj.Name, strconv.Itoa(int(aRecord.Data["id"].(float64))), auth.User{})
-
-			recordSetNotification.CaptureCurrentState()
-			//only last_name specified for update, thus first_name should not be included in notification message
-			Expect(recordSetNotification.CurrentState[0].Records).To(HaveLen(1))
-			Expect(recordSetNotification.CurrentState[0].Records[0]).To(BeNil())
-		})
-
-		It("forms correct notification message on record removal", func() {
-			havingObjectB()
-			havingObjectA()
-			havingBRecord()
-			havingARecord(bRecord.Pk().(float64))
-
-			recordSet := object.RecordSet{Meta: aMetaObj, Records: []*object.Record{object.NewRecord(aMetaObj, map[string]interface{}{"id": aRecord.Pk(), "last_name": "Ivanova"})}}
-
-			//make recordSetNotification
-			recordSetNotification := object.NewRecordSetNotification(
-				&recordSet,
-				true,
-				description.MethodCreate,
-				dataProcessor.GetBulk,
-				dataProcessor.Get,
-			)
-			recordSetNotification.CapturePreviousState()
-
-			dataProcessor.RemoveRecord(aMetaObj.Name, strconv.Itoa(int(aRecord.Pk().(float64))), auth.User{})
-			recordSetNotification.CaptureCurrentState()
-			notificationsData := recordSetNotification.BuildNotificationsData(
-				recordSetNotification.PreviousState[0],
-				recordSetNotification.CurrentState[0],
-				auth.User{},
-			)
-			Expect(notificationsData).To(HaveLen(1))
-			Expect(notificationsData[0]).To(HaveKey("previous"))
-			Expect(notificationsData[0]).To(HaveKey("current"))
+			notifier := removed.Meta.Actions[0].Notifier.(*noti.TestNotifier)
+			//
+			var received *noti.Event
+			Eventually(notifier.Events).Should(Receive(&received))
+			Expect(received.Obj()["action"]).To(Equal("remove"))
+			//
+			//fmt.Println("received ---->", received.Obj())
+			//
+			////only last_name specified for recordSet, thus first_name should not be included in notification message
+			//previous := received.Obj()["previous"].(map[string]interface{})
+			//Expect(previous["a_last_name"]).To(Equal("Petrova"))
+			//
+			//current := received.Obj()["current"].(map[string]interface{})
+			//Expect(current).To(BeEmpty())
 		})
 	})
 })

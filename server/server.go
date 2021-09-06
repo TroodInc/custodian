@@ -139,29 +139,23 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	app := GetApp(cs)
 
 	//MetaDescription routes
-	syncer, err := object.NewSyncer(config.DbConnectionUrl)
-	dataManager, _ := syncer.NewDataManager()
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	db, err := object.NewDbConnection(config.DbConnectionUrl)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
 	//transaction managers
-	//dbTransactionManager := transactions.NewGlobalTransactionManager(dbTransactionManager)
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaCache := metaDescriptionSyncer.Cache()
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
-	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager,
-		metaDescriptionSyncer,
-		config.MigrationStoragePath,
-		dbTransactionManager,
-	)
+	migrationManager := managers.NewMigrationManager(metaDescriptionSyncer, dbTransactionManager, db)
 
 	getDataProcessor := func() *object.Processor {
-		dataManager, _ := syncer.NewDataManager()
-		dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
-		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-		metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
-		processor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+		dbTransactionManager := object.NewPgDbTransactionManager(db)
+		metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, metaCache, db)
+		metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
+
+		processor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 		return processor
 	}
 
@@ -411,7 +405,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				sink.pushError(e)
 			} else {
 
-				sink.pushObj(removedData)
+				sink.pushObj(removedData.GetData())
 			}
 		}
 	}))
@@ -574,7 +568,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	// 			return
 	// 		}
 
-	// 		err = dbTransactionManager.CommitTransaction(globalTransaction)
+	// 		err = globalTransaction.Commit()
 	// 		if err != nil {
 	// 			js.pushError(err)
 	// 			return
@@ -597,8 +591,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 			updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
 
-			metaStore.MetaDescriptionSyncer.Cache().Invalidate()
-
 			if err != nil {
 				js.pushError(err)
 				return
@@ -619,7 +611,6 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			var appliedMigrations []description.MetaDescription
 			for _, migrationDescription := range bulkMigrationDescription {
 				updatedMetaDescription, err := migrationManager.Apply(migrationDescription, true, fake)
-				metaStore.MetaDescriptionSyncer.Cache().Invalidate()
 				if err != nil {
 					js.pushError(err)
 					return
@@ -648,9 +639,13 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 				var operations []migrations_description.MigrationOperationDescription
 
 				// TODO: Replace base types with related objects to enable filtering
-				if migrationData["dependsOn"].(string) != "" {
-					migrationData["dependsOn"] = []string{migrationData["dependsOn"].(string)}
-				} else {
+				switch dependsOn := migrationData["dependsOn"].(type) {
+				case string:
+					if dependsOn != "" {
+						migrationData["dependsOn"] = []string{migrationData["dependsOn"].(string)}
+
+					}
+				default:
 					migrationData["dependsOn"] = make([]string, 0)
 				}
 				json.Unmarshal([]byte(fmt.Sprintf("%v", migrationData["meta_state"])), &meta_state)
@@ -743,7 +738,7 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 
 				//rollback set transactions
 				if dbTransaction := r.Context().Value("db_transaction"); dbTransaction != nil {
-					dbTransactionManager.RollbackTransaction(dbTransaction.(transactions.DbTransaction))
+					dbTransaction.(transactions.DbTransaction).Rollback()
 				}
 
 				returnError(w, err.(error))

@@ -4,6 +4,7 @@ import (
 	"custodian/server/errors"
 	"custodian/server/migrations"
 	migration_description "custodian/server/migrations/description"
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/server/object/description"
 	"custodian/server/object/migrations/managers"
@@ -15,16 +16,15 @@ import (
 
 var _ = Describe("Migration Constructor", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
-	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager))
+	migrationConstructor := NewMigrationConstructor(managers.NewMigrationManager(metaDescriptionSyncer, dbTransactionManager, db))
 
 	flushDb := func() {
 		err := metaStore.Flush()
@@ -73,7 +73,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(err).NotTo(BeNil())
 			Expect(err.(*errors.ServerError).Code).To(Equal(migrations.MigrationNoChangesWereDetected))
 
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 		})
 
@@ -105,7 +105,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(migrationDescription.Operations).To(HaveLen(1))
 			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.CreateObjectOperation))
 
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 		})
 
@@ -151,7 +151,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(migrationDescription.Operations).To(HaveLen(1))
 			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.RenameObjectOperation))
 
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 
 		})
@@ -181,7 +181,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(migrationDescription.Operations).To(HaveLen(1))
 			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.DeleteObjectOperation))
 
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 
 		})
@@ -235,7 +235,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(migrationDescription.Operations).To(HaveLen(1))
 			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.AddFieldOperation))
 
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 		})
 
@@ -285,7 +285,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(migrationDescription.Operations).To(HaveLen(1))
 			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.RemoveFieldOperation))
 
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 		})
 
@@ -377,7 +377,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -433,7 +433,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -488,7 +488,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -543,7 +543,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -598,7 +598,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -653,7 +653,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -707,7 +707,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateFieldOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 		})
@@ -746,7 +746,7 @@ var _ = Describe("Migration Constructor", func() {
 					Action: description.Action{
 						Name:     "new_action",
 						Method:   description.MethodCreate,
-						Protocol: description.REST,
+						Protocol: noti.REST,
 						Args:     []string{"http://localhost:3000/some-handler"},
 					},
 				}},
@@ -759,7 +759,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(migrationDescription.Operations).To(HaveLen(1))
 			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.AddActionOperation))
 
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 		})
 
@@ -781,7 +781,7 @@ var _ = Describe("Migration Constructor", func() {
 					{
 						Name:     "new_action",
 						Method:   description.MethodCreate,
-						Protocol: description.REST,
+						Protocol: noti.REST,
 						Args:     []string{"http://localhost:3000/some-handler"},
 					},
 				},
@@ -810,7 +810,7 @@ var _ = Describe("Migration Constructor", func() {
 			Expect(migrationDescription.Operations).To(HaveLen(1))
 			Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.RemoveActionOperation))
 
-			err = dbTransactionManager.CommitTransaction(globalTransaction)
+			err = globalTransaction.Commit()
 			Expect(err).To(BeNil())
 		})
 
@@ -832,7 +832,7 @@ var _ = Describe("Migration Constructor", func() {
 						{
 							Name:     "new_action",
 							Method:   description.MethodCreate,
-							Protocol: description.REST,
+							Protocol: noti.REST,
 							Args:     []string{"http://localhost:3000/some-handler"},
 						},
 					},
@@ -862,7 +862,7 @@ var _ = Describe("Migration Constructor", func() {
 							Action: description.Action{
 								Name:     "updated_action",
 								Method:   description.MethodCreate,
-								Protocol: description.REST,
+								Protocol: noti.REST,
 								Args:     []string{"http://localhost:3000/some-handler"},
 							},
 							PreviousName: "new_action",
@@ -877,7 +877,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -903,7 +903,7 @@ var _ = Describe("Migration Constructor", func() {
 							Action: description.Action{
 								Name:     "new_action",
 								Method:   description.MethodCreate,
-								Protocol: description.TEST,
+								Protocol: noti.TEST,
 								Args:     []string{"http://localhost:3000/some-handler"},
 							},
 						},
@@ -917,7 +917,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -943,7 +943,7 @@ var _ = Describe("Migration Constructor", func() {
 							Action: description.Action{
 								Name:     "new_action",
 								Method:   description.MethodCreate,
-								Protocol: description.REST,
+								Protocol: noti.REST,
 								Args:     []string{"http://localhost:3000/some-another-handler"},
 							},
 						},
@@ -957,7 +957,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 
@@ -983,7 +983,7 @@ var _ = Describe("Migration Constructor", func() {
 							Action: description.Action{
 								Name:            "new_action",
 								Method:          description.MethodCreate,
-								Protocol:        description.REST,
+								Protocol:        noti.REST,
 								Args:            []string{"http://localhost:3000/some-handler"},
 								ActiveIfNotRoot: true,
 							},
@@ -998,7 +998,7 @@ var _ = Describe("Migration Constructor", func() {
 				Expect(migrationDescription.Operations).To(HaveLen(1))
 				Expect(migrationDescription.Operations[0].Type).To(Equal(migration_description.UpdateActionOperation))
 
-				err = dbTransactionManager.CommitTransaction(globalTransaction)
+				err = globalTransaction.Commit()
 				Expect(err).To(BeNil())
 			})
 		})

@@ -9,21 +9,19 @@ import (
 
 	"custodian/server/auth"
 	"custodian/server/object/description"
-
 )
 
 var _ = Describe("Store", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
 
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
-	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -108,6 +106,14 @@ var _ = Describe("Store", func() {
 		var userId int = 100
 		record, _ := dataProcessor.CreateRecord(meta.Name, recordData, auth.User{Id: userId})
 		Expect(record.Data["profile"]).To(Equal(float64(userId)))
+
+		var userId2 int = 101
+		recordData2 := map[string]interface{}{
+			"name": "Test",
+			"id":   1001,
+		}
+		record2, _ := dataProcessor.CreateRecord(meta.Name, recordData2, auth.User{Id: userId2})
+		Expect(record2.Data["profile"]).To(Equal(float64(userId2)))
 	})
 
 	It("Set owner for nested objects", func() {

@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/utils"
 	"net/http"
@@ -20,18 +21,17 @@ import (
 
 var _ = Describe("Migrations` listing", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager, db,
 	)
 
 	BeforeEach(func() {
@@ -43,7 +43,7 @@ var _ = Describe("Migrations` listing", func() {
 	flushDb := func() {
 		//Flush meta/database
 		// drop history
-		err := migrationManager.DropHistory()
+		_, err := db.Exec(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
 		Expect(err).To(BeNil())
 		err = metaStore.Flush()
 		Expect(err).To(BeNil())
@@ -82,7 +82,7 @@ var _ = Describe("Migrations` listing", func() {
 						Action: &migrations_description.MigrationActionDescription{
 							Action: description.Action{
 								Method:          description.MethodUpdate,
-								Protocol:        description.REST,
+								Protocol:        noti.REST,
 								Args:            []string{"http://localhost"},
 								ActiveIfNotRoot: false,
 								IncludeValues:   nil,

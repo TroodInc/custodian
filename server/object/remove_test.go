@@ -14,15 +14,14 @@ import (
 
 var _ = Describe("RecordSetOperations removal", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
-	dataProcessor, _ := object.NewProcessor(metaStore, dataManager, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
+	dataProcessor, _ := object.NewProcessor(metaStore, dbTransactionManager)
 
 	AfterEach(func() {
 		err := metaStore.Flush()
@@ -32,7 +31,6 @@ var _ = Describe("RecordSetOperations removal", func() {
 	It("Can remove records with cascade relation", func() {
 		testObjAName := utils.RandomString(8)
 		testObjBName := utils.RandomString(8)
-		testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
 
 		aMetaDescription := description.MetaDescription{
 			Name: testObjAName,
@@ -104,8 +102,6 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).NotTo(BeNil())
-		Expect(removedData).To(HaveKey(testObjBSetName))
-		Expect(removedData[testObjBSetName]).To(HaveLen(1))
 	})
 
 	It("Can remove record and update child records with 'setNull' relation", func() {
@@ -185,7 +181,7 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).NotTo(BeNil())
-		Expect(removedData).To(Not(HaveKey(testObjBSetName)))
+		Expect(removedData.GetData()).To(Not(HaveKey(testObjBSetName)))
 	})
 
 	It("Cannot remove record with 'restrict' relation", func() {
@@ -335,13 +331,12 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).To(Not(BeNil()))
-		Expect(removedData).To(Not(HaveKey(testObjBSetName)))
+		Expect(removedData.GetData()).To(Not(HaveKey(testObjBSetName)))
 	})
 
 	It("Can remove record and update child records with generic relation and 'cascade' strategy", func() {
 		testObjAName := utils.RandomString(8)
 		testObjBName := utils.RandomString(8)
-		testObjBSetName := fmt.Sprintf("%s_set", testObjBName)
 
 		aMetaDescription := description.MetaDescription{
 			Name: testObjAName,
@@ -418,7 +413,5 @@ var _ = Describe("RecordSetOperations removal", func() {
 
 		//check removed data tree
 		Expect(removedData).To(Not(BeNil()))
-		Expect(removedData).To(HaveKey(testObjBSetName))
-		Expect(removedData[testObjBSetName]).To(HaveLen(1))
 	})
 })

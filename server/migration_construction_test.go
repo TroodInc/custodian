@@ -1,6 +1,7 @@
 package server_test
 
 import (
+	"custodian/server/noti"
 	"custodian/server/object"
 	"custodian/utils"
 	"net/http"
@@ -21,16 +22,15 @@ import (
 
 var _ = Describe("Migration`s construction", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	BeforeEach(func() {
 		//setup server
@@ -40,9 +40,8 @@ var _ = Describe("Migration`s construction", func() {
 
 	flushDb := func() {
 		// drop history
-		err := managers.NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
-		).DropHistory()
+		_, err := db.Exec(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
+
 		Expect(err).To(BeNil())
 		//Flush meta/database
 		err = metaStore.Flush()
@@ -70,7 +69,7 @@ var _ = Describe("Migration`s construction", func() {
 				{
 					Name:     "some-action",
 					Method:   description.MethodUpdate,
-					Protocol: description.REST,
+					Protocol: noti.REST,
 					Args:     []string{"http://localhost:5555/some-endpoint/"},
 				},
 			},
@@ -189,7 +188,7 @@ var _ = Describe("Migration`s construction", func() {
 			Expect(migrationDescriptionData["operations"].([]interface{})).To(HaveLen(1))
 			Expect(migrationDescriptionData["operations"].([]interface{})[0].(map[string]interface{})["type"]).To(Equal(meta_description.CreateObjectOperation))
 
-			dbTransactionManager.CommitTransaction(globalTransaction)
+			globalTransaction.Commit()
 		})
 
 		It("Can create migration to rename object", func() {

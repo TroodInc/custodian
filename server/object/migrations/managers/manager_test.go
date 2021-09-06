@@ -6,7 +6,6 @@ import (
 	"custodian/server/object"
 
 	"custodian/utils"
-	"database/sql"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -14,33 +13,27 @@ import (
 
 var _ = Describe("MigrationManager", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
 
 	It("Creates migration history table if it does not exists", func() {
+
+		NewMigrationManager(metaDescriptionSyncer, dbTransactionManager, db)
 		dbTransaction, err := dbTransactionManager.BeginTransaction()
 		Expect(err).To(BeNil())
 
-		_, err = NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
-		).ensureHistoryTableExists()
-		Expect(err).To(BeNil())
-
-		metaDdl, err := object.MetaDDLFromDB(dbTransaction.Transaction().(*sql.Tx), historyMetaName)
+		metaDdl, err := object.MetaDDLFromDB(dbTransaction.Transaction(), historyMetaName)
 
 		Expect(err).To(BeNil())
 
 		Expect(metaDdl.Table).To(Equal(object.GetTableName(historyMetaName)))
-		Expect(metaDdl.Columns).To(HaveLen(7))
+		Expect(metaDdl.Columns).To(HaveLen(8))
 
-		dbTransactionManager.RollbackTransaction(dbTransaction)
+		dbTransaction.Rollback()
 	})
 
 	It("Records migration", func() {
@@ -48,7 +41,7 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		migrationHistoryId, err := NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager, db,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
@@ -60,12 +53,12 @@ var _ = Describe("MigrationManager", func() {
 		migration := &migrations.Migration{MigrationDescription: description.MigrationDescription{ApplyTo: "a", Id: migrationUid}}
 
 		_, err := NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager, db,
 		).recordAppliedMigration(migration)
 		Expect(err).To(BeNil())
 
 		_, err = NewMigrationManager(
-			metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
+			metaDescriptionSyncer, dbTransactionManager, db,
 		).recordAppliedMigration(migration)
 		Expect(err).NotTo(BeNil())
 	})

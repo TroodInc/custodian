@@ -21,20 +21,20 @@ import (
 
 var _ = Describe("Server 101", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object2.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object2.NewDbConnection(appConfig.DbConnectionUrl)
 
 	var httpServer *http.Server
 	var recorder *httptest.ResponseRecorder
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object2.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object2.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager)
+	metaDescriptionSyncer := object2.NewPgMetaDescriptionSyncer(dbTransactionManager, object2.NewCache(), db)
 
-	metaStore := object2.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaStore := object2.NewStore(metaDescriptionSyncer, dbTransactionManager)
+
 	migrationManager := managers.NewMigrationManager(
-		metaStore, dataManager, metaDescriptionSyncer, appConfig.MigrationStoragePath, dbTransactionManager,
+		metaDescriptionSyncer, dbTransactionManager, db,
 	)
 
 	BeforeEach(func() {
@@ -45,7 +45,7 @@ var _ = Describe("Server 101", func() {
 
 	flushDb := func() {
 		// drop history
-		err := migrationManager.DropHistory()
+		_, err := db.Exec(managers.TRUNCATE_MIGRATION_HISTORY_TABLE)
 		Expect(err).To(BeNil())
 		//Flush meta/database
 		err = metaStore.Flush()
@@ -170,7 +170,7 @@ var _ = Describe("Server 101", func() {
 		Expect(appliedMigrations).To(HaveLen(1))
 		Expect(appliedMigrations[0].Data["id"]).To(Equal(migrationDescriptionData["id"]))
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	It("Can rename object by application of migration", func() {
@@ -201,7 +201,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -277,7 +277,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -353,7 +353,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -426,7 +426,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -501,7 +501,7 @@ var _ = Describe("Server 101", func() {
 		err = createOperation.SyncDbDescription(nil, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		err = dbTransactionManager.CommitTransaction(globalTransaction)
+		err = globalTransaction.Commit()
 		Expect(err).To(BeNil())
 		//apply migration
 
@@ -593,5 +593,61 @@ var _ = Describe("Server 101", func() {
 		//check response status
 		Expect(body["status"]).To(Equal("FAIL"))
 		//ensure meta has been renamed
+	})
+	It("Can apply migration with description field", func() {
+		testObjAName := utils.RandomString(8)
+		migrationDescriptionData := map[string]interface{}{
+			"id":          "b5df723r",
+			"applyTo":     "",
+			"dependsOn":   []string{},
+			"description": "This is description test",
+			"operations": []map[string]interface{}{
+				{
+					"type": "createObject",
+					"object": map[string]interface{}{
+						"name": testObjAName,
+						"key":  "id",
+						"fields": []map[string]interface{}{
+							{
+								"name":     "id",
+								"type":     "string",
+								"optional": false,
+							},
+							{
+								"name":     "name",
+								"type":     "string",
+								"optional": false,
+							},
+						},
+						"cas": false,
+					},
+				},
+			},
+		}
+
+		encodedMetaData, _ := json.Marshal(migrationDescriptionData)
+
+		url := fmt.Sprintf("%s/migrations", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("POST", url, bytes.NewBuffer(encodedMetaData))
+		request.Header.Set("Content-Type", "application/json")
+		httpServer.Handler.ServeHTTP(recorder, request)
+
+		responseBody := recorder.Body.String()
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+		Expect(body["status"]).To(Equal("OK"))
+
+		newRecorder := httptest.NewRecorder()
+		var newRequest, _ = http.NewRequest("GET", url, nil)
+		httpServer.Handler.ServeHTTP(newRecorder, newRequest)
+
+		newResponse := newRecorder.Body.String()
+		var newBody map[string]interface{}
+		json.Unmarshal([]byte(newResponse), &newBody)
+
+		Expect(newBody["data"].([]interface{})[0].(map[string]interface{})["description"]).To(Equal("This is description test"))
+		Expect(body["status"]).To(Equal("OK"))
+
 	})
 })

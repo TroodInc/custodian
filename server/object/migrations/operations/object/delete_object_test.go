@@ -5,7 +5,6 @@ import (
 	"custodian/server/object/description"
 
 	"custodian/utils"
-	"database/sql"
 
 	. "github.com/onsi/ginkgo"
 	. "github.com/onsi/gomega"
@@ -13,14 +12,13 @@ import (
 
 var _ = Describe("'DeleteObject' Migration Operation", func() {
 	appConfig := utils.GetConfig()
-	syncer, _ := object.NewSyncer(appConfig.DbConnectionUrl)
+	db, _ := object.NewDbConnection(appConfig.DbConnectionUrl)
 
-	dataManager, _ := syncer.NewDataManager()
 	//transaction managers
-	dbTransactionManager := object.NewPgDbTransactionManager(dataManager)
+	dbTransactionManager := object.NewPgDbTransactionManager(db)
 
-	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager)
-	metaStore := object.NewStore(metaDescriptionSyncer, syncer, dbTransactionManager)
+	metaDescriptionSyncer := object.NewPgMetaDescriptionSyncer(dbTransactionManager, object.NewCache(), db)
+	metaStore := object.NewStore(metaDescriptionSyncer, dbTransactionManager)
 
 	var metaDescription *description.MetaDescription
 
@@ -49,10 +47,10 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		}
 		Expect(err).To(BeNil())
 		//sync its MetaDescription
-		err = syncer.CreateObj(dbTransactionManager, metaDescription, metaDescriptionSyncer)
+		err = metaStore.CreateObj(metaDescription, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 	})
 
 	//setup teardown
@@ -70,13 +68,13 @@ var _ = Describe("'DeleteObject' Migration Operation", func() {
 		err = new(DeleteObjectOperation).SyncDbDescription(metaDescription, globalTransaction, metaDescriptionSyncer)
 		Expect(err).To(BeNil())
 
-		tx := globalTransaction.Transaction().(*sql.Tx)
+		tx := globalTransaction.Transaction()
 
 		//ensure table has been removed
 		metaDdlFromDB, err := object.MetaDDLFromDB(tx, metaName)
 		Expect(err).NotTo(BeNil())
 		Expect(metaDdlFromDB).To(BeNil())
-		dbTransactionManager.CommitTransaction(globalTransaction)
+		globalTransaction.Commit()
 
 		//	ensure meta file does not exist
 		metaDescription, _, err := metaDescriptionSyncer.Get(metaName)
