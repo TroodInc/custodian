@@ -18,7 +18,7 @@ import (
 
 const (
 	historyMetaName                  = "__custodian_objects_migration_history__"
-	CREATE_MIGRATION_HISTORY_TABLE   = `CREATE TABLE IF NOT EXISTS "o___custodian_objects_migration_history__" ("applyTo" text NOT NULL, "id" text NOT NULL, "dependsOn" text NOT NULL, "created" timestamp with time zone NOT NULL, "order" SERIAL, "operations" text NOT NULL, "meta_state" text NOT NULL, "description" text NOT NULL, PRIMARY KEY ("id"));`
+	CREATE_MIGRATION_HISTORY_TABLE   = `CREATE TABLE IF NOT EXISTS "o___custodian_objects_migration_history__" ("applyTo" text NOT NULL, "id" text NOT NULL, "dependsOn" text NOT NULL, "created" timestamp with time zone NOT NULL, "order" SERIAL, "operations" text NOT NULL, "meta_state" text NOT NULL, "description" text NULL, PRIMARY KEY ("id"));`
 	TRUNCATE_MIGRATION_HISTORY_TABLE = `TRUNCATE o___custodian_objects_migration_history__;`
 )
 
