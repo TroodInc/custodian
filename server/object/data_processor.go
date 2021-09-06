@@ -46,7 +46,7 @@ func NewProcessor(m *MetaStore, t transactions.DbTransactionManager) (*Processor
 
 type SearchContext struct {
 	DepthLimit    int
-    processor     *Processor
+	processor     *Processor
 	LazyPath      string
 	OmitOuters    bool
 	DbTransaction transactions.DbTransaction
@@ -91,21 +91,21 @@ func (processor *Processor) Get(objectClass, key string, includePaths []string, 
 
 			err := root.RecursivelyFillChildNodes(ctx.DepthLimit, description.FieldModeRetrieve)
 			if err != nil {
-				
+
 				transaction.Rollback()
 				return nil, err
 			}
 
 			if recordData, e := root.Resolve(ctx, pk); e != nil {
-				
+
 				transaction.Rollback()
 				return nil, e
 			} else if recordData == nil {
-				
+
 				transaction.Rollback()
 				return nil, nil
 			} else {
-				
+
 				transaction.Commit()
 				return recordData, nil
 			}
@@ -155,7 +155,7 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 
 		rqlNode, err := parser.Parse(filter)
 		if err != nil {
-			
+
 			transaction.Rollback()
 			return 0, nil, errors2.NewValidationError(errors.ErrWrongRQL, err.Error(), nil)
 		}
@@ -163,11 +163,11 @@ func (processor *Processor) GetBulk(objectName string, filter string, includePat
 		records, recordsCount, e := root.ResolveByRql(searchContext, rqlNode)
 
 		if e != nil {
-			
+
 			transaction.Rollback()
 			return recordsCount, nil, e
 		}
-		
+
 		transaction.Commit()
 		return recordsCount, records, nil
 	}
@@ -259,6 +259,7 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 	rootRecordSet, recordSetsOperations := recordProcessingNode.RecordSetOperations(user)
 
 	// create records
+	SetRecordOwner(objectMeta, recordData, user)
 
 	for _, recordSetOperation := range recordSetsOperations {
 		isRoot := recordSetOperation.RecordSet == rootRecordSet
@@ -597,19 +598,18 @@ func (processor *Processor) RemoveRecord(objectName string, key string, user aut
 	}
 	removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
 	if err != nil {
-		
+
 		dbTransaction.Rollback()
 		return nil, err
 	}
 
 	err = processor.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool)
 	if err != nil {
-		
+
 		dbTransaction.Rollback()
 		return nil, err
 	}
 
-	
 	dbTransaction.Commit()
 	// push notifications if needed
 	if recordSetNotificationPool.ShouldBeProcessed() {
@@ -655,19 +655,18 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 		}
 		removalRootNode, err := new(RecordRemovalTreeBuilder).Extract(recordToRemove, processor, dbTransaction)
 		if err != nil {
-			
+
 			dbTransaction.Rollback()
 			return err
 		}
 
 		err = processor.PerformRemove(removalRootNode, dbTransaction, recordSetNotificationPool)
 		if err != nil {
-			
+
 			dbTransaction.Rollback()
 			return err
 		}
 
-		
 		dbTransaction.Commit()
 		// push notifications if needed
 		if recordSetNotificationPool.ShouldBeProcessed() {
@@ -742,11 +741,11 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 		return nil, err
 	}
 	if e := dbTransaction.Execute(operations); e != nil {
-		
+
 		dbTransaction.Rollback()
 		return nil, e
 	}
-	
+
 	dbTransaction.Commit()
 
 	recordSet.MergeData()
@@ -781,11 +780,11 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 		return nil, err
 	}
 	if e := dbTransaction.Execute(operations); e != nil {
-		
+
 		dbTransaction.Rollback()
 		return nil, e
 	}
-	
+
 	dbTransaction.Commit()
 	recordSet.MergeData()
 
@@ -797,7 +796,6 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 
 	return recordSet, nil
 }
-
 
 func (processor *Processor) PrepareUpdateOperation(m *Meta, recordValues []map[string]interface{}) (transactions.Operation, error) {
 	if len(recordValues) == 0 {
