@@ -1,6 +1,7 @@
 package object_test
 
 import (
+	"custodian/server/noti"
 	"custodian/server/object"
 
 	. "github.com/onsi/ginkgo"
@@ -66,6 +67,20 @@ var _ = Describe("Test cache", func() {
 	It("Can resolve meta", func() {
 		testObjAName := utils.RandomString(8) + "_a"
 		simpleMetaDescription := object.GetBaseMetaData(testObjAName)
+		simpleMetaDescription.Actions = []description.Action{
+			{
+				Name:     "action1",
+				Method:   description.MethodCreate,
+				Protocol: noti.REST,
+				Args:     []string{"http://localhost:3000/some-handler"},
+			},
+			{
+				Name:     "action2",
+				Method:   description.MethodUpdate,
+				Protocol: noti.REST,
+				Args:     []string{"http://localhost:3000/some-handler"},
+			},
+		}
 
 		meta, err := metaDescriptionSyncer.Cache().FactoryMeta(simpleMetaDescription)
 		Expect(err).To(BeNil())
@@ -78,7 +93,8 @@ var _ = Describe("Test cache", func() {
 		Expect(meta.Fields[0].LinkThrough).To(BeNil())
 		Expect(meta.Fields[0].LinkMetaList.GetAll()).To(HaveLen(0))
 		Expect(meta.Key.Meta.MetaDescription).To(Equal(meta.Fields[0].Meta.MetaDescription))
-		Expect(meta.Actions).To(HaveLen(0))
+		Expect(meta.Actions[0].Name).To(Equal("action1"))
+		Expect(meta.Actions[1].Name).To(Equal("action2"))
 
 	})
 	It("adds cache for generic object", func() {
