@@ -7,28 +7,28 @@ import (
 
 type Action struct {
 	Method          Method                 `json:"method"`
-	Protocol        noti.Protocol               `json:"protocol"`
+	Protocol        noti.Protocol          `json:"protocol"`
 	Args            []string               `json:"args,omitempty"`
 	ActiveIfNotRoot bool                   `json:"activeIfNotRoot"`
 	IncludeValues   map[string]interface{} `json:"includeValues"`
 	Name            string                 `json:"name"`
 	id              int
-	Notifier        noti.Notifier
+	Notifier        noti.Notifier `json:"-"`
 }
 
-func InitAction(a *Action) (*Action, error) {
+func InitAction(a *Action) error {
 	f, ok := noti.NotifierFactories[a.Protocol]
 	if !ok {
-		return nil, errors.NewValidationError("ErrInternal", "Notifier notifierFactory not found for protocol: %s", a.Protocol)
+		return errors.NewValidationError("ErrInternal", "Notifier notifierFactory not found for protocol: %s", a.Protocol)
 	}
 
 	n, err := f(a.Args, a.ActiveIfNotRoot)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	a.Notifier = n
-	return  a, nil
+	return nil
 }
 
 func (a *Action) NewNotificationChannel() chan *noti.Event {
