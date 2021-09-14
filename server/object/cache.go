@@ -105,7 +105,9 @@ func (mc *MetaCache) resolveMeta(currentMeta *Meta) error {
 
 	//factory actionSet
 	for i := range currentMeta.MetaDescription.Actions {
-		if err := description.InitAction(&currentMeta.MetaDescription.Actions[i]); err == nil {
+		//Setting id and Notifier for action
+		// TODO action.id exists only in cache shold be unique id for each action
+		if err := description.InitAction(i, &currentMeta.MetaDescription.Actions[i]); err == nil {
 			currentMeta.Actions = append(currentMeta.Actions, &currentMeta.MetaDescription.Actions[i])
 		}
 	}
