@@ -98,7 +98,7 @@ func (notification *RecordSetNotification) captureState(state map[int]*RecordSet
 //Build object to use in notification
 func (notification *RecordSetNotification) buildRecordStateObject(recordData *Record, action *description.Action) map[string]interface{} {
 
-	stateObject := make(map[string]interface{}, 0)
+	stateObject := make(map[string]interface{})
 
 	if recordData != nil {
 		//	include values which are being updated/created
