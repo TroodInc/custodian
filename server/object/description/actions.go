@@ -16,7 +16,9 @@ type Action struct {
 	Notifier        noti.Notifier `json:"-"`
 }
 
-func InitAction(a *Action) error {
+func InitAction(i int, a *Action) error {
+	a.SetId(i)
+
 	f, ok := noti.NotifierFactories[a.Protocol]
 	if !ok {
 		return errors.NewValidationError("ErrInternal", "Notifier notifierFactory not found for protocol: %s", a.Protocol)
