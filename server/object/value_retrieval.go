@@ -38,10 +38,10 @@ func getSimpleValue(targetRecord *Record, keyParts []string) interface{} {
 		if targetRecord.Data[keyPart] != nil {
 			var keyValue string
 			switch rawKeyValue.(type) {
-				case DLink:
-					keyValue, _ = nestedObjectMeta.Key.ValueAsString(rawKeyValue.(DLink).Id)
-				default:
-					keyValue, _ = nestedObjectMeta.Key.ValueAsString(rawKeyValue)
+			case DLink:
+				keyValue, _ = nestedObjectMeta.Key.ValueAsString(rawKeyValue.(DLink).Id)
+			default:
+				keyValue, _ = nestedObjectMeta.Key.ValueAsString(rawKeyValue)
 			}
 
 			nestedRecord, _ := targetRecord.processor.Get(nestedObjectMeta.Name, keyValue, nil, nil, 1, false)
@@ -56,6 +56,13 @@ func getSimpleValue(targetRecord *Record, keyParts []string) interface{} {
 func getGenericValue(targetRecord *Record, getterConfig map[string]interface{}) interface{} {
 	genericFieldName := getterConfig["field"].(string)
 	genericFieldValue := getSimpleValue(targetRecord, strings.Split(genericFieldName, "."))
+	switch v := genericFieldValue.(type) {
+	case *GenericInnerLink:
+		genericFieldValue = v.AsMap()
+	case map[string]interface{}:
+		genericFieldValue = v
+	}
+
 	if genericFieldValue != nil {
 		val := genericFieldValue.(map[string]interface{})
 		for _, objectCase := range getterConfig["cases"].([]interface{}) {
