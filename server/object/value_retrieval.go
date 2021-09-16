@@ -19,37 +19,40 @@ func (record *Record) GetValue(getterConfig interface{}) interface{} {
 
 //get key value traversing down if needed
 func getSimpleValue(targetRecord *Record, keyParts []string) interface{} {
-	if len(keyParts) == 1 {
-		return targetRecord.Data[keyParts[0]]
-	} else {
-		keyPart := keyParts[0]
-		nestedObjectField := targetRecord.Meta.FindField(keyPart)
-
-		rawKeyValue := targetRecord.GetData()[keyPart]
-		//case of retrieving value or PK of generic field
-		if nestedObjectField.Type == description.FieldTypeGeneric && len(keyParts) == 2 {
-			if genericFieldValue, ok := rawKeyValue.(map[string]interface{}); ok {
-				return genericFieldValue[keyParts[1]]
-			}
-		}
-
-		//nested linked record case
-		nestedObjectMeta := targetRecord.Meta.FindField(keyPart).LinkMeta
-		if targetRecord.Data[keyPart] != nil {
-			var keyValue string
-			switch rawKeyValue.(type) {
-			case DLink:
-				keyValue, _ = nestedObjectMeta.Key.ValueAsString(rawKeyValue.(DLink).Id)
-			default:
-				keyValue, _ = nestedObjectMeta.Key.ValueAsString(rawKeyValue)
-			}
-
-			nestedRecord, _ := targetRecord.processor.Get(nestedObjectMeta.Name, keyValue, nil, nil, 1, false)
-			return getSimpleValue(nestedRecord, keyParts[1:])
+	if targetRecord != nil {
+		if len(keyParts) == 1 {
+			return targetRecord.Data[keyParts[0]]
 		} else {
-			return nil
+			keyPart := keyParts[0]
+			nestedObjectField := targetRecord.Meta.FindField(keyPart)
+
+			rawKeyValue := targetRecord.GetData()[keyPart]
+			//case of retrieving value or PK of generic field
+			if nestedObjectField.Type == description.FieldTypeGeneric && len(keyParts) == 2 {
+				if genericFieldValue, ok := rawKeyValue.(map[string]interface{}); ok {
+					return genericFieldValue[keyParts[1]]
+				}
+			}
+
+			//nested linked record case
+			nestedObjectMeta := targetRecord.Meta.FindField(keyPart).LinkMeta
+			if targetRecord.Data[keyPart] != nil {
+				var keyValue string
+				switch rawKeyValue.(type) {
+				case DLink:
+					keyValue, _ = nestedObjectMeta.Key.ValueAsString(rawKeyValue.(DLink).Id)
+				default:
+					keyValue, _ = nestedObjectMeta.Key.ValueAsString(rawKeyValue)
+				}
+
+				nestedRecord, _ := targetRecord.processor.Get(nestedObjectMeta.Name, keyValue, nil, nil, 1, false)
+				return getSimpleValue(nestedRecord, keyParts[1:])
+			} else {
+				return nil
+			}
 		}
 	}
+	return nil
 }
 
 //get key value traversing down if needed
