@@ -310,10 +310,8 @@ func (processor *Processor) CreateRecord(objectName string, recordData map[strin
 		}
 	}
 
-	// push notifications if needed
-	if recordSetNotificationPool.ShouldBeProcessed() {
-		recordSetNotificationPool.Push(user)
-	}
+	recordSetNotificationPool.Push(description.MethodCreate, user)
+
 	return NewRecord(objectMeta, recordData, processor), nil
 }
 
@@ -395,10 +393,7 @@ func (processor *Processor) BulkCreateRecords(objectName string, recordData []ma
 		return nil, err
 	}
 
-	// push notifications if needed
-	if recordSetNotificationPool.ShouldBeProcessed() {
-		recordSetNotificationPool.Push(user)
-	}
+	recordSetNotificationPool.Push(description.MethodCreate, user)
 
 	return result, nil
 }
@@ -478,10 +473,7 @@ func (processor *Processor) UpdateRecord(objectName, key string, recordData map[
 		}
 	}
 
-	// push notifications if needed
-	if recordSetNotificationPool.ShouldBeProcessed() {
-		recordSetNotificationPool.Push(user)
-	}
+	recordSetNotificationPool.Push(description.MethodUpdate, user)
 
 	return rootRecordSet.Records[0], nil
 }
@@ -565,10 +557,7 @@ func (processor *Processor) BulkUpdateRecords(objectName string, next func() (ma
 	// feed updated data to the sink
 	processor.feedRecordSets(rootRecordSets, sink)
 
-	//push notifications if needed
-	if recordSetNotificationPool.ShouldBeProcessed() {
-		recordSetNotificationPool.Push(user)
-	}
+	recordSetNotificationPool.Push(description.MethodUpdate, user)
 
 	return nil
 
@@ -612,10 +601,9 @@ func (processor *Processor) RemoveRecord(objectName string, key string, user aut
 
 	dbTransaction.Commit()
 	// push notifications if needed
-	if recordSetNotificationPool.ShouldBeProcessed() {
-		//capture updated state of all records in the pool
-		recordSetNotificationPool.Push(user)
-	}
+
+	recordSetNotificationPool.Push(description.MethodRemove, user)
+
 	return removalRootNode.Record, nil
 }
 
@@ -669,17 +657,13 @@ func (processor *Processor) BulkDeleteRecords(objectName string, next func() (ma
 
 		dbTransaction.Commit()
 		// push notifications if needed
-		if recordSetNotificationPool.ShouldBeProcessed() {
-			//capture updated state of all records in the pool
-			recordSetNotificationPool.Push(user)
-		}
+
+		recordSetNotificationPool.Push(description.MethodRemove, user)
 
 	}
 
 	// push notifications if needed
-	if recordSetNotificationPool.ShouldBeProcessed() {
-		recordSetNotificationPool.Push(user)
-	}
+	recordSetNotificationPool.Push(description.MethodRemove, user)
 
 	return nil
 }
@@ -723,7 +707,7 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 	recordSet.PrepareData(RecordOperationTypeUpdate)
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := NewRecordSetNotification(recordSet, isRoot, description.MethodUpdate)
-	if recordSetNotification.ShouldBeProcessed() {
+	if recordSetNotification.ShouldBeProcessed(description.MethodUpdate) {
 		previous, _ := processor.Get(recordSet.Meta.Name, recordSet.Records[0].PkAsString(), nil, nil, 1, true)
 		recordSetNotification.CapturePreviousState([]*Record{previous})
 	}
@@ -750,7 +734,7 @@ func (processor *Processor) updateRecordSet(recordSet *RecordSet, isRoot bool, r
 
 	recordSet.MergeData()
 
-	if recordSetNotification.ShouldBeProcessed() {
+	if recordSetNotification.ShouldBeProcessed(description.MethodUpdate) {
 		recordSetNotification.CaptureCurrentState(recordSet.Records)
 		recordSetNotificationPool.Add(recordSetNotification)
 	}
@@ -763,7 +747,7 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 	recordSet.PrepareData(RecordOperationTypeCreate)
 	// create notification, capture current recordData state and Add notification to notification pool
 	recordSetNotification := NewRecordSetNotification(recordSet, isRoot, description.MethodCreate)
-	if recordSetNotification.ShouldBeProcessed() {
+	if recordSetNotification.ShouldBeProcessed(description.MethodCreate) {
 		recordSetNotification.CapturePreviousState(make([]*Record, len(recordSet.Records)))
 	}
 
@@ -789,7 +773,7 @@ func (processor *Processor) createRecordSet(recordSet *RecordSet, isRoot bool, r
 	recordSet.MergeData()
 
 	// create notification, capture current recordData state and Add notification to notification pool
-	if recordSetNotification.ShouldBeProcessed() {
+	if recordSetNotification.ShouldBeProcessed(description.MethodCreate) {
 		recordSetNotification.CaptureCurrentState(recordSet.Records)
 		recordSetNotificationPool.Add(recordSetNotification)
 	}
@@ -1079,7 +1063,7 @@ func (processor *Processor) PerformRemove(recordNode *RecordRemovalNode, dbTrans
 		recordSetNotification = NewRecordSetNotification(&RecordSet{Meta: recordNode.Record.Meta, Records: []*Record{recordNode.Record}}, false, description.MethodRemove)
 	}
 
-	if recordSetNotification.ShouldBeProcessed() {
+	if recordSetNotification.ShouldBeProcessed(description.MethodRemove) {
 		records := []*Record{recordNode.Record}
 		recordSetNotification.CapturePreviousState(records)
 		notificationPool.Add(recordSetNotification)

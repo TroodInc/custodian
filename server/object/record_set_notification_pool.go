@@ -1,6 +1,9 @@
 package object
 
-import "custodian/server/auth"
+import (
+	"custodian/server/auth"
+	"custodian/server/object/description"
+)
 
 type RecordSetNotificationPool struct {
 	notifications      []*RecordSetNotification
@@ -15,20 +18,13 @@ func (notificationPool *RecordSetNotificationPool) CompleteSend(err error) {
 	notificationPool.notificationSender.complete(err)
 }
 
-func (notificationPool *RecordSetNotificationPool) Push(user auth.User) {
-	for _, notification := range notificationPool.notifications {
-		notificationPool.notificationSender.push(notification, user)
-	}
-}
+func (notificationPool *RecordSetNotificationPool) Push(method description.Method, user auth.User) {
 
-func (notificationPool *RecordSetNotificationPool) ShouldBeProcessed() bool {
-	shouldBeProcessed := false
 	for _, notification := range notificationPool.notifications {
-		if notification.ShouldBeProcessed() {
-			shouldBeProcessed = true
+		if method.AsString() == notification.Method.AsString() {
+			notificationPool.notificationSender.push(notification, user)
 		}
 	}
-	return shouldBeProcessed
 }
 
 func (notificationPool *RecordSetNotificationPool) Notifications() []*RecordSetNotification {
