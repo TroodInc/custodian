@@ -68,22 +68,9 @@ var _ = Describe("Data 101", func() {
 				Optional: true,
 			},
 		}
-		getActionForObjectA := func(method description.Method) []description.Action {
-			return []description.Action{
-				{
-					Method:          method,
-					Protocol:        noti.TEST,
-					Args:            []string{"http://example.com"},
-					ActiveIfNotRoot: true,
-					IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
-				},
-			}
-		}
 
-		havingObjectA := func(method description.Method) {
-			By("Having object A with action for 'create' defined")
-
-			aMetaDescription := description.NewMetaDescription(testObjAName, "id", aFields, getActionForObjectA(method), false)
+		havingObjectA := func(actions []description.Action) {
+			aMetaDescription := description.NewMetaDescription(testObjAName, "id", aFields, actions, false)
 			migrationDescription := &migrations_description.MigrationDescription{
 				Id:        utils.RandomString(8),
 				ApplyTo:   "",
@@ -147,8 +134,18 @@ var _ = Describe("Data 101", func() {
 		}
 
 		It("can capture previous record state on create", func() {
+			crateAction := []description.Action{
+				{
+					Method:          description.MethodCreate,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+					IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
+				},
+			}
+
 			havingObjectB()
-			havingObjectA(description.MethodCreate)
+			havingObjectA(crateAction)
 
 			record, _ := dataProcessor.CreateRecord(testObjAName, map[string]interface{}{
 				"first_name": "Veronika", "last_name": "Petrova",
@@ -163,8 +160,18 @@ var _ = Describe("Data 101", func() {
 		})
 
 		It("can capture current record state on create", func() {
+			createAction := []description.Action{
+				{
+					Method:          description.MethodCreate,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+					IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
+				},
+			}
+
 			havingObjectB()
-			havingObjectA(description.MethodCreate)
+			havingObjectA(createAction)
 
 			record, _ := dataProcessor.CreateRecord(testObjAName, map[string]interface{}{
 				"first_name": "Veronika", "last_name": "Petrova",
@@ -180,8 +187,18 @@ var _ = Describe("Data 101", func() {
 		})
 
 		It("can capture state on update", func() {
+			updateAction := []description.Action{
+				{
+					Method:          description.MethodUpdate,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+					IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
+				},
+			}
+
 			havingObjectB()
-			havingObjectA(description.MethodUpdate)
+			havingObjectA(updateAction)
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
@@ -202,9 +219,72 @@ var _ = Describe("Data 101", func() {
 			Expect(current["a_last_name"]).To(Equal("Ivanova"))
 		})
 
-		It("can capture empty state of removed record after remove", func() {
+		It("can capture state two actions", func() {
+			actions := []description.Action{
+				{
+					Name:            "Update Action 1",
+					Method:          description.MethodUpdate,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+				},
+				{
+					Name:            "Update Action 2",
+					Method:          description.MethodUpdate,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+				},
+				{
+					Name:            "Delete Action 1",
+					Method:          description.MethodRemove,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+				},
+				{
+					Name:            "Delete Action 2",
+					Method:          description.MethodRemove,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+				},
+			}
+
 			havingObjectB()
-			havingObjectA(description.MethodRemove)
+			havingObjectA(actions)
+			havingBRecord()
+			havingARecord(bRecord.Pk().(float64))
+
+			record, _ := dataProcessor.UpdateRecord(testObjAName, aRecord.PkAsString(), map[string]interface{}{
+				"last_name": "Ivanova",
+			}, auth.User{})
+
+			for _, action := range record.Meta.Actions {
+				notifier := action.Notifier.(*noti.TestNotifier)
+				if action.Method == description.MethodUpdate {
+					Consistently(notifier.Events).Should(HaveLen(1))
+					event := <-notifier.Events
+					Expect(event.Obj()["action"]).To(Equal("update"))
+				} else {
+					Consistently(notifier.Events).Should(HaveLen(0))
+				}
+			}
+
+		})
+
+		It("can capture empty state of removed record after remove", func() {
+			removeAction := []description.Action{
+				{
+					Method:          description.MethodRemove,
+					Protocol:        noti.TEST,
+					Args:            []string{"http://example.com"},
+					ActiveIfNotRoot: true,
+					IncludeValues:   map[string]interface{}{"a_last_name": "last_name", testObjBName: fmt.Sprintf("%s.id", testObjBName)},
+				},
+			}
+			havingObjectB()
+			havingObjectA(removeAction)
 			havingBRecord()
 			havingARecord(bRecord.Pk().(float64))
 
@@ -225,5 +305,6 @@ var _ = Describe("Data 101", func() {
 			//current := received.Obj()["current"].(map[string]interface{})
 			//Expect(current).To(BeEmpty())
 		})
+
 	})
 })
