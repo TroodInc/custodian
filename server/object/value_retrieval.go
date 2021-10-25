@@ -64,8 +64,9 @@ func getGenericValue(targetRecord *Record, getterConfig map[string]interface{}) 
 		genericFieldValue = v.AsMap()
 	case map[string]interface{}:
 		genericFieldValue = v
+	case *AGenericInnerLink:
+		genericFieldValue = v.GenericInnerLink.AsMap()
 	}
-
 	if genericFieldValue != nil {
 		val := genericFieldValue.(map[string]interface{})
 		for _, objectCase := range getterConfig["cases"].([]interface{}) {

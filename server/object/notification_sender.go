@@ -17,13 +17,16 @@ func newNotificationSender() *notificationSender {
 
 func (notificationSender *notificationSender) push(recordSetNotification *RecordSetNotification, user auth.User) {
 	for _, action := range recordSetNotification.Actions {
-		notificationChannel := action.NewNotificationChannel()
-		for _, notificationObject := range recordSetNotification.BuildNotificationsData(
-			recordSetNotification.PreviousState[action.Id()],
-			recordSetNotification.CurrentState[action.Id()],
-			user,
-		) {
-			notificationChannel <- noti.NewObjectEvent(notificationObject, recordSetNotification.isRoot)
+		if action.Method.AsString() == recordSetNotification.Method.AsString() {
+
+			notificationChannel := action.NewNotificationChannel()
+			for _, notificationObject := range recordSetNotification.BuildNotificationsData(
+				recordSetNotification.PreviousState[action.Id()],
+				recordSetNotification.CurrentState[action.Id()],
+				user,
+			) {
+				notificationChannel <- noti.NewObjectEvent(notificationObject, recordSetNotification.isRoot)
+			}
 		}
 	}
 }

@@ -35,15 +35,8 @@ func (notification *RecordSetNotification) CaptureCurrentState(objects []*Record
 	notification.captureState(notification.CurrentState, objects)
 }
 
-func (notification *RecordSetNotification) ShouldBeProcessed() bool {
-
-	for _, a := range notification.recordSet.Meta.Actions {
-		if a.Method.AsString() == notification.Method.AsString() {
-			return true
-		}
-	}
-
-	return false
+func (notification *RecordSetNotification) ShouldBeProcessed(method description.Method) bool {
+	return method.AsString() == notification.Method.AsString()
 }
 
 //Build notification object for each record in recordSet for given action
@@ -76,18 +69,18 @@ func (notification *RecordSetNotification) BuildNotificationsData(previousState 
 func (notification *RecordSetNotification) captureState(state map[int]*RecordSet, objects []*Record) {
 	//capture state if recordSet has PKs defined, set empty map otherwise, because records cannot be retrieved
 	for _, action := range notification.Actions {
-
 		state[action.Id()] = &RecordSet{Meta: notification.recordSet.Meta, Records: make([]*Record, 0)}
+		if action.Method.AsString() == notification.Method.AsString() {
 
-		for _, obj := range objects {
-			if obj != nil {
-				state[action.Id()].Records = append(
-					state[action.Id()].Records,
-					NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(obj, action), obj.processor),
-				)
+			for _, obj := range objects {
+				if obj != nil {
+					state[action.Id()].Records = append(
+						state[action.Id()].Records,
+						NewRecord(state[action.Id()].Meta, notification.buildRecordStateObject(obj, action), obj.processor),
+					)
+				}
 			}
 		}
-
 		//fill DataSet with empty values
 		if len(state[action.Id()].Records) == 0 {
 			state[action.Id()].Records = make([]*Record, len(notification.recordSet.Records))
@@ -97,7 +90,6 @@ func (notification *RecordSetNotification) captureState(state map[int]*RecordSet
 
 //Build object to use in notification
 func (notification *RecordSetNotification) buildRecordStateObject(recordData *Record, action *description.Action) map[string]interface{} {
-
 	stateObject := make(map[string]interface{})
 
 	if recordData != nil {
