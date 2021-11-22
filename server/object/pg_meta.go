@@ -73,7 +73,7 @@ func (md *PgMetaDescriptionSyncer) Get(name string) (*description.MetaDescriptio
 		if err == sql.ErrNoRows {
 
 			globalTransaction.Rollback()
-			return nil, false, errors.NewFatalError(
+			return nil, false, errors.NewNotFoundError(
 				"get_meta",
 				fmt.Sprintf("Meta object %s does not exists .", name),
 				nil,

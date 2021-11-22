@@ -159,4 +159,41 @@ var _ = Describe("Server", func() {
 			})
 		})
 	})
+	It("gets 404 if object doesnt exists", func() {
+		url := fmt.Sprintf("%s/meta/doesnt_exits", appConfig.UrlPrefix)
+
+		var request, _ = http.NewRequest("GET", url, nil)
+		httpServer.Handler.ServeHTTP(recorder, request)
+		responseBody := recorder.Body.String()
+
+		var body map[string]interface{}
+		json.Unmarshal([]byte(responseBody), &body)
+		Expect(body["status"].(string)).To(Equal("FAIL"))
+		Expect(recorder.Code).To(Equal(404))
+
+		request, _ = http.NewRequest("POST", url, bytes.NewBuffer([]byte{}))
+		httpServer.Handler.ServeHTTP(recorder, request)
+		responseBody = recorder.Body.String()
+
+		json.Unmarshal([]byte(responseBody), &body)
+		Expect(body["status"].(string)).To(Equal("FAIL"))
+		Expect(recorder.Code).To(Equal(404))
+
+		request, _ = http.NewRequest("POST", url, bytes.NewBuffer([]byte{}))
+		httpServer.Handler.ServeHTTP(recorder, request)
+		responseBody = recorder.Body.String()
+
+		json.Unmarshal([]byte(responseBody), &body)
+		Expect(body["status"].(string)).To(Equal("FAIL"))
+		Expect(recorder.Code).To(Equal(404))
+
+		request, _ = http.NewRequest("DELETE", url, nil)
+		httpServer.Handler.ServeHTTP(recorder, request)
+		responseBody = recorder.Body.String()
+
+		json.Unmarshal([]byte(responseBody), &body)
+		Expect(body["status"].(string)).To(Equal("FAIL"))
+		Expect(recorder.Code).To(Equal(404))
+	})
+
 })
