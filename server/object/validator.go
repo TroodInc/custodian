@@ -360,6 +360,50 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 		}
 	}
 
+	//get records which are not presented in data
+	if !record.IsPhantom() {
+		idFilters := ""
+		for _, record := range recordsToProcess {
+			if !record.IsPhantom() {
+				idAsString, _ := record.Meta.Key.ValueAsString(record.Pk())
+				if len(idFilters) != 0 {
+					idFilters += ","
+				}
+				idFilters += idAsString
+			}
+		}
+		var filter string
+
+		if len(idFilters) > 0 {
+			// update data with existing records
+			filter = fmt.Sprintf("eq(%s.%s.%s,%s),not(in(%s,(%s)))", fieldDescription.OuterLinkField.Name, record.Meta.MetaDescription.Name, record.Meta.MetaDescription.Key, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
+		} else if len(recordsToProcess) > 0 && len(idFilters) == 0 {
+			// only new reocrds in update _set record
+			filter = fmt.Sprintf("eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString())
+		}
+
+		if len(filter) > 0 {
+			_, records, _ := vs.processor.GetBulk(fieldDescription.LinkMeta.Name, filter, nil, nil, 1, true)
+			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteCascade || *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
+				recordsToRemove = records
+			} else if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteSetNull {
+				for _, item := range records {
+					item.Data[fieldDescription.OuterLinkField.Name] = nil
+					recordsToProcess = append(recordsToProcess, item)
+				}
+			}
+		}
+		if len(recordsToRemove) > 0 {
+			if *fieldDescription.OuterLinkField.OnDeleteStrategy() == description.OnDeleteRestrict {
+				return nil, nil, errors2.NewValidationError(
+					errors.ErrRestrictConstraintViolation,
+					fmt.Sprintf("Array in field '%s'contains records, which could not be removed due to `Restrict` strategy set", fieldDescription.Name),
+					map[string]string{"field": fieldDescription.Name},
+				)
+			}
+		}
+	}
+
 	return recordsToProcess, recordsToRemove, nil
 }
 
