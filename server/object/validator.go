@@ -378,8 +378,8 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 			// update data with existing records
 			filter = fmt.Sprintf("eq(%s.%s.%s,%s),not(in(%s,(%s)))", fieldDescription.OuterLinkField.Name, record.Meta.MetaDescription.Name, record.Meta.MetaDescription.Key, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
 		} else if len(recordsToProcess) > 0 && len(idFilters) == 0 {
-			// only new reocrds in update _set record
-			filter = fmt.Sprintf("eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString())
+			// only new records in update _set record
+			filter = fmt.Sprintf("eq(%s.%s.%s,%s)", fieldDescription.OuterLinkField.Name, record.Meta.MetaDescription.Name, record.Meta.MetaDescription.Key, record.PkAsString())
 		}
 
 		if len(filter) > 0 {
