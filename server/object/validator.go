@@ -167,9 +167,9 @@ func (vs *ValidationService) validateArray(value interface{}, fieldDescription *
 		if len(idFilters) > 0 {
 			// update data with existing records
 			filter = fmt.Sprintf("eq(%s,%s),not(in(%s,(%s)))", fieldDescription.OuterLinkField.Name, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
-		} else if len(recordsToProcess) > 0 && len(idFilters) == 0 {
-			// only new reocrds in update _set record
-			filter = fmt.Sprintf("eq(%s,%s))", fieldDescription.OuterLinkField.Name, record.PkAsString())
+		} else {
+			// update data without existing records
+			filter = fmt.Sprintf("eq(%s,%s)", fieldDescription.OuterLinkField.Name, record.PkAsString())
 		}
 
 		if len(filter) > 0 {
@@ -377,8 +377,8 @@ func (vs *ValidationService) validateGenericArray(value interface{}, fieldDescri
 		if len(idFilters) > 0 {
 			// update data with existing records
 			filter = fmt.Sprintf("eq(%s.%s.%s,%s),not(in(%s,(%s)))", fieldDescription.OuterLinkField.Name, record.Meta.MetaDescription.Name, record.Meta.MetaDescription.Key, record.PkAsString(), fieldDescription.LinkMeta.Key.Name, idFilters)
-		} else if len(recordsToProcess) > 0 && len(idFilters) == 0 {
-			// only new records in update _set record
+		} else {
+			// update data without existing records
 			filter = fmt.Sprintf("eq(%s.%s.%s,%s)", fieldDescription.OuterLinkField.Name, record.Meta.MetaDescription.Name, record.Meta.MetaDescription.Key, record.PkAsString())
 		}
 
