@@ -12,6 +12,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/getsentry/sentry-go"
 	"github.com/go-redis/redis/v8"
 	"github.com/pkg/errors"
 )
@@ -34,6 +35,7 @@ type User struct {
 }
 
 func NewError(text string) error {
+	sentry.CaptureException(&AuthError{text})
 	return &AuthError{text}
 }
 
@@ -194,6 +196,7 @@ func (tauth *TroodAuthenticator) FetchUser(buff io.ReadCloser) (*User, error) {
 		return &response.User, nil
 
 	} else {
+		sentry.CaptureException(err)
 		return nil, err
 	}
 }

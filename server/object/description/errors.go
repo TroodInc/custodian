@@ -1,8 +1,10 @@
 package description
 
 import (
-	"fmt"
 	"encoding/json"
+	"fmt"
+
+	"github.com/getsentry/sentry-go"
 )
 
 type metaDescriptionError struct {
@@ -13,7 +15,9 @@ type metaDescriptionError struct {
 }
 
 func (e *metaDescriptionError) Error() string {
-	return fmt.Sprintf("MetaDescription error:  MetaDescription = '%s', operation = '%s', code='%s'  msg = '%s'", e.meta, e.op, e.code, e.msg)
+	err := fmt.Sprintf("MetaDescription error:  MetaDescription = '%s', operation = '%s', code='%s'  msg = '%s'", e.meta, e.op, e.code, e.msg)
+	sentry.CaptureMessage(err)
+	return err
 }
 
 func (e *metaDescriptionError) Json() []byte {

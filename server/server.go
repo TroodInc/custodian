@@ -27,6 +27,7 @@ import (
 	"time"
 
 	"github.com/getsentry/sentry-go"
+
 	"github.com/julienschmidt/httprouter"
 )
 
@@ -47,9 +48,15 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	if user, abac_data, err := app.authenticator.Authenticate(req); err == nil {
 		ctx := context.WithValue(req.Context(), "auth_user", *user)
 
+		//		hub := sentry.GetHubFromContext(ctx)
+		//		hub.Scope().SetTag("url", req.URL.Path)
+		span := sentry.StartSpan(ctx, "http.serve",
+			sentry.WithTransactionName(req.Method+" "+req.URL.Path))
+
 		handler, opts, _ := app.router.Lookup(req.Method, req.URL.Path)
 
 		if handler != nil {
+
 			var res = strings.Split(opts.ByName("name"), "?")[0]
 			splited := strings.Split(req.URL.Path, "/")
 			action := ""
@@ -92,6 +99,8 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 			ctx = context.WithValue(ctx, "action", action+req.Method)
 			ctx = context.WithValue(ctx, "abac", abac_resolver)
 
+			span.Finish()
+
 		}
 
 		app.router.ServeHTTP(w, req.WithContext(ctx))
@@ -101,7 +110,7 @@ func (app *CustodianApp) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	}
 }
 
-//Custodian server description
+// Custodian server description
 type CustodianServer struct {
 	addr, port, root string
 	s                *http.Server
@@ -130,7 +139,7 @@ func (cs *CustodianServer) SetAuthenticator(authenticator auth.Authenticator) {
 	cs.authenticator = authenticator
 }
 
-//TODO: "enableProfiler" option should be configured like other options
+// TODO: "enableProfiler" option should be configured like other options
 func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 	if cs.authenticator == nil {
 		cs.authenticator = auth.GetAuthenticator()
@@ -727,9 +736,9 @@ func (cs *CustodianServer) Setup(config *utils.AppConfig) *http.Server {
 			sentry.ConfigureScope(func(scope *sentry.Scope) {
 				scope.SetUser(sentry.User{ID: strconv.Itoa(user.Id), Username: user.Login})
 			})
-			sentry.ConfigureScope(func(scope *sentry.Scope) {
-				scope.SetContext("Request", sentry.NewRequest(r))
-			})
+			//sentry.ConfigureScope(func(scope *sentry.Scope) {
+			//	scope.SetContext("Request", sentry.NewRequest(r))
+			//})
 			if err, ok := err.(error); ok {
 				sentry.CaptureException(err)
 				sentry.ConfigureScope(func(scope *sentry.Scope) {
@@ -842,10 +851,10 @@ func parseQuery(m url.Values, query string) (err error) {
 	return err
 }
 
-//Returns an error to HTTP response in JSON format.
-//If the error object accepted is of ServerError type so HTTP status and code are taken from the error object.
-//If the error corresponds to JsonError interface so HTTP status set to http.StatusBadRequest and code taken from the error object.
-//Otherwise they sets to http.StatusInternalServerError and ErrInternalServerError respectively.
+// Returns an error to HTTP response in JSON format.
+// If the error object accepted is of ServerError type so HTTP status and code are taken from the error object.
+// If the error corresponds to JsonError interface so HTTP status set to http.StatusBadRequest and code taken from the error object.
+// Otherwise they sets to http.StatusInternalServerError and ErrInternalServerError respectively.
 func returnError(w http.ResponseWriter, e interface{}) {
 	w.Header().Set("Content-Type", "application/json")
 	responseData := map[string]interface{}{"status": "FAIL"}
@@ -866,9 +875,11 @@ func returnError(w http.ResponseWriter, e interface{}) {
 	//encoded
 	encodedData, _ := json.Marshal(responseData)
 	w.Write(encodedData)
+	//sentry.CaptureMessage(fmt.Sprintf("%v", responseData))
+	sentry.CaptureException(e.(error))
 }
 
-//The source of JSON object. It contains a value of type map[string]interface{}.
+// The source of JSON object. It contains a value of type map[string]interface{}.
 type JsonSource struct {
 	body   []byte
 	single map[string]interface{}
@@ -885,7 +896,7 @@ func (js *JsonSource) GetData() interface{} {
 	}
 }
 
-//Converts an HTTP request to the JsonSource if the request is valid and contains a valid JSON object in its body.
+// Converts an HTTP request to the JsonSource if the request is valid and contains a valid JSON object in its body.
 func (r *httpRequest) asJsonSource() (*JsonSource, error) {
 	if r.Body != nil {
 		smime := r.Header.Get(textproto.CanonicalMIMEHeaderKey("Content-Type"))
@@ -908,23 +919,23 @@ func (r *httpRequest) asJsonSource() (*JsonSource, error) {
 	return nil, nil
 }
 
-//The JSON object sink into the HTTP response.
+// The JSON object sink into the HTTP response.
 type JsonSink struct {
 	rw     http.ResponseWriter
 	Status string
 }
 
-//Converts http.ResponseWriter into JsonSink.
+// Converts http.ResponseWriter into JsonSink.
 func asJsonSink(w http.ResponseWriter) (*JsonSink, error) {
 	return &JsonSink{w, "OK"}, nil
 }
 
-//Push an error into JsonSink.
+// Push an error into JsonSink.
 func (js *JsonSink) pushError(e error) {
 	returnError(js.rw, e)
 }
 
-//Push an JSON object into JsonSink
+// Push an JSON object into JsonSink
 func (js *JsonSink) pushObj(object interface{}) {
 	responseData := map[string]interface{}{"status": js.Status}
 	if object != nil {

@@ -4,9 +4,10 @@ import (
 	"custodian/logger"
 	"custodian/server"
 	"custodian/utils"
-	"github.com/getsentry/sentry-go"
 	"log"
 	"os"
+
+	"github.com/getsentry/sentry-go"
 )
 
 type OptsDesc struct {
@@ -22,8 +23,20 @@ func init() {
 	appConfig := utils.GetConfig()
 	if len(appConfig.SentryDsn) > 0 {
 		err := sentry.Init(sentry.ClientOptions{
-			Dsn: appConfig.SentryDsn,
+			Dsn:              appConfig.SentryDsn,
 			AttachStacktrace: true,
+			EnableTracing:    true,
+			Debug:            true,
+			TracesSampleRate: 1.0,
+			TracesSampler: sentry.TracesSampler(func(ctx sentry.SamplingContext) float64 {
+				// Don't sample health checks.
+				if ctx.Span.Name == "GET /health" {
+					return 0.0
+				}
+
+				return 1.0
+			}),
+			ProfilesSampleRate: 1.0,
 		})
 		if err != nil {
 			log.Fatalf("sentry.Init: %s", err)
@@ -37,8 +50,8 @@ func init() {
 // -r - path root to use. Default value is "/custodian".
 //Setup example: ./custodian -d "host=infra-pdb01 user=custodian password=custodian dbname=custodian_test sslmode=disable"
 
-//TODO: The application has 2 ways of configuration now: command line arguments and dotenv file
-//it should be unified somehow
+// TODO: The application has 2 ways of configuration now: command line arguments and dotenv file
+// it should be unified somehow
 func main() {
 	//instantiate Server with default configuration
 	var srv = server.New("", "8000", "/custodian", "")
@@ -62,7 +75,7 @@ func main() {
 	args := os.Args[1:]
 	for len(args) > 0 {
 		if v, e := opts[args[0]]; e && len(args)-1 >= v.prmsCnt {
-			if err := v.handler(args[1: v.prmsCnt+1]); err != nil {
+			if err := v.handler(args[1 : v.prmsCnt+1]); err != nil {
 				log.Fatalln(err)
 				os.Exit(127)
 			}
@@ -76,5 +89,6 @@ func main() {
 	//get AppConfig
 	appConfig := utils.GetConfig()
 	log.Println("Custodian server started.")
+
 	srv.Setup(appConfig).ListenAndServe()
 }

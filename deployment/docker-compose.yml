@@ -8,8 +8,14 @@ services:
     container_name: custodian
     environment:
       DATABASE_URL: "postgres://custodian:custodian@postgres.custodian/custodian?sslmode=disable"
+      SENTRY_DSN: 'https://428fe67595b14162b7889986ae5a543a@o4505475542155264.ingest.sentry.io/4505475544449024'
+      SENTRY_RELEASE: 'local_rost'
     networks:
       - test-network
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../:/go/src/app/
 
   custodian_postgres:
     image: postgres:12
@@ -21,6 +27,8 @@ services:
       POSTGRES_PASSWORD: custodian
     networks:
       - test-network
+    ports:
+      - "5432:5432"
 
 networks:
   test-network:
