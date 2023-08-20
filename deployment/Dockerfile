@@ -23,8 +23,8 @@ RUN chmod +x /usr/bin/migrate.py \
     && pip install trood==1.0.0 \
     && echo $TAG > /home/custodian/VERSION \
     && go build -o /go/app \
-    && go get github.com/onsi/ginkgo/ginkgo \
-    && go get github.com/onsi/gomega/...
+    && go get github.com/onsi/ginkgo/ginkgo@v1.14.0 \
+    && go get github.com/onsi/gomega@v1.10.3
 
 WORKDIR /home/custodian
 EXPOSE 8000
